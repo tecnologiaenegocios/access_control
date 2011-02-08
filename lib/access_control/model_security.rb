@@ -57,14 +57,14 @@ end
 
 class ActiveRecord::Base
 
-  before_create :_create_nodes
+  after_create :_create_nodes
   def _create_nodes
     AccessControl::Model::Node.create!(
       :securable => self, :parents => parents.map(&:ac_node)
     ) if securable?
   end
 
-  before_update :_update_parent_nodes
+  after_update :_update_parent_nodes
   def _update_parent_nodes
     ac_node.parents = parents.map(&:ac_node) if ac_node
   end

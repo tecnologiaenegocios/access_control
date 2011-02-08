@@ -210,10 +210,8 @@ module AccessControl
         end
 
         it "doesn't create any node if the object is not securable" do
-          parent_node1 = stub('parent node1')
-          parent1 = stub('parent1', :ac_node => parent_node1)
           record = model_klass.new
-          record.stub!(:parents).and_return([parent1])
+          record.stub!(:parents).and_return([])
           record.stub!(:securable?).and_return(false)
           ::AccessControl::Model::Node.should_not_receive(:create!)
           record.save
