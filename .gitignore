@@ -1,5 +1,6 @@
 spec/database.yml
-spec/app/*
+spec/app/db/*
+spec/app/log/
 pkg/*
 .bundle
 *.gem
