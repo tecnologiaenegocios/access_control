@@ -132,51 +132,114 @@ module AccessControl
           def create_without_callbacks
             true
           end
+          def securable?
+            true
+          end
         end
         klass
       end
 
-      it "creates one node with the parents' nodes" do
-        parent_node1 = stub('parent node1')
-        parent_node2 = stub('parent node2')
-        parent1 = stub('parent1', :ac_node => parent_node1)
-        parent2 = stub('parent2', :ac_node => parent_node2)
-        record = model_klass.new
-        record.stub!(:parents).and_return([parent1, parent2])
-        ::AccessControl::Model::Node.should_receive(:create!).
-          with(:securable => record, :parents => [parent_node1, parent_node2])
-        record.save
+      describe "on first access to ac_node" do
+
+        it "creates one node with the parent's nodes if not new record" do
+          parent_node1 = stub('parent node1')
+          parent_node2 = stub('parent node2')
+          parent1 = stub('parent1', :ac_node => parent_node1)
+          parent2 = stub('parent2', :ac_node => parent_node2)
+          record = model_klass.new
+          record.stub!(:new_record?).and_return(false)
+          record.stub!(:parents).and_return([parent1, parent2])
+          ::AccessControl::Model::Node.should_receive(:create!).
+            with(:securable => record, :parents => [parent_node1, parent_node2])
+          record.ac_node
+        end
+
+        it "doesn't try to create a node if this is a new record" do
+          record = model_klass.new
+          ::AccessControl::Model::Node.should_not_receive(:create!)
+          record.ac_node
+        end
+
+        it "returns nil in the ac_node association if this is a new record" do
+          record = model_klass.new
+          record.ac_node.should be_nil
+        end
+
+        it "returns the ac_node association as the node created" do
+          node = stub('node')
+          record = model_klass.new
+          record.stub!(:new_record?).and_return(false)
+          ::AccessControl::Model::Node.stub(:create!).and_return(node)
+          record.ac_node.should == node
+        end
+
+        it "doesn't try to create a node twice" do
+          ::AccessControl::Model::Node.create_global_node!
+          record = model_klass.new
+          record.stub!(:new_record?).and_return(false)
+          record.stub!(:id).and_return(1)
+          record_node = ::AccessControl::Model::Node.create!(
+            :securable => record
+          )
+          ::AccessControl::Model::Node.should_not_receive(:create!)
+          record.ac_node
+        end
+
+        describe "when the object is not securable" do
+          it "returns nil on ac_node association" do
+            record = model_klass.new
+            record.stub(:securable?).and_return(false)
+            record.ac_node.should be_nil
+          end
+        end
+
       end
 
-      it "doesn't create any node if the object is not securable" do
-        parent_node1 = stub('parent node1')
-        parent1 = stub('parent1', :ac_node => parent_node1)
-        record = model_klass.new
-        record.stub!(:parents).and_return([parent1])
-        record.stub!(:securable?).and_return(false)
-        ::AccessControl::Model::Node.should_not_receive(:create!)
-        record.save
-      end
+      describe "when creating or saving" do
 
-      it "updates parents of the node" do
-        parent_node1 = stub('parent node1')
-        parent_node2 = stub('parent node2')
-        parent_node3 = stub('parent node3')
-        parent_node4 = stub('parent node4')
+        it "creates one node with the parents' nodes" do
+          parent_node1 = stub('parent node1')
+          parent_node2 = stub('parent node2')
+          parent1 = stub('parent1', :ac_node => parent_node1)
+          parent2 = stub('parent2', :ac_node => parent_node2)
+          record = model_klass.new
+          record.stub!(:parents).and_return([parent1, parent2])
+          ::AccessControl::Model::Node.should_receive(:create!).
+            with(:securable => record, :parents => [parent_node1, parent_node2])
+          record.save
+        end
 
-        node = mock('node', :parents => [parent_node1, parent_node3])
+        it "doesn't create any node if the object is not securable" do
+          parent_node1 = stub('parent node1')
+          parent1 = stub('parent1', :ac_node => parent_node1)
+          record = model_klass.new
+          record.stub!(:parents).and_return([parent1])
+          record.stub!(:securable?).and_return(false)
+          ::AccessControl::Model::Node.should_not_receive(:create!)
+          record.save
+        end
 
-        new_parent1 = stub('new parent1', :ac_node => parent_node2)
-        new_parent2 = stub('new parent2', :ac_node => parent_node4)
+        it "updates parents of the node" do
+          parent_node1 = stub('parent node1')
+          parent_node2 = stub('parent node2')
+          parent_node3 = stub('parent node3')
+          parent_node4 = stub('parent node4')
 
-        record = model_klass.new
-        record.stub!(:new_record?).and_return(false)
-        record.stub!(:id).and_return(1)
-        record.stub!(:ac_node).and_return(node)
-        record.stub!(:parents).and_return([new_parent1, new_parent2])
+          node = mock('node', :parents => [parent_node1, parent_node3])
 
-        node.should_receive(:parents=).with([parent_node2, parent_node4])
-        record.save
+          new_parent1 = stub('new parent1', :ac_node => parent_node2)
+          new_parent2 = stub('new parent2', :ac_node => parent_node4)
+
+          record = model_klass.new
+          record.stub!(:new_record?).and_return(false)
+          record.stub!(:id).and_return(1)
+          record.stub!(:ac_node).and_return(node)
+          record.stub!(:parents).and_return([new_parent1, new_parent2])
+
+          node.should_receive(:parents=).with([parent_node2, parent_node4])
+          record.save
+        end
+
       end
 
     end

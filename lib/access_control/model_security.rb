@@ -1,3 +1,4 @@
+require 'access_control/security_manager'
 require 'access_control/security_proxy'
 
 module AccessControl
@@ -33,6 +34,15 @@ module AccessControl
         base.extend(ClassMethods)
         base.has_one :ac_node, :as => :securable,
                      :class_name => ::AccessControl::Model::Node.name
+        base.class_eval do
+          def ac_node_with_automatic_creation
+            return if new_record?
+            current_node = ac_node_without_automatic_creation
+            return current_node if current_node
+            _create_nodes
+          end
+          alias_method_chain :ac_node, :automatic_creation
+        end
       end
 
       def parents
