@@ -9,5 +9,5 @@ require 'access_control/model_security'
 require 'access_control/security_manager'
 
 module AccessControl
-  ROOT_PATH = File.dirname(__FILE__)
+  LIB_PATH = File.dirname(__FILE__)
 end
