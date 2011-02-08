@@ -1,0 +1,6 @@
+require 'active_record'
+require 'access_control/model/assignment'
+require 'access_control/model/node'
+require 'access_control/model/principal'
+require 'access_control/model/role'
+require 'access_control/model/security_policy_item'

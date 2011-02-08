@@ -1,0 +1,6 @@
+spec/database.yml
+spec/app/*
+pkg/*
+.bundle
+*.gem
+*.swp
