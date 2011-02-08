@@ -1,5 +1,4 @@
 spec/database.yml
-spec/app/db/*
 spec/app/log/
 pkg/*
 .bundle
