@@ -130,7 +130,14 @@ module AccessControl
             []
           end
           def create_without_callbacks
+            @new_record = false
             true
+          end
+          def new_record?
+            if @new_record.nil?
+              @new_record = true
+            end
+            @new_record
           end
           def securable?
             true
@@ -214,6 +221,18 @@ module AccessControl
           record.stub!(:parents).and_return([])
           record.stub!(:securable?).and_return(false)
           ::AccessControl::Model::Node.should_not_receive(:create!)
+          record.save
+        end
+
+        it "creates the node using a saved instance" do
+          # The reason for this is that if the instance is not saved yet,
+          # AccessControl::Model::Node will try to save it before being saved
+          # itself, which may lead to infinite recursion.
+          record = model_klass.new
+          record.stub!(:parents).and_return([])
+          ::AccessControl::Model::Node.stub!(:create!) do |hash|
+            hash[:securable].should_not be_new_record
+          end
           record.save
         end
 
