@@ -1,5 +1,6 @@
 pkg/*
 spec/app/db/migrate/*_create_access_control.rb
+spec/app/db/schema.rb
 spec/app/log/
 spec/database.yml
 .bundle
