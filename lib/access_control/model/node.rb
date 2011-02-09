@@ -96,7 +96,7 @@ module AccessControl::Model
 
     def has_permission? permission
       ancestors.any? do |node|
-        node.assignments.any? do |assignment|
+        node.principal_assignments.any? do |assignment|
           assignment.role.security_policy_items.any? do |item|
             item.permission_name == permission
           end

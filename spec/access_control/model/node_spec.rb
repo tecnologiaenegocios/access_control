@@ -181,11 +181,11 @@ module AccessControl::Model
       end
 
       before do
-        node.stub!(:assignments => [
+        node.stub!(:principal_assignments => [
           stub('an assignment', :role => role1),
           stub('another assignment', :role => role2)
         ])
-        parent.stub!(:assignments => [
+        parent.stub!(:principal_assignments => [
           stub('an assignment', :role => role3),
           stub('another assignment', :role => role4)
         ])
