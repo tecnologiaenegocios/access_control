@@ -1,3 +1,5 @@
+require 'access_control/exceptions'
+
 module AccessControl
 
   class ProxyProtectedMethodError < StandardError
@@ -32,7 +34,7 @@ module AccessControl
 
     def method_missing(name, *args, &block)
       method = name == :send ? method = args.first.to_s : name.to_s
-      __verify_method_type(method)
+      __verify_method_type(method) if name != :send
 
       if (required = @target.class.permissions_for(method)).any?
         @manager.verify_access!(@target.ac_nodes, required)

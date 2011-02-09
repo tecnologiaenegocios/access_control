@@ -18,25 +18,6 @@ module AccessControl
       end
     end
 
-    describe "active record object" do
-      before do
-        class Object::Foo < ActiveRecord::Base
-          def self.columns
-            []
-          end
-        end
-      end
-      after do
-        Object.send(:remove_const, 'Foo')
-      end
-      it "is not proxied by default" do
-        Foo.new.security_proxied?.should be_false
-      end
-      it "is securable by default" do
-        Foo.new.securable?.should be_true
-      end
-    end
-
     describe "proxied object" do
       let(:unproxied) { Object.new }
       let(:proxied) { SecurityProxy.new(unproxied) }
@@ -164,6 +145,20 @@ module AccessControl
       end
 
       describe "when protected method is called" do
+
+        before do
+          unproxied.class_eval do
+            define_method(:foo) {}
+            protected :foo
+          end
+        end
+
+        after do
+          unproxied.class_eval do
+            undef_method(:foo)
+          end
+        end
+
         # Currently I found no way to proper implement protected method calls
         # on the proxy object.
         #
@@ -179,30 +174,48 @@ module AccessControl
         # By now, any call to a protected method is simply blocked with an
         # exception.
         it "blocks execution with ProxyProtectedMethodError" do
-          unproxied.class_eval do
-            define_method(:foo) {}
-            protected :foo
-          end
           lambda {
             proxied.foo
           }.should raise_exception(ProxyProtectedMethodError)
-          unproxied.class_eval do
-            undef_method(:foo)
+        end
+
+        describe "through `send`" do
+          it "checks the permission for the method" do
+            unproxied.class.should_receive(:permissions_for).once.
+              with('foo').and_return(Set.new)
+            proxied.send(:foo)
           end
         end
+
       end
 
       describe "when private method is called" do
-        it "raises NoMethodError as usually" do
+
+        before do
           unproxied.class_eval do
             define_method(:foo) {}
             private :foo
           end
-          lambda { proxied.foo }.should raise_exception(NoMethodError)
+        end
+
+        after do
           unproxied.class_eval do
             undef_method(:foo)
           end
         end
+
+        it "raises NoMethodError as usually" do
+          lambda { proxied.foo }.should raise_exception(NoMethodError)
+        end
+
+        describe "through `send`" do
+          it "checks the permission for the method" do
+            unproxied.class.should_receive(:permissions_for).once.
+              with('foo').and_return(Set.new)
+            proxied.send(:foo)
+          end
+        end
+
       end
 
     end
