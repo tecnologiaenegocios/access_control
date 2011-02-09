@@ -3,6 +3,17 @@ require 'spec_helper'
 module AccessControl
   describe ModelSecurity do
 
+    let(:model_klass) do
+      klass = Class.new(ActiveRecord::Base)
+      klass.class_eval do
+        set_table_name 'records'
+        def self.name
+          'Record'
+        end
+      end
+      klass
+    end
+
     describe ModelSecurity::ClassMethods do
 
       describe "protection of methods" do
@@ -60,30 +71,12 @@ module AccessControl
 
     describe ModelSecurity::InstanceMethods do
 
-      let(:model_klass) do
-        klass = Class.new(ActiveRecord::Base)
-        klass.class_eval do
-          def self.columns
-            []
-          end
-        end
-        klass
-      end
-
       it "is securable" do
         model_klass.new.securable?.should be_true
       end
 
       it "extends the class with the class methods" do
         model_klass.should_receive(:extend).with(ModelSecurity::ClassMethods)
-        model_klass.send(:include, ModelSecurity::InstanceMethods)
-      end
-
-      it "makes available the has_one association to ac_node" do
-        model_klass.should_receive(:has_one).with(
-          :ac_node, :as => :securable,
-          :class_name => ::AccessControl::Model::Node.name
-        )
         model_klass.send(:include, ModelSecurity::InstanceMethods)
       end
 
@@ -122,29 +115,6 @@ module AccessControl
     end
 
     describe "node management" do
-
-      let(:model_klass) do
-        klass = Class.new(ActiveRecord::Base)
-        klass.class_eval do
-          def self.columns
-            []
-          end
-          def create_without_callbacks
-            @new_record = false
-            true
-          end
-          def new_record?
-            if @new_record.nil?
-              @new_record = true
-            end
-            @new_record
-          end
-          def securable?
-            true
-          end
-        end
-        klass
-      end
 
       describe "on first access to ac_node" do
 
@@ -204,6 +174,19 @@ module AccessControl
 
       describe "when creating or saving" do
 
+        before do
+          ::AccessControl::Model::Node.create_global_node!
+        end
+
+        it "creates a node when the instance is created" do
+          record = model_klass.new
+          record.save!
+          ::AccessControl::Model::Node.
+            find_all_by_securable_type_and_securable_id(
+              record.class.name, record.id
+            ).size.should == 1
+        end
+
         it "creates one node with the parents' nodes" do
           parent_node1 = stub('parent node1')
           parent_node2 = stub('parent node2')
@@ -257,6 +240,19 @@ module AccessControl
           record.save
         end
 
+      end
+
+      describe "when destroying" do
+        it "destroys the ac_node" do
+          ::AccessControl::Model::Node.create_global_node!
+          record = model_klass.new
+          record.save!
+          record.destroy
+          ::AccessControl::Model::Node.
+            find_all_by_securable_type_and_securable_id(
+              record.class.name, record.id
+            ).size.should == 0
+        end
       end
 
     end

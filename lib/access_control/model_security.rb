@@ -32,8 +32,10 @@ module AccessControl
 
       def self.included base
         base.extend(ClassMethods)
-        base.has_one :ac_node, :as => :securable,
-                     :class_name => ::AccessControl::Model::Node.name
+        base.has_one :ac_node,
+                     :as => :securable,
+                     :class_name => ::AccessControl::Model::Node.name,
+                     :dependent => :destroy
         base.class_eval do
           def ac_node_with_automatic_creation
             return if new_record?
