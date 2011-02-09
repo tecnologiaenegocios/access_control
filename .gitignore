@@ -1,6 +1,7 @@
-spec/database.yml
-spec/app/log/
 pkg/*
+spec/app/db/migrate/*_create_access_control.rb
+spec/app/log/
+spec/database.yml
 .bundle
 *.gem
 *.swp
