@@ -1,4 +1,3 @@
-require 'access_control/configuration'
 require 'access_control/security_manager'
 require 'access_control/security_proxy'
 
@@ -64,7 +63,7 @@ class ActiveRecord::Base
   def _create_nodes
     AccessControl::Model::Node.create!(
       :securable => self, :parents => parents.map(&:ac_node)
-    ) if securable? && AccessControl.create_nodes?
+    ) if securable?
   end
 
   after_update :_update_parent_nodes

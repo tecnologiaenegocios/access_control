@@ -137,14 +137,6 @@ module AccessControl
           record.ac_node
         end
 
-        it "doesn't create any node if this is disabled" do
-          record = model_klass.new
-          record.stub!(:new_record?).and_return(false)
-          AccessControl.stub!(:create_nodes?).and_return(false)
-          ::AccessControl::Model::Node.should_not_receive(:create!)
-          record.save
-        end
-
         it "returns nil in the ac_node association if this is a new record" do
           record = model_klass.new
           record.ac_node.should be_nil
@@ -207,6 +199,14 @@ module AccessControl
           record.save
         end
 
+        it "doesn't create any node if the object is not securable" do
+          record = model_klass.new
+          record.stub!(:parents).and_return([])
+          record.stub!(:securable?).and_return(false)
+          ::AccessControl::Model::Node.should_not_receive(:create!)
+          record.save
+        end
+
         it "creates the node using a saved instance" do
           # The reason for this is that if the instance is not saved yet,
           # AccessControl::Model::Node will try to save it before being saved
@@ -216,20 +216,6 @@ module AccessControl
           ::AccessControl::Model::Node.stub!(:create!) do |hash|
             hash[:securable].should_not be_new_record
           end
-          record.save
-        end
-
-        it "doesn't create any node if the object is not securable" do
-          record = model_klass.new
-          record.stub!(:securable?).and_return(false)
-          ::AccessControl::Model::Node.should_not_receive(:create!)
-          record.save
-        end
-
-        it "doesn't create any node if this is disabled" do
-          record = model_klass.new
-          AccessControl.stub!(:create_nodes?).and_return(false)
-          ::AccessControl::Model::Node.should_not_receive(:create!)
           record.save
         end
 
