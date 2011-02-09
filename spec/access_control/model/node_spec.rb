@@ -66,29 +66,89 @@ module AccessControl::Model
       }.should raise_exception(::AccessControl::NoGlobalNode)
     end
 
-    describe "#assignments" do
+    describe "#principal_assignments" do
 
-      describe "with single principal" do
-        it "uses the single element of the `principal_ids` from manager" do
-          manager = mock('manager')
-          manager.should_receive(:principal_ids).and_return(['principal id'])
-          ::AccessControl.stub!(:get_security_manager).and_return(manager)
-          Node.reflections[:assignments].options[:conditions].should == {
-            :principal_id => 'principal id'
-          }
+      let(:manager) { mock('manager') }
+
+      before do
+        ::AccessControl.stub!(:get_security_manager).and_return(manager)
+      end
+
+      it "returns only the assignments belonging to the current principals" do
+        Node.create_global_node!
+        node = Node.create!(:securable_type => 'Foo', :securable_id => 1)
+        principal1 = Principal.create!(:subject_type => 'User', :subject_id => 1)
+        principal2 = Principal.create!(:subject_type => 'User', :subject_id => 2)
+        principal3 = Principal.create!(:subject_type => 'User', :subject_id => 3)
+        assignment1 = Assignment.create!(:role_id => 0,
+                                         :principal_id => principal1.id,
+                                         :node_id => node.id)
+        assignment2 = Assignment.create!(:role_id => 0,
+                                         :principal_id => principal2.id,
+                                         :node_id => node.id)
+        assignment3 = Assignment.create!(:role_id => 0,
+                                         :principal_id => principal3.id,
+                                         :node_id => node.id)
+        manager.stub!(:principal_ids).and_return([principal1.id, principal3.id])
+        node.reload.principal_assignments.should include(assignment1)
+        node.principal_assignments.should include(assignment3)
+        node.principal_assignments.should_not include(assignment2)
+      end
+
+      describe "conditions optimization" do
+        describe "conditions with single principal" do
+          it "uses the single element of the `principal_ids` from manager" do
+            manager.should_receive(:principal_ids).and_return(['principal id'])
+            Node.reflections[:principal_assignments].
+              options[:conditions].should == {
+                :principal_id => 'principal id'
+              }
+          end
+        end
+        describe "conditions with multiple principals" do
+          it "passes along all principal ids from manager in an array" do
+            manager.should_receive(:principal_ids).
+              and_return(['principal id1', 'principal id2'])
+            Node.reflections[:principal_assignments].
+              options[:conditions].should == {
+                :principal_id => ['principal id1', 'principal id2']
+              }
+          end
         end
       end
 
-      describe "with multiple principals" do
-        it "passes along all principal ids from manager in an array" do
-          manager = mock('manager')
-          manager.should_receive(:principal_ids).
-            and_return(['principal id1', 'principal id2'])
-          ::AccessControl.stub!(:get_security_manager).and_return(manager)
-          Node.reflections[:assignments].options[:conditions].should == {
-            :principal_id => ['principal id1', 'principal id2']
-          }
-        end
+    end
+
+    describe "#assignments" do
+
+      it "returns all assignments, regardless the principals" do
+        Node.create_global_node!
+        node = Node.create!(:securable_type => 'Foo', :securable_id => 1)
+        principal1 = Principal.create!(:subject_type => 'User', :subject_id => 1)
+        principal2 = Principal.create!(:subject_type => 'User', :subject_id => 2)
+        principal3 = Principal.create!(:subject_type => 'User', :subject_id => 3)
+        assignment1 = Assignment.create!(:role_id => 0,
+                                         :principal_id => principal1.id,
+                                         :node_id => node.id)
+        assignment2 = Assignment.create!(:role_id => 0,
+                                         :principal_id => principal2.id,
+                                         :node_id => node.id)
+        assignment3 = Assignment.create!(:role_id => 0,
+                                         :principal_id => principal3.id,
+                                         :node_id => node.id)
+        node.reload.assignments.should include(assignment1)
+        node.assignments.should include(assignment3)
+        node.assignments.should include(assignment2)
+      end
+
+      it "destroys the dependant assignments when the node is destroyed" do
+        Node.create_global_node!
+        node = Node.create!(:securable_type => 'Foo', :securable_id => 1)
+        assignment = Assignment.create!(:role_id => 0,
+                                        :principal_id => 0,
+                                        :node_id => node.id)
+        node.destroy
+        Assignment.count.should == 0
       end
 
     end

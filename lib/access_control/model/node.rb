@@ -49,17 +49,25 @@ module AccessControl::Model
     )
 
     has_many(
-      :assignments,
-      :foreign_key => :ac_node_id
+      :principal_assignments,
+      :foreign_key => :node_id,
+      :class_name => 'AccessControl::Model::Assignment'
     )
 
-    reflections[:assignments].instance_eval do
+    reflections[:principal_assignments].instance_eval do
       def options
         principal_ids = ::AccessControl.get_security_manager.principal_ids
         principal_ids = principal_ids.first if principal_ids.size == 1
         @options.merge(:conditions => {:principal_id => principal_ids})
       end
     end
+
+    has_many(
+      :assignments,
+      :foreign_key => :node_id,
+      :class_name => 'AccessControl::Model::Assignment',
+      :dependent => :destroy
+    )
 
     def self.global
       r = find_by_securable_type_and_securable_id('AccessControlGlobalNode', 0)
