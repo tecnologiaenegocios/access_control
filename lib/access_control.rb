@@ -7,6 +7,7 @@ require 'access_control/controller_security'
 require 'access_control/model'
 require 'access_control/model_security'
 require 'access_control/security_manager'
+require 'access_control/security_proxy'
 
 module AccessControl
   LIB_PATH = File.dirname(__FILE__)
