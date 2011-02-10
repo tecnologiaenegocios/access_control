@@ -16,8 +16,11 @@ module AccessControl
 
   class SecurityManager
 
+    attr_writer :restrict_queries
+
     def initialize controller
       @controller = controller
+      @restrict_queries = true
     end
 
     def principal_ids
@@ -38,6 +41,10 @@ module AccessControl
 
     def verify_access! nodes, permissions
       raise Unauthorized unless has_access?(nodes, permissions)
+    end
+
+    def restrict_queries?
+      !!@restrict_queries
     end
 
     private

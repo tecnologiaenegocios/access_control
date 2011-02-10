@@ -168,5 +168,23 @@ module AccessControl
 
     end
 
+    describe "restriction in queries" do
+      let(:manager) { SecurityManager.new(controller) }
+      it "can set a flag (#restrict_queries) for restrictions" do
+        manager.restrict_queries = true
+      end
+      it "returns the flag state through #restrict_queries?" do
+        manager.restrict_queries = true
+        manager.restrict_queries?.should be_true
+        manager.restrict_queries = false
+        manager.restrict_queries?.should be_false
+        manager.restrict_queries = nil
+        manager.restrict_queries?.should be_false
+      end
+      it "defaults the flag to true" do
+        manager.restrict_queries?.should be_true
+      end
+    end
+
   end
 end
