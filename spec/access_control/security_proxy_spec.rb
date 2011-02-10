@@ -97,6 +97,18 @@ module AccessControl
           proxied.foo.should_not be_security_proxied
         end
 
+        it "doesn't rewrap the return value if it is already proxied" do
+          return_value = Object.new
+          return_value.stub!(:security_proxied?).and_return(true)
+          unproxied.stub!(:foo).and_return(return_value)
+          # Get the proxied object before setting an expectation in the
+          # SecurityProxy class.
+          proxied
+          # Now set the expectation and test the return value
+          SecurityProxy.should_not_receive(:new).with(return_value)
+          proxied.foo.security_proxied?.should be_true
+        end
+
         it "returns proxied if the value is securable" do
           return_value = Object.new
           return_value.class.class_eval do
@@ -104,6 +116,14 @@ module AccessControl
               true
             end
           end
+          unproxied.stub!(:foo).and_return(return_value)
+          proxied.foo.security_proxied?.should be_true
+        end
+
+        it "returns proxied if the value has no class defined" do
+          # This situation happens in association proxies.
+          return_value = Object.new
+          return_value.stub!(:class).and_return(nil)
           unproxied.stub!(:foo).and_return(return_value)
           proxied.foo.security_proxied?.should be_true
         end
