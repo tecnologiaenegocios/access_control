@@ -1,6 +1,8 @@
 class CreateRecord < ActiveRecord::Migration
   def self.up
-    create_table(:records, :force => true) {}
+    create_table(:records, :force => true) do |t|
+      t.integer :field
+    end
   end
 
   def self.down
