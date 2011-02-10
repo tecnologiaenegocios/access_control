@@ -47,8 +47,12 @@ module AccessControl
           []
         end
       end
-      controller.stub!(:current_user).and_return(user)
-      controller.stub!(:current_groups).and_return([group1, group2])
+      controller.stub!(:_via_send_current_user).and_return(user)
+      controller.stub!(:_via_send_current_groups).and_return([group1, group2])
+      controller.stub!(:send) do |*args|
+        m = "_via_send_#{args.shift}"
+        controller.__send__(m, *args)
+      end
       user.stub(:principal).and_return(user_principal)
       group1.stub(:principal).and_return(group1_principal)
       group2.stub(:principal).and_return(group2_principal)

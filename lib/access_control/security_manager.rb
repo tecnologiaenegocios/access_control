@@ -50,11 +50,11 @@ module AccessControl
     private
 
       def current_user
-        @current_user ||= @controller.current_user
+        @current_user ||= @controller.send(:current_user)
       end
 
       def current_groups
-        @current_groups ||= @controller.current_groups
+        @current_groups ||= @controller.send(:current_groups)
       end
 
   end
