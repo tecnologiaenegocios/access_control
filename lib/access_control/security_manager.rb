@@ -29,13 +29,10 @@ module AccessControl
       end
     end
 
-    def has_access? nodes, permissions
+    def has_access? node, permissions
       permissions = [permissions] unless permissions.respond_to?(:all?)
-      nodes = [nodes] unless nodes.respond_to?(:any?)
       permissions.all? do |permission|
-        nodes.any? do |node|
-          node.has_permission?(permission)
-        end
+        node.has_permission?(permission)
       end
     end
 
