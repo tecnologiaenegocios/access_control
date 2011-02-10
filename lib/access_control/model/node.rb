@@ -55,11 +55,27 @@ module AccessControl::Model
     )
 
     reflections[:principal_assignments].instance_eval do
+
       def options
         principal_ids = ::AccessControl.get_security_manager.principal_ids
         principal_ids = principal_ids.first if principal_ids.size == 1
         @options.merge(:conditions => {:principal_id => principal_ids})
       end
+
+      def sanitized_conditions
+        # Since our options aren't constant in the class life cycle, never
+        # cache conditions in this class (the reflection class).  So, options
+        # are evaluated always. (The default implementation caches the options
+        # in a instance variable).
+        #
+        # It took me a long time debugging to find out why the specs concerning
+        # the Node class passed when run in isolation but not when all specs
+        # were ran together in a bulk.
+        #
+        # Maybe there's a design flaw here?
+        @sanitized_conditions = klass.send(:sanitize_sql, options[:conditions])
+      end
+
     end
 
     has_many(
@@ -104,7 +120,7 @@ module AccessControl::Model
       end
     end
 
-    def securable?
+    def self.securable?
       false
     end
 

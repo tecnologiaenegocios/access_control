@@ -20,7 +20,7 @@ module AccessControl::Model
     end
 
     it "cannot be wrapped by a security proxy" do
-      Principal.new.securable?.should be_false
+      Principal.securable?.should be_false
     end
 
   end

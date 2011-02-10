@@ -4,7 +4,7 @@ module AccessControl::Model
     belongs_to :node, :class_name => 'AccessControl::Model::Node'
     belongs_to :principal, :class_name => 'AccessControl::Model::Principal'
     belongs_to :role, :class_name => 'AccessControl::Model::Role'
-    def securable?
+    def self.securable?
       false
     end
   end

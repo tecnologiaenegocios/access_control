@@ -14,7 +14,7 @@ module AccessControl
         Object.new.security_proxied?.should be_false
       end
       it "is not securable by default" do
-        Object.new.securable?.should be_false
+        Object.securable?.should be_false
       end
     end
 
@@ -24,7 +24,7 @@ module AccessControl
       let(:manager) { mock('manager') }
 
       before do
-        unproxied.stub!(:securable?).and_return(true)
+        unproxied.class.stub!(:securable?).and_return(true)
         unproxied.class.stub!(:permissions_for).and_return(Set.new)
         ::AccessControl.stub!(:get_security_manager).and_return(manager)
         manager.stub!(:verify_permission!)
@@ -32,10 +32,6 @@ module AccessControl
 
       it "is security proxied" do
         proxied.security_proxied?.should be_true
-      end
-
-      it "is not securable (prevents being re-proxied)" do
-        proxied.securable?.should be_false
       end
 
       it "can have its target unwraped" do
@@ -103,8 +99,8 @@ module AccessControl
 
         it "returns proxied if the value is securable" do
           return_value = Object.new
-          return_value.instance_eval do
-            def securable?
+          return_value.class.class_eval do
+            def self.securable?
               true
             end
           end

@@ -15,17 +15,13 @@ module AccessControl
     end
 
     def initialize target
-      raise CannotWrapUnsecurableObject unless target.securable?
+      raise CannotWrapUnsecurableObject unless target.class.securable?
       @target = target
       @manager = ::AccessControl.get_security_manager
     end
 
     def security_proxied?
       true
-    end
-
-    def securable?
-      false
     end
 
     def remove_security_proxy
@@ -41,7 +37,7 @@ module AccessControl
       end
 
       return_value = @target.__send__(name, *args, &block)
-      return SecurityProxy.new(return_value) if return_value.securable?
+      return SecurityProxy.new(return_value) if return_value.class.securable?
 
       return_value
     end
@@ -64,7 +60,7 @@ Object.class_eval do
   def security_proxied?
     false
   end
-  def securable?
+  def self.securable?
     false
   end
   def self.permissions_for method_name

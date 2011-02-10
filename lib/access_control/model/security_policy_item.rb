@@ -1,7 +1,7 @@
 module AccessControl::Model
   class SecurityPolicyItem < ActiveRecord::Base
     set_table_name :ac_security_policy_items
-    def securable?
+    def self.securable?
       false
     end
   end

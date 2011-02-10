@@ -30,7 +30,7 @@ module AccessControl::Model
     end
 
     it "cannot be wrapped by a security proxy" do
-      Node.new.securable?.should be_false
+      Node.securable?.should be_false
     end
 
     describe "global node" do
@@ -68,7 +68,7 @@ module AccessControl::Model
 
     describe "#principal_assignments" do
 
-      let(:manager) { mock('manager') }
+      let(:manager) { ::AccessControl::SecurityManager.new('a controller') }
 
       before do
         ::AccessControl.stub!(:get_security_manager).and_return(manager)

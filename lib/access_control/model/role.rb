@@ -3,7 +3,7 @@ module AccessControl::Model
     set_table_name :ac_roles
     has_many :security_policy_items,
              :class_name => 'AccessControl::Model::SecurityPolicyItem'
-    def securable?
+    def self.securable?
       false
     end
   end

@@ -72,7 +72,7 @@ module AccessControl
     describe ModelSecurity::InstanceMethods do
 
       it "is securable" do
-        model_klass.new.securable?.should be_true
+        model_klass.securable?.should be_true
       end
 
       it "extends the class with the class methods" do
@@ -165,7 +165,7 @@ module AccessControl
         describe "when the object is not securable" do
           it "returns nil on ac_node association" do
             record = model_klass.new
-            record.stub(:securable?).and_return(false)
+            model_klass.stub(:securable?).and_return(false)
             record.ac_node.should be_nil
           end
         end
@@ -202,7 +202,7 @@ module AccessControl
         it "doesn't create any node if the object is not securable" do
           record = model_klass.new
           record.stub!(:parents).and_return([])
-          record.stub!(:securable?).and_return(false)
+          model_klass.stub!(:securable?).and_return(false)
           ::AccessControl::Model::Node.should_not_receive(:create!)
           record.save
         end
@@ -244,15 +244,126 @@ module AccessControl
 
       describe "when destroying" do
         it "destroys the ac_node" do
-          ::AccessControl::Model::Node.create_global_node!
+          AccessControl::Model::Node.create_global_node!
           record = model_klass.new
           record.save!
           record.destroy
-          ::AccessControl::Model::Node.
+          AccessControl::Model::Node.
             find_all_by_securable_type_and_securable_id(
               record.class.name, record.id
             ).size.should == 0
         end
+      end
+
+    end
+
+    describe "access permission" do
+      # This permission is the permission applied to restricted queries (see in
+      # query interface).
+      it "can be defined in class level" do
+        model_klass.access_permission 'some permission'
+      end
+      it "can be queried in class level" do
+        model_klass.access_permission 'some permission'
+        model_klass.access_permission.should == 'some permission'
+      end
+      it "defaults to config's value" do
+        default = AccessControl.config.default_access_permission
+        model_klass.access_permission.should == default
+      end
+      it "doesn't mess with the config's value" do
+        old_value = AccessControl.config.default_access_permission
+        model_klass.access_permission 'some permission'
+        AccessControl.config.default_access_permission.should == old_value
+      end
+    end
+
+    describe "query interface" do
+
+      let(:principal) { Model::Principal.create!(:subject_type => 'User',
+                                                 :subject_id => 1) }
+      let(:role1) { Model::Role.create!(:name => 'A role') }
+      let(:role2) { Model::Role.create!(:name => 'Another role') }
+      let(:manager) { SecurityManager.new('a controller') }
+      before do
+        AccessControl.configure do |config|
+          config.default_access_permission = 'view'
+        end
+        AccessControl.stub!(:get_security_manager).and_return(manager)
+        manager.stub!(:principal_ids).and_return([principal.id])
+        Model::Node.create_global_node!
+        Model::SecurityPolicyItem.create!(:permission_name => 'view',
+                                          :role_id => role1.id)
+      end
+
+      describe "#find" do
+
+        it "returns only the records on which the principal has permissions" do
+          record1 = model_klass.create!
+          record1.ac_node.assignments.create!(:principal => principal,
+                                              :role => role1)
+          record2 = model_klass.create!
+          record2.ac_node.assignments.create!(:principal => principal,
+                                              :role => role2)
+          record3 = model_klass.create!
+          result = model_klass.find(:all)
+          result.should include(record1)
+          result.should_not include(record2)
+          result.should_not include(record3)
+        end
+
+        it "checks access permission only when the manager allows" do
+          manager.stub!(:restrict_queries?).and_return(false)
+          record1 = model_klass.create!
+          record1.ac_node.assignments.create!(:principal => principal,
+                                              :role => role1)
+          record2 = model_klass.create!
+          record2.ac_node.assignments.create!(:principal => principal,
+                                              :role => role2)
+          record3 = model_klass.create!
+          result = model_klass.find(:all)
+          result.should include(record1)
+          result.should include(record2)
+          result.should include(record3)
+        end
+
+        it "doesn't mess with the order of items" do
+          record1 = model_klass.create!
+          record1.ac_node.assignments.create!(:principal => principal,
+                                              :role => role1)
+          record2 = model_klass.create!
+          record2.ac_node.assignments.create!(:principal => principal,
+                                              :role => role1)
+          record2.ac_node.assignments.create!(:principal => principal,
+                                              :role => role2)
+          record3 = model_klass.create!
+          result = model_klass.find(:all)
+          result.should == [record1, record2]
+        end
+
+        it "doesn't make permission checking during validation" do
+          model_klass.class_eval do
+            validates_uniqueness_of :field
+          end
+
+          # Create a record on which the user has no permission to access.
+          record1 = model_klass.create!(:field => 1)
+
+          # Create another record with invalid (taken) value for field.
+          record2 = model_klass.new(:field => 1)
+
+          record2.should have(1).error_on(:field)
+        end
+
+      end
+
+      describe "#unrestricted_find" do
+
+        it "doesn't make permission checking" do
+          record1 = model_klass.create!(:field => 1)
+          model_klass.unrestricted_find(:all).should == [record1]
+        end
+
       end
 
     end

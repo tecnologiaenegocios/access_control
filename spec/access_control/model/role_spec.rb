@@ -6,7 +6,7 @@ module AccessControl::Model
       Role.create!(:name => 'the role name')
     end
     it "cannot be wrapped by a security proxy" do
-      Role.new.securable?.should be_false
+      Role.securable?.should be_false
     end
   end
 end
