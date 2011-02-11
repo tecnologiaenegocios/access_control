@@ -87,6 +87,8 @@ class ActiveRecord::Base
 
   class << self
 
+    VALID_FIND_OPTIONS.push(:permissions).uniq!
+
     def securable?
       true
     end
@@ -97,9 +99,14 @@ class ActiveRecord::Base
       return object unless object.class.securable?
       AccessControl::SecurityProxy.new(object)
     end
+
     alias_method_chain :allocate, :security
 
     def find_every_with_restriction(options)
+      options[:permissions] ||= query_permissions
+      if !options[:permissions].is_a?(Array)
+        raise ArgumentError, ':permissions must be an array'
+      end
       merge_permission_options(options)
       find_every_without_restriction(options)
     end
@@ -107,31 +114,30 @@ class ActiveRecord::Base
     alias_method_chain :find_every, :restriction
 
     def unrestricted_find(*args)
-      disable_query_restriction
+      options = args.extract_options!
+      options[:permissions] = []
+      args << options
       find(*args)
-    ensure
-      re_enable_query_restriction
     end
 
     private
 
       def merge_permission_options(options)
         return unless restrict_queries?
-        number_of_permissions = query_permissions.size
         options[:include] = merge_includes(
           options[:include],
-          includes_for_permissions
+          includes_for_permissions(options)
         )
         options[:conditions] = merge_conditions(
           options[:conditions],
-          conditions_for_permissions
+          conditions_for_permissions(options)
         )
       end
 
-      def includes_for_permissions
+      def includes_for_permissions(options)
         # We need the same number of inclusions of `security_policy_items*` as
         # the number of permissions to query for.
-        permission_assocs = query_permissions.size.times.inject([]) do |v, i|
+        associations = options[:permissions].size.times.inject([]) do |v, i|
           # Ensure that the association is defined.
           define_security_policy_item_association(i)
           v << :"security_policy_items#{i + 1}"
@@ -140,7 +146,7 @@ class ActiveRecord::Base
           :ac_node => {
             :ancestors => {
               :principal_assignments => {
-                :role => permission_assocs
+                :role => associations
               }
             }
           }
@@ -157,21 +163,21 @@ class ActiveRecord::Base
         end
       end
 
-      def conditions_for_permissions
+      def conditions_for_permissions(options)
         # We need the same number of 'AND' conditions as the number of
         # permissions to query for.
-        query_permissions.size.times.inject([]) do |conditions, i|
-          conditions << condition_for_permission(i)
+        options[:permissions].size.times.inject([]) do |conditions, i|
+          conditions << condition_for_permission(options, i)
         end.join(' AND ')
       end
 
-      def condition_for_permission index
+      def condition_for_permission(options, index)
         if index == 0
           table_name = 'ac_security_policy_items'
         else
           table_name = "security_policy_items#{index + 1}s_ac_roles"
         end
-        permission = connection.quote(query_permissions[index])
+        permission = connection.quote(options[:permissions][index])
         "(`#{table_name}`.`permission_name` = #{permission})"
       end
 

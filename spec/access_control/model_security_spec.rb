@@ -401,8 +401,8 @@ module AccessControl
           result.should include(record3)
         end
 
-        it "doesn't mess with the order of items" do
-          record1 = model_klass.create!
+        it "doesn't mess with the other conditions" do
+          record1 = model_klass.create!(:field => 1)
           record1.ac_node.assignments.create!(:principal => principal,
                                               :role => role1)
           record2 = model_klass.create!
@@ -411,8 +411,8 @@ module AccessControl
           record2.ac_node.assignments.create!(:principal => principal,
                                               :role => role2)
           record3 = model_klass.create!
-          result = model_klass.find(:all)
-          result.should == [record1, record2]
+          result = model_klass.find(:all, :conditions => 'field = 1')
+          result.should == [record1]
         end
 
         it "doesn't make permission checking during validation" do
@@ -427,6 +427,38 @@ module AccessControl
           record2 = model_klass.new(:field => 1)
 
           record2.should have(1).error_on(:field)
+        end
+
+        describe "#find with :permissions option" do
+
+          it "complains if :permissions is not an array" do
+            lambda {
+              model_klass.find(:all, :permissions => 'not an array')
+            }.should raise_exception(ArgumentError)
+          end
+
+          it "checks explicitly the permissions passed in :permissions" do
+            role3 = Model::Role.create!(:name => 'A better role')
+            Model::SecurityPolicyItem.create!(:permission_name => 'view',
+                                              :role_id => role3.id)
+            Model::SecurityPolicyItem.create!(:permission_name => 'query',
+                                              :role_id => role3.id)
+            record1 = model_klass.create!
+            record1.ac_node.assignments.create!(:principal => principal,
+                                                :role => role1)
+            record2 = model_klass.create!
+            record2.ac_node.assignments.create!(:principal => principal,
+                                                :role => role2)
+            record3 = model_klass.create!
+            record3.ac_node.assignments.create!(:principal => principal,
+                                                :role => role3)
+            record4 = model_klass.create!
+            model_klass.find(
+              :all,
+              :permissions => ['view', 'query']
+            ).should == [record3]
+          end
+
         end
 
       end
