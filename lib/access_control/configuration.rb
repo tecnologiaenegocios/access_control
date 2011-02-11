@@ -1,10 +1,10 @@
 module AccessControl
 
   class Configuration
-    attr_accessor :default_access_permissions
+    attr_accessor :default_query_permissions
 
     def initialize
-      @default_access_permissions = ['view']
+      @default_query_permissions = ['view']
     end
 
   end

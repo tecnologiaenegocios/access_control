@@ -257,35 +257,81 @@ module AccessControl
 
     end
 
-    describe "access permissions" do
+    describe "query permissions" do
+
       # This permission is the permission applied to restricted queries (see in
       # query interface).
+
       it "can be defined in class level" do
-        model_klass.access_permissions 'some permission'
+        model_klass.query_permissions = 'some permission'
       end
+
       it "can be queried in class level (returns an array)" do
-        model_klass.access_permissions 'some permission'
-        model_klass.access_permissions.should == ['some permission']
+        model_klass.query_permissions = 'some permission'
+        model_klass.query_permissions.should == ['some permission']
       end
+
       it "defaults to config's value if it is already an array" do
-        AccessControl.config.default_access_permissions = ['some permission']
-        model_klass.access_permissions.should == ['some permission']
+        AccessControl.config.default_query_permissions = ['some permission']
+        model_klass.query_permissions.should == ['some permission']
       end
+
       it "defaults to config's value if it is a string, returns an array" do
-        AccessControl.config.default_access_permissions = 'some permission'
-        model_klass.access_permissions.should == ['some permission']
+        AccessControl.config.default_query_permissions = 'some permission'
+        model_klass.query_permissions.should == ['some permission']
       end
+
       it "defaults to config's value even if it changes between calls" do
-        AccessControl.config.default_access_permissions = ['some permission']
-        model_klass.access_permissions.should == ['some permission']
-        AccessControl.config.default_access_permissions = ['another permission']
-        model_klass.access_permissions.should == ['another permission']
+        AccessControl.config.default_query_permissions = ['some permission']
+        model_klass.query_permissions.should == ['some permission']
+        AccessControl.config.default_query_permissions = ['another permission']
+        model_klass.query_permissions.should == ['another permission']
       end
+
       it "doesn't mess with the config's value" do
-        old_value = AccessControl.config.default_access_permissions
-        model_klass.access_permissions 'some permission'
-        AccessControl.config.default_access_permissions.should == old_value
+        AccessControl.config.default_query_permissions = ['some permission']
+        model_klass.query_permissions = 'another permission'
+        AccessControl.config.default_query_permissions.should == \
+          ['some permission']
       end
+
+    end
+
+    describe "additional query permissions" do
+
+      it "is empty by default" do
+        model_klass.additional_query_permissions.should be_empty
+      end
+
+      it "can be defined in class level" do
+        model_klass.additional_query_permissions = 'some permission'
+      end
+
+      it "can be queried in class level (returns an array)" do
+        model_klass.additional_query_permissions = 'some permission'
+        model_klass.additional_query_permissions.should == ['some permission']
+      end
+
+      it "can have a string appended (seen by #query_permissions)" do
+        AccessControl.config.default_query_permissions = ['some permission']
+        model_klass.additional_query_permissions << 'another permission'
+        model_klass.query_permissions.should == ['some permission',
+                                                  'another permission']
+      end
+
+      it "doesn't mess with the config's value when we push a new string" do
+        AccessControl.config.default_query_permissions = ['some permission']
+        model_klass.additional_query_permissions << 'another permission'
+        AccessControl.config.default_query_permissions.should == \
+          ['some permission']
+      end
+
+      it "cannot set additional permissions if #query_permissions was set" do
+        model_klass.query_permissions = ['some permission']
+        model_klass.additional_query_permissions = ['another permission']
+        model_klass.query_permissions.should == ['some permission']
+      end
+
     end
 
     describe "query interface" do
@@ -296,7 +342,7 @@ module AccessControl
       let(:role2) { Model::Role.create!(:name => 'Another role') }
       let(:manager) { SecurityManager.new('a controller') }
       before do
-        model_klass.access_permissions 'view'
+        model_klass.query_permissions = 'view'
         AccessControl.stub!(:get_security_manager).and_return(manager)
         manager.stub!(:principal_ids).and_return([principal.id])
         Model::Node.create_global_node!
@@ -321,7 +367,7 @@ module AccessControl
         end
 
         it "will take into consideration multiple permissions" do
-          model_klass.access_permissions ['view', 'query']
+          model_klass.query_permissions = ['view', 'query']
           role3 = Model::Role.create!(:name => 'A better role')
           Model::SecurityPolicyItem.create!(:permission_name => 'view',
                                             :role_id => role3.id)
@@ -340,7 +386,7 @@ module AccessControl
           model_klass.find(:all).should == [record3]
         end
 
-        it "checks access permission only when the manager allows" do
+        it "checks query permission only when the manager allows" do
           manager.stub!(:restrict_queries?).and_return(false)
           record1 = model_klass.create!
           record1.ac_node.assignments.create!(:principal => principal,

@@ -17,25 +17,37 @@ module AccessControl
       end
 
       def permissions_for_methods
-        @_permissions_for_methods ||= Hash.new{|h, k| h[k] = Set.new}
+        @ac_permissions_for_methods ||= Hash.new{|h, k| h[k] = Set.new}
       end
 
       def parent_association association_name=nil
         if association_name
-          @_parent_association = association_name
+          @ac_parent_association = association_name
         end
-        @_parent_association
+        @ac_parent_association
       end
 
-      def access_permissions permission=nil
-        if !permission
-          return @_access_permissions if @_access_permissions
-          permission = AccessControl.config.default_access_permissions
-          permission = [permission] unless permission.is_a?(Array)
-          return permission
+      def query_permissions= permissions
+        permissions = [permissions] unless permissions.is_a?(Array)
+        @query_permissions = permissions
+      end
+
+      def query_permissions
+        if !@query_permissions
+          permissions = AccessControl.config.default_query_permissions
+          permissions = [permissions] unless permissions.is_a?(Array)
+          return (permissions + additional_query_permissions).uniq
         end
-        permission = [permission] unless permission.is_a?(Array)
-        @_access_permissions = permission
+        @query_permissions
+      end
+
+      def additional_query_permissions= permissions
+        permissions = [permissions] unless permissions.is_a?(Array)
+        @additional_query_permissions = permissions
+      end
+
+      def additional_query_permissions
+        @additional_query_permissions ||= []
       end
 
     end
@@ -105,7 +117,7 @@ class ActiveRecord::Base
 
       def merge_permission_options(options)
         return unless restrict_queries?
-        number_of_permissions = access_permissions.size
+        number_of_permissions = query_permissions.size
         options[:include] = merge_includes(
           options[:include],
           includes_for_permissions
@@ -119,7 +131,7 @@ class ActiveRecord::Base
       def includes_for_permissions
         # We need the same number of inclusions of `security_policy_items*` as
         # the number of permissions to query for.
-        permission_assocs = access_permissions.size.times.inject([]) do |v, i|
+        permission_assocs = query_permissions.size.times.inject([]) do |v, i|
           # Ensure that the association is defined.
           define_security_policy_item_association(i)
           v << :"security_policy_items#{i + 1}"
@@ -148,7 +160,7 @@ class ActiveRecord::Base
       def conditions_for_permissions
         # We need the same number of 'AND' conditions as the number of
         # permissions to query for.
-        access_permissions.size.times.inject([]) do |conditions, i|
+        query_permissions.size.times.inject([]) do |conditions, i|
           conditions << condition_for_permission(i)
         end.join(' AND ')
       end
@@ -159,7 +171,7 @@ class ActiveRecord::Base
         else
           table_name = "security_policy_items#{index + 1}s_ac_roles"
         end
-        permission = connection.quote(access_permissions[index])
+        permission = connection.quote(query_permissions[index])
         "(`#{table_name}`.`permission_name` = #{permission})"
       end
 

@@ -3,18 +3,18 @@ require 'spec_helper'
 module AccessControl
   describe Configuration do
 
-    it "can define a default access permissions" do
-      Configuration.new.default_access_permissions = 'some permission'
+    it "can define a default query permissions" do
+      Configuration.new.default_query_permissions = 'some permission'
     end
 
-    it "can retrieve the access permission" do
+    it "can retrieve the query permission" do
       config = Configuration.new
-      config.default_access_permissions = 'some permission'
-      config.default_access_permissions.should == 'some permission'
+      config.default_query_permissions = 'some permission'
+      config.default_query_permissions.should == 'some permission'
     end
 
     it "defaults to 'view'" do
-      Configuration.new.default_access_permissions.should == ['view']
+      Configuration.new.default_query_permissions.should == ['view']
     end
 
   end
