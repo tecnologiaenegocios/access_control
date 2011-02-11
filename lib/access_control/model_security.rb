@@ -27,11 +27,15 @@ module AccessControl
         @_parent_association
       end
 
-      def access_permission permission=nil
-        if permission
-          @_access_permission = permission
+      def access_permissions permission=nil
+        if !permission
+          return @_access_permissions if @_access_permissions
+          permission = AccessControl.config.default_access_permissions
+          permission = [permission] unless permission.is_a?(Array)
+          return permission
         end
-        @_access_permission || AccessControl.config.default_access_permission
+        permission = [permission] unless permission.is_a?(Array)
+        @_access_permissions = permission
       end
 
     end
@@ -84,7 +88,7 @@ class ActiveRecord::Base
     alias_method_chain :allocate, :security
 
     def find_every_with_restriction(options)
-      include_permission_associations_and_conditions(options)
+      merge_permission_options(options)
       find_every_without_restriction(options)
     end
 
@@ -99,25 +103,64 @@ class ActiveRecord::Base
 
     private
 
-      def include_permission_associations_and_conditions(options)
+      def merge_permission_options(options)
         return unless restrict_queries?
+        number_of_permissions = access_permissions.size
         options[:include] = merge_includes(
           options[:include],
-          {
-            :ac_node => {
-              :ancestors => {
-                :principal_assignments => {
-                  :role => :security_policy_items
-                }
+          includes_for_permissions
+        )
+        options[:conditions] = merge_conditions(
+          options[:conditions],
+          conditions_for_permissions
+        )
+      end
+
+      def includes_for_permissions
+        # We need the same number of inclusions of `security_policy_items*` as
+        # the number of permissions to query for.
+        permission_assocs = access_permissions.size.times.inject([]) do |v, i|
+          # Ensure that the association is defined.
+          define_security_policy_item_association(i)
+          v << :"security_policy_items#{i + 1}"
+        end
+        {
+          :ac_node => {
+            :ancestors => {
+              :principal_assignments => {
+                :role => permission_assocs
               }
             }
           }
-        )
-        permission = self.connection.quote(access_permission)
-        options[:conditions] = merge_conditions(
-          options[:conditions],
-          "`ac_security_policy_items`.`permission_name` = #{permission}"
-        )
+        }
+      end
+
+      def define_security_policy_item_association index
+        association_name = :"security_policy_items#{index + 1}"
+        unless AccessControl::Model::Role.reflections[association_name]
+          AccessControl::Model::Role.has_many(
+            association_name,
+            :class_name => 'AccessControl::Model::SecurityPolicyItem'
+          )
+        end
+      end
+
+      def conditions_for_permissions
+        # We need the same number of 'AND' conditions as the number of
+        # permissions to query for.
+        access_permissions.size.times.inject([]) do |conditions, i|
+          conditions << condition_for_permission(i)
+        end.join(' AND ')
+      end
+
+      def condition_for_permission index
+        if index == 0
+          table_name = 'ac_security_policy_items'
+        else
+          table_name = "security_policy_items#{index + 1}s_ac_roles"
+        end
+        permission = connection.quote(access_permissions[index])
+        "(`#{table_name}`.`permission_name` = #{permission})"
       end
 
       def restrict_queries?

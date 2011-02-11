@@ -257,24 +257,34 @@ module AccessControl
 
     end
 
-    describe "access permission" do
+    describe "access permissions" do
       # This permission is the permission applied to restricted queries (see in
       # query interface).
       it "can be defined in class level" do
-        model_klass.access_permission 'some permission'
+        model_klass.access_permissions 'some permission'
       end
-      it "can be queried in class level" do
-        model_klass.access_permission 'some permission'
-        model_klass.access_permission.should == 'some permission'
+      it "can be queried in class level (returns an array)" do
+        model_klass.access_permissions 'some permission'
+        model_klass.access_permissions.should == ['some permission']
       end
-      it "defaults to config's value" do
-        default = AccessControl.config.default_access_permission
-        model_klass.access_permission.should == default
+      it "defaults to config's value if it is already an array" do
+        AccessControl.config.default_access_permissions = ['some permission']
+        model_klass.access_permissions.should == ['some permission']
+      end
+      it "defaults to config's value if it is a string, returns an array" do
+        AccessControl.config.default_access_permissions = 'some permission'
+        model_klass.access_permissions.should == ['some permission']
+      end
+      it "defaults to config's value even if it changes between calls" do
+        AccessControl.config.default_access_permissions = ['some permission']
+        model_klass.access_permissions.should == ['some permission']
+        AccessControl.config.default_access_permissions = ['another permission']
+        model_klass.access_permissions.should == ['another permission']
       end
       it "doesn't mess with the config's value" do
-        old_value = AccessControl.config.default_access_permission
-        model_klass.access_permission 'some permission'
-        AccessControl.config.default_access_permission.should == old_value
+        old_value = AccessControl.config.default_access_permissions
+        model_klass.access_permissions 'some permission'
+        AccessControl.config.default_access_permissions.should == old_value
       end
     end
 
@@ -286,9 +296,7 @@ module AccessControl
       let(:role2) { Model::Role.create!(:name => 'Another role') }
       let(:manager) { SecurityManager.new('a controller') }
       before do
-        AccessControl.configure do |config|
-          config.default_access_permission = 'view'
-        end
+        model_klass.access_permissions 'view'
         AccessControl.stub!(:get_security_manager).and_return(manager)
         manager.stub!(:principal_ids).and_return([principal.id])
         Model::Node.create_global_node!
@@ -310,6 +318,26 @@ module AccessControl
           result.should include(record1)
           result.should_not include(record2)
           result.should_not include(record3)
+        end
+
+        it "will take into consideration multiple permissions" do
+          model_klass.access_permissions ['view', 'query']
+          role3 = Model::Role.create!(:name => 'A better role')
+          Model::SecurityPolicyItem.create!(:permission_name => 'view',
+                                            :role_id => role3.id)
+          Model::SecurityPolicyItem.create!(:permission_name => 'query',
+                                            :role_id => role3.id)
+          record1 = model_klass.create!
+          record1.ac_node.assignments.create!(:principal => principal,
+                                              :role => role1)
+          record2 = model_klass.create!
+          record2.ac_node.assignments.create!(:principal => principal,
+                                              :role => role2)
+          record3 = model_klass.create!
+          record3.ac_node.assignments.create!(:principal => principal,
+                                              :role => role3)
+          record4 = model_klass.create!
+          model_klass.find(:all).should == [record3]
         end
 
         it "checks access permission only when the manager allows" do

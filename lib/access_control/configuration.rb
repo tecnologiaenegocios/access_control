@@ -1,9 +1,10 @@
 module AccessControl
+
   class Configuration
-    attr_accessor :default_access_permission
+    attr_accessor :default_access_permissions
 
     def initialize
-      @default_access_permission = 'view'
+      @default_access_permissions = ['view']
     end
 
   end
@@ -16,4 +17,5 @@ module AccessControl
   def self.config
     @config ||= Configuration.new
   end
+
 end
