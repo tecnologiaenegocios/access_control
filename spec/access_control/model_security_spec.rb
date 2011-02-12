@@ -401,6 +401,28 @@ module AccessControl
           result.should include(record3)
         end
 
+        it "checks permission for each principal" do
+          model_klass.query_permissions = ['view', 'query']
+          role3 = Model::Role.create!(:name => 'A better role')
+          Model::SecurityPolicyItem.create!(:permission_name => 'query',
+                                            :role_id => role3.id)
+          principal2 = Model::Principal.create!(:subject_type => 'Group',
+                                                :subject_id => 1)
+          manager.stub!(:principal_ids).and_return([principal.id,
+                                                    principal2.id])
+          record1 = model_klass.create!
+          record1.ac_node.assignments.create!(:principal => principal,
+                                              :role => role1)
+          record1.ac_node.assignments.create!(:principal => principal2,
+                                              :role => role3)
+          record2 = model_klass.create!
+          record3 = model_klass.create!
+          result = model_klass.find(:all)
+          result.should include(record1)
+          result.should_not include(record2)
+          result.should_not include(record3)
+        end
+
         it "doesn't mess with the other conditions" do
           record1 = model_klass.create!(:field => 1)
           record1.ac_node.assignments.create!(:principal => principal,
@@ -413,6 +435,29 @@ module AccessControl
           record3 = model_klass.create!
           result = model_klass.find(:all, :conditions => 'field = 1')
           result.should == [record1]
+        end
+
+        it "doesn't mess with other joins" do
+          record1 = model_klass.create!(:field => 1)
+          record1.ac_node.assignments.create!(:principal => principal,
+                                              :role => role1)
+          record2 = model_klass.create!
+          record2.ac_node.assignments.create!(:principal => principal,
+                                              :role => role1)
+          record2.ac_node.assignments.create!(:principal => principal,
+                                              :role => role2)
+          record3 = model_klass.create!
+          # We join more records asking for records that has a complementary
+          # record in the same table but with opposite signal, which will
+          # result in no records.
+          result = model_klass.find(
+            :all,
+            :conditions => 'records.field = 1',
+            :joins => "
+              inner join records more_records on records.id = - more_records.id
+            "
+          )
+          result.should be_empty
         end
 
         it "doesn't make permission checking during validation" do
@@ -457,6 +502,36 @@ module AccessControl
               :all,
               :permissions => ['view', 'query']
             ).should == [record3]
+          end
+
+        end
+
+        describe "#find with permission loading" do
+
+          it "loads all permissions when :load_permissions is true" do
+            Model::SecurityPolicyItem.create!(:permission_name => 'query',
+                                              :role_id => role1.id)
+            record1 = model_klass.create!
+            record1.ac_node.assignments.create!(:principal => principal,
+                                                :role => role2)
+            record2 = model_klass.create!
+            record2.ac_node.assignments.create!(:principal => principal,
+                                                :role => role1)
+            found = model_klass.find(:first, :load_permissions => true)
+            model_klass.should_not_receive(:find) # Do not hit the database
+                                                  # anymore.
+            Model::Node.should_not_receive(:find)
+            Model::Assignment.should_not_receive(:find)
+            Model::Role.should_not_receive(:find)
+            Model::SecurityPolicyItem.should_not_receive(:find)
+            permissions = found.ac_node.ancestors.
+              map(&:principal_assignments).flatten.
+              map(&:role).
+              map(&:security_policy_items).flatten.
+              map(&:permission_name)
+            permissions.size.should == 2
+            permissions.should include('view')
+            permissions.should include('query')
           end
 
         end

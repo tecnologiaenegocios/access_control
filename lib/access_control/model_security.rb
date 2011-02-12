@@ -87,7 +87,7 @@ class ActiveRecord::Base
 
   class << self
 
-    VALID_FIND_OPTIONS.push(:permissions).uniq!
+    VALID_FIND_OPTIONS.push(:permissions, :load_permissions).uniq!
 
     def securable?
       true
@@ -124,43 +124,78 @@ class ActiveRecord::Base
 
       def merge_permission_options(options)
         return unless restrict_queries?
-        options[:include] = merge_includes(
-          options[:include],
-          includes_for_permissions(options)
-        )
-        options[:conditions] = merge_conditions(
-          options[:conditions],
-          conditions_for_permissions(options)
-        )
+        if options[:permissions].any?
+
+          options[:include] = merge_includes(
+            options[:include],
+            includes_for_permissions(options)
+          ) if options[:load_permissions]
+
+          options[:conditions] = merge_conditions(
+            options[:conditions],
+            conditions_for_permissions(options)
+          )
+
+          if options[:joins]
+            options[:joins] = merge_joins(
+              options[:joins],
+              joins_for_permissions(options)
+            )
+          else
+            options[:joins] = joins_for_permissions(options)
+          end
+
+        end
       end
 
       def includes_for_permissions(options)
-        # We need the same number of inclusions of `security_policy_items*` as
-        # the number of permissions to query for.
-        associations = options[:permissions].size.times.inject([]) do |v, i|
-          # Ensure that the association is defined.
-          define_security_policy_item_association(i)
-          v << :"security_policy_items#{i + 1}"
-        end
         {
           :ac_node => {
             :ancestors => {
               :principal_assignments => {
-                :role => associations
+                :role => :security_policy_items
               }
             }
           }
         }
       end
 
-      def define_security_policy_item_association index
-        association_name = :"security_policy_items#{index + 1}"
-        unless AccessControl::Model::Role.reflections[association_name]
-          AccessControl::Model::Role.has_many(
-            association_name,
-            :class_name => 'AccessControl::Model::SecurityPolicyItem'
-          )
+      def joins_for_permissions(options)
+        base_joins = base_permission_joins
+        # We need the same number of inclusions of `security_policy_items` as
+        # the number of permissions to query for.
+        associations = options[:permissions].size.times do |i|
+          base_joins << "
+            INNER JOIN `ac_security_policy_items`
+              `ac_security_policy_items_chk_#{i}`
+              ON `ac_security_policy_items_chk_#{i}`.`role_id` = 
+                 `ac_roles_chk`.`id`".strip.squeeze(' ')
         end
+        base_joins.join(' ')
+      end
+
+      def base_permission_joins
+        principal_ids = AccessControl.get_security_manager.principal_ids
+        if principal_ids.size == 1
+          p_condition = "= #{connection.quote(principal_ids.first)}"
+        else
+          ids = principal_ids.map{|i| connection.quote(i)}.join(',')
+          p_condition = "IN (#{ids})"
+        end
+        [
+          "INNER JOIN `ac_nodes` `ac_nodes_chk` "\
+            "ON `ac_nodes_chk`.securable_id = `records`.id "\
+            "AND `ac_nodes_chk`.securable_type = 'Record'",
+          "INNER JOIN `ac_paths` `ac_paths_chk` "\
+            "ON `ac_paths_chk`.descendant_id = `ac_nodes_chk`.id",
+          "INNER JOIN `ac_nodes` `ancestors_ac_nodes_chk` "\
+            "ON `ancestors_ac_nodes_chk`.id = `ac_paths_chk`.ancestor_id",
+          "INNER JOIN `ac_assignments` `ac_assignments_chk`"\
+            "ON ac_assignments_chk.node_id = ancestors_ac_nodes_chk.id "\
+            "AND ac_assignments_chk.`principal_id` #{p_condition}",
+          "INNER JOIN `ac_roles` `ac_roles_chk` "\
+            "ON `ac_roles_chk`.id = `ac_assignments_chk`.role_id",
+        ]
       end
 
       def conditions_for_permissions(options)
@@ -172,13 +207,9 @@ class ActiveRecord::Base
       end
 
       def condition_for_permission(options, index)
-        if index == 0
-          table_name = 'ac_security_policy_items'
-        else
-          table_name = "security_policy_items#{index + 1}s_ac_roles"
-        end
+        alias_name = "ac_security_policy_items_chk_#{index}"
         permission = connection.quote(options[:permissions][index])
-        "(`#{table_name}`.`permission_name` = #{permission})"
+        "(`#{alias_name}`.`permission_name` = #{permission})"
       end
 
       def restrict_queries?
