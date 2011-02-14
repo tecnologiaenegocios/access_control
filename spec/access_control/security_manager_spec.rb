@@ -47,15 +47,19 @@ module AccessControl
           []
         end
       end
-      controller.stub!(:_via_send_current_user).and_return(user)
-      controller.stub!(:_via_send_current_groups).and_return([group1, group2])
+      # The methods `current_user` and `current_groups` must be called through
+      # `send` because they may be protected or private.
+      controller.stub!(:_through_send_current_user).and_return(user)
+      controller.stub!(:_through_send_current_groups).and_return([group1, group2])
       controller.stub!(:send) do |*args|
-        m = "_via_send_#{args.shift}"
+        m = "_through_send_#{args.shift}"
         controller.__send__(m, *args)
       end
       user.stub(:principal).and_return(user_principal)
       group1.stub(:principal).and_return(group1_principal)
       group2.stub(:principal).and_return(group2_principal)
+
+      Model::Principal.create_anonymous_principal!
     end
 
     after do
@@ -85,6 +89,12 @@ module AccessControl
 
       it "combines the principals from the user and the groups" do
         SecurityManager.new(controller).principal_ids.size.should == 3
+      end
+
+      it "returns the anonymous user when controller#current_user is nil" do
+        controller.stub!(:_through_send_current_user).and_return(nil)
+        sm = SecurityManager.new(controller)
+        sm.principal_ids.should == [Model::Principal.anonymous_id]
       end
 
       it "smartly caches stuff" do

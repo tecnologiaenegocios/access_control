@@ -63,16 +63,14 @@ module AccessControl::Model
       end
 
       def sanitized_conditions
-        # Since our options aren't constant in the class life cycle, never
-        # cache conditions in this class (the reflection class).  So, options
-        # are evaluated always. (The default implementation caches the options
-        # in a instance variable).
+        # Since our options aren't constant in the reflection life cycle, never
+        # cache conditions in this instance (the reflection instance).  So,
+        # options are evaluated always. (The default implementation caches the
+        # options in a instance variable).
         #
         # It took me a long time debugging to find out why the specs concerning
         # the Node class passed when run in isolation but not when all specs
         # were ran together in a bulk.
-        #
-        # Maybe there's a design flaw here?
         @sanitized_conditions = klass.send(:sanitize_sql, options[:conditions])
       end
 
@@ -86,9 +84,7 @@ module AccessControl::Model
     )
 
     def self.global
-      r = find_by_securable_type_and_securable_id('AccessControlGlobalNode', 0)
-      raise ::AccessControl::NoGlobalNode unless r
-      r
+      find_by_securable_type_and_securable_id('AccessControlGlobalNode', 0)
     end
 
     def self.global_id
@@ -125,11 +121,16 @@ module AccessControl::Model
     end
 
     before_save :validate_parents
+    before_create :verify_global_node
     after_create :make_self_path
     after_create :make_path_from_global
     after_save :update_parent_and_blocking
 
     private
+
+      def verify_global_node
+        raise AccessControl::NoGlobalNode unless self.class.global
+      end
 
       def fix_paths record
         validate_parents

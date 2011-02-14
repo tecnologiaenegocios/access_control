@@ -24,6 +24,7 @@ module AccessControl
     end
 
     def principal_ids
+      return [Model::Principal.anonymous.id] unless current_user
       @principal_ids ||= current_groups.inject(
         [current_user.principal.id]
       ) do |ids, group|
