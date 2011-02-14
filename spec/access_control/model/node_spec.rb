@@ -44,7 +44,7 @@ module AccessControl::Model
         Node.global.should == global_node
       end
 
-      it "can return the #{name} id" do
+      it "can return the global id" do
         Node.create_global_node!
         Node.global_id.should == global_node.id
       end
