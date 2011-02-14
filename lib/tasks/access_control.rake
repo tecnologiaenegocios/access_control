@@ -3,6 +3,7 @@ namespace :db do
     desc "Access control seeds"
     task :seed => :environment do
       AccessControl::Model::Node.create_global_node!
+      AccessControl::Model::Principal.create_anonymous_principal!
     end
   end
 end
