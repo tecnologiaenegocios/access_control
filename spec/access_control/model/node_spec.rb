@@ -58,6 +58,10 @@ module AccessControl::Model
         }.should raise_exception(::AccessControl::ParentError)
       end
 
+      it "returns nil if there's no global node" do
+        Node.global.should be_nil
+      end
+
     end
 
     it "complains if the global node doesn't exist" do

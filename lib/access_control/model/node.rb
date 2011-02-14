@@ -84,9 +84,7 @@ module AccessControl::Model
     )
 
     def self.global
-      r = find_by_securable_type_and_securable_id('AccessControlGlobalNode', 0)
-      raise ::AccessControl::NoGlobalNode unless r
-      r
+      find_by_securable_type_and_securable_id('AccessControlGlobalNode', 0)
     end
 
     def self.global_id
@@ -123,11 +121,16 @@ module AccessControl::Model
     end
 
     before_save :validate_parents
+    before_create :verify_global_node
     after_create :make_self_path
     after_create :make_path_from_global
     after_save :update_parent_and_blocking
 
     private
+
+      def verify_global_node
+        raise AccessControl::NoGlobalNode unless self.class.global
+      end
 
       def fix_paths record
         validate_parents

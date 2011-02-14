@@ -47,6 +47,10 @@ module AccessControl::Model
         Principal.anonymous_id.should == anonymous_principal.id
       end
 
+      it "returns nil if there's no anonymous principal" do
+        Principal.anonymous.should be_nil
+      end
+
     end
 
   end
