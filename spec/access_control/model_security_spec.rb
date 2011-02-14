@@ -338,100 +338,60 @@ module AccessControl
 
       let(:principal) { Model::Principal.create!(:subject_type => 'User',
                                                  :subject_id => 1) }
-      let(:role1) { Model::Role.create!(:name => 'A role') }
-      let(:role2) { Model::Role.create!(:name => 'Another role') }
+      let(:viewer_role) { Model::Role.create!(:name => 'Viewer') }
+      let(:simple_role) { Model::Role.create!(:name => 'Simple') }
       let(:manager) { SecurityManager.new('a controller') }
       before do
-        model_klass.query_permissions = 'view'
-        AccessControl.stub!(:get_security_manager).and_return(manager)
-        manager.stub!(:principal_ids).and_return([principal.id])
         Model::Node.create_global_node!
         Model::SecurityPolicyItem.create!(:permission_name => 'view',
-                                          :role_id => role1.id)
+                                          :role_id => viewer_role.id)
+        AccessControl.stub!(:get_security_manager).and_return(manager)
+        manager.stub!(:principal_ids).and_return([principal.id])
+        model_klass.query_permissions = 'view'
       end
 
       describe "#find" do
 
         it "returns only the records on which the principal has permissions" do
           record1 = model_klass.create!
-          record1.ac_node.assignments.create!(:principal => principal,
-                                              :role => role1)
           record2 = model_klass.create!
-          record2.ac_node.assignments.create!(:principal => principal,
-                                              :role => role2)
           record3 = model_klass.create!
+
+          record1.ac_node.assignments.create!(:principal => principal,
+                                              :role => viewer_role)
+          record2.ac_node.assignments.create!(:principal => principal,
+                                              :role => simple_role)
           result = model_klass.find(:all)
           result.should include(record1)
           result.should_not include(record2)
           result.should_not include(record3)
         end
 
-        it "will take into consideration multiple permissions" do
-          model_klass.query_permissions = ['view', 'query']
-          role3 = Model::Role.create!(:name => 'A better role')
-          Model::SecurityPolicyItem.create!(:permission_name => 'view',
-                                            :role_id => role3.id)
-          Model::SecurityPolicyItem.create!(:permission_name => 'query',
-                                            :role_id => role3.id)
-          record1 = model_klass.create!
-          record1.ac_node.assignments.create!(:principal => principal,
-                                              :role => role1)
-          record2 = model_klass.create!
-          record2.ac_node.assignments.create!(:principal => principal,
-                                              :role => role2)
-          record3 = model_klass.create!
-          record3.ac_node.assignments.create!(:principal => principal,
-                                              :role => role3)
-          record4 = model_klass.create!
-          model_klass.find(:all).should == [record3]
-        end
-
         it "checks query permission only when the manager allows" do
           manager.stub!(:restrict_queries?).and_return(false)
           record1 = model_klass.create!
-          record1.ac_node.assignments.create!(:principal => principal,
-                                              :role => role1)
           record2 = model_klass.create!
-          record2.ac_node.assignments.create!(:principal => principal,
-                                              :role => role2)
           record3 = model_klass.create!
+
+          record1.ac_node.assignments.create!(:principal => principal,
+                                              :role => viewer_role)
+          record2.ac_node.assignments.create!(:principal => principal,
+                                              :role => simple_role)
           result = model_klass.find(:all)
           result.should include(record1)
           result.should include(record2)
           result.should include(record3)
         end
 
-        it "checks permission for each principal" do
-          model_klass.query_permissions = ['view', 'query']
-          role3 = Model::Role.create!(:name => 'A better role')
-          Model::SecurityPolicyItem.create!(:permission_name => 'query',
-                                            :role_id => role3.id)
-          principal2 = Model::Principal.create!(:subject_type => 'Group',
-                                                :subject_id => 1)
-          manager.stub!(:principal_ids).and_return([principal.id,
-                                                    principal2.id])
-          record1 = model_klass.create!
-          record1.ac_node.assignments.create!(:principal => principal,
-                                              :role => role1)
-          record1.ac_node.assignments.create!(:principal => principal2,
-                                              :role => role3)
-          record2 = model_klass.create!
-          record3 = model_klass.create!
-          result = model_klass.find(:all)
-          result.should include(record1)
-          result.should_not include(record2)
-          result.should_not include(record3)
-        end
-
         it "doesn't mess with the other conditions" do
           record1 = model_klass.create!(:field => 1)
           record1.ac_node.assignments.create!(:principal => principal,
-                                              :role => role1)
+                                              :role => viewer_role)
           record2 = model_klass.create!
           record2.ac_node.assignments.create!(:principal => principal,
-                                              :role => role1)
+                                              :role => viewer_role)
           record2.ac_node.assignments.create!(:principal => principal,
-                                              :role => role2)
+                                              :role => simple_role)
           record3 = model_klass.create!
           result = model_klass.find(:all, :conditions => 'field = 1')
           result.should == [record1]
@@ -440,12 +400,12 @@ module AccessControl
         it "doesn't mess with other joins" do
           record1 = model_klass.create!(:field => 1)
           record1.ac_node.assignments.create!(:principal => principal,
-                                              :role => role1)
+                                              :role => viewer_role)
           record2 = model_klass.create!
           record2.ac_node.assignments.create!(:principal => principal,
-                                              :role => role1)
+                                              :role => viewer_role)
           record2.ac_node.assignments.create!(:principal => principal,
-                                              :role => role2)
+                                              :role => simple_role)
           record3 = model_klass.create!
           # We join more records asking for records that has a complementary
           # record in the same table but with opposite signal, which will
@@ -474,6 +434,116 @@ module AccessControl
           record2.should have(1).error_on(:field)
         end
 
+        it "doesn't return readonly records by default" do
+          record1 = model_klass.create!
+          record1.ac_node.assignments.create!(:principal => principal,
+                                              :role => viewer_role)
+          model_klass.find(:all).first.readonly?.should be_false
+        end
+
+        it "returns readonly records if :readonly => true" do
+          record1 = model_klass.create!
+          record1.ac_node.assignments.create!(:principal => principal,
+                                              :role => viewer_role)
+          model_klass.find(:all, :readonly => true).first.readonly?.
+            should be_true
+        end
+
+        describe "with multiple query permissions" do
+
+          let(:querier_role) { Model::Role.create!(:name => 'Querier') }
+          let(:manager_role) { Model::Role.create!(:name => 'Manager') }
+
+          before do
+            model_klass.query_permissions = ['view', 'query']
+            Model::SecurityPolicyItem.create!(:permission_name => 'query',
+                                              :role_id => querier_role.id)
+            Model::SecurityPolicyItem.create!(:permission_name => 'view',
+                                              :role_id => manager_role.id)
+            Model::SecurityPolicyItem.create!(:permission_name => 'query',
+                                              :role_id => manager_role.id)
+          end
+
+          it "checks multiple permissions in the same role" do
+            record1 = model_klass.create!
+            record2 = model_klass.create!
+            record3 = model_klass.create!
+
+            record1.ac_node.assignments.create!(:principal => principal,
+                                                :role => manager_role)
+            record2.ac_node.assignments.create!(:principal => principal,
+                                                :role => viewer_role)
+            record3.ac_node.assignments.create!(:principal => principal,
+                                                :role => viewer_role)
+            model_klass.find(:all).should == [record1]
+          end
+
+          it "checks multiple permissions in different roles" do
+            record1 = model_klass.create!
+            record2 = model_klass.create!
+            record3 = model_klass.create!
+
+            record1.ac_node.assignments.create!(:principal => principal,
+                                                :role => viewer_role)
+            record1.ac_node.assignments.create!(:principal => principal,
+                                                :role => querier_role)
+            record2.ac_node.assignments.create!(:principal => principal,
+                                                :role => viewer_role)
+            record3.ac_node.assignments.create!(:principal => principal,
+                                                :role => querier_role)
+            model_klass.find(:all).should == [record1]
+          end
+
+          it "checks multiple permissions in different nodes" do
+            record1 = model_klass.create!
+            record2 = model_klass.create!
+            record3 = model_klass.create!
+
+            Model::Node.global.assignments.create!(:principal => principal,
+                                                   :role => viewer_role)
+            record1.ac_node.assignments.create!(:principal => principal,
+                                                :role => querier_role)
+            model_klass.find(:all).should == [record1]
+          end
+
+          it "checks multiple permissions for different principals in the "\
+             "same node" do
+            other_principal = Model::Principal.create!(
+              :subject_type => 'Group', :subject_id => 1
+            )
+            manager.stub!(:principal_ids).and_return([principal.id,
+                                                      other_principal.id])
+            record1 = model_klass.create!
+            record2 = model_klass.create!
+            record3 = model_klass.create!
+
+            record1.ac_node.assignments.create!(:principal => other_principal,
+                                                :role => viewer_role)
+            record1.ac_node.assignments.create!(:principal => principal,
+                                                :role => querier_role)
+            model_klass.find(:all).should == [record1]
+          end
+
+          it "checks multiple permissions for different principals in "\
+             "different nodes" do
+            other_principal = Model::Principal.create!(
+              :subject_type => 'Group', :subject_id => 1
+            )
+            manager.stub!(:principal_ids).and_return([principal.id,
+                                                      other_principal.id])
+            record1 = model_klass.create!
+            record2 = model_klass.create!
+            record3 = model_klass.create!
+
+            Model::Node.global.assignments.create!(:principal => principal,
+                                                   :role => viewer_role)
+            record1.ac_node.assignments.create!(:principal => other_principal,
+                                                :role => querier_role)
+            model_klass.find(:all).should == [record1]
+          end
+
+        end
+
         describe "#find with :permissions option" do
 
           it "complains if :permissions is not an array" do
@@ -483,20 +553,20 @@ module AccessControl
           end
 
           it "checks explicitly the permissions passed in :permissions" do
-            role3 = Model::Role.create!(:name => 'A better role')
+            manager_role = Model::Role.create!(:name => 'Manager')
             Model::SecurityPolicyItem.create!(:permission_name => 'view',
-                                              :role_id => role3.id)
+                                              :role_id => manager_role.id)
             Model::SecurityPolicyItem.create!(:permission_name => 'query',
-                                              :role_id => role3.id)
+                                              :role_id => manager_role.id)
             record1 = model_klass.create!
             record1.ac_node.assignments.create!(:principal => principal,
-                                                :role => role1)
+                                                :role => viewer_role)
             record2 = model_klass.create!
             record2.ac_node.assignments.create!(:principal => principal,
-                                                :role => role2)
+                                                :role => simple_role)
             record3 = model_klass.create!
             record3.ac_node.assignments.create!(:principal => principal,
-                                                :role => role3)
+                                                :role => manager_role)
             record4 = model_klass.create!
             model_klass.find(
               :all,
@@ -510,13 +580,13 @@ module AccessControl
 
           it "loads all permissions when :load_permissions is true" do
             Model::SecurityPolicyItem.create!(:permission_name => 'query',
-                                              :role_id => role1.id)
+                                              :role_id => viewer_role.id)
             record1 = model_klass.create!
             record1.ac_node.assignments.create!(:principal => principal,
-                                                :role => role2)
+                                                :role => simple_role)
             record2 = model_klass.create!
             record2.ac_node.assignments.create!(:principal => principal,
-                                                :role => role1)
+                                                :role => viewer_role)
             found = model_klass.find(:first, :load_permissions => true)
             model_klass.should_not_receive(:find) # Do not hit the database
                                                   # anymore.

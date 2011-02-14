@@ -131,11 +131,6 @@ class ActiveRecord::Base
             includes_for_permissions(options)
           ) if options[:load_permissions]
 
-          options[:conditions] = merge_conditions(
-            options[:conditions],
-            conditions_for_permissions(options)
-          )
-
           if options[:joins]
             options[:joins] = merge_joins(
               options[:joins],
@@ -161,55 +156,49 @@ class ActiveRecord::Base
       end
 
       def joins_for_permissions(options)
-        base_joins = base_permission_joins
-        # We need the same number of inclusions of `security_policy_items` as
-        # the number of permissions to query for.
-        associations = options[:permissions].size.times do |i|
-          base_joins << "
-            INNER JOIN `ac_security_policy_items`
-              `ac_security_policy_items_chk_#{i}`
-              ON `ac_security_policy_items_chk_#{i}`.`role_id` = 
-                 `ac_roles_chk`.`id`".strip.squeeze(' ')
-        end
-        base_joins.join(' ')
-      end
 
-      def base_permission_joins
+        c = connection
+        t = table_name
+        pk = primary_key
         principal_ids = AccessControl.get_security_manager.principal_ids
+
         if principal_ids.size == 1
-          p_condition = "= #{connection.quote(principal_ids.first)}"
+          p_condition = "= #{c.quote(principal_ids.first)}"
         else
-          ids = principal_ids.map{|i| connection.quote(i)}.join(',')
+          ids = principal_ids.map{|i| c.quote(i)}.join(',')
           p_condition = "IN (#{ids})"
         end
-        [
-          "INNER JOIN `ac_nodes` `ac_nodes_chk` "\
-            "ON `ac_nodes_chk`.securable_id = `records`.id "\
-            "AND `ac_nodes_chk`.securable_type = 'Record'",
-          "INNER JOIN `ac_paths` `ac_paths_chk` "\
-            "ON `ac_paths_chk`.descendant_id = `ac_nodes_chk`.id",
-          "INNER JOIN `ac_nodes` `ancestors_ac_nodes_chk` "\
-            "ON `ancestors_ac_nodes_chk`.id = `ac_paths_chk`.ancestor_id",
-          "INNER JOIN `ac_assignments` `ac_assignments_chk`"\
-            "ON ac_assignments_chk.node_id = ancestors_ac_nodes_chk.id "\
-            "AND ac_assignments_chk.`principal_id` #{p_condition}",
-          "INNER JOIN `ac_roles` `ac_roles_chk` "\
-            "ON `ac_roles_chk`.id = `ac_assignments_chk`.role_id",
-        ]
-      end
 
-      def conditions_for_permissions(options)
-        # We need the same number of 'AND' conditions as the number of
-        # permissions to query for.
-        options[:permissions].size.times.inject([]) do |conditions, i|
-          conditions << condition_for_permission(options, i)
-        end.join(' AND ')
-      end
+        # We need the same number of inclusions of the whole associations
+        # towards `ac_security_policy_items` as the number of permissions to
+        # query for.
 
-      def condition_for_permission(options, index)
-        alias_name = "ac_security_policy_items_chk_#{index}"
-        permission = connection.quote(options[:permissions][index])
-        "(`#{alias_name}`.`permission_name` = #{permission})"
+        options[:permissions].each_with_index.inject("") do |j, (p, i)|
+          j << "
+
+            INNER JOIN `ac_nodes` `nodes_chk_#{i}`
+            ON `nodes_chk_#{i}`.`securable_id` = `#{t}`.`#{pk}`
+            AND `nodes_chk_#{i}`.`securable_type` = #{c.quote(name)}
+
+            INNER JOIN `ac_paths` `paths_chk_#{i}`
+            ON `paths_chk_#{i}`.`descendant_id` = `nodes_chk_#{i}`.`id`
+
+            INNER JOIN `ac_nodes` `anc_nodes_chk_#{i}`
+            ON `anc_nodes_chk_#{i}`.`id` = `paths_chk_#{i}`.`ancestor_id`
+
+            INNER JOIN `ac_assignments` `assignments_chk_#{i}`
+            ON `assignments_chk_#{i}`.`node_id` = `anc_nodes_chk_#{i}`.`id`
+            AND `assignments_chk_#{i}`.`principal_id` #{p_condition}
+
+            INNER JOIN `ac_roles` `roles_chk_#{i}`
+              ON `roles_chk_#{i}`.`id` = `assignments_chk_#{i}`.`role_id`
+
+            INNER JOIN `ac_security_policy_items` `policy_item_chk_#{i}`
+              ON `policy_item_chk_#{i}`.`role_id` = `roles_chk_#{i}`.`id`
+              AND `policy_item_chk_#{i}`.`permission_name` = #{c.quote(p)}
+
+          "
+        end.strip.gsub(/\s+/, ' ')
       end
 
       def restrict_queries?
