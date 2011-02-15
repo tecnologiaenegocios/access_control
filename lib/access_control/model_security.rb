@@ -114,32 +114,37 @@ class ActiveRecord::Base
     alias_method_chain :find_every, :restriction
 
     def unrestricted_find(*args)
-      options = args.extract_options!
-      options[:permissions] = []
-      args << options
-      find(*args)
+      disable_query_restriction
+      result = find(*args)
+      re_enable_query_restriction
+      result
     end
 
     private
 
       def merge_permission_options(options)
+        merge_permission_includes(options)
         return unless restrict_queries?
         if options[:permissions].any?
+          merge_permission_joins(options)
+        end
+      end
 
-          options[:include] = merge_includes(
-            options[:include],
-            includes_for_permissions(options)
-          ) if options[:load_permissions]
+      def merge_permission_includes(options)
+        options[:include] = merge_includes(
+          options[:include],
+          includes_for_permissions(options)
+        ) if options[:load_permissions]
+      end
 
-          if options[:joins]
-            options[:joins] = merge_joins(
-              options[:joins],
-              joins_for_permissions(options)
-            )
-          else
-            options[:joins] = joins_for_permissions(options)
-          end
-
+      def merge_permission_joins(options)
+        if options[:joins]
+          options[:joins] = merge_joins(
+            options[:joins],
+            joins_for_permissions(options)
+          )
+        else
+          options[:joins] = joins_for_permissions(options)
         end
       end
 

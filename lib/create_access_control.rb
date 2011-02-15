@@ -10,7 +10,7 @@ class CreateAccessControl < ActiveRecord::Migration
     end
     execute "
       ALTER TABLE `ac_nodes`
-      CHANGE COLUMN `id` `id` BIGINT DEFAULT NULL AUTO_INCREMENT
+      CHANGE COLUMN `id` `id` BIGINT NOT NULL AUTO_INCREMENT
     "
     add_index :ac_nodes, [:securable_type, :securable_id], :unique => true
 
