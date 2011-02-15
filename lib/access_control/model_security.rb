@@ -114,10 +114,10 @@ class ActiveRecord::Base
     alias_method_chain :find_every, :restriction
 
     def unrestricted_find(*args)
-      options = args.extract_options!
-      options[:permissions] = []
-      args << options
-      find(*args)
+      disable_query_restriction
+      result = find(*args)
+      re_enable_query_restriction
+      result
     end
 
     private
