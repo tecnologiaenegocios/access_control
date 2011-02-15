@@ -113,6 +113,23 @@ class ActiveRecord::Base
 
     alias_method_chain :find_every, :restriction
 
+    def find_one_with_unauthorized(id, options)
+      begin
+        old_joins = options[:old_joins]
+        old_joins = old_joins.dup if old_joins
+        return find_one_without_unauthorized(id, options)
+      rescue ActiveRecord::RecordNotFound => e
+        disable_query_restriction
+        options[:joins] = old_joins
+        result = find_one_without_unauthorized(id, options) rescue nil
+        re_enable_query_restriction
+        raise e if !result
+        raise AccessControl::Unauthorized
+      end
+    end
+
+    alias_method_chain :find_one, :unauthorized
+
     def unrestricted_find(*args)
       disable_query_restriction
       result = find(*args)

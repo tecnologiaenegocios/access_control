@@ -646,6 +646,32 @@ module AccessControl
 
         end
 
+        describe "#find_one" do
+
+          it "raises Unauthorized if the record exists but the user has no "\
+             "permission" do
+            record1 = model_klass.create!
+            lambda {
+              model_klass.find(record1.id)
+            }.should raise_exception(AccessControl::Unauthorized)
+          end
+
+          it "raises RecordNotFound if the record doesn't exists" do
+            record1 = model_klass.create!
+            lambda {
+              model_klass.find(record1.id + 200)
+            }.should raise_exception(ActiveRecord::RecordNotFound)
+          end
+
+          it "returns the record if the user has permission" do
+            record1 = model_klass.create!
+            record1.ac_node.assignments.create!(:principal => principal,
+                                                :role => viewer_role)
+            model_klass.find(record1.id).should == record1
+          end
+
+        end
+
       end
 
       describe "#unrestricted_find" do
