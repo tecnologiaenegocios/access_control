@@ -13,8 +13,8 @@ module AccessControl
       config.default_query_permissions.should == 'some permission'
     end
 
-    it "defaults to 'view'" do
-      Configuration.new.default_query_permissions.should == ['view']
+    it "defaults to 'query'" do
+      Configuration.new.default_query_permissions.should == ['query']
     end
 
   end

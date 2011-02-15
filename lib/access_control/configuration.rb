@@ -4,7 +4,7 @@ module AccessControl
     attr_accessor :default_query_permissions
 
     def initialize
-      @default_query_permissions = ['view']
+      @default_query_permissions = ['query']
     end
 
   end
