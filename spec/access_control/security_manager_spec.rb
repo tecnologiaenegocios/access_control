@@ -111,53 +111,49 @@ module AccessControl
     describe "#has_access?" do
 
       let(:manager) { SecurityManager.new(controller) }
+      let(:node) { stub('node', :has_permission? => nil) }
 
-      describe "in a single context" do
+      describe "with a single permission queried" do
 
-        let(:node) { stub('node', :has_permission? => nil) }
+        let(:permission) { 'a permission' }
 
-        describe "with a single permission queried" do
-
-          let(:permission) { 'a permission' }
-
-          it "returns true if the user has the permission" do
-            node.should_receive(:has_permission?).with(permission).
-              and_return(true)
-            manager.has_access?(node, permission).should be_true
-          end
-
-          it "returns false if the user hasn't the permission" do
-            node.should_receive(:has_permission?).with(permission).
-              and_return(false)
-            manager.has_access?(node, permission).should be_false
-          end
-
+        it "returns true if the user has the permission" do
+          node.should_receive(:has_permission?).with(permission).
+            and_return(true)
+          manager.has_access?(node, permission).should be_true
         end
 
-        describe "with many permissions queried" do
-
-          let(:permission1) { 'one permission' }
-          let(:permission2) { 'other permission' }
-
-          it "returns true if the user has all permissions queried" do
-            node.should_receive(:has_permission?).
-              with(permission1).and_return(true)
-            node.should_receive(:has_permission?).
-              with(permission2).and_return(true)
-            manager.has_access?(node, [permission1, permission2]).
-              should be_true
-          end
-
-          it "returns false if the user has not all permissions queried" do
-            node.should_receive(:has_permission?).
-              with(permission1).and_return(true)
-            node.should_receive(:has_permission?).
-              with(permission2).and_return(false)
-            manager.has_access?(node, [permission1, permission2]).
-              should be_false
-          end
-
+        it "returns false if the user hasn't the permission" do
+          node.should_receive(:has_permission?).with(permission).
+            and_return(false)
+          manager.has_access?(node, permission).should be_false
         end
+
+      end
+
+      describe "with many permissions queried" do
+
+        let(:permission1) { 'one permission' }
+        let(:permission2) { 'other permission' }
+
+        it "returns true if the user has all permissions queried" do
+          node.should_receive(:has_permission?).
+            with(permission1).and_return(true)
+          node.should_receive(:has_permission?).
+            with(permission2).and_return(true)
+          manager.has_access?(node, [permission1, permission2]).
+            should be_true
+        end
+
+        it "returns false if the user has not all permissions queried" do
+          node.should_receive(:has_permission?).
+            with(permission1).and_return(true)
+          node.should_receive(:has_permission?).
+            with(permission2).and_return(false)
+          manager.has_access?(node, [permission1, permission2]).
+            should be_false
+        end
+
       end
 
     end
@@ -169,14 +165,14 @@ module AccessControl
       it "doesn't raise Unauthorized when the user has the permissions" do
         manager.stub!(:has_access?).and_return(true)
         lambda {
-          manager.verify_access!('some contexts', 'some permissions')
+          manager.verify_access!('some context', 'some permissions')
         }.should_not raise_exception(::AccessControl::Unauthorized)
       end
 
       it "raises Unauthorized when the user has no permissions" do
         manager.stub!(:has_access?).and_return(false)
         lambda {
-          manager.verify_access!('some contexts', 'some permissions')
+          manager.verify_access!('some context', 'some permissions')
         }.should raise_exception(::AccessControl::Unauthorized)
       end
 
