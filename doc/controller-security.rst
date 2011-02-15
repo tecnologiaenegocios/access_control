@@ -1,3 +1,7 @@
+===================
+Controller Security
+===================
+
 :mod:`ControllerSecurity` --- Methods used in ApplicationController
 ===================================================================
 
