@@ -440,7 +440,17 @@ module AccessControl
                                               :role => viewer_role)
           record2 = model_klass.create!
           model_klass.find(:all, :select => '*').first.id.should == record1.id
-          model_klass.find(:all, :select => '*').first.name.should == record1.name
+          model_klass.find(:all, :select => '*').first.name.should == \
+            record1.name
+        end
+
+        it "doesn't return duplicated records" do
+          Model::Node.global.assignments.create!(:principal => principal,
+                                                 :role => viewer_role)
+          record1 = model_klass.create!(:name => 'any name')
+          record1.ac_node.assignments.create!(:principal => principal,
+                                              :role => viewer_role)
+          model_klass.find(:all).size.should == 1
         end
 
         it "doesn't return readonly records by default" do

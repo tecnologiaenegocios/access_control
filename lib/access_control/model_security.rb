@@ -150,14 +150,12 @@ class ActiveRecord::Base
       end
 
       def fix_select_clause_for_permission_joins(options)
-        if !options[:select]
-          return options[:select] = "#{quoted_table_name}.*"
-        end
+        options[:select] ||= '*'
         options[:select] = prefix_with_table_name(options[:select])
       end
 
       def prefix_with_table_name(select_clause)
-        select_clause.split(',').inject([]) do |s, token|
+        'DISTINCT ' + select_clause.split(',').inject([]) do |s, token|
           t = token.strip.gsub('`', '')
           next s << "#{quoted_table_name}.*" if t == '*'
           if columns_hash.keys.include?(t)
