@@ -13,6 +13,7 @@ Contents:
 
    model-security
    controller-security
+   security-manager
 
 
 Indices and tables
