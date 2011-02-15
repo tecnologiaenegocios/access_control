@@ -434,6 +434,15 @@ module AccessControl
           record2.should have(1).error_on(:field)
         end
 
+        it "doesn't mess the keys of the record" do
+          record1 = model_klass.create!(:name => 'any name')
+          record1.ac_node.assignments.create!(:principal => principal,
+                                              :role => viewer_role)
+          record2 = model_klass.create!
+          model_klass.find(:all, :select => '*').first.id.should == record1.id
+          model_klass.find(:all, :select => '*').first.name.should == record1.name
+        end
+
         it "doesn't return readonly records by default" do
           record1 = model_klass.create!
           record1.ac_node.assignments.create!(:principal => principal,
@@ -583,9 +592,6 @@ module AccessControl
                                               :role_id => viewer_role.id)
             record1 = model_klass.create!
             record1.ac_node.assignments.create!(:principal => principal,
-                                                :role => simple_role)
-            record2 = model_klass.create!
-            record2.ac_node.assignments.create!(:principal => principal,
                                                 :role => viewer_role)
             found = model_klass.find(:first, :load_permissions => true)
             model_klass.should_not_receive(:find) # Do not hit the database
@@ -599,6 +605,30 @@ module AccessControl
               map(&:role).
               map(&:security_policy_items).flatten.
               map(&:permission_name)
+            permissions.size.should == 2
+            permissions.should include('view')
+            permissions.should include('query')
+          end
+
+          it "loads all permissions even if query restriction is disabled" do
+            manager.stub!(:restrict_queries?).and_return(false)
+            Model::SecurityPolicyItem.create!(:permission_name => 'query',
+                                              :role_id => viewer_role.id)
+            record1 = model_klass.create!
+            record1.ac_node.assignments.create!(:principal => principal,
+                                                :role => viewer_role)
+            found = model_klass.find(:first, :load_permissions => true)
+            model_klass.should_not_receive(:find) # Do not hit the database
+                                                  # anymore.
+            Model::Node.should_not_receive(:find)
+            Model::Assignment.should_not_receive(:find)
+            Model::Role.should_not_receive(:find)
+            Model::SecurityPolicyItem.should_not_receive(:find)
+            permissions = found.ac_node.ancestors.
+              map(&:principal_assignments).flatten.
+              map(&:role).
+              map(&:security_policy_items).flatten.
+              map(&:permission_name).uniq
             permissions.size.should == 2
             permissions.should include('view')
             permissions.should include('query')
