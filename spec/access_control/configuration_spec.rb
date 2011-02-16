@@ -38,7 +38,7 @@ module AccessControl
       it "yields a new configuration object every time" do
         first = second = nil
         AccessControl.configure{|config| first = config}
-        AccessControl.configure{|config| seconf = config}
+        AccessControl.configure{|config| second = config}
         first.should_not equal(second)
       end
     end
