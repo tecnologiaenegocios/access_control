@@ -27,6 +27,13 @@ module AccessControl
         @ac_parent_association
       end
 
+      def child_associations *args
+        if args.any?
+          @ac_child_associations = args
+        end
+        @ac_child_associations ||= []
+      end
+
       [:query, :view].each do |name|
         define_method(:"#{name}_permissions=") do |permissions|
           permissions = [permissions] unless permissions.is_a?(Array)
@@ -82,6 +89,13 @@ module AccessControl
       def parents
         return [] unless self.class.parent_association
         Set.new.merge(send(self.class.parent_association)).to_a
+      end
+
+      def children
+        return [] if self.class.child_associations.empty?
+        self.class.child_associations.inject([]) do |r, a|
+          r.concat([self.send(a)].flatten)
+        end.uniq
       end
 
     end
@@ -272,6 +286,7 @@ class ActiveRecord::Base
 
   after_create :create_nodes
   after_update :update_parent_nodes
+  after_save :update_child_nodes
   before_validation :disable_query_restriction
   after_validation :re_enable_query_restriction
 
@@ -285,6 +300,12 @@ class ActiveRecord::Base
 
     def update_parent_nodes
       ac_node.parents = parents.map(&:ac_node) if ac_node
+    end
+
+    def update_child_nodes
+      children.each do |child|
+        child.send(:update_parent_nodes)
+      end
     end
 
     def disable_query_restriction

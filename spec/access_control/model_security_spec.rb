@@ -53,7 +53,7 @@ module AccessControl
 
       end
 
-      describe "parent association" do
+      describe "tree management" do
 
         let(:test_object) do
           object = Class.new
@@ -61,12 +61,30 @@ module AccessControl
           object
         end
 
-        it "can be defined" do
-          test_object.parent_association(:test)
-          test_object.parent_association.should == :test
+        describe "parent association" do
+
+          it "can be defined" do
+            test_object.parent_association(:test)
+            test_object.parent_association.should == :test
+          end
+
+        end
+
+        describe "child associations" do
+
+          it "is empty by default" do
+            test_object.child_associations.should be_empty
+          end
+
+          it "can be defined" do
+            test_object.child_associations(:child1, :child2)
+            test_object.child_associations.should == [:child1, :child2]
+          end
+
         end
 
       end
+
     end
 
     describe ModelSecurity::InstanceMethods do
@@ -108,6 +126,76 @@ module AccessControl
             end
           end
           model_klass.new.parents.should == ['some parent']
+        end
+
+      end
+
+      describe "child node list" do
+
+        before do
+          model_klass.send(:include, ModelSecurity::InstanceMethods)
+        end
+
+        it "is empty by default" do
+          model_klass.new.children.should be_empty
+        end
+
+        describe "when there's one child association" do
+
+          before do
+            model_klass.class_eval do
+              child_associations :test
+            end
+          end
+
+          describe "and the association is single" do
+
+            it "wraps the value of the association in an array" do
+              model_klass.class_eval do
+                def test
+                  'a single object'
+                end
+              end
+              model_klass.new.children.should == ['a single object']
+            end
+
+          end
+
+          describe "and the association is collection" do
+
+            it "return the values of the association" do
+              model_klass.class_eval do
+                def test
+                  ['many', 'objects']
+                end
+              end
+              model_klass.new.children.should == ['many', 'objects']
+            end
+
+          end
+
+        end
+
+        describe "when there's many child associations" do
+
+          before do
+            model_klass.class_eval do
+              child_associations :child1, :child2
+              def child1
+                'single'
+              end
+              def child2
+                ['multiple']
+              end
+            end
+          end
+
+          it "returns an array containing the records of the associations" do
+            model_klass.new.children.size.should == 2
+            model_klass.new.children.should include('single')
+            model_klass.new.children.should include('multiple')
+          end
+
         end
 
       end
@@ -240,6 +328,24 @@ module AccessControl
           record.save
         end
 
+        it "updates children of the node on save" do
+          parent_node1 = stub('parent_node1')
+          parent_node2 = stub('parent_node2')
+          parent1 = stub('parent1', :ac_node => parent_node1)
+          parent2 = stub('parent2', :ac_node => parent_node2)
+          node1 = mock('node1')
+          node2 = mock('node2')
+          child1 = model_klass.new
+          child1.stub!(:ac_node => node1, :parents => [parent1])
+          child2 = model_klass.new
+          child2.stub!(:ac_node => node2, :parents => [parent2])
+          record = model_klass.new
+          record.stub!(:children).and_return([child1, child2])
+          node1.should_receive(:parents=).with([parent_node1])
+          node2.should_receive(:parents=).with([parent_node2])
+          record.save
+        end
+
       end
 
       describe "when destroying" do
@@ -257,8 +363,8 @@ module AccessControl
 
     end
 
-      # These permissions are the permissions applied to restricted queries
-      # (see in query interface).
+    # These permissions are the permissions applied to restricted queries (see
+    # in query interface).
 
     { "view permissions" => 'view',
       "query permissions" => 'query'}.each do |k, v|

@@ -3,6 +3,7 @@ Model Security
 ==============
 
 .. default-domain:: rb
+.. highlight:: ruby
 
 Through the module :mod:`ModelSecurity`, *AccessControl* introduces
 modifications to :class:`ActiveRecord::Base` to allow security to be
@@ -78,6 +79,9 @@ that the application code must declare on each model class.
 Defining an association to be the *parent association*
 ------------------------------------------------------
 
+A parent association is defined by using the class method
+:meth:`ModelSecurity::ClassMethods#parent_association`.
+
 The association defined as parent will be queried when a record is created or
 its node is accessed by the first time.  The node of each object returned by
 the association (which can be only one record for ``has_one`` or
@@ -89,9 +93,71 @@ At most one parent association is supported per model class.  If no parent
 association is defined, the record will have its node right below the global
 node.
 
-A parent association is defined by using the class method
-:meth:`ModelSecurity::ClassMethods#parent_association`.
+If a simple association is not enough to express the parents of a model
+instance, one must override the method
+:meth:`ModelSecurity::InstanceMethods#parents` to return an arbitrary array of
+objects that will be the parents of the record.
 
+
+Updating parents in another records from a given record
+-------------------------------------------------------
+
+In some cases there is the need to inform another instances that they gained a
+new parent.  In such cases one can define which associations are subject to
+this change through defining *child associations*.  This is done by
+calling :meth:`ModelSecurity::ClassMethods#child_associations` in the model
+class.  The defined associations will be queried and any object returned will
+have its parents updated to include the record, at the time the record is
+saved.
+
+Unlike :meth:`ModelSecurity::ClassMethods#parent_association`, one can create
+many child associations.  If no child association is defined, no update is
+performed.
+
+The update happens by re-assigning the parents of each node found in the
+children objects.  The parents of each node are obtained by calling their
+:meth:`ModelSecurity::InstanceMethods#parents`, and therefore they can be
+defined in their own classes through
+:meth:`ModelSecurity::ClassMethods#parent_association` or provided by custom
+implementation of :meth:`ModelSecurity::InstanceMethods#parents`.
+
+If defining children association is not enough to cover specific needs, one
+can override the method :meth:`ModelSecurity::InstanceMethods#children` of the
+model instance.
+
+.. warning::
+
+   The mis-use of parent and child associations can lead to infinite
+   recursion.  It must be assured by the application code that there's no
+   cycle in the hierarchy created by mis-using these methods.
+
+
+Generating the hierarchy in a rake task
+---------------------------------------
+
+One can build an hierarchy using plain ruby, in a rake task, as follows::
+
+  desc "build access control hieararchy"
+  task :build_access_control_hieararchy => :environment do
+
+    # Ensure that all models are already loaded.
+    Dir[ENV['RAILS_ROOT'] + '/app/models/**/*.rb'].each{|path| require path}
+
+    # For each model, get all records and for each record touch its node.
+    ObjectSpace.each_object(Class) do |klass|
+      next if klass == ActiveRecord::Base
+      next unless klass.ancestors.include?(ActiveRecord::Base)
+      next unless klass.securable?
+      # Call the ac_node to create it.
+      klass.all.each{|r| r.ac_node}
+    end
+
+  end
+
+This is a simplistic example.  It may have to be adjusted to specific needs.
+But in general, each record from a model that has a table and is ``securable``
+(see :meth:`ModelSecurity::ClassMethods#securable?`) should have a node (an
+instance of :class:`Model::Node`).
 
 :mod:`ModelSecurity` --- Methods used in model classes and instances
 ====================================================================
@@ -126,6 +192,18 @@ Class methods available in the model's class level:
 
    Overriding :meth:`parents` directly can be done instead when simply stating
    an association as a parent or parents objects is not enough.
+
+.. method:: child_associations(*args)
+
+   State that each argument, representing the name of an association, is a
+   child association of the records of the class.  Each argument can be a
+   symbol or a string.  This is a convenient way to create new parents for
+   existing records.
+
+   If no argument is passed, the current child associations are returned.
+
+   Overriding :meth:`children` directly can be done instead when simply
+   stating associations as children objects is not enough.
 
 .. method:: query_permissions=(permissions)
 
@@ -186,17 +264,37 @@ Class methods available in the model's class level:
 
    Perform the query restriction.
 
+.. method:: securable?
+
+   Return ``true`` by default for every model class.  If ``true``, the class
+   is subjected to access control.  Every method call on its instances will be
+   checked using the permission defined through :meth:`protect`, queries
+   will be restricted and a node is created when a record is created.
+   
+   Overriding it to return ``false`` will disable :class:`Model::Node`
+   creation and disable checks in method calls and queries.
+
 .. module:: ModelSecurity::InstanceMethods
    :synopsis: Methods added to ActiveRecord::Base that can be called on instances
 
 .. moduleauthor:: Rafael Cabral Coutinho <rcabralc@tecnologiaenegocios.com.br>
 
-The following method is provided as in instance method:
+The following methods are provided as instance methods:
 
 .. method:: parents
 
-   Return all parent objects of this record.  Records are fetched from the
-   parent association, defined in the class method :meth:`parent_association`.
+   Return all parent objects of this record.  Records are fetched by default
+   from the parent association, defined in the class method
+   :meth:`parent_association`.
+
+   Overriding this method provides a way to subclasses to get more control on
+   how the access control hierarchy is built.
+
+.. method:: children
+
+   Return all children objects of this record.  Records are fetched by default
+   from the child associations, defined in the class method
+   :meth:`child_associations`.
 
    Overriding this method provides a way to subclasses to get more control on
    how the access control hierarchy is built.
