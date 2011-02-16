@@ -88,7 +88,7 @@ module AccessControl
 
       def parents
         return [] unless self.class.parent_association
-        Set.new.merge(send(self.class.parent_association)).to_a
+        [send(self.class.parent_association)].flatten.uniq
       end
 
       def children
