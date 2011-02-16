@@ -40,8 +40,8 @@ module AccessControl
       end
     end
 
-    def verify_access! nodes, permissions
-      raise Unauthorized unless has_access?(nodes, permissions)
+    def verify_access! node, permissions
+      raise Unauthorized unless has_access?(node, permissions)
     end
 
     def restrict_queries?

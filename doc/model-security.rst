@@ -1,7 +1,100 @@
-:mod:`ModelSecurity` --- Methods used in model classes and instances
-====================================================================
+==============
+Model Security
+==============
 
 .. default-domain:: rb
+
+Through the module :mod:`ModelSecurity`, *AccessControl* introduces
+modifications to :class:`ActiveRecord::Base` to allow security to be
+implemented at the module level.  This module modifies the behaviour of
+:meth:`ActiveRecord::Base#find`.  It will filter out every record that the
+user has no permission to see.
+
+Restriction by default
+======================
+
+In order to a record to be returned by
+:meth:`ModelSecurity::ClassMethods#find` or variations, the user must have all
+permissions returned by
+:meth:`ModelSecurity::ClassMethods#query_permissions` in the context of the
+record being returned.  This method is included in
+:class:`ActiveRecord::Base`.
+
+Implemetation details
+---------------------
+
+The filtering of records is done by including the access control tables in the
+query using `INNER JOIN` s.  This means that the record is returned if and
+only if:
+
+- It has an :class:`Model::Node` associated record
+
+- For each permission required:
+
+  - In the node associated or in any ancestor (including the global node)
+    there is at least one :class:`Model::Assignment` record for any of the
+    principals of the user, associated with a :class:`Model::Role` record that
+    has the required permission.
+
+Since it is done through an `INNER JOIN`, the query issued to the database
+will contain all fields of the joined tables, plus the fields of the table on
+wich :meth:`find` is run.  To return only the fields of the table, a custom
+select is created instead of the default `*`.  This is done as follows:
+
+- If no `:select` option is provided when calling :meth:`find`, one is created
+  using the table's name to return all its fields.
+
+- If an option `:select` is passed to :meth:`find`, this select must comply
+  with the following:
+
+  - It must be a single `*`, OR
+
+    - The `*` is then prefixed with the table's name automatically
+
+  - It must be a comma-separated list of references
+
+    - If the reference represents a field of the table, it will be prefixed
+      with the table's name automatically.
+
+    - If the reference is not a field of the table or is something more
+      complex like a function, then it is expected that the caller already
+      provided the reference fully qualified, that is, each field referenced
+      must have its table's name already prefixed.
+
+
+Unrestricted :meth:`find`
+=========================
+
+This module introduces a method for unrestrictely search for records:
+:meth:`ModelSecurity::ClassMethods#unrestricted_find`.
+
+
+Hierarchy of records
+====================
+
+The hierarchy of nodes is maintained with the help of some defined behaviour
+that the application code must declare on each model class.
+
+Defining an association to be the *parent association*
+------------------------------------------------------
+
+The association defined as parent will be queried when a record is created or
+its node is accessed by the first time.  The node of each object returned by
+the association (which can be only one record for ``has_one`` or
+``belongs_to`` or many records for ``has_many`` or
+``has_and_belongs_to_many``) is a parent node of the record.  The hierarchy is
+updated accordingly.
+
+At most one parent association is supported per model class.  If no parent
+association is defined, the record will have its node right below the global
+node.
+
+A parent association is defined by using the class method
+:meth:`ModelSecurity::ClassMethods#parent_association`.
+
+
+:mod:`ModelSecurity` --- Methods used in model classes and instances
+====================================================================
 
 .. module:: ModelSecurity::ClassMethods
    :synopsis: This module provides basic declarative methods for setup security in models
@@ -85,13 +178,20 @@ Class methods available in the model's class level:
 
       Modifying the array returned is ok in any situation.
 
+.. method:: unrestricted_find(*args)
+
+   Return records in the same way of :meth:`ActiveRecord::Base#find`.
+
+.. method:: find(*args)
+
+   Perform the query restriction.
 
 .. module:: ModelSecurity::InstanceMethods
    :synopsis: Methods added to ActiveRecord::Base that can be called on instances
 
 .. moduleauthor:: Rafael Cabral Coutinho <rcabralc@tecnologiaenegocios.com.br>
 
-The folloing method is provided as in instance method:
+The following method is provided as in instance method:
 
 .. method:: parents
 

@@ -1,3 +1,5 @@
+require 'access_control/exceptions'
+
 module AccessControl
 
   module ControllerSecurity
@@ -25,15 +27,21 @@ module AccessControl
         base.extend(AccessControl::ControllerSecurity::ClassMethods)
       end
 
-      def run_with_security_manager
-        AccessControl.set_security_manager(self)
-        yield
-      ensure
-        AccessControl.no_security_manager
-      end
+      private
 
-      def current_security_context
-      end
+        def run_with_security_manager
+          AccessControl.set_security_manager(self)
+          yield
+        ensure
+          AccessControl.no_security_manager
+        end
+
+        def current_security_context
+        end
+
+        def current_groups
+          []
+        end
 
     end
 

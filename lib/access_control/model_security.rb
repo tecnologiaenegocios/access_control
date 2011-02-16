@@ -27,27 +27,35 @@ module AccessControl
         @ac_parent_association
       end
 
-      def query_permissions= permissions
-        permissions = [permissions] unless permissions.is_a?(Array)
-        @query_permissions = permissions
-      end
-
-      def query_permissions
-        if !@query_permissions
-          permissions = AccessControl.config.default_query_permissions
+      [:query, :view].each do |name|
+        define_method(:"#{name}_permissions=") do |permissions|
           permissions = [permissions] unless permissions.is_a?(Array)
-          return (permissions + additional_query_permissions).uniq
+          instance_variable_set("@#{name}_permissions", permissions)
         end
-        @query_permissions
-      end
 
-      def additional_query_permissions= permissions
-        permissions = [permissions] unless permissions.is_a?(Array)
-        @additional_query_permissions = permissions
-      end
+        define_method(:"#{name}_permissions") do
+          if !instance_variable_get("@#{name}_permissions")
+            permissions = AccessControl.config.send(
+              "default_#{name}_permissions"
+            )
+            permissions = [permissions] unless permissions.is_a?(Array)
+            return (permissions +
+                    send("additional_#{name}_permissions")).uniq
+          end
+          instance_variable_get("@#{name}_permissions")
+        end
 
-      def additional_query_permissions
-        @additional_query_permissions ||= []
+        define_method(:"additional_#{name}_permissions=") do |permissions|
+          permissions = [permissions] unless permissions.is_a?(Array)
+          instance_variable_set("@additional_#{name}_permissions", permissions)
+        end
+
+        define_method(:"additional_#{name}_permissions") do
+          unless v = instance_variable_get("@additional_#{name}_permissions")
+            v = instance_variable_set("@additional_#{name}_permissions", [])
+          end
+          v
+        end
       end
 
     end
@@ -113,6 +121,24 @@ class ActiveRecord::Base
 
     alias_method_chain :find_every, :restriction
 
+    def find_one_with_unauthorized(id, options)
+      old_joins = options[:old_joins]
+      old_joins = old_joins.dup if old_joins
+      options[:permissions] ||= (view_permissions | query_permissions)
+      begin
+        return find_one_without_unauthorized(id, options)
+      rescue ActiveRecord::RecordNotFound => e
+        disable_query_restriction
+        options[:joins] = old_joins
+        result = find_one_without_unauthorized(id, options) rescue nil
+        re_enable_query_restriction
+        raise e if !result
+        raise AccessControl::Unauthorized
+      end
+    end
+
+    alias_method_chain :find_one, :unauthorized
+
     def unrestricted_find(*args)
       disable_query_restriction
       result = find(*args)
@@ -146,6 +172,24 @@ class ActiveRecord::Base
         else
           options[:joins] = joins_for_permissions(options)
         end
+        fix_select_clause_for_permission_joins(options)
+      end
+
+      def fix_select_clause_for_permission_joins(options)
+        options[:select] ||= '*'
+        options[:select] = prefix_with_table_name(options[:select])
+      end
+
+      def prefix_with_table_name(select_clause)
+        'DISTINCT ' + select_clause.split(',').inject([]) do |s, token|
+          t = token.strip.gsub('`', '')
+          next s << "#{quoted_table_name}.*" if t == '*'
+          if columns_hash.keys.include?(t)
+            next s << "#{quoted_table_name}.`#{t}`"
+          end
+          # Functions or other references are not prefixed.
+          s << token
+        end.join(', ')
       end
 
       def includes_for_permissions(options)

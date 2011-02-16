@@ -1,3 +1,7 @@
+===================
+Controller Security
+===================
+
 :mod:`ControllerSecurity` --- Methods used in ApplicationController
 ===================================================================
 
@@ -67,6 +71,8 @@ This module provides class methods and instance methods for
    methods defined, or inherit from :class:`ApplicationController`, as this is
    expected by this filter.
 
+   Since this method is meant to be used as a filter it is declared private.
+
 .. method:: current_user
 .. method:: current_groups
 
@@ -79,21 +85,24 @@ This module provides class methods and instance methods for
 
       class ApplicationController < ActionController::Base
 
-        before_filter :do_login
+        before_filter :authenticate
         around_filter :run_with_security_manager
         ..
-        def do_login
-          # Perform the logic of authentication...
-          @current_user = the_user_that_we_found
-        end
 
-        def current_user
-          @current_user
-        end
+        private
 
-        def current_groups
-          @current_user.groups
-        end
+          def authenticate
+            # Perform the logic of authentication...
+            @current_user = the_user_that_we_found
+          end
+
+          def current_user
+            @current_user
+          end
+
+          def current_groups
+            @current_user.groups
+          end
 
       end
 
@@ -104,14 +113,23 @@ This module provides class methods and instance methods for
 
    .. note::
 
+      ``current_user`` and ``current_groups`` can be declared protected or
+      public too, but it is generally a good idea to keep them private.  Also,
+      it is a good idea to keep filters private too, as we did in the example
+      with ``authenticate``.
+
+   .. note::
+
       You may not have the concept of user groups in your application.  If so,
-      return an empty array in the :meth:`current_groups` method.
+      you don't need to implement ``current_groups`` (the default
+      implementation will simply return an empty array, which is what you need
+      in such case).
 
    .. note::
 
       The user can fail to authenticate, perhaps because it is anonymous or
       its cookie is invalid or it mistyped the password, or any other reason.
-      If an user could not be authenticated, returning *nil* from
+      If an user could not be authenticated, returning ``nil`` from
       :meth:`current_user` is the right way to tell the system that there's no
       current user defined, and the requests should be treated as being done
       by an anonymous user.

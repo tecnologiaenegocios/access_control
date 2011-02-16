@@ -257,79 +257,109 @@ module AccessControl
 
     end
 
-    describe "query permissions" do
+      # These permissions are the permissions applied to restricted queries
+      # (see in query interface).
 
-      # This permission is the permission applied to restricted queries (see in
-      # query interface).
+    { "view permissions" => 'view',
+      "query permissions" => 'query'}.each do |k, v|
 
-      it "can be defined in class level" do
-        model_klass.query_permissions = 'some permission'
+      describe k do
+
+        it "can be defined in class level" do
+          model_klass.send("#{v}_permissions=", 'some permission')
+        end
+
+        it "can be queried in class level (returns an array)" do
+          model_klass.send("#{v}_permissions=", 'some permission')
+          model_klass.send("#{v}_permissions").should == ['some permission']
+        end
+
+        it "defaults to config's value if it is already an array" do
+          AccessControl.config.send(
+            "default_#{v}_permissions=",
+            ['some permission']
+          )
+          model_klass.send("#{v}_permissions").should == ['some permission']
+        end
+
+        it "defaults to config's value if it is a string, returns an array" do
+          AccessControl.config.send(
+            "default_#{v}_permissions=",
+            'some permission'
+          )
+          model_klass.send("#{v}_permissions").should == ['some permission']
+        end
+
+        it "defaults to config's value even if it changes between calls" do
+          AccessControl.config.send(
+            "default_#{v}_permissions=",
+            ['some permission']
+          )
+          model_klass.send("#{v}_permissions").should == ['some permission']
+          AccessControl.config.send(
+            "default_#{v}_permissions=",
+            ['another permission']
+          )
+          model_klass.send("#{v}_permissions").should == ['another permission']
+        end
+
+        it "doesn't mess with the config's value" do
+          AccessControl.config.send(
+            "default_#{v}_permissions=",
+            ['some permission']
+          )
+          model_klass.send("#{v}_permissions=", 'another permission')
+          AccessControl.config.send("default_#{v}_permissions").
+            should == ['some permission']
+        end
+
       end
 
-      it "can be queried in class level (returns an array)" do
-        model_klass.query_permissions = 'some permission'
-        model_klass.query_permissions.should == ['some permission']
-      end
+      describe "additional #{k}" do
 
-      it "defaults to config's value if it is already an array" do
-        AccessControl.config.default_query_permissions = ['some permission']
-        model_klass.query_permissions.should == ['some permission']
-      end
+        it "is empty by default" do
+          model_klass.send("additional_#{v}_permissions").should be_empty
+        end
 
-      it "defaults to config's value if it is a string, returns an array" do
-        AccessControl.config.default_query_permissions = 'some permission'
-        model_klass.query_permissions.should == ['some permission']
-      end
+        it "can be defined in class level" do
+          model_klass.send("additional_#{v}_permissions=", 'some permission')
+        end
 
-      it "defaults to config's value even if it changes between calls" do
-        AccessControl.config.default_query_permissions = ['some permission']
-        model_klass.query_permissions.should == ['some permission']
-        AccessControl.config.default_query_permissions = ['another permission']
-        model_klass.query_permissions.should == ['another permission']
-      end
+        it "can be queried in class level (returns an array)" do
+          model_klass.send("additional_#{v}_permissions=", 'some permission')
+          model_klass.send("additional_#{v}_permissions").
+            should == ['some permission']
+        end
 
-      it "doesn't mess with the config's value" do
-        AccessControl.config.default_query_permissions = ['some permission']
-        model_klass.query_permissions = 'another permission'
-        AccessControl.config.default_query_permissions.should == \
-          ['some permission']
-      end
+        it "can have a string appended (seen by ##{v}_permissions)" do
+          AccessControl.config.send(
+            "default_#{v}_permissions=",
+            ['some permission']
+          )
+          model_klass.
+            send("additional_#{v}_permissions") << 'another permission'
+          model_klass.send("#{v}_permissions").should == ['some permission',
+                                                          'another permission']
+        end
 
-    end
+        it "doesn't mess with the config's value when we push a new string" do
+          AccessControl.config.send(
+            "default_#{v}_permissions=",
+            ['some permission']
+          )
+          model_klass.
+            send("additional_#{v}_permissions") << 'another permission'
+          AccessControl.config.send("default_#{v}_permissions").
+            should == ['some permission']
+        end
 
-    describe "additional query permissions" do
+        it "cannot set additional permissions if ##{v}_permissions was set" do
+          model_klass.send("#{v}_permissions=", 'some permission')
+          model_klass.send("additional_#{v}_permissions=",
+                           'another permission')
+          model_klass.send("#{v}_permissions").should == ['some permission']
+        end
 
-      it "is empty by default" do
-        model_klass.additional_query_permissions.should be_empty
-      end
-
-      it "can be defined in class level" do
-        model_klass.additional_query_permissions = 'some permission'
-      end
-
-      it "can be queried in class level (returns an array)" do
-        model_klass.additional_query_permissions = 'some permission'
-        model_klass.additional_query_permissions.should == ['some permission']
-      end
-
-      it "can have a string appended (seen by #query_permissions)" do
-        AccessControl.config.default_query_permissions = ['some permission']
-        model_klass.additional_query_permissions << 'another permission'
-        model_klass.query_permissions.should == ['some permission',
-                                                  'another permission']
-      end
-
-      it "doesn't mess with the config's value when we push a new string" do
-        AccessControl.config.default_query_permissions = ['some permission']
-        model_klass.additional_query_permissions << 'another permission'
-        AccessControl.config.default_query_permissions.should == \
-          ['some permission']
-      end
-
-      it "cannot set additional permissions if #query_permissions was set" do
-        model_klass.query_permissions = ['some permission']
-        model_klass.additional_query_permissions = ['another permission']
-        model_klass.query_permissions.should == ['some permission']
       end
 
     end
@@ -338,16 +368,18 @@ module AccessControl
 
       let(:principal) { Model::Principal.create!(:subject_type => 'User',
                                                  :subject_id => 1) }
-      let(:viewer_role) { Model::Role.create!(:name => 'Viewer') }
+      let(:querier_role) { Model::Role.create!(:name => 'Querier') }
       let(:simple_role) { Model::Role.create!(:name => 'Simple') }
       let(:manager) { SecurityManager.new('a controller') }
+
       before do
         Model::Node.create_global_node!
-        Model::SecurityPolicyItem.create!(:permission_name => 'view',
-                                          :role_id => viewer_role.id)
+        Model::SecurityPolicyItem.create!(:permission_name => 'query',
+                                          :role_id => querier_role.id)
         AccessControl.stub!(:get_security_manager).and_return(manager)
         manager.stub!(:principal_ids).and_return([principal.id])
-        model_klass.query_permissions = 'view'
+        model_klass.query_permissions = 'query'
+        model_klass.view_permissions = 'view'
       end
 
       describe "#find" do
@@ -358,7 +390,7 @@ module AccessControl
           record3 = model_klass.create!
 
           record1.ac_node.assignments.create!(:principal => principal,
-                                              :role => viewer_role)
+                                              :role => querier_role)
           record2.ac_node.assignments.create!(:principal => principal,
                                               :role => simple_role)
           result = model_klass.find(:all)
@@ -374,7 +406,7 @@ module AccessControl
           record3 = model_klass.create!
 
           record1.ac_node.assignments.create!(:principal => principal,
-                                              :role => viewer_role)
+                                              :role => querier_role)
           record2.ac_node.assignments.create!(:principal => principal,
                                               :role => simple_role)
           result = model_klass.find(:all)
@@ -386,10 +418,10 @@ module AccessControl
         it "doesn't mess with the other conditions" do
           record1 = model_klass.create!(:field => 1)
           record1.ac_node.assignments.create!(:principal => principal,
-                                              :role => viewer_role)
+                                              :role => querier_role)
           record2 = model_klass.create!
           record2.ac_node.assignments.create!(:principal => principal,
-                                              :role => viewer_role)
+                                              :role => querier_role)
           record2.ac_node.assignments.create!(:principal => principal,
                                               :role => simple_role)
           record3 = model_klass.create!
@@ -400,10 +432,10 @@ module AccessControl
         it "doesn't mess with other joins" do
           record1 = model_klass.create!(:field => 1)
           record1.ac_node.assignments.create!(:principal => principal,
-                                              :role => viewer_role)
+                                              :role => querier_role)
           record2 = model_klass.create!
           record2.ac_node.assignments.create!(:principal => principal,
-                                              :role => viewer_role)
+                                              :role => querier_role)
           record2.ac_node.assignments.create!(:principal => principal,
                                               :role => simple_role)
           record3 = model_klass.create!
@@ -437,36 +469,46 @@ module AccessControl
         it "doesn't mess the keys of the record" do
           record1 = model_klass.create!(:name => 'any name')
           record1.ac_node.assignments.create!(:principal => principal,
-                                              :role => viewer_role)
+                                              :role => querier_role)
           record2 = model_klass.create!
           model_klass.find(:all, :select => '*').first.id.should == record1.id
-          model_klass.find(:all, :select => '*').first.name.should == record1.name
+          model_klass.find(:all, :select => '*').first.name.should == \
+            record1.name
+        end
+
+        it "doesn't return duplicated records" do
+          Model::Node.global.assignments.create!(:principal => principal,
+                                                 :role => querier_role)
+          record1 = model_klass.create!(:name => 'any name')
+          record1.ac_node.assignments.create!(:principal => principal,
+                                              :role => querier_role)
+          model_klass.find(:all).size.should == 1
         end
 
         it "doesn't return readonly records by default" do
           record1 = model_klass.create!
           record1.ac_node.assignments.create!(:principal => principal,
-                                              :role => viewer_role)
+                                              :role => querier_role)
           model_klass.find(:all).first.readonly?.should be_false
         end
 
         it "returns readonly records if :readonly => true" do
           record1 = model_klass.create!
           record1.ac_node.assignments.create!(:principal => principal,
-                                              :role => viewer_role)
+                                              :role => querier_role)
           model_klass.find(:all, :readonly => true).first.readonly?.
             should be_true
         end
 
         describe "with multiple query permissions" do
 
-          let(:querier_role) { Model::Role.create!(:name => 'Querier') }
+          let(:viewer_role) { Model::Role.create!(:name => 'Viewer') }
           let(:manager_role) { Model::Role.create!(:name => 'Manager') }
 
           before do
             model_klass.query_permissions = ['view', 'query']
-            Model::SecurityPolicyItem.create!(:permission_name => 'query',
-                                              :role_id => querier_role.id)
+            Model::SecurityPolicyItem.create!(:permission_name => 'view',
+                                              :role_id => viewer_role.id)
             Model::SecurityPolicyItem.create!(:permission_name => 'view',
                                               :role_id => manager_role.id)
             Model::SecurityPolicyItem.create!(:permission_name => 'query',
@@ -569,7 +611,7 @@ module AccessControl
                                               :role_id => manager_role.id)
             record1 = model_klass.create!
             record1.ac_node.assignments.create!(:principal => principal,
-                                                :role => viewer_role)
+                                                :role => querier_role)
             record2 = model_klass.create!
             record2.ac_node.assignments.create!(:principal => principal,
                                                 :role => simple_role)
@@ -588,11 +630,11 @@ module AccessControl
         describe "#find with permission loading" do
 
           it "loads all permissions when :load_permissions is true" do
-            Model::SecurityPolicyItem.create!(:permission_name => 'query',
-                                              :role_id => viewer_role.id)
+            Model::SecurityPolicyItem.create!(:permission_name => 'view',
+                                              :role_id => querier_role.id)
             record1 = model_klass.create!
             record1.ac_node.assignments.create!(:principal => principal,
-                                                :role => viewer_role)
+                                                :role => querier_role)
             found = model_klass.find(:first, :load_permissions => true)
             model_klass.should_not_receive(:find) # Do not hit the database
                                                   # anymore.
@@ -612,11 +654,11 @@ module AccessControl
 
           it "loads all permissions even if query restriction is disabled" do
             manager.stub!(:restrict_queries?).and_return(false)
-            Model::SecurityPolicyItem.create!(:permission_name => 'query',
-                                              :role_id => viewer_role.id)
+            Model::SecurityPolicyItem.create!(:permission_name => 'view',
+                                              :role_id => querier_role.id)
             record1 = model_klass.create!
             record1.ac_node.assignments.create!(:principal => principal,
-                                                :role => viewer_role)
+                                                :role => querier_role)
             found = model_klass.find(:first, :load_permissions => true)
             model_klass.should_not_receive(:find) # Do not hit the database
                                                   # anymore.
@@ -632,6 +674,80 @@ module AccessControl
             permissions.size.should == 2
             permissions.should include('view')
             permissions.should include('query')
+          end
+
+        end
+
+        describe "#find_one" do
+
+          let(:viewer_role) { Model::Role.create!(:name => 'Viewer') }
+
+          before do
+            Model::SecurityPolicyItem.create!(:permission_name => 'view',
+                                              :role_id => viewer_role.id)
+          end
+
+          it "requires view permission and query permission" do
+            record1 = model_klass.create!
+            record2 = model_klass.create!
+            record3 = model_klass.create!
+
+            record1.ac_node.assignments.create!(:principal => principal,
+                                                :role_id => viewer_role.id)
+            record2.ac_node.assignments.create!(:principal => principal,
+                                                :role_id => querier_role.id)
+            record3.ac_node.assignments.create!(:principal => principal,
+                                                :role_id => viewer_role.id)
+            record3.ac_node.assignments.create!(:principal => principal,
+                                                :role_id => querier_role.id)
+
+            lambda {
+              model_klass.find(record1.id)
+            }.should raise_exception
+
+            lambda {
+              model_klass.find(record2.id)
+            }.should raise_exception
+
+            model_klass.find(record3.id).should == record3
+          end
+
+          it "accepts :permissions option" do
+            record1 = model_klass.create!
+            record2 = model_klass.create!
+            record3 = model_klass.create!
+
+            record1.ac_node.assignments.create!(:principal => principal,
+                                                :role_id => viewer_role.id)
+            record2.ac_node.assignments.create!(:principal => principal,
+                                                :role_id => querier_role.id)
+            record3.ac_node.assignments.create!(:principal => principal,
+                                                :role_id => viewer_role.id)
+            record3.ac_node.assignments.create!(:principal => principal,
+                                                :role_id => querier_role.id)
+
+            model_klass.find(record1.id,
+                             :permissions => ['view']).should == record1
+            model_klass.find(record2.id,
+                             :permissions => ['query']).should == record2
+            model_klass.find(record3.id).should == record3
+          end
+
+          it "raises Unauthorized if the record exists but the user has no "\
+             "permission" do
+            record1 = model_klass.create!
+            lambda {
+              model_klass.find(record1.id)
+            }.should raise_exception(AccessControl::Unauthorized)
+          end
+
+          it "raises RecordNotFound if the record doesn't exists" do
+            record1 = model_klass.create!
+            id = record1.id
+            record1.destroy
+            lambda {
+              model_klass.find(id)
+            }.should raise_exception(ActiveRecord::RecordNotFound)
           end
 
         end

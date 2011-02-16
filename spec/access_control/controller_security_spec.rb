@@ -8,13 +8,30 @@ module AccessControl
     end
 
     before do
-      class Object::TestController
+      class ::Object::TestController
         include ControllerSecurity::InstanceMethods
       end
     end
 
     after do
       Object.send(:remove_const, 'TestController')
+    end
+
+    describe "#current_groups" do
+
+      # There is by default an implementation of `current_groups` thar is
+      # private and returns an empty array.  This simplifies the common case
+      # where there's no concept of user groups.
+
+      it "returns an empty array" do
+        test_controller.send(:current_groups).should == []
+      end
+
+      it "is declared private" do
+        test_controller.private_methods.should(
+          include('current_groups')
+        )
+      end
     end
 
     describe "around filter for setting security manager" do
@@ -24,15 +41,29 @@ module AccessControl
           test_controller
         ).ordered
         AccessControl.should_receive(:no_security_manager).ordered
-        test_controller.run_with_security_manager {}
+        test_controller.send(:run_with_security_manager) {}
+      end
+
+      it "is declared private" do
+        test_controller.private_methods.should(
+          include('run_with_security_manager')
+        )
       end
 
     end
 
     describe "#current_security_context" do
+
       it "returns nil by default (no context)" do
-        test_controller.current_security_context.should be_nil
+        test_controller.send(:current_security_context).should be_nil
       end
+
+      it "is declared private" do
+        test_controller.private_methods.should(
+          include('current_security_context')
+        )
+      end
+
     end
 
     describe "action protection" do
