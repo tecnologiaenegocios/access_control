@@ -69,6 +69,30 @@ This module introduces a method for unrestrictely search for records:
 :meth:`ModelSecurity::ClassMethods#unrestricted_find`.
 
 
+Hierarchy of records
+====================
+
+The hierarchy of nodes is maintained with the help of some defined behaviour
+that the application code must declare on each model class.
+
+Defining an association to be the *parent association*
+------------------------------------------------------
+
+The association defined as parent will be queried when a record is created or
+its node is accessed by the first time.  The node of each object returned by
+the association (which can be only one record for ``has_one`` or
+``belongs_to`` or many records for ``has_many`` or
+``has_and_belongs_to_many``) is a parent node of the record.  The hierarchy is
+updated accordingly.
+
+At most one parent association is supported per model class.  If no parent
+association is defined, the record will have its node right below the global
+node.
+
+A parent association is defined by using the class method
+:meth:`ModelSecurity::ClassMethods#parent_association`.
+
+
 :mod:`ModelSecurity` --- Methods used in model classes and instances
 ====================================================================
 

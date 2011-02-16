@@ -26,41 +26,41 @@ work) by calling :meth:`AccessControl#no_security_manager`.
 
 .. class:: SecurityManager
 
-.. method:: initialize(controller)
-
-   The initialization method of the security manager.  Takes the current
-   controller instance as the only parameter.
-
-.. method:: principal_ids
-
-   Return the ids of all principals belonging to the current user.
-
-   .. note::
-
-    The current user is obtained by calling :meth:`current_user` in the
-    controller instance.  Therefore, it must be implemented by the application
-    code.  The groups of the user are obtained by calling
-    :meth:`current_groups` in the controller instance, and also must be
-    supplied by application code.
-
-.. method:: has_access?(node, permissions)
-
-   Return ``true`` if the current user has *all* permissions ``permissions``
-   in the given node ``node`` (or above it), ``false`` otherwise.
-
-
-.. method:: verify_access!(node, permissions)
-
-   Raise :class:`AccessControl::Unauthorized` if the user is missing one or
-   more permissions from ``permissions`` in the node ``node`` (or above it).
-
-.. method:: restrict_queries?
-
-   Return ``true`` if query restriction is enabled system-wide, ``false``
-   otherwise.
-
-.. method:: restrict_queries=
-
-.. method:: restrict_queries
-
-   Accessors for query restriction.
+   .. method:: initialize(controller)
+  
+     The initialization method of the security manager.  Takes the current
+     controller instance as the only parameter.
+  
+   .. method:: principal_ids
+  
+     Return the ids of all principals belonging to the current user.
+  
+     .. note::
+  
+       The current user is obtained by calling :meth:`current_user` in the
+       controller instance.  Therefore, it must be implemented by the
+       application code.  The groups of the user are obtained by calling
+       :meth:`current_groups` in the controller instance, and also must be
+       supplied by application code.
+  
+   .. method:: has_access?(node, permissions)
+  
+     Return ``true`` if the current user has *all* permissions ``permissions``
+     in the given node ``node`` (or above it), ``false`` otherwise.
+  
+  
+   .. method:: verify_access!(node, permissions)
+  
+     Raise :class:`AccessControl::Unauthorized` if the user is missing one or
+     more permissions from ``permissions`` in the node ``node`` (or above it).
+  
+   .. method:: restrict_queries?
+  
+     Return ``true`` if query restriction is enabled system-wide, ``false``
+     otherwise.
+  
+   .. method:: restrict_queries=
+  
+   .. method:: restrict_queries
+  
+     Accessors for query restriction.
