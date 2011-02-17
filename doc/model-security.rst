@@ -25,7 +25,7 @@ Implemetation details
 ---------------------
 
 The filtering of records is done by including the access control tables in the
-query using `INNER JOIN` s.  This means that the record is returned if and
+query using ``INNER JOIN`` s.  This means that the record is returned if and
 only if:
 
 - It has an :class:`Model::Node` associated record
@@ -37,30 +37,37 @@ only if:
     principals of the user, associated with a :class:`Model::Role` record that
     has the required permission.
 
-Since it is done through an `INNER JOIN`, the query issued to the database
+Since it is done through an ``INNER JOIN``, the query issued to the database
 will contain all fields of the joined tables, plus the fields of the table on
 wich :meth:`find` is run.  To return only the fields of the table, a custom
-select is created instead of the default `*`.  This is done as follows:
+select is created instead of the default ``*``.  This is done as follows:
 
-- If no `:select` option is provided when calling :meth:`find`, one is created
-  using the table's name to return all its fields.
+- If no ``:select`` option is provided when calling :meth:`find`, one is
+  created using the table's name to return all its fields.  Then, the
+  ``DISTINCT`` modifier is prepended to the select clause.
 
-- If an option `:select` is passed to :meth:`find`, this select must comply
-  with the following:
+- If an option ``:select`` is passed to :meth:`find`, its value will be
+  splitted in each comma, and for each of the references:
 
-  - It must be a single `*`, OR
+  - If the reference is a ``*``, it will be prefixed with the table's name.
 
-    - The `*` is then prefixed with the table's name automatically
+  - If the reference represents a field of the table, it will be prefixed with
+    the table's name.
 
-  - It must be a comma-separated list of references
+  - If the reference is not a field of the table or is something more
+    complex like a database function, then it is expected that the caller
+    already provided the reference fully qualified, that is, each field
+    referenced must have its table's name already prefixed.
 
-    - If the reference represents a field of the table, it will be prefixed
-      with the table's name automatically.
+  If the option ``select`` originally was not preceeded by ``DISTINCT``, the
+  primary key of the table, which is usually ``id``, is included in the select
+  (fully qualified), and ``DISTINCT`` is prepended to the clause.
 
-    - If the reference is not a field of the table or is something more
-      complex like a function, then it is expected that the caller already
-      provided the reference fully qualified, that is, each field referenced
-      must have its table's name already prefixed.
+In general, ``DISTINCT`` is always present in the final select clause.  This
+is necessary because without that the query can return the same record
+multiple times.  This happens, for example, if a required permission is found
+in more than one assignment, or if the search requires more than one
+permission.
 
 
 Unrestricted :meth:`find`
@@ -131,6 +138,71 @@ model instance.
    recursion.  It must be assured by the application code that there's no
    cycle in the hierarchy created by mis-using these methods.
 
+Relationship between resources
+------------------------------
+
+Let's say that a comment belongs to a post, and that access to a comment is
+allowed based on permissions that the user has in the comment itself combined
+with permissions in the post and the global node.  The definition of parent
+and child associations would be::
+
+  class Comment < ActiveRecord::Base
+    belongs_to :post
+    parent_association :post
+  end
+
+  class Post < ActiveRecord::Base
+    has_many :comments
+  end
+
+In the example above, no child association was set in the :class:`Post` class.
+It is not necessary because the user would normaly create a post, and then
+comments would be created for it (hence the ``belongs_to`` association).
+
+:class:`Post` would be redefined to express a relationship between an
+:class:`Author` class, in a many-to-many relationship.
+
+::
+
+  class Post < ActiveRecord::Base
+    has_many :comments
+    has_and_belongs_to_many :authors
+    parent_association :authors
+  end
+
+  class Author < ActiveRecord::Base
+    has_and_belongs_to_many :posts
+    child_associations :posts
+  end
+
+With the example above, when an author is created and is assigned to a post,
+the post will "know" that it has a new parent from which it has to inherit
+permissions.
+
+Another example of usage of ``child_associations``::
+
+  class Person < ActiveRecord::Base
+    has_many :insurances
+    parent_association :insurances
+  end
+
+  class Insurance < ActiveRecord::Base
+    belongs_to :person
+    child_associations :person
+  end
+
+In the example above, let us assume two things: 1) :class:`Person` inherits
+permissions from :class:`Insurance` --- who has access to an insurance will
+gain access to the insured person; 2) in the normal workflow of the
+application a person gets created first, and then an insurance is created for
+that person, because this person can be in more than one insurance at a time.
+This way, when the insurance is created, due to the ``child_associations``
+declaration, the person instance will "know" that it has just got a new parent
+from which permissions must be inherited.  Strictly speaking, the person
+instance will be instructed to check its parents again, and update itself
+(hence the need to define the ``parent_association`` in the :class:`Person`
+class).
+
 
 Generating the hierarchy in a rake task
 ---------------------------------------
@@ -141,15 +213,17 @@ One can build an hierarchy using plain ruby, in a rake task, as follows::
   task :build_access_control_hieararchy => :environment do
 
     # Ensure that all models are already loaded.
-    Dir[ENV['RAILS_ROOT'] + '/app/models/**/*.rb'].each{|path| require path}
+    Dir[Rails.root + 'app/models/**/*.rb'].each{|path| require path}
 
     # For each model, get all records and for each record touch its node.
-    ObjectSpace.each_object(Class) do |klass|
-      next if klass == ActiveRecord::Base
-      next unless klass.ancestors.include?(ActiveRecord::Base)
-      next unless klass.securable?
-      # Call the ac_node to create it.
-      klass.all.each{|r| r.ac_node}
+    ActiveRecord::Base.transaction do
+      ObjectSpace.each_object(Class) do |klass|
+        next if klass == ActiveRecord::Base
+        next unless klass.ancestors.include?(ActiveRecord::Base)
+        next unless klass.securable?
+        # Call the ac_node to create it.
+        klass.all.each(&:ac_node)
+      end
     end
 
   end
