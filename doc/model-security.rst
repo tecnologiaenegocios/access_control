@@ -87,23 +87,15 @@ Defining an association to be the *parent association*
 ------------------------------------------------------
 
 A parent association is defined by using the class method
-:meth:`ModelSecurity::ClassMethods#parent_association`.
+:meth:`ModelSecurity::ClassMethods#inherits_permissions_from`.
 
-The association defined as parent will be queried when a record is created or
-its node is accessed by the first time.  The node of each object returned by
-the association (which can be only one record for ``has_one`` or
-``belongs_to`` or many records for ``has_many`` or
-``has_and_belongs_to_many``) is a parent node of the record.  The hierarchy is
-updated accordingly.
+Through this method, a model class can express its position inside the tree of
+access control.  This method can accept ``belongs_to``, ``has_many`` (without
+the ``:through`` option) and ``has_one`` (without the ``:through`` options)
+associations.
 
-At most one parent association is supported per model class.  If no parent
-association is defined, the record will have its node right below the global
-node.
-
-If a simple association is not enough to express the parents of a model
-instance, one must override the method
-:meth:`ModelSecurity::InstanceMethods#parents` to return an arbitrary array of
-objects that will be the parents of the record.
+If no parent association is defined all permissions will be inherited from the
+global node.
 
 
 Updating parents in another records from a given record
@@ -111,32 +103,22 @@ Updating parents in another records from a given record
 
 In some cases there is the need to inform another instances that they gained a
 new parent.  In such cases one can define which associations are subject to
-this change through defining *child associations*.  This is done by
-calling :meth:`ModelSecurity::ClassMethods#child_associations` in the model
+this change through defining *child associations*.  This is done by calling
+:meth:`ModelSecurity::ClassMethods#propagates_permissions_to` in the model
 class.  The defined associations will be queried and any object returned will
 have its parents updated to include the record, at the time the record is
 saved.
 
-Unlike :meth:`ModelSecurity::ClassMethods#parent_association`, one can create
-many child associations.  If no child association is defined, no update is
-performed.
+Unlike :meth:`ModelSecurity::ClassMethods#inherits_permissions_from`, only
+``belongs_to`` associations can be used as child associations.
 
 The update happens by re-assigning the parents of each node found in the
 children objects.  The parents of each node are obtained by calling their
 :meth:`ModelSecurity::InstanceMethods#parents`, and therefore they can be
 defined in their own classes through
-:meth:`ModelSecurity::ClassMethods#parent_association` or provided by custom
-implementation of :meth:`ModelSecurity::InstanceMethods#parents`.
+:meth:`ModelSecurity::ClassMethods#inherits_permissions_from` or provided by
+custom implementation of :meth:`ModelSecurity::InstanceMethods#parents`.
 
-If defining children association is not enough to cover specific needs, one
-can override the method :meth:`ModelSecurity::InstanceMethods#children` of the
-model instance.
-
-.. warning::
-
-   The mis-use of parent and child associations can lead to infinite
-   recursion.  It must be assured by the application code that there's no
-   cycle in the hierarchy created by mis-using these methods.
 
 Relationship between resources
 ------------------------------
@@ -146,62 +128,48 @@ allowed based on permissions that the user has in the comment itself combined
 with permissions in the post and the global node.  The definition of parent
 and child associations would be::
 
-  class Comment < ActiveRecord::Base
-    belongs_to :post
-    parent_association :post
-  end
-
   class Post < ActiveRecord::Base
     has_many :comments
+  end
+
+  class Comment < ActiveRecord::Base
+    belongs_to :post
+    inherits_permissions_from :post
   end
 
 In the example above, no child association was set in the :class:`Post` class.
 It is not necessary because the user would normaly create a post, and then
 comments would be created for it (hence the ``belongs_to`` association).
 
-:class:`Post` would be redefined to express a relationship between an
-:class:`Author` class, in a many-to-many relationship.
-
-::
-
-  class Post < ActiveRecord::Base
-    has_many :comments
-    has_and_belongs_to_many :authors
-    parent_association :authors
-  end
-
-  class Author < ActiveRecord::Base
-    has_and_belongs_to_many :posts
-    child_associations :posts
-  end
-
-With the example above, when an author is created and is assigned to a post,
-the post will "know" that it has a new parent from which it has to inherit
-permissions.
-
-Another example of usage of ``child_associations``::
+Another example, this time showing
+:meth:`ModelSecurity::ClassMethods#propagates_permissions_to`::
 
   class Person < ActiveRecord::Base
     has_many :insurances
-    parent_association :insurances
+    inherits_permissions_from :insurances
   end
 
   class Insurance < ActiveRecord::Base
     belongs_to :person
-    child_associations :person
+    propagates_permissions_to :person
   end
 
-In the example above, let us assume two things: 1) :class:`Person` inherits
-permissions from :class:`Insurance` --- who has access to an insurance will
-gain access to the insured person; 2) in the normal workflow of the
-application a person gets created first, and then an insurance is created for
-that person, because this person can be in more than one insurance at a time.
-This way, when the insurance is created, due to the ``child_associations``
-declaration, the person instance will "know" that it has just got a new parent
-from which permissions must be inherited.  Strictly speaking, the person
-instance will be instructed to check its parents again, and update itself
-(hence the need to define the ``parent_association`` in the :class:`Person`
-class).
+
+In the example above, let us assume two things:
+
+- :class:`Person` inherits permissions from :class:`Insurance` --- who has
+  access to an insurance will gain access to the insured person.
+  
+- In the normal workflow of the application a person gets created first, and
+  then an insurance is created for that person.  This person can be in more
+  than one insurance at a time (this is why it ``has_many :insurances``).
+
+With this setup, when the insurance is created, due to the
+``propagates_permissions_to`` declaration, the person instance will "know"
+that it has just got a new parent from which permissions must be inherited.
+Strictly speaking, the person instance will be instructed to check its parents
+again, and update itself (hence the need to define the
+``inherits_permissions_from`` in the :class:`Person` class).
 
 
 Generating the hierarchy in a rake task
@@ -245,46 +213,46 @@ Class methods available in the model's class level:
 
 .. method:: protect(method_name, options)
 
-   Set a permission requirement in a method named *method_name*.  *options* is
-   a hash containing a key *:with* whose value can be either a single string
-   representing a permission or an array or set of permissions.
+   Set a permission requirement in a method named ``method_name``.
+   ``options`` is a hash containing a key ``:with`` whose value can be either
+   a single string representing a permission or an array or set of
+   permissions.
 
-   To get access to the method *method_name* the user must have all
-   permissions listed in the *options[:with]* parameter.
+   To get access to the method ``method_name`` the user must have all
+   permissions listed in the ``options[:with]`` parameter.
 
-.. method:: parent_association(association_name=nil)
+.. method:: inherits_permissions_from(*args)
 
-   State that the association named *association_name* is the parent
-   association.  *association_name* can be either a symbol or a string.  This
-   is a convenient way to build an hierarchy of records.  The :meth:`parents`
-   instance method by default will look at the defined parent association and
-   automatically provide one or more parents, based on the record(s) in the
-   association.
+   State that the each argument, representing the name of a ``has_many``,
+   ``has_one`` or ``belongs_to`` association, is a parent association, that
+   is, permissions can be inherited from them.  Each argument can be either a
+   symbol or a string.
+   
+   If no argument is passed the current parent association names are returned.
 
-   If *association_name* is nil (or omitted), the current parent association
-   name is returned instead.
+   If some argument represents an inexistent association, or a ``has_many
+   :through`` or ``has_one :through`` a ``has_and_belongs_to_many``
+   association, :class:`AccessControl::InvalidInheritage` is raised.
 
-   Overriding :meth:`parents` directly can be done instead when simply stating
-   an association as a parent or parents objects is not enough.
+.. method:: propagates_permissions_to(*args)
 
-.. method:: child_associations(*args)
+   State that each argument, representing the name of a ``belongs_to``
+   association, is a child association of the records of the class, that is,
+   each record from these associations inherits permissions from this record.
+   Each argument can be a symbol or a string.
 
-   State that each argument, representing the name of an association, is a
-   child association of the records of the class.  Each argument can be a
-   symbol or a string.  This is a convenient way to create new parents for
-   existing records.
+   If no argument is passed the current child association names are returned.
 
-   If no argument is passed, the current child associations are returned.
-
-   Overriding :meth:`children` directly can be done instead when simply
-   stating associations as children objects is not enough.
+   If some argument represents an inexistent association, or a
+   non-``belongs_to`` association,
+   :class:`AccessControl::InvalidPropagation` is raised.
 
 .. method:: query_permissions=(permissions)
 
    Set a default set of permissions to use to restrict query results (namely
    when using :meth:`find` or similars).
 
-   *permissions* can be either a single string or an array or set of strings,
+   ``permissions`` can be either a single string or an array or set of strings,
    each string being the name of a permission.
 
    Setting query permissions using this method will override the default query
@@ -357,18 +325,12 @@ The following methods are provided as instance methods:
 
 .. method:: parents
 
-   Return all parent objects of this record.  Records are fetched by default
-   from the parent association, defined in the class method
-   :meth:`parent_association`.
-
-   Overriding this method provides a way to subclasses to get more control on
-   how the access control hierarchy is built.
+   Return all parent objects of this record.  Records are fetched from the
+   parent associations, defined through the class method
+   :meth:`inherits_permissions_from`.
 
 .. method:: children
 
-   Return all children objects of this record.  Records are fetched by default
-   from the child associations, defined in the class method
-   :meth:`child_associations`.
-
-   Overriding this method provides a way to subclasses to get more control on
-   how the access control hierarchy is built.
+   Return all child objects of this record.  Records are fetched from the
+   child associations, defined through the class method
+   :meth:`propagates_permissions_to`.

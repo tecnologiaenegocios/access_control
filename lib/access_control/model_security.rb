@@ -1,4 +1,5 @@
 require 'access_control/configuration'
+require 'access_control/exceptions'
 require 'access_control/security_manager'
 require 'access_control/security_proxy'
 
@@ -20,18 +21,36 @@ module AccessControl
         @ac_permissions_for_methods ||= Hash.new{|h, k| h[k] = Set.new}
       end
 
-      def parent_association association_name=nil
-        if association_name
-          @ac_parent_association = association_name
+      def inherits_permissions_from *args
+        if args.any?
+          args.each do |a|
+            reflection = reflections[a.to_sym]
+            next if reflection.macro == :belongs_to
+            m = nil
+            if reflection.macro == :has_and_belongs_to_many
+              m = "unexpected #{a} to be a :has_and_belongs_to_many association"
+            end
+            if reflection.options[:through]
+              m = "unexpected #{a} association to have :through option"
+            end
+            raise AccessControl::InvalidInheritage, m if m
+          end
+          @inherits_permissions_from = args
         end
-        @ac_parent_association
+        @inherits_permissions_from ||= []
       end
 
-      def child_associations *args
+      def propagates_permissions_to *args
         if args.any?
-          @ac_child_associations = args
+          args.each do |a|
+            if reflections[a.to_sym].macro != :belongs_to
+              msg = "expected #{a} to be a :belongs_to association"
+              raise AccessControl::InvalidPropagation, msg
+            end
+          end
+          @propagates_permissions_to = args
         end
-        @ac_child_associations ||= []
+        @propagates_permissions_to ||= []
       end
 
       [:query, :view].each do |name|
@@ -87,14 +106,16 @@ module AccessControl
       end
 
       def parents
-        return [] unless self.class.parent_association
-        [send(self.class.parent_association)].flatten.uniq
+        return [] if self.class.inherits_permissions_from.empty?
+        self.class.inherits_permissions_from.inject([]) do |r, a|
+          r << send(a)
+        end.flatten.uniq
       end
 
       def children
-        return [] if self.class.child_associations.empty?
-        self.class.child_associations.inject([]) do |r, a|
-          r.concat([self.send(a)].flatten)
+        return [] if self.class.propagates_permissions_to.empty?
+        self.class.propagates_permissions_to.inject([]) do |r, a|
+          r << send(a)
         end.uniq
       end
 

@@ -55,30 +55,95 @@ module AccessControl
 
       describe "tree management" do
 
-        let(:test_object) do
-          object = Class.new
-          object.extend(ModelSecurity::ClassMethods)
-          object
-        end
+        describe "#inherits_permissions_from" do
 
-        describe "parent association" do
+          it "accepts a belongs_to association" do
+            model_klass.class_eval do
+              belongs_to :foo
+              belongs_to :parent
+            end
+            model_klass.inherits_permissions_from(:foo, :parent)
+            model_klass.inherits_permissions_from.should == [:foo, :parent]
+          end
 
-          it "can be defined" do
-            test_object.parent_association(:test)
-            test_object.parent_association.should == :test
+          it "accepts a has_many association" do
+            model_klass.class_eval do
+              belongs_to :foo
+              has_many :parents
+            end
+            model_klass.inherits_permissions_from(:foo, :parents)
+            model_klass.inherits_permissions_from.should == [:foo, :parents]
+          end
+
+          it "accepts a has_one association" do
+            model_klass.class_eval do
+              belongs_to :foo
+              has_one :parent
+            end
+            model_klass.inherits_permissions_from(:foo, :parent)
+            model_klass.inherits_permissions_from.should == [:foo, :parent]
+          end
+
+          it "complains if a has_many :through is passed" do
+            model_klass.class_eval do
+              belongs_to :foo
+              has_many :parents, :through => :foo
+            end
+            lambda {
+              model_klass.inherits_permissions_from(:foo, :parents)
+            }.should raise_exception(AccessControl::InvalidInheritage)
+          end
+
+          it "complains if a has_and_belongs_to_many is passed" do
+            model_klass.class_eval do
+              belongs_to :foo
+              has_and_belongs_to_many :parents
+            end
+            lambda {
+              model_klass.inherits_permissions_from(:foo, :parents)
+            }.should raise_exception(AccessControl::InvalidInheritage)
+          end
+
+          it "complains if a has_one :through is passed" do
+            model_klass.class_eval do
+              belongs_to :foo
+              has_one :parents, :through => :foo
+            end
+            lambda {
+              model_klass.inherits_permissions_from(:foo, :parents)
+            }.should raise_exception(AccessControl::InvalidInheritage)
           end
 
         end
 
-        describe "child associations" do
+        describe "#propagates_permissions_to" do
+
+          before do
+            model_klass.class_eval do
+              belongs_to :child_object
+              belongs_to :other_child_object
+              has_many :child_objects
+            end
+          end
 
           it "is empty by default" do
-            test_object.child_associations.should be_empty
+            model_klass.propagates_permissions_to.should be_empty
           end
 
-          it "can be defined" do
-            test_object.child_associations(:child1, :child2)
-            test_object.child_associations.should == [:child1, :child2]
+          it "can be defined for belongs_to associations" do
+            model_klass.propagates_permissions_to(
+              :child_object,
+              :other_child_object
+            )
+            model_klass.propagates_permissions_to.should == [
+              :child_object, :other_child_object
+            ]
+          end
+
+          it "cannot be defined for other types of associations" do
+            lambda {
+              model_klass.propagates_permissions_to(:child_objects)
+            }.should raise_exception(AccessControl::InvalidPropagation)
           end
 
         end
@@ -110,7 +175,8 @@ module AccessControl
 
         it "will be the parent association if defined and collection" do
           model_klass.class_eval do
-            parent_association :parent_assoc
+            has_many :parent_assoc, :class_name => self.name
+            inherits_permissions_from :parent_assoc
             def parent_assoc
               ['some parents']
             end
@@ -120,7 +186,8 @@ module AccessControl
 
         it "will be an array of one element if the parent assoc is single" do
           model_klass.class_eval do
-            parent_association :parent_assoc
+            belongs_to :parent_assoc, :class_name => self.name
+            inherits_permissions_from :parent_assoc
             def parent_assoc
               'some parent'
             end
@@ -144,34 +211,18 @@ module AccessControl
 
           before do
             model_klass.class_eval do
-              child_associations :test
+              belongs_to :test, :class_name => self.name
+              propagates_permissions_to :test
             end
           end
 
-          describe "and the association is single" do
-
-            it "wraps the value of the association in an array" do
-              model_klass.class_eval do
-                def test
-                  'a single object'
-                end
+          it "wraps the value of the association in an array" do
+            model_klass.class_eval do
+              def test
+                'a single object'
               end
-              model_klass.new.children.should == ['a single object']
             end
-
-          end
-
-          describe "and the association is collection" do
-
-            it "return the values of the association" do
-              model_klass.class_eval do
-                def test
-                  ['many', 'objects']
-                end
-              end
-              model_klass.new.children.should == ['many', 'objects']
-            end
-
+            model_klass.new.children.should == ['a single object']
           end
 
         end
@@ -180,20 +231,22 @@ module AccessControl
 
           before do
             model_klass.class_eval do
-              child_associations :child1, :child2
+              belongs_to :child1, :class_name => self.name
+              belongs_to :child2, :class_name => self.name
+              propagates_permissions_to :child1, :child2
               def child1
-                'single'
+                'child1'
               end
               def child2
-                ['multiple']
+                'child2'
               end
             end
           end
 
           it "returns an array containing the records of the associations" do
             model_klass.new.children.size.should == 2
-            model_klass.new.children.should include('single')
-            model_klass.new.children.should include('multiple')
+            model_klass.new.children.should include('child1')
+            model_klass.new.children.should include('child2')
           end
 
         end

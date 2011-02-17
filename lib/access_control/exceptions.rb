@@ -15,4 +15,10 @@ module AccessControl
   class NoSecurityContextError < StandardError
   end
 
+  class InvalidInheritage < StandardError
+  end
+
+  class InvalidPropagation < StandardError
+  end
+
 end

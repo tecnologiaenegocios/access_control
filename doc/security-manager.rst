@@ -2,6 +2,8 @@
 Security Manager
 ================
 
+.. highlight:: rb
+
 The security manager is an object that manages all security in the system.  It
 knows about the current user and its groups (with a little help of the
 controller).  It can be used to control whether or not the queries in the
@@ -12,7 +14,7 @@ It can be obtained in the following way::
 
   manager = AccessControl.get_security_manager
 
-The security manager object is stored in a thread variable (for some thread
+The security manager object is stored in a thread variable (for thread
 safety).  It is usually set through the *around_filter*
 :meth:`ControllerSecurity::InstanceMethods#run_with_security_manager`.  So,
 once this filter is run the manager can be obtained through
