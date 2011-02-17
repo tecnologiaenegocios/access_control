@@ -169,7 +169,7 @@ module AccessControl::Model
 
       def update_parent_and_blocking
         return if parents.empty?
-        disconnect_self_and_descendants_from_ancestors
+        disconnect_self_and_descendants_from_ancestors unless new_record?
         unless block
           parents.each{|parent| connect_to parent }
         end
