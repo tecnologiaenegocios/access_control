@@ -190,20 +190,26 @@ class ActiveRecord::Base
       end
 
       def fix_select_clause_for_permission_joins(options)
-        options[:select] ||= '*'
-        options[:select] = prefix_with_table_name(options[:select])
+        options[:select] = \
+          prefix_with_distinct_and_table_name(options[:select] || '*')
       end
 
-      def prefix_with_table_name(select_clause)
-        'DISTINCT ' + select_clause.split(',').inject([]) do |s, token|
+      def prefix_with_distinct_and_table_name(select_clause)
+        references = []
+        select_clause.strip!
+        if !(select_clause =~ /^distinct\s+/i)
+          references << "#{quoted_table_name}.`#{primary_key}`"
+        end
+        select_clause.gsub(/^distinct\s+/i, '').split(',').each do |token|
           t = token.strip.gsub('`', '')
-          next s << "#{quoted_table_name}.*" if t == '*'
+          next references << "#{quoted_table_name}.*" if t == '*'
           if columns_hash.keys.include?(t)
-            next s << "#{quoted_table_name}.`#{t}`"
+            next references << "#{quoted_table_name}.`#{t}`"
           end
           # Functions or other references are not prefixed.
-          s << token
-        end.join(', ')
+          references << token
+        end
+        "DISTINCT #{references.uniq.join(', ')}"
       end
 
       def includes_for_permissions(options)

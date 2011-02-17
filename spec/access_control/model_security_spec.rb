@@ -572,23 +572,70 @@ module AccessControl
           record2.should have(1).error_on(:field)
         end
 
-        it "doesn't mess the keys of the record" do
-          record1 = model_klass.create!(:name => 'any name')
-          record1.ac_node.assignments.create!(:principal => principal,
-                                              :role => querier_role)
-          record2 = model_klass.create!
-          model_klass.find(:all, :select => '*').first.id.should == record1.id
-          model_klass.find(:all, :select => '*').first.name.should == \
-            record1.name
-        end
+        describe "fields selection" do
 
-        it "doesn't return duplicated records" do
-          Model::Node.global.assignments.create!(:principal => principal,
-                                                 :role => querier_role)
-          record1 = model_klass.create!(:name => 'any name')
-          record1.ac_node.assignments.create!(:principal => principal,
-                                              :role => querier_role)
-          model_klass.find(:all).size.should == 1
+          it "accepts :select => '*'" do
+            record1 = model_klass.create!(:name => 'any name')
+            record1.ac_node.assignments.create!(:principal => principal,
+                                                :role => querier_role)
+            record2 = model_klass.create!
+            model_klass.find(:all, :select => '*').first.id.should == record1.id
+            model_klass.find(:all, :select => '*').first.name.should == \
+              record1.name
+          end
+
+          it "accepts :select => 'DISTINCT *'" do
+            record1 = model_klass.create!(:name => 'same name', :field => 1)
+            record2 = model_klass.create!(:name => 'same name', :field => 1)
+            record1.ac_node.assignments.create!(:principal => principal,
+                                                :role => querier_role)
+            record2.ac_node.assignments.create!(:principal => principal,
+                                                :role => querier_role)
+            result = model_klass.find(:all, :select => 'DISTINCT *')
+            result.size.should == 2
+            result.first.name.should == 'same name'
+            result.first.field.should == 1
+            result.second.name.should == 'same name'
+            result.second.field.should == 1
+          end
+
+          it "accepts :select => 'field'" do
+            record1 = model_klass.create!(:field => 1)
+            record2 = model_klass.create!(:field => 2)
+            record3 = model_klass.create!(:field => 2)
+            record1.ac_node.assignments.create!(:principal => principal,
+                                                :role => querier_role)
+            record2.ac_node.assignments.create!(:principal => principal,
+                                                :role => querier_role)
+            record3.ac_node.assignments.create!(:principal => principal,
+                                                :role => querier_role)
+            result = model_klass.find(:all, :select => 'field')
+            result.size.should == 3
+            result.map(&:field).sort.should == [1, 2, 2]
+          end
+
+          it "accepts :select => 'DISTINCT name, field'" do
+            record1 = model_klass.create!(:name => 'same name', :field => 1)
+            record2 = model_klass.create!(:name => 'same name', :field => 1)
+            record1.ac_node.assignments.create!(:principal => principal,
+                                                :role => querier_role)
+            record2.ac_node.assignments.create!(:principal => principal,
+                                                :role => querier_role)
+            result = model_klass.find(:all, :select => 'DISTINCT name, field')
+            result.size.should == 1
+            result.first.name.should == 'same name'
+            result.first.field.should == 1
+          end
+
+          it "doesn't return duplicated records" do
+            Model::Node.global.assignments.create!(:principal => principal,
+                                                  :role => querier_role)
+            record1 = model_klass.create!(:name => 'any name')
+            record1.ac_node.assignments.create!(:principal => principal,
+                                                :role => querier_role)
+            model_klass.find(:all).size.should == 1
+          end
+
         end
 
         it "doesn't return readonly records by default" do
