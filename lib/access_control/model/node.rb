@@ -84,7 +84,9 @@ module AccessControl::Model
     )
 
     def self.global
-      find_by_securable_type_and_securable_id('AccessControlGlobalNode', 0)
+      @global ||= find_by_securable_type_and_securable_id(
+        'AccessControlGlobalNode', 0, :readonly => true
+      )
     end
 
     def self.global_id
@@ -100,10 +102,15 @@ module AccessControl::Model
     end
 
     def self.create_global_node!
+      clear_global_node_cache
       ActiveRecord::Base.connection.execute("
         INSERT INTO `ac_nodes` (`securable_type`, `securable_id`)
         VALUES ('#{global_securable_type}', #{global_securable_id})
       ")
+    end
+
+    def self.clear_global_node_cache
+      @global = nil
     end
 
     def has_permission? permission

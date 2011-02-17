@@ -16,6 +16,7 @@ module AccessControl::Model
     end
 
     before do
+      Node.clear_global_node_cache
       class Object::SecurableObj < ActiveRecord::Base
         has_one :ac_node, :as => :securable,
                 :class_name => AccessControl::Model::Node.name
