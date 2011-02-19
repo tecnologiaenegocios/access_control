@@ -80,53 +80,68 @@ This module introduces a method for unrestrictely search for records:
 Hierarchy of records
 ====================
 
-The hierarchy of nodes is maintained with the help of some defined behaviour
-that the application code must declare on each model class.
+The hierarchy of nodes is maintained with the help of some declarations done
+in each securable model class.
 
-Defining an association to be the *parent association*
-------------------------------------------------------
+Determining from where a model inherits permissions
+---------------------------------------------------
 
-A parent association is defined by using the class method
-:meth:`ModelSecurity::ClassMethods#inherits_permissions_from`.
+To declare that a model class inherits permissions from some other models, one
+must use the method
+:meth:`ModelSecurity::ClassMethods#inherits_permissions_from`.  This methos
+accepts names from associations, that will be queried each time the record is
+created or saved.  Based on the values found in the association, the hierarchy
+will be updated to reflect the inheritage of permissions.
 
-Through this method, a model class can express its position inside the tree of
-access control.  This method can accept ``belongs_to``, ``has_many`` (without
-the ``:through`` option) and ``has_one`` (without the ``:through`` options)
-associations.
+This method can accept ``belongs_to``, ``has_many`` (without the ``:through``
+option), ``has_one`` (without the ``:through`` options) and
+``has_and_belongs_to_many`` associations.
 
 If no parent association is defined all permissions will be inherited from the
 global node.
 
+.. warning::
 
-Updating parents in another records from a given record
--------------------------------------------------------
+   If a model inherits permissions from some association that is not a
+   ``belongs_to``, that association must be declared as a propagation
+   association in the model reflected.  See below how to do this.
 
-In some cases there is the need to inform another instances that they gained a
-new parent.  In such cases one can define which associations are subject to
-this change through defining *child associations*.  This is done by calling
-:meth:`ModelSecurity::ClassMethods#propagates_permissions_to` in the model
-class.  The defined associations will be queried and any object returned will
-have its parents updated to include the record, at the time the record is
+   Without the propagation, the hierarchy of records **will** be broken.
+
+
+Propagating permissions from a model to others
+----------------------------------------------
+
+In cases that a model inherits permissions from an association that is not a
+belongs to, that is, the model doesn't hold the key to its parent, when the
+parents of the model change (new parent added or a parent was removed) there
+is the need to inform the model instances that they gained or lost a parent.
+In such cases one can define which associations in the parent models are
+subject to this change through defining *child associations*.  This is done by
+calling :meth:`ModelSecurity::ClassMethods#propagates_permissions_to` in the
+model class.  The defined associations will be queried and any object returned
+will have its parents updated to include the record, at the time the record is
 saved.
 
 Unlike :meth:`ModelSecurity::ClassMethods#inherits_permissions_from`, only
-``belongs_to`` associations can be used as child associations.
+``belongs_to`` and ``has_and_belongs_to_many`` associations can be used as
+child associations.
 
 The update happens by re-assigning the parents of each node found in the
 children objects.  The parents of each node are obtained by calling their
 :meth:`ModelSecurity::InstanceMethods#parents`, and therefore they can be
 defined in their own classes through
 :meth:`ModelSecurity::ClassMethods#inherits_permissions_from` or provided by
-custom implementation of :meth:`ModelSecurity::InstanceMethods#parents`.
+a custom implementation of :meth:`ModelSecurity::InstanceMethods#parents`.
 
 
 Relationship between resources
 ------------------------------
 
-Let's say that a comment belongs to a post, and that access to a comment is
-allowed based on permissions that the user has in the comment itself combined
-with permissions in the post and the global node.  The definition of parent
-and child associations would be::
+Be comments belong to posts, and that access to a comment is allowed based on
+permissions that the user has in the comment itself combined with permissions
+in the post and the global node.  The definition of parent and child
+associations would be::
 
   class Post < ActiveRecord::Base
     has_many :comments
@@ -138,11 +153,35 @@ and child associations would be::
   end
 
 In the example above, no child association was set in the :class:`Post` class.
-It is not necessary because the user would normaly create a post, and then
-comments would be created for it (hence the ``belongs_to`` association).
+It is not necessary because :class:`Comment` holds the key to its parent
+:class:`Post`.
 
-Another example, this time showing
-:meth:`ModelSecurity::ClassMethods#propagates_permissions_to`::
+Now another situation demonstrating a possible relationship between
+:class:`Post` and :class:`Author`::
+
+  class Post < ActiveRecord::Base
+    has_and_belongs_to_many :authors
+    inherits_permissions_from :authors
+  end
+
+  class Author < ActiveRecors::Base
+    has_and_belongs_to_many :posts
+    propagates_permissions_to :posts
+  end
+
+In the example above, posts can be authored by many authors and authors can
+write many posts.  Also, authors propagate permissions to their posts, just
+like posts inherit permissions from their authors --- users get permissions in
+a post based on permissions they have in the post itself, the authors of the
+post and the global node.  It is **required**, because of the
+``has_and_belongs_to_many`` associations between posts and authors, to define
+child associations in the :class:`Author` class.  Without the call to
+:meth:`ModelSecurity::ClassMethods#propagates_permissions_to`, an author could
+be updated and have a post removed from its ``posts`` association, but the
+post removed would never know that it lost an author as parent in the access
+control hierarchy.
+
+Another example, using a ``has_many`` as parent::
 
   class Person < ActiveRecord::Base
     has_many :insurances
@@ -155,10 +194,9 @@ Another example, this time showing
   end
 
 
-In the example above, let us assume two things:
+In the example above, it is assumed two things:
 
-- :class:`Person` inherits permissions from :class:`Insurance` --- who has
-  access to an insurance will gain access to the insured person.
+- Who has access to an insurance will gain access to the insured person.
   
 - In the normal workflow of the application a person gets created first, and
   then an insurance is created for that person.  This person can be in more
@@ -169,7 +207,8 @@ With this setup, when the insurance is created, due to the
 that it has just got a new parent from which permissions must be inherited.
 Strictly speaking, the person instance will be instructed to check its parents
 again, and update itself (hence the need to define the
-``inherits_permissions_from`` in the :class:`Person` class).
+``inherits_permissions_from`` in the :class:`Person` class).  This will happen
+every time an insurance is created or updated its ``person_id`` foreign key.
 
 
 Generating the hierarchy in a rake task

@@ -4,14 +4,18 @@ module AccessControl
   describe ModelSecurity do
 
     let(:model_klass) do
-      klass = Class.new(ActiveRecord::Base)
-      klass.class_eval do
+      class Object::Record < ActiveRecord::Base
         set_table_name 'records'
         def self.name
           'Record'
         end
       end
-      klass
+      Object::Record
+    end
+
+    after do
+      model_klass
+      Object.send(:remove_const, 'Record')
     end
 
     describe ModelSecurity::ClassMethods do
@@ -84,6 +88,15 @@ module AccessControl
             model_klass.inherits_permissions_from.should == [:foo, :parent]
           end
 
+          it "accepts a has_and_belongs_to_many association" do
+            model_klass.class_eval do
+              belongs_to :foo
+              has_and_belongs_to_many :parents
+            end
+            model_klass.inherits_permissions_from(:foo, :parents)
+            model_klass.inherits_permissions_from.should == [:foo, :parents]
+          end
+
           it "complains if a has_many :through is passed" do
             model_klass.class_eval do
               belongs_to :foo
@@ -94,23 +107,33 @@ module AccessControl
             }.should raise_exception(AccessControl::InvalidInheritage)
           end
 
-          it "complains if a has_and_belongs_to_many is passed" do
+          it "complains if a has_one :through is passed" do
             model_klass.class_eval do
               belongs_to :foo
-              has_and_belongs_to_many :parents
+              has_one :parent, :through => :foo
+            end
+            lambda {
+              model_klass.inherits_permissions_from(:foo, :parent)
+            }.should raise_exception(AccessControl::InvalidInheritage)
+          end
+
+          it "complains if a has_many :as is passed" do
+            model_klass.class_eval do
+              belongs_to :foo
+              has_many :parents, :as => :fooables
             end
             lambda {
               model_klass.inherits_permissions_from(:foo, :parents)
             }.should raise_exception(AccessControl::InvalidInheritage)
           end
 
-          it "complains if a has_one :through is passed" do
+          it "complains if a has_one :as is passed" do
             model_klass.class_eval do
               belongs_to :foo
-              has_one :parents, :through => :foo
+              has_one :parent, :as => :fooable
             end
             lambda {
-              model_klass.inherits_permissions_from(:foo, :parents)
+              model_klass.inherits_permissions_from(:foo, :parent)
             }.should raise_exception(AccessControl::InvalidInheritage)
           end
 
@@ -122,7 +145,10 @@ module AccessControl
             model_klass.class_eval do
               belongs_to :child_object
               belongs_to :other_child_object
+              belongs_to :poly_child_object, :polymorphic => true
               has_many :child_objects
+              has_one :one_child_object
+              has_and_belongs_to_many :other_child_objects
             end
           end
 
@@ -130,7 +156,7 @@ module AccessControl
             model_klass.propagates_permissions_to.should be_empty
           end
 
-          it "can be defined for belongs_to associations" do
+          it "accepts a belongs_to association" do
             model_klass.propagates_permissions_to(
               :child_object,
               :other_child_object
@@ -140,9 +166,41 @@ module AccessControl
             ]
           end
 
-          it "cannot be defined for other types of associations" do
+          it "accepts a has_and_belongs_to_many association" do
+            model_klass.propagates_permissions_to(
+              :child_object,
+              :other_child_objects
+            )
+            model_klass.propagates_permissions_to.should == [
+              :child_object,
+              :other_child_objects
+            ]
+          end
+
+          it "complains if a has_many association is passed" do
             lambda {
-              model_klass.propagates_permissions_to(:child_objects)
+              model_klass.propagates_permissions_to(
+                :child_objects,
+                :other_child_objects
+              )
+            }.should raise_exception(AccessControl::InvalidPropagation)
+          end
+
+          it "complains if a has_one association is passed" do
+            lambda {
+              model_klass.propagates_permissions_to(
+                :child_object,
+                :one_child_object
+              )
+            }.should raise_exception(AccessControl::InvalidPropagation)
+          end
+
+          it "complains if a belongs_to association is polymorphic" do
+            lambda {
+              model_klass.propagates_permissions_to(
+                :child_object,
+                :poly_child_object
+              )
             }.should raise_exception(AccessControl::InvalidPropagation)
           end
 
@@ -207,7 +265,7 @@ module AccessControl
           model_klass.new.children.should be_empty
         end
 
-        describe "when there's one child association" do
+        describe "when there's one child belongs_to association" do
 
           before do
             model_klass.class_eval do
@@ -233,20 +291,32 @@ module AccessControl
             model_klass.class_eval do
               belongs_to :child1, :class_name => self.name
               belongs_to :child2, :class_name => self.name
-              propagates_permissions_to :child1, :child2
+              has_and_belongs_to_many(
+                :child3,
+                :class_name => self.name,
+                :foreign_key => :make_rails_happy
+              )
+              propagates_permissions_to :child1, :child2, :child3
               def child1
                 'child1'
               end
               def child2
                 'child2'
               end
+              def child3
+                ['child1', 'child3']
+              end
             end
           end
 
-          it "returns an array containing the records of the associations" do
-            model_klass.new.children.size.should == 2
+          it "returns an array containing the records of all associations" do
             model_klass.new.children.should include('child1')
             model_klass.new.children.should include('child2')
+            model_klass.new.children.should include('child3')
+          end
+
+          it "returns an array with unique records" do
+            model_klass.new.children.size.should == 3
           end
 
         end
@@ -313,7 +383,7 @@ module AccessControl
 
       end
 
-      describe "when creating or saving" do
+      describe "on create" do
 
         before do
           ::AccessControl::Model::Node.create_global_node!
@@ -360,48 +430,107 @@ module AccessControl
           record.save
         end
 
+      end
+
+      describe "on update" do
+
+        before do
+          model_klass.class_eval do
+            belongs_to :record
+            has_one :one_record, :class_name => self.name
+            has_many :records
+            has_and_belongs_to_many(
+              :records_records,
+              :class_name => self.name,
+              :join_table => :records_records,
+              :foreign_key => :from_id,
+              :association_foreign_key => :to_id
+            )
+          end
+        end
+
+        let(:parent1) { model_klass.create! }
+        let(:parent2) { model_klass.create! }
+        let(:parent3) { model_klass.create! }
+        let(:parent4) { model_klass.create! }
+
+        let(:parent_node1) { parent1.ac_node }
+        let(:parent_node2) { parent2.ac_node }
+        let(:parent_node3) { parent3.ac_node }
+        let(:parent_node4) { parent4.ac_node }
+
+        let(:child1) { model_klass.create! }
+        let(:child2) { model_klass.create! }
+        let(:child3) { model_klass.create! }
+
+        let(:child_node1) { child1.ac_node }
+        let(:child_node2) { child2.ac_node }
+        let(:child_node3) { child3.ac_node }
+
+        let(:global_node) { ::AccessControl::Model::Node.global }
+
+        before do
+          ::AccessControl::Model::Node.create_global_node!
+        end
+
         it "updates parents of the node" do
-          parent_node1 = stub('parent node1')
-          parent_node2 = stub('parent node2')
-          parent_node3 = stub('parent node3')
-          parent_node4 = stub('parent node4')
+          model_klass.class_eval do
+            inherits_permissions_from :records
+          end
+          record = model_klass.create!(:records => [parent1, parent2])
+          record.records = [parent3, parent4]
+          record.save!
+          node = record.ac_node
+          node.ancestors.should include(node)
+          node.ancestors.should include(parent_node3)
+          node.ancestors.should include(parent_node4)
+          node.ancestors.should include(global_node)
+          node.ancestors.size.should == 4
+        end
 
-          node = mock('node', :parents => [parent_node1, parent_node3])
+        it "updates child's parents when it is a belongs_to" do
+          model_klass.class_eval do
+            propagates_permissions_to :record, :records_records
+          end
+          record = model_klass.create!(
+            :record => child1,
+            :records_records => [child2]
+          )
+          record.record = child3
+          Record.should_receive(:find).with(child1.id).and_return(child1)
+          child1.should_receive(:update_parent_nodes)
+          child3.should_receive(:update_parent_nodes)
+          record.save!
+        end
 
-          new_parent1 = stub('new parent1', :ac_node => parent_node2)
-          new_parent2 = stub('new parent2', :ac_node => parent_node4)
-
-          record = model_klass.new
-          record.stub!(:new_record?).and_return(false)
-          record.stub!(:id).and_return(1)
-          record.stub!(:ac_node).and_return(node)
-          record.stub!(:parents).and_return([new_parent1, new_parent2])
-
-          node.should_receive(:parents=).with([parent_node2, parent_node4])
+        it "updates added children of the node" do
+          model_klass.class_eval do
+            propagates_permissions_to :record, :records_records
+          end
+          record = model_klass.create!(
+            :record => child1,
+            :records_records => [child2]
+          )
+          record.records_records << child3
+          child3.should_receive(:update_parent_nodes)
           record.save
         end
 
-        it "updates children of the node on save" do
-          parent_node1 = stub('parent_node1')
-          parent_node2 = stub('parent_node2')
-          parent1 = stub('parent1', :ac_node => parent_node1)
-          parent2 = stub('parent2', :ac_node => parent_node2)
-          node1 = mock('node1')
-          node2 = mock('node2')
-          child1 = model_klass.new
-          child1.stub!(:ac_node => node1, :parents => [parent1])
-          child2 = model_klass.new
-          child2.stub!(:ac_node => node2, :parents => [parent2])
-          record = model_klass.new
-          record.stub!(:children).and_return([child1, child2])
-          node1.should_receive(:parents=).with([parent_node1])
-          node2.should_receive(:parents=).with([parent_node2])
-          record.save
+        it "updates removed children of the node" do
+          model_klass.class_eval do
+            propagates_permissions_to :record, :records_records
+          end
+          record = model_klass.create!(
+            :record => child1,
+            :records_records => [child2, child3]
+          )
+          child2.should_receive(:update_parent_nodes)
+          record.records_records.delete(child2)
         end
 
       end
 
-      describe "when destroying" do
+      describe "when destroying a record" do
         it "destroys the ac_node" do
           AccessControl::Model::Node.create_global_node!
           record = model_klass.new

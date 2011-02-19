@@ -26,12 +26,14 @@ module AccessControl
           args.each do |a|
             reflection = reflections[a.to_sym]
             next if reflection.macro == :belongs_to
+            next if reflection.macro == :has_and_belongs_to_many
             m = nil
-            if reflection.macro == :has_and_belongs_to_many
-              m = "unexpected #{a} to be a :has_and_belongs_to_many association"
-            end
             if reflection.options[:through]
               m = "unexpected #{a} association to have :through option"
+            elsif reflection.options[:as]
+              m = "unexpected #{a} association to have :as option"
+            elsif reflection.macro == :composed_of
+              m = "unexpected aggregation #{a}"
             end
             raise AccessControl::InvalidInheritage, m if m
           end
@@ -43,10 +45,18 @@ module AccessControl
       def propagates_permissions_to *args
         if args.any?
           args.each do |a|
-            if reflections[a.to_sym].macro != :belongs_to
-              msg = "expected #{a} to be a :belongs_to association"
-              raise AccessControl::InvalidPropagation, msg
+            reflection = reflections[a.to_sym]
+            if reflection.macro == :has_and_belongs_to_many
+              set_remove_hook_in_habtm(reflection)
+              next
             end
+            if reflection.macro == :belongs_to
+              next if !reflection.options[:polymorphic]
+              m = "unexpected #{a} to be polymorphic"
+            else
+              m = "expected #{a} to be a :belongs_to or habtm association"
+            end
+            raise AccessControl::InvalidPropagation, m
           end
           @propagates_permissions_to = args
         end
@@ -84,6 +94,19 @@ module AccessControl
         end
       end
 
+      def securable?
+        true
+      end
+
+      private
+
+        def set_remove_hook_in_habtm reflection
+          reflection.options[:before_remove] = Proc.new do |record, removed|
+            removed.send(:update_parent_nodes)
+          end
+          add_association_callbacks(reflection.name, reflection.options)
+        end
+
     end
 
     module InstanceMethods
@@ -109,15 +132,56 @@ module AccessControl
         return [] if self.class.inherits_permissions_from.empty?
         self.class.inherits_permissions_from.inject([]) do |r, a|
           r << send(a)
-        end.flatten.uniq
+        end.flatten.compact.uniq
       end
 
       def children
         return [] if self.class.propagates_permissions_to.empty?
         self.class.propagates_permissions_to.inject([]) do |r, a|
+          reflection = self.class.reflections[a.to_sym]
+          if reflection.macro == :belongs_to
+            old, new = changes[reflection.primary_key_name.to_s]
+            old_children_objects << reflection.klass.find(old) if old
+          end
           r << send(a)
-        end.uniq
+        end.flatten.compact.uniq
       end
+
+      def old_children_objects
+        @old_children_objects ||= []
+      end
+
+      private
+
+        def create_nodes
+          AccessControl::Model::Node.create!(
+            :securable => self, :parents => parents.map(&:ac_node)
+          ) if self.class.securable?
+        end
+
+        def update_parent_nodes
+          ac_node.parents = parents.map(&:ac_node) if ac_node
+        end
+
+        def update_child_nodes
+          children.each do |child|
+            child.send(:update_parent_nodes)
+          end
+          old_children_objects.each do |child|
+            child.send(:update_parent_nodes)
+          end
+        end
+
+        def disable_query_restriction
+          self.class.send(:disable_query_restriction)
+          # This must return true or else validation stop and the record is
+          # considered invalid.
+          true
+        end
+
+        def re_enable_query_restriction
+          self.class.send(:re_enable_query_restriction)
+        end
 
     end
 
@@ -131,10 +195,6 @@ class ActiveRecord::Base
   class << self
 
     VALID_FIND_OPTIONS.push(:permissions, :load_permissions).uniq!
-
-    def securable?
-      true
-    end
 
     def allocate_with_security *args
       object = allocate_without_security *args
@@ -316,34 +376,5 @@ class ActiveRecord::Base
   after_save :update_child_nodes
   before_validation :disable_query_restriction
   after_validation :re_enable_query_restriction
-
-  private
-
-    def create_nodes
-      AccessControl::Model::Node.create!(
-        :securable => self, :parents => parents.map(&:ac_node)
-      ) if self.class.securable?
-    end
-
-    def update_parent_nodes
-      ac_node.parents = parents.map(&:ac_node) if ac_node
-    end
-
-    def update_child_nodes
-      children.each do |child|
-        child.send(:update_parent_nodes)
-      end
-    end
-
-    def disable_query_restriction
-      self.class.send(:disable_query_restriction)
-      # This must return true or else validation stop and the record is
-      # considered invalid.
-      true
-    end
-
-    def re_enable_query_restriction
-      self.class.send(:re_enable_query_restriction)
-    end
 
 end
