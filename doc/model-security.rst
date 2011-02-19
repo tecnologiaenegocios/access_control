@@ -80,8 +80,12 @@ This module introduces a method for unrestrictely search for records:
 Hierarchy of records
 ====================
 
-The hierarchy of nodes is maintained with the help of some declarations done
-in each securable model class.
+The hierarchy of nodes is a structure stored in the database used to keep
+securable records linked between themselves.  It is maintained with the help
+of some declarations done in each securable model class.  It is through this
+hiearchy that permissions (to be more precise, roles) are inherited from
+parent to child records.
+
 
 Determining from where a model inherits permissions
 ---------------------------------------------------
