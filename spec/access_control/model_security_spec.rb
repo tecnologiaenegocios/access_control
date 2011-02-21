@@ -327,60 +327,12 @@ module AccessControl
 
     describe "node management" do
 
-      describe "on first access to ac_node" do
-
-        it "creates one node with the parent's nodes if not new record" do
-          parent_node1 = stub('parent node1')
-          parent_node2 = stub('parent node2')
-          parent1 = stub('parent1', :ac_node => parent_node1)
-          parent2 = stub('parent2', :ac_node => parent_node2)
+      describe "when the object is not securable" do
+        it "returns nil on ac_node association" do
           record = model_klass.new
-          record.stub!(:new_record?).and_return(false)
-          record.stub!(:parents).and_return([parent1, parent2])
-          ::AccessControl::Model::Node.should_receive(:create!).
-            with(:securable => record, :parents => [parent_node1, parent_node2])
-          record.ac_node
-        end
-
-        it "doesn't try to create a node if this is a new record" do
-          record = model_klass.new
-          ::AccessControl::Model::Node.should_not_receive(:create!)
-          record.ac_node
-        end
-
-        it "returns nil in the ac_node association if this is a new record" do
-          record = model_klass.new
+          model_klass.stub(:securable?).and_return(false)
           record.ac_node.should be_nil
         end
-
-        it "returns the ac_node association as the node created" do
-          node = stub('node')
-          record = model_klass.new
-          record.stub!(:new_record?).and_return(false)
-          ::AccessControl::Model::Node.stub(:create!).and_return(node)
-          record.ac_node.should == node
-        end
-
-        it "doesn't try to create a node twice" do
-          ::AccessControl::Model::Node.create_global_node!
-          record = model_klass.new
-          record.stub!(:new_record?).and_return(false)
-          record.stub!(:id).and_return(1)
-          record_node = ::AccessControl::Model::Node.create!(
-            :securable => record
-          )
-          ::AccessControl::Model::Node.should_not_receive(:create!)
-          record.ac_node
-        end
-
-        describe "when the object is not securable" do
-          it "returns nil on ac_node association" do
-            record = model_klass.new
-            model_klass.stub(:securable?).and_return(false)
-            record.ac_node.should be_nil
-          end
-        end
-
       end
 
       describe "on create" do

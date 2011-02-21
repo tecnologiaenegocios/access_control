@@ -117,15 +117,6 @@ module AccessControl
                      :as => :securable,
                      :class_name => ::AccessControl::Model::Node.name,
                      :dependent => :destroy
-        base.class_eval do
-          def ac_node_with_automatic_creation
-            return if new_record?
-            current_node = ac_node_without_automatic_creation
-            return current_node if current_node
-            create_nodes
-          end
-          alias_method_chain :ac_node, :automatic_creation
-        end
       end
 
       def parents
