@@ -92,13 +92,13 @@ Determining from where a model inherits permissions
 
 To declare that a model class inherits permissions from some other models, one
 must use the method
-:meth:`ModelSecurity::ClassMethods#inherits_permissions_from`.  This methos
+:meth:`ModelSecurity::ClassMethods#inherits_permissions_from`.  This method
 accepts names from associations, that will be queried each time the record is
 created or saved.  Based on the values found in the association, the hierarchy
 will be updated to reflect the inheritage of permissions.
 
 This method can accept ``belongs_to``, ``has_many`` (without the ``:through``
-option), ``has_one`` (without the ``:through`` options) and
+option), ``has_one`` (without the ``:through`` option) and
 ``has_and_belongs_to_many`` associations.
 
 If no parent association is defined all permissions will be inherited from the
