@@ -172,6 +172,7 @@ module AccessControl
 
       def parents
         return [] if self.class.inherits_permissions_from.empty?
+        return [] unless AccessControl.config.tree_creation
         self.class.inherits_permissions_from.inject([]) do |r, a|
           r << send(a)
         end.flatten.compact.uniq
@@ -179,6 +180,7 @@ module AccessControl
 
       def children
         return [] if self.class.propagates_permissions_to.empty?
+        return [] unless AccessControl.config.tree_creation
         self.class.propagates_permissions_to.inject([]) do |r, a|
           reflection = self.class.reflections[a.to_sym]
           if reflection.macro == :belongs_to

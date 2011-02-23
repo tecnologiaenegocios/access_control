@@ -464,6 +464,20 @@ module AccessControl
           model_klass.new.parents.should == ['some parent']
         end
 
+        it "returns an empty array if tree creation is disabled" do
+          config = AccessControl::Configuration.new
+          config.tree_creation = false
+          AccessControl.stub!(:config).and_return(config)
+          model_klass.class_eval do
+            belongs_to :parent_assoc, :class_name => self.name
+            inherits_permissions_from :parent_assoc
+            def parent_assoc
+              'some parent'
+            end
+          end
+          model_klass.new.parents.should be_empty
+        end
+
       end
 
       describe "child node list" do
@@ -473,6 +487,20 @@ module AccessControl
         end
 
         it "is empty by default" do
+          model_klass.new.children.should be_empty
+        end
+
+        it "returns an empty array if tree creation is disabled" do
+          config = AccessControl::Configuration.new
+          config.tree_creation = false
+          AccessControl.stub!(:config).and_return(config)
+          model_klass.class_eval do
+            belongs_to :test, :class_name => self.name
+            def test
+              'a single object'
+            end
+            propagates_permissions_to :test
+          end
           model_klass.new.children.should be_empty
         end
 
