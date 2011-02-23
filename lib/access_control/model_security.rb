@@ -25,6 +25,13 @@ module AccessControl
         if args.any?
           args.each do |a|
             reflection = reflections[a.to_sym]
+            if reflection.options[:conditions]
+              raise AccessControl::InvalidInheritage,
+                    "unexpected #{a} association to have :conditions option"
+            elsif reflection.options[:finder_sql]
+              raise AccessControl::InvalidInheritage,
+                    "unexpected #{a} association to have :finder_sql option"
+            end
             next if reflection.macro == :belongs_to
             next if reflection.macro == :has_and_belongs_to_many
             m = nil
@@ -46,6 +53,13 @@ module AccessControl
         if args.any?
           args.each do |a|
             reflection = reflections[a.to_sym]
+            if reflection.options[:conditions]
+              raise AccessControl::InvalidPropagation,
+                    "unexpected #{a} association to have :conditions option"
+            elsif reflection.options[:finder_sql]
+              raise AccessControl::InvalidPropagation,
+                    "unexpected #{a} association to have :finder_sql option"
+            end
             if reflection.macro == :has_and_belongs_to_many
               set_remove_hook_in_habtm(reflection)
               next

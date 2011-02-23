@@ -97,6 +97,66 @@ module AccessControl
             model_klass.inherits_permissions_from.should == [:foo, :parents]
           end
 
+          it "complains if a belongs_to with :conditions is passed" do
+            model_klass.class_eval do
+              belongs_to :foo
+              belongs_to :parent, :conditions => '1 = 2'
+            end
+            lambda {
+              model_klass.inherits_permissions_from(:foo, :parent)
+            }.should raise_exception(AccessControl::InvalidInheritage)
+          end
+
+          it "complains if a has_many with :conditions is passed" do
+            model_klass.class_eval do
+              belongs_to :foo
+              has_many :parents, :conditions => '1 = 2'
+            end
+            lambda {
+              model_klass.inherits_permissions_from(:foo, :parents)
+            }.should raise_exception(AccessControl::InvalidInheritage)
+          end
+
+          it "complains if a has_one with :conditions is passed" do
+            model_klass.class_eval do
+              belongs_to :foo
+              has_one :parent, :conditions => '1 = 2'
+            end
+            lambda {
+              model_klass.inherits_permissions_from(:foo, :parent)
+            }.should raise_exception(AccessControl::InvalidInheritage)
+          end
+
+          it "complains if a habtm with :conditions is passed" do
+            model_klass.class_eval do
+              belongs_to :foo
+              has_and_belongs_to_many :parents, :conditions => '1 = 2'
+            end
+            lambda {
+              model_klass.inherits_permissions_from(:foo, :parents)
+            }.should raise_exception(AccessControl::InvalidInheritage)
+          end
+
+          it "complains if a has_many with :finder_sql is passed" do
+            model_klass.class_eval do
+              belongs_to :foo
+              has_many :parents, :finder_sql => 'foo'
+            end
+            lambda {
+              model_klass.inherits_permissions_from(:foo, :parents)
+            }.should raise_exception(AccessControl::InvalidInheritage)
+          end
+
+          it "complains if a habtm with :finder_sql is passed" do
+            model_klass.class_eval do
+              belongs_to :foo
+              has_and_belongs_to_many :parents, :finder_sql => 'foo'
+            end
+            lambda {
+              model_klass.inherits_permissions_from(:foo, :parents)
+            }.should raise_exception(AccessControl::InvalidInheritage)
+          end
+
           it "complains if a has_many :through is passed" do
             model_klass.class_eval do
               belongs_to :foo
@@ -117,7 +177,7 @@ module AccessControl
             }.should raise_exception(AccessControl::InvalidInheritage)
           end
 
-          it "complains if a has_many :as is passed" do
+          it "complains if a has_many with :as is passed" do
             model_klass.class_eval do
               belongs_to :foo
               has_many :parents, :as => :fooables
@@ -127,7 +187,7 @@ module AccessControl
             }.should raise_exception(AccessControl::InvalidInheritage)
           end
 
-          it "complains if a has_one :as is passed" do
+          it "complains if a has_one with :as is passed" do
             model_klass.class_eval do
               belongs_to :foo
               has_one :parent, :as => :fooable
@@ -146,9 +206,14 @@ module AccessControl
               belongs_to :child_object
               belongs_to :other_child_object
               belongs_to :poly_child_object, :polymorphic => true
+              belongs_to :child_obj_with_cond, :conditions => '1 = 2'
               has_many :child_objects
               has_one :one_child_object
               has_and_belongs_to_many :other_child_objects
+              has_and_belongs_to_many :other_child_obj_with_cond,
+                                      :conditions => '1 = 2'
+              has_and_belongs_to_many :other_child_obj_with_cust_finder,
+                                      :finder_sql => 'foo'
             end
           end
 
@@ -175,6 +240,35 @@ module AccessControl
               :child_object,
               :other_child_objects
             ]
+          end
+
+          it "complains if a belongs_to with :conditions is passed" do
+            lambda {
+              model_klass.propagates_permissions_to(
+                :child_obj_with_cond,
+                :other_child_object
+              )
+            }.should raise_exception(AccessControl::InvalidPropagation)
+          end
+
+          it "complains if a habtm with :conditions is passed" do
+            lambda {
+              model_klass.propagates_permissions_to(
+                :child_object,
+                :other_child_objects,
+                :other_child_obj_with_cond
+              )
+            }.should raise_exception(AccessControl::InvalidPropagation)
+          end
+
+          it "complains if a habtm with :finder_sql is passed" do
+            lambda {
+              model_klass.propagates_permissions_to(
+                :child_object,
+                :other_child_objects,
+                :other_child_obj_with_cust_finder
+              )
+            }.should raise_exception(AccessControl::InvalidPropagation)
           end
 
           it "complains if a has_many association is passed" do
