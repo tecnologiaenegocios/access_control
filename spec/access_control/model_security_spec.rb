@@ -20,6 +20,28 @@ module AccessControl
 
     describe ModelSecurity::ClassMethods do
 
+      describe "allocation with security manager" do
+        it "wraps the object into a proxy" do
+          AccessControl.stub!(:get_security_manager).and_return('the manager')
+          model_klass.new.security_proxied?.should be_true
+        end
+        it "performs checking of inheritage" do
+          AccessControl.stub!(:get_security_manager).and_return('the manager')
+          model_klass.should_receive(:check_inheritage!)
+          model_klass.new
+        end
+      end
+
+      describe "allocation without security manager" do
+        it "doesn't wrap the object into a proxy" do
+          model_klass.new.security_proxied?.should be_false
+        end
+        it "doesn't performs checking of inheritage" do
+          model_klass.should_not_receive(:check_inheritage!)
+          model_klass.new
+        end
+      end
+
       describe "protection of methods" do
 
         let(:test_object) do
@@ -296,6 +318,101 @@ module AccessControl
                 :poly_child_object
               )
             }.should raise_exception(AccessControl::InvalidPropagation)
+          end
+
+        end
+
+        describe "relationship between parents/childs (check_inheritage!)" do
+
+          # An inherits_permission_from with non-belongs_to association
+          # requires a matching propagates_permission_to in the reflected
+          # model.
+
+          it "raises error if there's no match between bt and hm" do
+            model_klass.class_eval do
+              has_many :other_records,
+                       :class_name => self.name,
+                       :foreign_key => :record_id
+              inherits_permissions_from :other_records
+            end
+            lambda {
+              model_klass.check_inheritage!
+            }.should raise_exception(AccessControl::MissingPropagation)
+          end
+
+          it "raises error if there's no match between bt and ho" do
+            model_klass.class_eval do
+              belongs_to :other_record,
+                         :class_name => self.name,
+                         :foreign_key => :record_id
+              has_one :one_other_record,
+                      :class_name => self.name,
+                      :foreign_key => :record_id
+              inherits_permissions_from :one_other_record
+            end
+            lambda {
+              model_klass.check_inheritage!
+            }.should raise_exception(AccessControl::MissingPropagation)
+          end
+
+          it "raises error if there's no match between habtm and habtm" do
+            model_klass.class_eval do
+              has_and_belongs_to_many :other_records,
+                                      :join_table => :records_records,
+                                      :class_name => self.name,
+                                      :foreign_key => :from_id,
+                                      :association_foreign_key => :to_id
+              inherits_permissions_from :other_records
+            end
+            lambda {
+              model_klass.check_inheritage!
+            }.should raise_exception(AccessControl::MissingPropagation)
+          end
+
+          it "returns true if there's a match between bt and hm" do
+            model_klass.class_eval do
+              belongs_to :other_record,
+                         :class_name => self.name,
+                         :foreign_key => :record_id
+              has_many :other_records,
+                       :class_name => self.name,
+                       :foreign_key => :record_id
+              inherits_permissions_from :other_records
+              propagates_permissions_to :other_record
+            end
+            model_klass.check_inheritage!.should be_true
+          end
+
+          it "returns true if there's a match between bt and ho" do
+            model_klass.class_eval do
+              belongs_to :other_record,
+                         :class_name => self.name,
+                         :foreign_key => :record_id
+              has_one :one_other_record,
+                      :class_name => self.name,
+                      :foreign_key => :record_id
+              inherits_permissions_from :one_other_record
+              propagates_permissions_to :other_record
+            end
+            model_klass.check_inheritage!.should be_true
+          end
+
+          it "returns true if there's a match between habtm and habtm" do
+            model_klass.class_eval do
+              has_and_belongs_to_many :other_records,
+                                      :join_table => :records_records,
+                                      :class_name => self.name,
+                                      :foreign_key => :from_id,
+                                      :association_foreign_key => :to_id
+              has_and_belongs_to_many :inv_other_records,
+                                      :join_table => :records_records,
+                                      :class_name => self.name,
+                                      :foreign_key => :to_id,
+                                      :association_foreign_key => :from_id
+              inherits_permissions_from :other_records
+              propagates_permissions_to :inv_other_records
+            end
+            model_klass.check_inheritage!.should be_true
           end
 
         end

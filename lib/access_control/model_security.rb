@@ -112,6 +112,43 @@ module AccessControl
         true
       end
 
+      def check_inheritage!
+
+        return true if @already_checked_inheritage
+
+        inherits_permissions_from.each do |a1|
+          reflection = reflections[a1.to_sym]
+          klass = reflection.klass
+          case reflection.macro
+          when :has_many, :has_one
+            inverse_key = reflection.primary_key_name
+            unless klass.propagates_permissions_to.any? do |a2|
+              klass.reflections[a2.to_sym].klass == self &&
+              klass.reflections[a2.to_sym].primary_key_name == inverse_key
+            end
+              raise AccessControl::MissingPropagation,
+                    "#{klass.name} missing propagation to #{name}."
+            end
+          when :has_and_belongs_to_many
+            assoc_key = reflection.primary_key_name
+            inverse_key = reflection.association_foreign_key
+            join_table = reflection.options[:join_table].to_s
+            unless klass.propagates_permissions_to.any? do |a2|
+              other_ref = klass.reflections[a2.to_sym]
+              other_ref.klass == self &&
+              other_ref.primary_key_name == inverse_key &&
+              other_ref.association_foreign_key == assoc_key &&
+              other_ref.options[:join_table].to_s == join_table
+            end
+              raise AccessControl::MissingPropagation,
+                    "#{klass.name} missing propagation to #{name}."
+            end
+          end
+        end
+
+        @already_checked_inheritage = true
+      end
+
       private
 
         def set_remove_hook_in_habtm reflection
@@ -201,14 +238,15 @@ class ActiveRecord::Base
 
     VALID_FIND_OPTIONS.push(:permissions, :load_permissions).uniq!
 
-    def allocate_with_security *args
-      object = allocate_without_security *args
+    def new_with_security *args
+      object = new_without_security *args
       return object unless manager = AccessControl.get_security_manager
       return object unless object.class.securable?
+      object.class.check_inheritage!
       AccessControl::SecurityProxy.new(object)
     end
 
-    alias_method_chain :allocate, :security
+    alias_method_chain :new, :security
 
     def find_every_with_restriction(options)
       options[:permissions] ||= query_permissions

@@ -21,4 +21,7 @@ module AccessControl
   class InvalidPropagation < StandardError
   end
 
+  class MissingPropagation < StandardError
+  end
+
 end
