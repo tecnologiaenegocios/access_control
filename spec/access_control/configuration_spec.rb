@@ -25,6 +25,20 @@ module AccessControl
 
     end
 
+    describe "tree_creation" do
+
+      it "is enabled by default" do
+        Configuration.new.tree_creation.should be_true
+      end
+
+      it "can be disabled" do
+        config = Configuration.new
+        config.tree_creation = false
+        config.tree_creation.should be_false
+      end
+
+    end
+
   end
 
   describe "configuration API" do
