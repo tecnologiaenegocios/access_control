@@ -59,15 +59,14 @@ select is created instead of the default ``*``.  This is done as follows:
     already provided the reference fully qualified, that is, each field
     referenced must have its table's name already prefixed.
 
-  If the option ``select`` originally was not preceeded by ``DISTINCT``, the
+  If the option ``:select`` originally was not preceeded by ``DISTINCT``, the
   primary key of the table, which is usually ``id``, is included in the select
   (fully qualified), and ``DISTINCT`` is prepended to the clause.
 
-In general, ``DISTINCT`` is always present in the final select clause.  This
-is necessary because without that the query can return the same record
-multiple times.  This happens, for example, if a required permission is found
-in more than one assignment, or if the search requires more than one
-permission.
+``DISTINCT`` is always present in the final select clause.  This is necessary
+because without that the query can return the same record multiple times.
+This happens, for example, if a required permission is found in more than one
+assignment, or if the search requires more than one permission.
 
 
 Unrestricted :meth:`find`
@@ -101,6 +100,10 @@ This method can accept ``belongs_to``, ``has_many`` (without the ``:through``
 option), ``has_one`` (without the ``:through`` option) and
 ``has_and_belongs_to_many`` associations.
 
+Currently, no association can have a option ``:conditions`` or
+``:finder_sql``.  This limitation allows that a tree be built easily by
+inspecting each association.
+
 If no parent association is defined all permissions will be inherited from the
 global node.
 
@@ -130,6 +133,10 @@ saved.
 Unlike :meth:`ModelSecurity::ClassMethods#inherits_permissions_from`, only
 ``belongs_to`` and ``has_and_belongs_to_many`` associations can be used as
 child associations.
+
+Currently, no association can have a option ``:conditions`` or
+``:finder_sql``.  This limitation allows that a tree be built easily by
+inspecting each association.
 
 The update happens by re-assigning the parents of each node found in the
 children objects.  The parents of each node are obtained by calling their
@@ -214,35 +221,6 @@ again, and update itself (hence the need to define the
 ``inherits_permissions_from`` in the :class:`Person` class).  This will happen
 every time an insurance is created or updated its ``person_id`` foreign key.
 
-
-Generating the hierarchy in a rake task
----------------------------------------
-
-One can build an hierarchy using plain ruby, in a rake task, as follows::
-
-  desc "build access control hieararchy"
-  task :build_access_control_hieararchy => :environment do
-
-    # Ensure that all models are already loaded.
-    Dir[Rails.root + 'app/models/**/*.rb'].each{|path| require path}
-
-    # For each model, get all records and for each record touch its node.
-    ActiveRecord::Base.transaction do
-      ObjectSpace.each_object(Class) do |klass|
-        next if klass == ActiveRecord::Base
-        next unless klass.ancestors.include?(ActiveRecord::Base)
-        next unless klass.securable?
-        # Call the ac_node to create it.
-        klass.all.each(&:ac_node)
-      end
-    end
-
-  end
-
-This is a simplistic example.  It may have to be adjusted to specific needs.
-But in general, each record from a model that has a table and is ``securable``
-(see :meth:`ModelSecurity::ClassMethods#securable?`) should have a node (an
-instance of :class:`Model::Node`).
 
 :mod:`ModelSecurity` --- Methods used in model classes and instances
 ====================================================================
