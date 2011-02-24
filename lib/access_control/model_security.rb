@@ -112,32 +112,32 @@ module AccessControl
         true
       end
 
-      def check_inheritage!
+      def check_inheritance!
 
-        return true if @already_checked_inheritage
+        return true if @already_checked_inheritance
 
         inherits_permissions_from.each do |a1|
           reflection = reflections[a1.to_sym]
           klass = reflection.klass
           case reflection.macro
           when :has_many, :has_one
-            inverse_key = reflection.primary_key_name
+            inverse_key = reflection.primary_key_name.to_s
             unless klass.propagates_permissions_to.any? do |a2|
               klass.reflections[a2.to_sym].klass == self &&
-              klass.reflections[a2.to_sym].primary_key_name == inverse_key
+              klass.reflections[a2.to_sym].primary_key_name.to_s == inverse_key
             end
               raise AccessControl::MissingPropagation,
                     "#{klass.name} missing propagation to #{name}."
             end
           when :has_and_belongs_to_many
-            assoc_key = reflection.primary_key_name
-            inverse_key = reflection.association_foreign_key
+            assoc_key = reflection.primary_key_name.to_s
+            inverse_key = reflection.association_foreign_key.to_s
             join_table = reflection.options[:join_table].to_s
             unless klass.propagates_permissions_to.any? do |a2|
               other_ref = klass.reflections[a2.to_sym]
               other_ref.klass == self &&
-              other_ref.primary_key_name == inverse_key &&
-              other_ref.association_foreign_key == assoc_key &&
+              other_ref.primary_key_name.to_s == inverse_key &&
+              other_ref.association_foreign_key.to_s == assoc_key &&
               other_ref.options[:join_table].to_s == join_table
             end
               raise AccessControl::MissingPropagation,
@@ -146,7 +146,7 @@ module AccessControl
           end
         end
 
-        @already_checked_inheritage = true
+        @already_checked_inheritance = true
       end
 
       private
@@ -244,7 +244,7 @@ class ActiveRecord::Base
       object = new_without_security *args
       return object unless manager = AccessControl.get_security_manager
       return object unless object.class.securable?
-      object.class.check_inheritage!
+      object.class.check_inheritance!
       AccessControl::SecurityProxy.new(object)
     end
 

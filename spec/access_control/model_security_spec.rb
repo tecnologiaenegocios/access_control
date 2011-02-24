@@ -27,7 +27,7 @@ module AccessControl
         end
         it "performs checking of inheritage" do
           AccessControl.stub!(:get_security_manager).and_return('the manager')
-          model_klass.should_receive(:check_inheritage!)
+          model_klass.should_receive(:check_inheritance!)
           model_klass.new
         end
       end
@@ -37,7 +37,7 @@ module AccessControl
           model_klass.new.security_proxied?.should be_false
         end
         it "doesn't performs checking of inheritage" do
-          model_klass.should_not_receive(:check_inheritage!)
+          model_klass.should_not_receive(:check_inheritance!)
           model_klass.new
         end
       end
@@ -322,7 +322,7 @@ module AccessControl
 
         end
 
-        describe "relationship between parents/childs (check_inheritage!)" do
+        describe "relationship between parents/childs (check_inheritance!)" do
 
           # An inherits_permission_from with non-belongs_to association
           # requires a matching propagates_permission_to in the reflected
@@ -336,7 +336,7 @@ module AccessControl
               inherits_permissions_from :other_records
             end
             lambda {
-              model_klass.check_inheritage!
+              model_klass.check_inheritance!
             }.should raise_exception(AccessControl::MissingPropagation)
           end
 
@@ -351,7 +351,7 @@ module AccessControl
               inherits_permissions_from :one_other_record
             end
             lambda {
-              model_klass.check_inheritage!
+              model_klass.check_inheritance!
             }.should raise_exception(AccessControl::MissingPropagation)
           end
 
@@ -365,7 +365,7 @@ module AccessControl
               inherits_permissions_from :other_records
             end
             lambda {
-              model_klass.check_inheritage!
+              model_klass.check_inheritance!
             }.should raise_exception(AccessControl::MissingPropagation)
           end
 
@@ -380,7 +380,7 @@ module AccessControl
               inherits_permissions_from :other_records
               propagates_permissions_to :other_record
             end
-            model_klass.check_inheritage!.should be_true
+            model_klass.check_inheritance!.should be_true
           end
 
           it "returns true if there's a match between bt and ho" do
@@ -394,7 +394,7 @@ module AccessControl
               inherits_permissions_from :one_other_record
               propagates_permissions_to :other_record
             end
-            model_klass.check_inheritage!.should be_true
+            model_klass.check_inheritance!.should be_true
           end
 
           it "returns true if there's a match between habtm and habtm" do
@@ -412,7 +412,7 @@ module AccessControl
               inherits_permissions_from :other_records
               propagates_permissions_to :inv_other_records
             end
-            model_klass.check_inheritage!.should be_true
+            model_klass.check_inheritance!.should be_true
           end
 
         end
