@@ -35,7 +35,7 @@ module AccessControl
       __verify_method_type(method) if name != :send
 
       if (required = @target.class.permissions_for(method)).any?
-        @manager.verify_access!(@target.ac_nodes, required)
+        @manager.verify_access!(@target.ac_node, required)
       end
 
       return_value = @target.__send__(name, *args, &block)

@@ -40,8 +40,7 @@ module AccessControl
 
       describe "when a public method is called from outside the object" do
 
-        let(:node1) { mock('node1') }
-        let(:node2) { mock('node2') }
+        let(:node) { mock('node') }
 
         before do
           unproxied.stub!(:foo).and_return('the foo value')
@@ -50,12 +49,11 @@ module AccessControl
         it "calls verify_access! on the manager at each method call" do
           queried_permissions = Set.new(['some permission',
                                          'other permission'])
-          nodes = [node1, node2]
           unproxied.class.should_receive(:permissions_for).with('foo').
             and_return(queried_permissions)
-          unproxied.should_receive(:ac_nodes).and_return(nodes)
+          unproxied.should_receive(:ac_node).and_return(node)
           manager.should_receive(:verify_access!).
-            with(nodes, queried_permissions)
+            with(node, queried_permissions)
           proxied.foo.should == 'the foo value'
         end
 
