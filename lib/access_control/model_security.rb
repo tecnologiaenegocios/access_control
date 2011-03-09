@@ -250,6 +250,16 @@ class ActiveRecord::Base
 
     alias_method_chain :new, :security
 
+    def allocate_with_security *args
+      object = allocate_without_security *args
+      return object unless manager = AccessControl.get_security_manager
+      return object unless object.class.securable?
+      object.class.check_inheritance!
+      AccessControl::SecurityProxy.new(object)
+    end
+
+    alias_method_chain :allocate, :security
+
     def find_every_with_restriction(options)
       options[:permissions] ||= query_permissions
       if !options[:permissions].is_a?(Array)

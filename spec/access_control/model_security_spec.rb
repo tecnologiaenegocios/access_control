@@ -21,9 +21,18 @@ module AccessControl
     describe ModelSecurity::ClassMethods do
 
       describe "allocation with security manager" do
-        it "wraps the object into a proxy" do
+        it "wraps the object into a proxy with `new`" do
           AccessControl.stub!(:get_security_manager).and_return('the manager')
           model_klass.new.security_proxied?.should be_true
+        end
+        it "wraps the object into a proxy when loaded with `find`" do
+          AccessControl.stub!(:get_security_manager).and_return(
+            SecurityManager.new('a controller')
+          )
+          AccessControl::Model::Node.create_global_node!
+          model_klass.create!
+          model_klass.unrestricted_find(:first).
+            security_proxied?.should be_true
         end
         it "performs checking of inheritage" do
           AccessControl.stub!(:get_security_manager).and_return('the manager')
@@ -33,8 +42,13 @@ module AccessControl
       end
 
       describe "allocation without security manager" do
-        it "doesn't wrap the object into a proxy" do
+        it "doesn't wrap the object into a proxy with `new`" do
           model_klass.new.security_proxied?.should be_false
+        end
+        it "doesn't wrap the object into a proxy when loaded with `find`" do
+          AccessControl::Model::Node.create_global_node!
+          model_klass.create!
+          model_klass.first.security_proxied?.should be_false
         end
         it "doesn't performs checking of inheritage" do
           model_klass.should_not_receive(:check_inheritance!)
