@@ -699,7 +699,7 @@ module AccessControl
           ::AccessControl::Model::Node.create_global_node!
         end
 
-        it "updates parents of the node" do
+        it "updates parents of the node for :has_many" do
           model_klass.class_eval do
             inherits_permissions_from :records
           end
@@ -711,6 +711,40 @@ module AccessControl
           node.ancestors.should include(parent_node3)
           node.ancestors.should include(parent_node4)
           node.ancestors.should include(global_node)
+          parent_node1.descendants.should_not include(node)
+          parent_node2.descendants.should_not include(node)
+          node.ancestors.size.should == 4
+        end
+
+        it "updates parents of the node for :has_one" do
+          model_klass.class_eval do
+            inherits_permissions_from :one_record
+          end
+          record = model_klass.create!(:one_record => parent1)
+          record.one_record = parent3
+          record.save!
+          node = record.ac_node
+          node.ancestors.should include(node)
+          node.ancestors.should include(parent_node3)
+          node.ancestors.should include(global_node)
+          parent_node1.descendants.should_not include(node)
+          node.ancestors.size.should == 3
+        end
+
+        it "updates parents of the node for :habtm" do
+          model_klass.class_eval do
+            inherits_permissions_from :records_records
+          end
+          record = model_klass.create!(:records_records => [parent1, parent2])
+          record.records_records = [parent3, parent4]
+          record.save!
+          node = record.ac_node
+          node.ancestors.should include(node)
+          node.ancestors.should include(parent_node3)
+          node.ancestors.should include(parent_node4)
+          node.ancestors.should include(global_node)
+          parent_node1.descendants.should_not include(node)
+          parent_node2.descendants.should_not include(node)
           node.ancestors.size.should == 4
         end
 
