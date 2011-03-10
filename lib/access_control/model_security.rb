@@ -218,8 +218,8 @@ module AccessControl
 
         def disable_query_restriction
           self.class.send(:disable_query_restriction)
-          # This must return true or else validation stop and the record is
-          # considered invalid.
+          # This must return true or else validation stops and the record ends
+          # being considered invalid.
           true
         end
 
