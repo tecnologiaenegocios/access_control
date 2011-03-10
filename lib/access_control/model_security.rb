@@ -179,20 +179,7 @@ module AccessControl
       end
 
       def children
-        return [] if self.class.propagates_permissions_to.empty?
-        return [] unless AccessControl.config.tree_creation
-        self.class.propagates_permissions_to.inject([]) do |r, a|
-          reflection = self.class.reflections[a.to_sym]
-          if reflection.macro == :belongs_to
-            old, new = changes[reflection.primary_key_name.to_s]
-            old_children_objects << reflection.klass.find(old) if old
-          end
-          r << send(a)
-        end.flatten.compact.uniq
-      end
-
-      def old_children_objects
-        @old_children_objects ||= []
+        new_and_old_children.first
       end
 
       private
@@ -208,11 +195,8 @@ module AccessControl
         end
 
         def update_child_nodes
-          children.each do |child|
-            child.send(:update_parent_nodes)
-          end
-          old_children_objects.each do |child|
-            child.send(:update_parent_nodes)
+          new_and_old_children.each do |children|
+            children.each{|child| child.send(:update_parent_nodes)}
           end
         end
 
@@ -225,6 +209,21 @@ module AccessControl
 
         def re_enable_query_restriction
           self.class.send(:re_enable_query_restriction)
+        end
+
+        def new_and_old_children
+          return [[], []] if self.class.propagates_permissions_to.empty?
+          return [[], []] unless AccessControl.config.tree_creation
+          old_children = []
+          new_children = self.class.propagates_permissions_to.inject([]){|r, a|
+            reflection = self.class.reflections[a.to_sym]
+            if reflection.macro == :belongs_to
+              old, new = changes[reflection.primary_key_name.to_s]
+              old_children << reflection.klass.find(old) if old
+            end
+            r << send(a)
+          }.flatten.compact.uniq
+          [new_children, old_children]
         end
 
     end
