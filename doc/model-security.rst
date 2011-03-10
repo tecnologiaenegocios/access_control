@@ -100,9 +100,9 @@ This method can accept ``belongs_to``, ``has_many`` (without the ``:through``
 option), ``has_one`` (without the ``:through`` option) and
 ``has_and_belongs_to_many`` associations.
 
-Currently, no association can have a option ``:conditions`` or
-``:finder_sql``.  This limitation allows that a tree be built easily by
-inspecting each association.
+Currently, no association can have a option ``:finder_sql`` option and
+``:conditions`` option is allowed only for a ``belongs_to`` association.  This
+limitation allows that a tree be built easily by inspecting each association.
 
 If no parent association is defined all permissions will be inherited from the
 global node.
@@ -113,22 +113,32 @@ global node.
    ``belongs_to``, that association must be declared as a propagation
    association in the model reflected.  See below how to do this.
 
-   Without the propagation, the hierarchy of records **will** be broken.
+   Without the propagation, the hierarchy of records **will** be broken.  An
+   exception will be raised so long a model is instantiated or loaded and its
+   inheritage declarations that need proper propagation from other classes are
+   not matched.
+
+.. warning::
+
+   Changing the ``:conditions`` of a ``belongs_to`` association during the
+   application life cycle may break the tree; records previously inheriting
+   permissions from another suddenly will inherit from another one, but the
+   tree will not be consistent with the change until the records are updated.
 
 
 Propagating permissions from a model to others
 ----------------------------------------------
 
 In cases that a model inherits permissions from an association that is not a
-belongs to, that is, the model doesn't hold the key to its parent, when the
-parents of the model change (new parent added or a parent was removed) there
-is the need to inform the model instances that they gained or lost a parent.
-In such cases one can define which associations in the parent models are
-subject to this change through defining *child associations*.  This is done by
-calling :meth:`ModelSecurity::ClassMethods#propagates_permissions_to` in the
-model class.  The defined associations will be queried and any object returned
-will have its parents updated to include the record, at the time the record is
-saved.
+``belongs_to``, that is, the model doesn't hold the key to its parent, when
+the parents of the model change (new parent added or a parent was removed)
+there is the need to inform the model instances that they gained or lost a
+parent.  In such cases one can define which associations in the parent models
+are subject to this change through defining *child associations*.  This is
+done by calling :meth:`ModelSecurity::ClassMethods#propagates_permissions_to`
+in the model class.  The defined associations will be queried and any object
+returned will have its parents updated to include the record, at the time the
+record is saved.
 
 Unlike :meth:`ModelSecurity::ClassMethods#inherits_permissions_from`, only
 ``belongs_to`` and ``has_and_belongs_to_many`` associations can be used as
@@ -144,6 +154,14 @@ children objects.  The parents of each node are obtained by calling their
 defined in their own classes through
 :meth:`ModelSecurity::ClassMethods#inherits_permissions_from` or provided by
 a custom implementation of :meth:`ModelSecurity::InstanceMethods#parents`.
+
+.. warning::
+
+   A ``:has_and_belongs_to_many`` association that works as a propagation
+   association *should not* have a ``:after_remove`` hook defined.  This kind
+   of hook is added (or replaced, if there's one already) automatically when
+   the association is declared as a propagation, in order to make deleted
+   records update their parents and make the tree consistent.
 
 
 Relationship between resources

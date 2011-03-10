@@ -154,14 +154,28 @@ module AccessControl
             model_klass.inherits_permissions_from.should == [:foo, :parents]
           end
 
-          it "complains if a belongs_to with :conditions is passed" do
+          it "accepts a belongs_to with :conditions" do
+            # Previously, a belongs_to was required to not have any
+            # :conditions.  This was a over-constraint created to allow easy
+            # construction of tree by association inspection, and :conditions
+            # adds more complexity, but since a belongs_to represents a
+            # straight common case and we have no support for defining
+            # inheritage dinamically, we're dropping this constraint.  However,
+            # if the :conditions change, the tree may be broken (there should
+            # be a warning in the docs about this).
+            # model_klass.class_eval do
+            #   belongs_to :foo
+            #   belongs_to :parent, :conditions => '1 = 2'
+            # end
+            # lambda {
+            #   model_klass.inherits_permissions_from(:foo, :parent)
+            # }.should raise_exception(AccessControl::InvalidInheritage)
             model_klass.class_eval do
               belongs_to :foo
               belongs_to :parent, :conditions => '1 = 2'
             end
-            lambda {
-              model_klass.inherits_permissions_from(:foo, :parent)
-            }.should raise_exception(AccessControl::InvalidInheritage)
+            model_klass.inherits_permissions_from(:foo, :parent)
+            model_klass.inherits_permissions_from.should == [:foo, :parent]
           end
 
           it "complains if a has_many with :conditions is passed" do
@@ -672,6 +686,13 @@ module AccessControl
               :foreign_key => :from_id,
               :association_foreign_key => :to_id
             )
+            has_and_belongs_to_many(
+              :inverse_records_records,
+              :class_name => self.name,
+              :join_table => :records_records,
+              :foreign_key => :to_id,
+              :association_foreign_key => :from_id
+            )
           end
         end
 
@@ -750,6 +771,7 @@ module AccessControl
 
         it "updates child's parents when it is a belongs_to" do
           model_klass.class_eval do
+            inherits_permissions_from :records, :inverse_records_records
             propagates_permissions_to :record, :records_records
           end
           record = model_klass.create!(
@@ -757,14 +779,18 @@ module AccessControl
             :records_records => [child2]
           )
           record.record = child3
-          Record.should_receive(:find).with(child1.id).and_return(child1)
-          child1.should_receive(:update_parent_nodes)
-          child3.should_receive(:update_parent_nodes)
           record.save!
+          node = record.ac_node
+          node.descendants.should include(node)
+          node.descendants.should_not include(child_node1)
+          node.descendants.should include(child_node2)
+          node.descendants.should include(child_node3)
+          node.descendants.size.should == 3
         end
 
         it "updates added children of the node" do
           model_klass.class_eval do
+            inherits_permissions_from :records, :inverse_records_records
             propagates_permissions_to :record, :records_records
           end
           record = model_klass.create!(
@@ -772,20 +798,31 @@ module AccessControl
             :records_records => [child2]
           )
           record.records_records << child3
-          child3.should_receive(:update_parent_nodes)
           record.save
+          node = record.ac_node
+          node.descendants.should include(node)
+          node.descendants.should include(child_node1)
+          node.descendants.should include(child_node2)
+          node.descendants.should include(child_node3)
+          node.descendants.size.should == 4
         end
 
         it "updates removed children of the node" do
           model_klass.class_eval do
+            inherits_permissions_from :records, :inverse_records_records
             propagates_permissions_to :record, :records_records
           end
           record = model_klass.create!(
             :record => child1,
             :records_records => [child2, child3]
           )
-          child2.should_receive(:update_parent_nodes)
           record.records_records.delete(child2)
+          node = record.ac_node
+          node.descendants.should include(node)
+          node.descendants.should include(child_node1)
+          node.descendants.should_not include(child_node2)
+          node.descendants.should include(child_node3)
+          node.descendants.size.should == 3
         end
 
       end

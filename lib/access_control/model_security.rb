@@ -25,14 +25,15 @@ module AccessControl
         if args.any?
           args.each do |a|
             reflection = reflections[a.to_sym]
-            if reflection.options[:conditions]
-              raise AccessControl::InvalidInheritage,
-                    "unexpected #{a} association to have :conditions option"
-            elsif reflection.options[:finder_sql]
+            if reflection.options[:finder_sql]
               raise AccessControl::InvalidInheritage,
                     "unexpected #{a} association to have :finder_sql option"
             end
             next if reflection.macro == :belongs_to
+            if reflection.options[:conditions]
+              raise AccessControl::InvalidInheritage,
+                    "unexpected #{a} association to have :conditions option"
+            end
             next if reflection.macro == :has_and_belongs_to_many
             m = nil
             if reflection.options[:through]
@@ -152,8 +153,8 @@ module AccessControl
       private
 
         def set_remove_hook_in_habtm reflection
-          reflection.options[:before_remove] = Proc.new do |record, removed|
-            removed.send(:update_parent_nodes)
+          reflection.options[:after_remove] = Proc.new do |record, removed|
+            removed.reload.send(:update_parent_nodes)
           end
           add_association_callbacks(reflection.name, reflection.options)
         end
@@ -196,7 +197,9 @@ module AccessControl
 
         def update_child_nodes
           new_and_old_children.each do |children|
-            children.each{|child| child.send(:update_parent_nodes)}
+            children.each do |child|
+              child.reload.send(:update_parent_nodes)
+            end
           end
         end
 

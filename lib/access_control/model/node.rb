@@ -131,7 +131,7 @@ module AccessControl::Model
     before_create :verify_global_node
     after_create :make_self_path
     after_create :make_path_from_global
-    after_save :update_parent_and_blocking
+    after_save :update_parents_and_blocking
 
     private
 
@@ -142,7 +142,7 @@ module AccessControl::Model
       def fix_paths record
         validate_parents
         # Force regeneration of paths.
-        update_parent_and_blocking unless new_record?
+        update_parents_and_blocking unless new_record?
       end
 
       def global?
@@ -174,8 +174,7 @@ module AccessControl::Model
         ")
       end
 
-      def update_parent_and_blocking
-        return if parents.empty?
+      def update_parents_and_blocking
         disconnect_self_and_descendants_from_ancestors unless new_record?
         unless block
           parents.each{|parent| connect_to parent }
