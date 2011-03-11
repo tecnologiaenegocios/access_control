@@ -163,14 +163,16 @@ module AccessControl::Model
       def make_self_path
         self.class.connection.execute(
           "INSERT INTO `ac_paths` (`ancestor_id`, `descendant_id`) "\
-          "VALUES (#{id}, #{id})"
+          "VALUES (#{id}, #{id})",
+          "#{self.class.name} Create self-path"
         )
       end
 
       def make_path_from_global
         self.class.connection.execute(
           "INSERT INTO `ac_paths` (`ancestor_id`, `descendant_id`) "\
-          "VALUES (#{self.class.global_id}, #{id})"
+          "VALUES (#{self.class.global_id}, #{id})",
+          "#{self.class.name} Create path to global node"
         )
       end
 
@@ -188,7 +190,8 @@ module AccessControl::Model
           "DELETE FROM `ac_paths` "\
           "WHERE `ancestor_id` IN (#{ancestor_ids}) "\
             "AND `descendant_id` IN (#{descendant_ids}) "\
-            "AND `ancestor_id` != #{self.class.global_id}"
+            "AND `ancestor_id` != #{self.class.global_id}",
+          "#{self.class.name} Disconnect from tree"
         )
       end
 
@@ -201,7 +204,8 @@ module AccessControl::Model
             "AND `ancestor_id` NOT IN ("\
               "SELECT `ancestor_id` FROM `ac_paths` "\
               "WHERE `descendant_id` = #{id}"\
-            ")"
+            ")",
+          "#{self.class.name} Copy ancestors"
         )
       end
 
@@ -220,7 +224,8 @@ module AccessControl::Model
             ") AND `anc`.`ancestor_id` NOT IN ("\
               "SELECT `ancestor_id` FROM `ac_paths` "\
               "WHERE `descendant_id`= `desc`.`descendant_id`"\
-            ")"
+            ")",
+          "#{self.class.name} Cascade ancestors to descendants"
         )
       end
 
