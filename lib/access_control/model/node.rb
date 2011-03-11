@@ -161,17 +161,17 @@ module AccessControl::Model
       end
 
       def make_self_path
-        self.class.connection.execute("
-          INSERT INTO `ac_paths` (`ancestor_id`, `descendant_id`)
-          VALUES (#{id}, #{id})
-        ")
+        self.class.connection.execute(
+          "INSERT INTO `ac_paths` (`ancestor_id`, `descendant_id`) "\
+          "VALUES (#{id}, #{id})"
+        )
       end
 
       def make_path_from_global
-        self.class.connection.execute("
-          INSERT INTO `ac_paths` (`ancestor_id`, `descendant_id`)
-          VALUES (#{self.class.global_id}, #{id})
-        ")
+        self.class.connection.execute(
+          "INSERT INTO `ac_paths` (`ancestor_id`, `descendant_id`) "\
+          "VALUES (#{self.class.global_id}, #{id})"
+        )
       end
 
       def update_parents_and_blocking
@@ -184,42 +184,44 @@ module AccessControl::Model
       def disconnect_self_and_descendants_from_ancestors
         ancestor_ids = strict_ancestor_ids.map{|i| i.to_s}.join(',')
         descendant_ids = self.descendant_ids.map{|i| i.to_s}.join(',')
-        self.class.connection.execute("
-          DELETE FROM `ac_paths`
-          WHERE `ancestor_id` IN (#{ancestor_ids})
-          AND `descendant_id` IN (#{descendant_ids})
-          AND `ancestor_id` != #{self.class.global_id}
-        ")
+        self.class.connection.execute(
+          "DELETE FROM `ac_paths` "\
+          "WHERE `ancestor_id` IN (#{ancestor_ids}) "\
+            "AND `descendant_id` IN (#{descendant_ids}) "\
+            "AND `ancestor_id` != #{self.class.global_id}"
+        )
       end
 
       def copy_ancestors_from node
-        self.class.connection.execute("
-          INSERT INTO `ac_paths` (`ancestor_id`, `descendant_id`)
-            SELECT `ancestor_id`, #{id} FROM `ac_paths`
-            WHERE `descendant_id` = #{node.id}
-            AND `ancestor_id` != #{self.class.global_id}
-            AND `ancestor_id` NOT IN (
-              SELECT `ancestor_id` FROM `ac_paths`
-              WHERE `descendant_id` = #{id}
-            )
-        ")
+        self.class.connection.execute(
+          "INSERT INTO `ac_paths` (`ancestor_id`, `descendant_id`) "\
+            "SELECT `ancestor_id`, #{id} FROM `ac_paths` "\
+            "WHERE `descendant_id` = #{node.id} "\
+            "AND `ancestor_id` != #{self.class.global_id} "\
+            "AND `ancestor_id` NOT IN ("\
+              "SELECT `ancestor_id` FROM `ac_paths` "\
+              "WHERE `descendant_id` = #{id}"\
+            ")"
+        )
       end
 
       def cascade_ancestors_to_descendants
-        self.class.connection.execute("
-          INSERT INTO `ac_paths` (`ancestor_id`, `descendant_id`)
-            SELECT `anc`.`ancestor_id`, `desc`.`descendant_id`
-            FROM `ac_paths` AS `anc`, `ac_paths` AS `desc`
-            WHERE (
-              `anc`.`descendant_id` = #{id} AND `anc`.`ancestor_id` != #{id}
-              AND `anc`.`ancestor_id` != #{self.class.global_id}
-            ) AND (
-              `desc`.`ancestor_id` = #{id} AND `desc`.`descendant_id` != #{id}
-            ) AND `anc`.`ancestor_id` NOT IN (
-              SELECT `ancestor_id` FROM `ac_paths`
-              WHERE `descendant_id`= `desc`.`descendant_id`
-            )
-        ")
+        self.class.connection.execute(
+          "INSERT INTO `ac_paths` (`ancestor_id`, `descendant_id`) "\
+            "SELECT `anc`.`ancestor_id`, `desc`.`descendant_id` "\
+            "FROM `ac_paths` AS `anc`, `ac_paths` AS `desc` "\
+            "WHERE ("\
+              "`anc`.`descendant_id` = #{id} "\
+                "AND `anc`.`ancestor_id` != #{id} "\
+              "AND `anc`.`ancestor_id` != #{self.class.global_id}"\
+            ") AND ("\
+              "`desc`.`ancestor_id` = #{id} "\
+                "AND `desc`.`descendant_id` != #{id} "\
+            ") AND `anc`.`ancestor_id` NOT IN ("\
+              "SELECT `ancestor_id` FROM `ac_paths` "\
+              "WHERE `descendant_id`= `desc`.`descendant_id`"\
+            ")"
+        )
       end
 
       def connect_to parent
