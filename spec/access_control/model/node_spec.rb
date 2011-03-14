@@ -12,16 +12,17 @@ module AccessControl::Model
     end
 
     def securable
-      stub_model(SecurableObj)
+      SecurableObj.create!
     end
 
     before do
       Node.clear_global_node_cache
       class Object::SecurableObj < ActiveRecord::Base
-        has_one :ac_node, :as => :securable,
-                :class_name => AccessControl::Model::Node.name
-        def self.columns
-          []
+        include AccessControl::ModelSecurity::InstanceMethods
+        set_table_name 'records'
+        def create_nodes
+          # We disable automatic node creation since it doesn't belong to this
+          # spec.
         end
       end
     end
@@ -408,6 +409,63 @@ module AccessControl::Model
           descendant.ancestors.size.should == 6
         end
 
+      end
+
+      describe "when a record is removed" do
+
+        before do
+          # The child node's securable instance is expected to know about its
+          # new parent(s) (the parents to where it will be re-parented to in
+          # the tree when node is removed), and for the purpose of this spec we
+          # want it to return the ancestor node's securable as the new parent.
+          SecurableObj.class_eval(<<-eos)
+            def parents
+              if self.id == #{child.securable.id}
+                return SecurableObj.find([#{ancestor.securable.id}])
+              else
+                super
+              end
+            end
+          eos
+          node.destroy
+        end
+
+        it "remove it from the ascendancy of its descendants" do
+          child.ancestors.should_not include(node)
+          descendant.ancestors.should_not include(node)
+        end
+
+        it "remove it from the descendancy of its ancestors" do
+          ancestor.descendants.should_not include(node)
+          parent.descendants.should_not include(node)
+        end
+
+        it "re-parents the children nodes" do
+          child.ancestors.should include(global_node)
+          child.ancestors.should include(ancestor)
+          child.ancestors.should include(child)
+          child.ancestors.size.should == 3
+          descendant.ancestors.should include(global_node)
+          descendant.ancestors.should include(ancestor)
+          descendant.ancestors.should include(child)
+          descendant.ancestors.should include(descendant)
+          descendant.ancestors.size.should == 4
+        end
+
+        it "re-childrens the ancestor nodes according to original children" do
+          ancestor.descendants.should include(ancestor)
+          ancestor.descendants.should include(parent)
+          ancestor.descendants.should include(new_parent)
+          ancestor.descendants.should include(new_node)
+          ancestor.descendants.should include(child)
+          ancestor.descendants.should include(descendant)
+          ancestor.descendants.size.should == 6
+          parent.descendants.should include(parent)
+          parent.descendants.size.should == 1
+          child.descendants.should include(child)
+          child.descendants.should include(descendant)
+          child.descendants.size.should == 2
+        end
       end
 
       describe "blocking and unblocking" do

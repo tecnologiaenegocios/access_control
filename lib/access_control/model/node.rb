@@ -11,8 +11,8 @@ module AccessControl::Model
       :association_foreign_key => :parent_id,
       :class_name => name,
       :join_table => :ac_parents,
-      :after_add => :fix_paths,
-      :after_remove => :fix_paths
+      :after_add => :connect_to,
+      :after_remove => :disconnect_from
     )
 
     has_and_belongs_to_many(
@@ -127,22 +127,20 @@ module AccessControl::Model
       false
     end
 
-    before_save :validate_parents
+    before_save :validate_parents!
     before_create :verify_global_node
     after_create :make_self_path
     after_create :make_path_from_global
-    after_save :update_parents_and_blocking
+    after_create :connect_to_parents
+    after_save :update_blocking
+
+    before_destroy :save_reference_to_children
+    after_destroy :reparent_saved_referenced_children
 
     private
 
       def verify_global_node
         raise AccessControl::NoGlobalNode unless self.class.global
-      end
-
-      def fix_paths record
-        validate_parents
-        # Force regeneration of paths.
-        update_parents_and_blocking unless new_record?
       end
 
       def global?
@@ -152,12 +150,18 @@ module AccessControl::Model
         ]
       end
 
-      def validate_parents
-        if parents.any?
-          if global? || parents.include?(self.class.global)
-            raise ::AccessControl::ParentError
-          end
+      def is_valid_parent? parent
+        parent != self.class.global
+      end
+
+      def validate_parent! parent
+        if global? || !is_valid_parent?(parent)
+          raise ::AccessControl::ParentError
         end
+      end
+
+      def validate_parents!
+        parents.each{|parent| validate_parent!(parent)}
       end
 
       def make_self_path
@@ -176,37 +180,67 @@ module AccessControl::Model
         )
       end
 
-      def update_parents_and_blocking
-        disconnect_self_and_descendants_from_ancestors unless new_record?
-        unless block
-          parents.each{|parent| connect_to parent }
+      def update_blocking
+        if block
+          disconnect_self_and_descendants_from_ancestors
+        else
+          connect_to_parents
         end
       end
 
+      def disconnect_from parent
+        reconnect_to_parents
+      end
+
+      def connect_to_parents
+        parents.each{|parent| connect_to(parent)}
+      end
+
+      def reconnect_to_parents
+        disconnect_self_and_descendants_from_ancestors
+        connect_to_parents unless block
+      end
+
       def disconnect_self_and_descendants_from_ancestors
-        ancestor_ids = strict_ancestor_ids.map{|i| i.to_s}.join(',')
-        descendant_ids = self.descendant_ids.map{|i| i.to_s}.join(',')
+        ancestor_ids = (
+          strict_ancestor_ids - [self.class.global_id]
+        ).map{|i| i.to_s}.join(',')
+        return unless ancestor_ids != ''
+        # Include the self id in descendants if it is not included, because it
+        # may have been excluded if this node is being removed.
+        descendant_ids = (self.descendant_ids | [id]).map{|i| i.to_s}.join(',')
         self.class.connection.execute(
           "DELETE FROM `ac_paths` "\
           "WHERE `ancestor_id` IN (#{ancestor_ids}) "\
-            "AND `descendant_id` IN (#{descendant_ids}) "\
-            "AND `ancestor_id` != #{self.class.global_id}",
+            "AND `descendant_id` IN (#{descendant_ids})",
           "#{self.class.name} Disconnect from tree"
         )
       end
 
+      def connect_to parent
+        validate_parent!(parent)
+        return if block || new_record?
+        copy_ancestors_from parent
+        cascade_ancestors_to_descendants
+      end
+
       def copy_ancestors_from node
-        self.class.connection.execute(
-          "INSERT INTO `ac_paths` (`ancestor_id`, `descendant_id`) "\
-            "SELECT `ancestor_id`, #{id} FROM `ac_paths` "\
-            "WHERE `descendant_id` = #{node.id} "\
-            "AND `ancestor_id` != #{self.class.global_id} "\
-            "AND `ancestor_id` NOT IN ("\
-              "SELECT `ancestor_id` FROM `ac_paths` "\
-              "WHERE `descendant_id` = #{id}"\
-            ")",
-          "#{self.class.name} Copy ancestors"
-        )
+        if node.respond_to?(:map)
+          nodes = node.map(&(:id.to_proc)).map(&(:to_s.to_proc)).join(',')
+          self.class.connection.execute(
+            "INSERT IGNORE INTO `ac_paths` (`ancestor_id`, `descendant_id`) "\
+              "SELECT `ancestor_id`, #{id} FROM `ac_paths` "\
+              "WHERE `descendant_id` IN (#{nodes})",
+            "#{self.class.name} Copy ancestors"
+          )
+        else
+          self.class.connection.execute(
+            "INSERT IGNORE INTO `ac_paths` (`ancestor_id`, `descendant_id`) "\
+              "SELECT `ancestor_id`, #{id} FROM `ac_paths` "\
+              "WHERE `descendant_id` = #{node.id}",
+            "#{self.class.name} Copy ancestors"
+          )
+        end
       end
 
       def cascade_ancestors_to_descendants
@@ -229,9 +263,17 @@ module AccessControl::Model
         )
       end
 
-      def connect_to parent
-        copy_ancestors_from parent
-        cascade_ancestors_to_descendants
+      def save_reference_to_children
+        @old_children = children.dup
+      end
+
+      def reparent_saved_referenced_children
+        @old_children.each do |child|
+          child.send(:disconnect_self_and_descendants_from_ancestors)
+          child.securable.parents.each do |new_parent|
+            child.parents << new_parent.ac_node
+          end
+        end
       end
 
   end
