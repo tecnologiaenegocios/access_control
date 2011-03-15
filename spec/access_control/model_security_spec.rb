@@ -1564,6 +1564,66 @@ module AccessControl
 
       end
 
+      describe "#parents" do
+        before do
+          model_klass.class_eval do
+            belongs_to :record
+            inherits_permissions_from :record
+          end
+        end
+        it "queries associations without restriction" do
+          parent = model_klass.create!
+          record = model_klass.create!(:record => parent)
+          # Reload, but without permission checking
+          record = model_klass.unrestricted_find(record.id)
+          record.parents.should == [parent]
+        end
+        it "keeps query restriction" do
+          # This ensures that the restriction of queries work after calling
+          # this method.
+          parent = model_klass.create!
+          record = model_klass.create!(:record => parent)
+          # Reload, but without permission checking
+          record = model_klass.unrestricted_find(record.id)
+          # Call
+          record.parents
+          lambda {
+            record.reload
+          }.should raise_exception(AccessControl::Unauthorized)
+        end
+      end
+
+      describe "#children" do
+        before do
+          model_klass.class_eval do
+            has_many :records
+            belongs_to :record
+            inherits_permissions_from :records
+            propagates_permissions_to :record
+          end
+        end
+        it "queries associations without restriction" do
+          parent = model_klass.create!
+          record = model_klass.create!(:records => [parent])
+          # Reload, but without permission checking
+          parent = model_klass.unrestricted_find(parent.id)
+          parent.children.should == [record]
+        end
+        it "keeps query restriction" do
+          # This ensures that the restriction of queries work after calling
+          # this method.
+          parent = model_klass.create!
+          record = model_klass.create!(:records => [parent])
+          # Reload, but without permission checking
+          parent = model_klass.unrestricted_find(parent.id)
+          # Call
+          parent.children
+          lambda {
+            parent.reload
+          }.should raise_exception(AccessControl::Unauthorized)
+        end
+      end
+
     end
 
   end

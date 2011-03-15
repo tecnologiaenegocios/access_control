@@ -177,9 +177,12 @@ module AccessControl
       def parents
         return [] if self.class.inherits_permissions_from.empty?
         return [] unless AccessControl.config.tree_creation
-        self.class.inherits_permissions_from.inject([]) do |r, a|
+        disable_query_restriction
+        result = self.class.inherits_permissions_from.inject([]) do |r, a|
           r << send(a)
         end.flatten.compact.uniq
+        re_enable_query_restriction
+        result
       end
 
       def children
@@ -208,8 +211,10 @@ module AccessControl
 
         def update_child_nodes
           new_and_old_children.each do |children|
-            children.each do |child|
-              child.reload.send(:update_parent_nodes)
+            children.each do |c|
+              # Here we use unrestricted_find to make a reload of the child,
+              # but without permission checking.
+              c.class.unrestricted_find(c.id).send(:update_parent_nodes)
             end
           end
         end
@@ -228,6 +233,7 @@ module AccessControl
         def new_and_old_children
           return [[], []] if self.class.propagates_permissions_to.empty?
           return [[], []] unless AccessControl.config.tree_creation
+          disable_query_restriction
           old_children = []
           new_children = self.class.propagates_permissions_to.inject([]){|r, a|
             reflection = self.class.reflections[a.to_sym]
@@ -237,6 +243,7 @@ module AccessControl
             end
             r << send(a)
           }.flatten.compact.uniq
+          re_enable_query_restriction
           [new_children, old_children]
         end
 
