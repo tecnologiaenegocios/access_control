@@ -373,7 +373,7 @@ module AccessControl
 
         describe "relationship between parents/childs (check_inheritance!)" do
 
-          # An inherits_permission_from with non-belongs_to association
+          # An inherits_permissions_from with non-belongs_to association
           # requires a matching propagates_permission_to in the reflected
           # model.
 
@@ -672,7 +672,7 @@ module AccessControl
 
       end
 
-      describe "on update" do
+      describe "" do
 
         before do
           model_klass.class_eval do
@@ -696,148 +696,231 @@ module AccessControl
           end
         end
 
-        let(:parent1) { model_klass.create! }
-        let(:parent2) { model_klass.create! }
-        let(:parent3) { model_klass.create! }
-        let(:parent4) { model_klass.create! }
-
-        let(:parent_node1) { parent1.ac_node }
-        let(:parent_node2) { parent2.ac_node }
-        let(:parent_node3) { parent3.ac_node }
-        let(:parent_node4) { parent4.ac_node }
-
-        let(:child1) { model_klass.create! }
-        let(:child2) { model_klass.create! }
-        let(:child3) { model_klass.create! }
-
-        let(:child_node1) { child1.ac_node }
-        let(:child_node2) { child2.ac_node }
-        let(:child_node3) { child3.ac_node }
-
         let(:global_node) { ::AccessControl::Model::Node.global }
 
         before do
           ::AccessControl::Model::Node.create_global_node!
         end
 
-        it "updates parents of the node for :has_many" do
-          model_klass.class_eval do
-            inherits_permissions_from :records
+        describe "on update" do
+
+          let(:parent1) { model_klass.create! }
+          let(:parent2) { model_klass.create! }
+          let(:parent3) { model_klass.create! }
+          let(:parent4) { model_klass.create! }
+
+          let(:parent_node1) { parent1.ac_node }
+          let(:parent_node2) { parent2.ac_node }
+          let(:parent_node3) { parent3.ac_node }
+          let(:parent_node4) { parent4.ac_node }
+
+          let(:child1) { model_klass.create! }
+          let(:child2) { model_klass.create! }
+          let(:child3) { model_klass.create! }
+
+          let(:child_node1) { child1.ac_node }
+          let(:child_node2) { child2.ac_node }
+          let(:child_node3) { child3.ac_node }
+
+          it "updates parents of the node for :has_many" do
+            model_klass.class_eval do
+              inherits_permissions_from :records
+            end
+            record = model_klass.create!(:records => [parent1, parent2])
+            record.records = [parent3, parent4]
+            record.save!
+            node = record.ac_node
+            node.ancestors.should include(node)
+            node.ancestors.should include(parent_node3)
+            node.ancestors.should include(parent_node4)
+            node.ancestors.should include(global_node)
+            parent_node1.descendants.should_not include(node)
+            parent_node2.descendants.should_not include(node)
+            node.ancestors.size.should == 4
           end
-          record = model_klass.create!(:records => [parent1, parent2])
-          record.records = [parent3, parent4]
-          record.save!
-          node = record.ac_node
-          node.ancestors.should include(node)
-          node.ancestors.should include(parent_node3)
-          node.ancestors.should include(parent_node4)
-          node.ancestors.should include(global_node)
-          parent_node1.descendants.should_not include(node)
-          parent_node2.descendants.should_not include(node)
-          node.ancestors.size.should == 4
-        end
 
-        it "updates parents of the node for :has_one" do
-          model_klass.class_eval do
-            inherits_permissions_from :one_record
+          it "updates parents of the node for :has_one" do
+            model_klass.class_eval do
+              inherits_permissions_from :one_record
+            end
+            record = model_klass.create!(:one_record => parent1)
+            record.one_record = parent3
+            record.save!
+            node = record.ac_node
+            node.ancestors.should include(node)
+            node.ancestors.should include(parent_node3)
+            node.ancestors.should include(global_node)
+            parent_node1.descendants.should_not include(node)
+            node.ancestors.size.should == 3
           end
-          record = model_klass.create!(:one_record => parent1)
-          record.one_record = parent3
-          record.save!
-          node = record.ac_node
-          node.ancestors.should include(node)
-          node.ancestors.should include(parent_node3)
-          node.ancestors.should include(global_node)
-          parent_node1.descendants.should_not include(node)
-          node.ancestors.size.should == 3
-        end
 
-        it "updates parents of the node for :habtm" do
-          model_klass.class_eval do
-            inherits_permissions_from :records_records
+          it "updates parents of the node for :habtm" do
+            model_klass.class_eval do
+              inherits_permissions_from :records_records
+            end
+            record = model_klass.create!(:records_records => [parent1, parent2])
+            record.records_records = [parent3, parent4]
+            record.save!
+            node = record.ac_node
+            node.ancestors.should include(node)
+            node.ancestors.should include(parent_node3)
+            node.ancestors.should include(parent_node4)
+            node.ancestors.should include(global_node)
+            parent_node1.descendants.should_not include(node)
+            parent_node2.descendants.should_not include(node)
+            node.ancestors.size.should == 4
           end
-          record = model_klass.create!(:records_records => [parent1, parent2])
-          record.records_records = [parent3, parent4]
-          record.save!
-          node = record.ac_node
-          node.ancestors.should include(node)
-          node.ancestors.should include(parent_node3)
-          node.ancestors.should include(parent_node4)
-          node.ancestors.should include(global_node)
-          parent_node1.descendants.should_not include(node)
-          parent_node2.descendants.should_not include(node)
-          node.ancestors.size.should == 4
-        end
 
-        it "updates child's parents when it is a belongs_to" do
-          model_klass.class_eval do
-            inherits_permissions_from :records, :inverse_records_records
-            propagates_permissions_to :record, :records_records
+          it "updates child's parents when it is a belongs_to" do
+            model_klass.class_eval do
+              inherits_permissions_from :records, :inverse_records_records
+              propagates_permissions_to :record, :records_records
+            end
+            record = model_klass.create!(
+              :record => child1,
+              :records_records => [child2]
+            )
+            record.record = child3
+            record.save!
+            node = record.ac_node
+            node.descendants.should include(node)
+            node.descendants.should_not include(child_node1)
+            node.descendants.should include(child_node2)
+            node.descendants.should include(child_node3)
+            node.descendants.size.should == 3
           end
-          record = model_klass.create!(
-            :record => child1,
-            :records_records => [child2]
-          )
-          record.record = child3
-          record.save!
-          node = record.ac_node
-          node.descendants.should include(node)
-          node.descendants.should_not include(child_node1)
-          node.descendants.should include(child_node2)
-          node.descendants.should include(child_node3)
-          node.descendants.size.should == 3
-        end
 
-        it "updates added children of the node" do
-          model_klass.class_eval do
-            inherits_permissions_from :records, :inverse_records_records
-            propagates_permissions_to :record, :records_records
+          it "updates added children of the node" do
+            model_klass.class_eval do
+              inherits_permissions_from :records, :inverse_records_records
+              propagates_permissions_to :record, :records_records
+            end
+            record = model_klass.create!(
+              :record => child1,
+              :records_records => [child2]
+            )
+            record.records_records << child3
+            record.save
+            node = record.ac_node
+            node.descendants.should include(node)
+            node.descendants.should include(child_node1)
+            node.descendants.should include(child_node2)
+            node.descendants.should include(child_node3)
+            node.descendants.size.should == 4
           end
-          record = model_klass.create!(
-            :record => child1,
-            :records_records => [child2]
-          )
-          record.records_records << child3
-          record.save
-          node = record.ac_node
-          node.descendants.should include(node)
-          node.descendants.should include(child_node1)
-          node.descendants.should include(child_node2)
-          node.descendants.should include(child_node3)
-          node.descendants.size.should == 4
-        end
 
-        it "updates removed children of the node" do
-          model_klass.class_eval do
-            inherits_permissions_from :records, :inverse_records_records
-            propagates_permissions_to :record, :records_records
+          it "updates removed children of the node" do
+            model_klass.class_eval do
+              inherits_permissions_from :records, :inverse_records_records
+              propagates_permissions_to :record, :records_records
+            end
+            record = model_klass.create!(
+              :record => child1,
+              :records_records => [child2, child3]
+            )
+            record.records_records.delete(child2)
+            node = record.ac_node
+            node.descendants.should include(node)
+            node.descendants.should include(child_node1)
+            node.descendants.should_not include(child_node2)
+            node.descendants.should include(child_node3)
+            node.descendants.size.should == 3
           end
-          record = model_klass.create!(
-            :record => child1,
-            :records_records => [child2, child3]
-          )
-          record.records_records.delete(child2)
-          node = record.ac_node
-          node.descendants.should include(node)
-          node.descendants.should include(child_node1)
-          node.descendants.should_not include(child_node2)
-          node.descendants.should include(child_node3)
-          node.descendants.size.should == 3
+
         end
 
-      end
+        describe "when destroying a record" do
 
-      describe "when destroying a record" do
-        it "destroys the ac_node" do
-          AccessControl::Model::Node.create_global_node!
-          record = model_klass.new
-          record.save!
-          record.destroy
-          AccessControl::Model::Node.
-            find_all_by_securable_type_and_securable_id(
-              record.class.name, record.id
-            ).size.should == 0
+          let(:ancestor) do
+            model_klass.create!
+          end
+
+          let(:parent) do
+            model_klass.create!(:record => ancestor)
+          end
+
+          let(:record) do
+            model_klass.create!(:record => parent)
+          end
+
+          let(:child) do
+            model_klass.create!(:record => record)
+          end
+
+          let(:descendant) do
+            model_klass.create!(:record => child)
+          end
+
+          before do
+            model_klass.class_eval do
+              inherits_permissions_from :record
+            end
+            # The child instance is expected to know about its new parent(s)
+            # (the parents to where it will be re-parented to in the tree when
+            # its immediate parent -- the "record" -- is removed), and for the
+            # purpose of this spec we want it to return the record's parent's
+            # parent as the new parent.
+            model_klass.class_eval(<<-eos)
+              def parents
+                if self.id == #{child.id}
+                  return self.class.find([#{ancestor.id}])
+                else
+                  super
+                end
+              end
+            eos
+            descendant # Wakeup the tree.
+            record.destroy
+          end
+
+          it "destroys the ac_node" do
+            AccessControl::Model::Node.
+              find_all_by_securable_type_and_securable_id(
+                record.class.name, record.id
+              ).size.should == 0
+          end
+
+          it "removes the node from the ascendancy of its descendants" do
+            child.ac_node.ancestors.should_not include(record.ac_node)
+            descendant.ac_node.ancestors.should_not include(record.ac_node)
+          end
+
+          it "removes the node from the descendancy of its ascendancy" do
+            ancestor.ac_node.descendants.should_not include(record.ac_node)
+            parent.ac_node.descendants.should_not include(record.ac_node)
+          end
+
+          it "re-parents the descendant nodes" do
+            child.ac_node.ancestors.should include(global_node)
+            child.ac_node.ancestors.should include(ancestor.ac_node)
+            child.ac_node.ancestors.should include(child.ac_node)
+            child.ac_node.ancestors.size.should == 3
+            descendant.ac_node.ancestors.should include(global_node)
+            descendant.ac_node.ancestors.should include(ancestor.ac_node)
+            descendant.ac_node.ancestors.should include(child.ac_node)
+            descendant.ac_node.ancestors.should include(descendant.ac_node)
+            descendant.ac_node.ancestors.size.should == 4
+          end
+
+          it "\"re-childrens\" the ancestor nodes" do
+            ancestor.ac_node.descendants.should include(ancestor.ac_node)
+            ancestor.ac_node.descendants.should include(parent.ac_node)
+            ancestor.ac_node.descendants.should include(child.ac_node)
+            ancestor.ac_node.descendants.should include(descendant.ac_node)
+            ancestor.ac_node.descendants.size.should == 4
+            # Remember: the child node was re-parented right below the ancestor
+            # record, not the parent record.
+            parent.ac_node.descendants.should include(parent.ac_node)
+            parent.ac_node.descendants.size.should == 1
+            child.ac_node.descendants.should include(child.ac_node)
+            child.ac_node.descendants.should include(descendant.ac_node)
+            child.ac_node.descendants.size.should == 2
+            descendant.ac_node.descendants.should include(descendant.ac_node)
+            descendant.ac_node.descendants.size.should == 1
+          end
+
         end
+
       end
 
     end

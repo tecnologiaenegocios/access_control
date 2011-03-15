@@ -134,9 +134,6 @@ module AccessControl::Model
     after_create :connect_to_parents
     after_save :update_blocking
 
-    before_destroy :save_reference_to_children
-    after_destroy :reparent_saved_referenced_children
-
     private
 
       def verify_global_node
@@ -261,19 +258,6 @@ module AccessControl::Model
             ")",
           "#{self.class.name} Cascade ancestors to descendants"
         )
-      end
-
-      def save_reference_to_children
-        @old_children = children.dup
-      end
-
-      def reparent_saved_referenced_children
-        @old_children.each do |child|
-          child.send(:disconnect_self_and_descendants_from_ancestors)
-          child.securable.parents.each do |new_parent|
-            child.parents << new_parent.ac_node
-          end
-        end
       end
 
   end

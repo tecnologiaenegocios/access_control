@@ -169,6 +169,9 @@ module AccessControl
                      :as => :securable,
                      :class_name => ::AccessControl::Model::Node.name,
                      :dependent => :destroy
+        base.class_eval do
+          alias_method_chain :destroy, :referenced_children
+        end
       end
 
       def parents
@@ -181,6 +184,14 @@ module AccessControl
 
       def children
         new_and_old_children.first
+      end
+
+      def destroy_with_referenced_children
+        @old_children ||= []
+        if ac_node
+          @old_children = ac_node.children.map(&(:securable.to_proc))
+        end
+        destroy_without_referenced_children
       end
 
       private
@@ -227,6 +238,15 @@ module AccessControl
             r << send(a)
           }.flatten.compact.uniq
           [new_children, old_children]
+        end
+
+        def reparent_saved_referenced_children
+          @old_children.each do |child|
+            child.ac_node.send(:disconnect_self_and_descendants_from_ancestors)
+            child.parents.each do |new_parent|
+              child.ac_node.parents << new_parent.ac_node
+            end
+          end
         end
 
     end
@@ -433,5 +453,6 @@ class ActiveRecord::Base
   after_save :update_child_nodes
   before_validation :disable_query_restriction
   after_validation :re_enable_query_restriction
+  after_destroy :reparent_saved_referenced_children
 
 end
