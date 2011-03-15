@@ -242,6 +242,7 @@ module AccessControl
 
         def reparent_saved_referenced_children
           @old_children.each do |child|
+            next unless child.ac_node
             child.ac_node.send(:disconnect_self_and_descendants_from_ancestors)
             child.parents.each do |new_parent|
               child.ac_node.parents << new_parent.ac_node

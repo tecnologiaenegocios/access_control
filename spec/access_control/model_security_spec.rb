@@ -851,72 +851,158 @@ module AccessControl
             model_klass.create!(:record => child)
           end
 
-          before do
-            model_klass.class_eval do
-              inherits_permissions_from :record
-            end
-            # The child instance is expected to know about its new parent(s)
-            # (the parents to where it will be re-parented to in the tree when
-            # its immediate parent -- the "record" -- is removed), and for the
-            # purpose of this spec we want it to return the record's parent's
-            # parent as the new parent.
-            model_klass.class_eval(<<-eos)
-              def parents
-                if self.id == #{child.id}
-                  return self.class.find([#{ancestor.id}])
-                else
-                  super
-                end
+          describe "without re-parenting" do
+
+            before do
+              model_klass.class_eval do
+                inherits_permissions_from :record
               end
-            eos
-            descendant # Wakeup the tree.
-            record.destroy
+              descendant # Wake up the tree.
+              record.destroy
+            end
+
+            it "destroys the ac_node" do
+              AccessControl::Model::Node.
+                find_all_by_securable_type_and_securable_id(
+                  record.class.name, record.id
+                ).size.should == 0
+            end
+
+            it "removes the node from the ascendancy of its descendants" do
+              child.ac_node.ancestors.should_not include(record.ac_node)
+              descendant.ac_node.ancestors.should_not include(record.ac_node)
+            end
+
+            it "removes the node from the descendancy of its ascendancy" do
+              ancestor.ac_node.descendants.should_not include(record.ac_node)
+              parent.ac_node.descendants.should_not include(record.ac_node)
+            end
+
+            it "makes the child a new root" do
+              child.ac_node.ancestors.should include(global_node)
+              child.ac_node.ancestors.should include(child.ac_node)
+              child.ac_node.ancestors.size.should == 2
+            end
+
+            it "keeps the descendant above the child" do
+              descendant.ac_node.ancestors.should include(global_node)
+              descendant.ac_node.ancestors.should include(child.ac_node)
+              descendant.ac_node.ancestors.should include(descendant.ac_node)
+              descendant.ac_node.ancestors.size.should == 3
+            end
+
           end
 
-          it "destroys the ac_node" do
-            AccessControl::Model::Node.
-              find_all_by_securable_type_and_securable_id(
-                record.class.name, record.id
-              ).size.should == 0
+          describe "without re-parenting, but when dependants are destroyed" do
+
+            before do
+              model_klass.class_eval do
+                inherits_permissions_from :record
+                has_many :records, :dependent => :destroy
+              end
+              descendant # Wake up the tree.
+              record.destroy
+            end
+
+            it "destroys the ac_node" do
+              AccessControl::Model::Node.
+                find_all_by_securable_type_and_securable_id(
+                  record.class.name, record.id
+                ).size.should == 0
+            end
+
+            it "destroys descendant ac_nodes" do
+              AccessControl::Model::Node.
+                find_all_by_securable_type_and_securable_id(
+                  child.class.name, child.id
+                ).size.should == 0
+              AccessControl::Model::Node.
+                find_all_by_securable_type_and_securable_id(
+                  descendant.class.name, descendant.id
+                ).size.should == 0
+            end
+
+            it "removes nodes from the descendancy of its ascendancy" do
+              ancestor.ac_node.descendants.should_not include(record.ac_node)
+              ancestor.ac_node.descendants.should_not include(child.ac_node)
+              ancestor.ac_node.descendants.should_not include(descendant.ac_node)
+              parent.ac_node.descendants.should_not include(record.ac_node)
+              parent.ac_node.descendants.should_not include(child.ac_node)
+              parent.ac_node.descendants.should_not include(descendant.ac_node)
+            end
+
           end
 
-          it "removes the node from the ascendancy of its descendants" do
-            child.ac_node.ancestors.should_not include(record.ac_node)
-            descendant.ac_node.ancestors.should_not include(record.ac_node)
-          end
+          describe "with re-parenting" do
 
-          it "removes the node from the descendancy of its ascendancy" do
-            ancestor.ac_node.descendants.should_not include(record.ac_node)
-            parent.ac_node.descendants.should_not include(record.ac_node)
-          end
+            before do
+              model_klass.class_eval do
+                inherits_permissions_from :record
+              end
+              # The child instance is expected to know about its new parent(s)
+              # (the parents to where it will be re-parented to in the tree
+              # when its immediate parent -- the "record" -- is removed), and
+              # for the purpose of this spec we want it to return the record's
+              # parent's parent as the new parent.
+              model_klass.class_eval(<<-eos)
+                def parents
+                  if self.id == #{child.id}
+                    return self.class.find([#{ancestor.id}])
+                  else
+                    super
+                  end
+                end
+              eos
+              descendant # Wake up the tree.
+              record.destroy
+            end
 
-          it "re-parents the descendant nodes" do
-            child.ac_node.ancestors.should include(global_node)
-            child.ac_node.ancestors.should include(ancestor.ac_node)
-            child.ac_node.ancestors.should include(child.ac_node)
-            child.ac_node.ancestors.size.should == 3
-            descendant.ac_node.ancestors.should include(global_node)
-            descendant.ac_node.ancestors.should include(ancestor.ac_node)
-            descendant.ac_node.ancestors.should include(child.ac_node)
-            descendant.ac_node.ancestors.should include(descendant.ac_node)
-            descendant.ac_node.ancestors.size.should == 4
-          end
+            it "destroys the ac_node" do
+              AccessControl::Model::Node.
+                find_all_by_securable_type_and_securable_id(
+                  record.class.name, record.id
+                ).size.should == 0
+            end
 
-          it "\"re-childrens\" the ancestor nodes" do
-            ancestor.ac_node.descendants.should include(ancestor.ac_node)
-            ancestor.ac_node.descendants.should include(parent.ac_node)
-            ancestor.ac_node.descendants.should include(child.ac_node)
-            ancestor.ac_node.descendants.should include(descendant.ac_node)
-            ancestor.ac_node.descendants.size.should == 4
-            # Remember: the child node was re-parented right below the ancestor
-            # record, not the parent record.
-            parent.ac_node.descendants.should include(parent.ac_node)
-            parent.ac_node.descendants.size.should == 1
-            child.ac_node.descendants.should include(child.ac_node)
-            child.ac_node.descendants.should include(descendant.ac_node)
-            child.ac_node.descendants.size.should == 2
-            descendant.ac_node.descendants.should include(descendant.ac_node)
-            descendant.ac_node.descendants.size.should == 1
+            it "removes the node from the ascendancy of its descendants" do
+              child.ac_node.ancestors.should_not include(record.ac_node)
+              descendant.ac_node.ancestors.should_not include(record.ac_node)
+            end
+
+            it "removes the node from the descendancy of its ascendancy" do
+              ancestor.ac_node.descendants.should_not include(record.ac_node)
+              parent.ac_node.descendants.should_not include(record.ac_node)
+            end
+
+            it "re-parents the descendant nodes" do
+              child.ac_node.ancestors.should include(global_node)
+              child.ac_node.ancestors.should include(ancestor.ac_node)
+              child.ac_node.ancestors.should include(child.ac_node)
+              child.ac_node.ancestors.size.should == 3
+              descendant.ac_node.ancestors.should include(global_node)
+              descendant.ac_node.ancestors.should include(ancestor.ac_node)
+              descendant.ac_node.ancestors.should include(child.ac_node)
+              descendant.ac_node.ancestors.should include(descendant.ac_node)
+              descendant.ac_node.ancestors.size.should == 4
+            end
+
+            it "\"re-childrens\" the ancestor nodes" do
+              ancestor.ac_node.descendants.should include(ancestor.ac_node)
+              ancestor.ac_node.descendants.should include(parent.ac_node)
+              ancestor.ac_node.descendants.should include(child.ac_node)
+              ancestor.ac_node.descendants.should include(descendant.ac_node)
+              ancestor.ac_node.descendants.size.should == 4
+              # Remember: the child node was re-parented right below the ancestor
+              # record, not the parent record.
+              parent.ac_node.descendants.should include(parent.ac_node)
+              parent.ac_node.descendants.size.should == 1
+              child.ac_node.descendants.should include(child.ac_node)
+              child.ac_node.descendants.should include(descendant.ac_node)
+              child.ac_node.descendants.size.should == 2
+              descendant.ac_node.descendants.should include(descendant.ac_node)
+              descendant.ac_node.descendants.size.should == 1
+            end
+
           end
 
         end
