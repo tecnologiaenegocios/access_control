@@ -373,7 +373,7 @@ class ActiveRecord::Base
           # Functions or other references are not prefixed.
           references << token
         end
-        "DISTINCT #{references.uniq.join(', ')}"
+        "DISTINCT #{references.join(', ')}"
       end
 
       def includes_for_permissions(options)
