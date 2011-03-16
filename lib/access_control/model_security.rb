@@ -150,6 +150,52 @@ module AccessControl
         @already_checked_inheritance = true
       end
 
+      def new *args
+        object = super
+        return object unless manager = AccessControl.get_security_manager
+        return object unless object.class.securable?
+        object.class.check_inheritance!
+        AccessControl::SecurityProxy.new(object)
+      end
+
+      def allocate *args
+        object = super
+        return object unless manager = AccessControl.get_security_manager
+        return object unless object.class.securable?
+        object.class.check_inheritance!
+        AccessControl::SecurityProxy.new(object)
+      end
+
+      def find_every_with_restriction(options)
+        options[:permissions] ||= query_permissions
+        if !options[:permissions].is_a?(Array)
+          raise ArgumentError, ':permissions must be an array'
+        end
+        merge_permission_options(options)
+        find_every_without_restriction(options)
+      end
+
+      def find_one_with_unauthorized(id, options)
+        old_options = options.clone
+        options[:permissions] ||= (view_permissions | query_permissions)
+        begin
+          return find_one_without_unauthorized(id, options)
+        rescue ActiveRecord::RecordNotFound => e
+          disable_query_restriction
+          result = find_one_without_unauthorized(id, old_options) rescue nil
+          re_enable_query_restriction
+          raise e if !result
+          raise AccessControl::Unauthorized
+        end
+      end
+
+      def unrestricted_find(*args)
+        disable_query_restriction
+        result = find(*args)
+        re_enable_query_restriction
+        result
+      end
+
       private
 
         def set_remove_hook_in_habtm reflection
@@ -159,6 +205,131 @@ module AccessControl
           add_association_callbacks(reflection.name, reflection.options)
         end
 
+        def merge_permission_options(options)
+          merge_permission_includes(options)
+          return unless restrict_queries?
+          if options[:permissions].any?
+            merge_permission_joins(options)
+          end
+        end
+
+        def merge_permission_includes(options)
+          options[:include] = merge_includes(
+            options[:include],
+            includes_for_permissions(options)
+          ) if options[:load_permissions]
+        end
+
+        def merge_permission_joins(options)
+          if options[:joins]
+            options[:joins] = merge_joins(
+              options[:joins],
+              joins_for_permissions(options)
+            )
+          else
+            options[:joins] = joins_for_permissions(options)
+          end
+          fix_select_clause_for_permission_joins(options)
+        end
+
+        def fix_select_clause_for_permission_joins(options)
+          options[:select] = \
+            prefix_with_distinct_and_table_name(options[:select] || '*')
+        end
+
+        def prefix_with_distinct_and_table_name(select_clause)
+          references = []
+          select_clause.strip!
+          if !(select_clause =~ /^distinct\s+/i)
+            references << "#{quoted_table_name}.`#{primary_key}`"
+          end
+          select_clause.gsub(/^distinct\s+/i, '').split(',').each do |token|
+            t = token.strip.gsub('`', '')
+            next references << "#{quoted_table_name}.*" if t == '*'
+            if columns_hash.keys.include?(t)
+              next references << "#{quoted_table_name}.`#{t}`"
+            end
+            # Functions or other references are not prefixed.
+            references << token
+          end
+          "DISTINCT #{references.join(', ')}"
+        end
+
+        def includes_for_permissions(options)
+          {
+            :ac_node => {
+              :ancestors => {
+                :principal_assignments => {
+                  :role => :security_policy_items
+                }
+              }
+            }
+          }
+        end
+
+        def joins_for_permissions(options)
+
+          c = connection
+          t = table_name
+          pk = primary_key
+          principal_ids = AccessControl.get_security_manager.principal_ids
+
+          if principal_ids.size == 1
+            p_condition = "= #{c.quote(principal_ids.first)}"
+          else
+            ids = principal_ids.map{|i| c.quote(i)}.join(',')
+            p_condition = "IN (#{ids})"
+          end
+
+          # We need the same number of inclusions of the whole associations
+          # towards `ac_security_policy_items` as the number of permissions to
+          # query for.
+
+          options[:permissions].each_with_index.inject("") do |j, (p, i)|
+            j << "
+
+              INNER JOIN `ac_nodes` `nodes_chk_#{i}`
+              ON `nodes_chk_#{i}`.`securable_id` = `#{t}`.`#{pk}`
+              AND `nodes_chk_#{i}`.`securable_type` = #{c.quote(name)}
+
+              INNER JOIN `ac_paths` `paths_chk_#{i}`
+              ON `paths_chk_#{i}`.`descendant_id` = `nodes_chk_#{i}`.`id`
+
+              INNER JOIN `ac_nodes` `anc_nodes_chk_#{i}`
+              ON `anc_nodes_chk_#{i}`.`id` = `paths_chk_#{i}`.`ancestor_id`
+
+              INNER JOIN `ac_assignments` `assignments_chk_#{i}`
+              ON `assignments_chk_#{i}`.`node_id` = `anc_nodes_chk_#{i}`.`id`
+              AND `assignments_chk_#{i}`.`principal_id` #{p_condition}
+
+              INNER JOIN `ac_roles` `roles_chk_#{i}`
+                ON `roles_chk_#{i}`.`id` = `assignments_chk_#{i}`.`role_id`
+
+              INNER JOIN `ac_security_policy_items` `policy_item_chk_#{i}`
+                ON `policy_item_chk_#{i}`.`role_id` = `roles_chk_#{i}`.`id`
+                AND `policy_item_chk_#{i}`.`permission_name` = #{c.quote(p)}
+
+            "
+          end.strip.gsub(/\s+/, ' ')
+        end
+
+        def restrict_queries?
+          return false unless securable?
+          return false unless manager = AccessControl.get_security_manager
+          manager.restrict_queries?
+        end
+
+        def disable_query_restriction
+          manager = AccessControl.get_security_manager
+          return unless manager
+          manager.restrict_queries = false
+        end
+
+        def re_enable_query_restriction
+          manager = AccessControl.get_security_manager
+          return unless manager
+          manager.restrict_queries = true
+        end
     end
 
     module InstanceMethods
@@ -171,6 +342,11 @@ module AccessControl
                      :dependent => :destroy
         base.class_eval do
           alias_method_chain :destroy, :referenced_children
+          class << self
+            VALID_FIND_OPTIONS.push(:permissions, :load_permissions).uniq!
+            alias_method_chain :find_every, :restriction
+            alias_method_chain :find_one, :unauthorized
+          end
         end
       end
 
@@ -265,194 +441,6 @@ end
 class ActiveRecord::Base
 
   include AccessControl::ModelSecurity::InstanceMethods
-
-  class << self
-
-    VALID_FIND_OPTIONS.push(:permissions, :load_permissions).uniq!
-
-    def new_with_security *args
-      object = new_without_security *args
-      return object unless manager = AccessControl.get_security_manager
-      return object unless object.class.securable?
-      object.class.check_inheritance!
-      AccessControl::SecurityProxy.new(object)
-    end
-
-    alias_method_chain :new, :security
-
-    def allocate_with_security *args
-      object = allocate_without_security *args
-      return object unless manager = AccessControl.get_security_manager
-      return object unless object.class.securable?
-      object.class.check_inheritance!
-      AccessControl::SecurityProxy.new(object)
-    end
-
-    alias_method_chain :allocate, :security
-
-    def find_every_with_restriction(options)
-      options[:permissions] ||= query_permissions
-      if !options[:permissions].is_a?(Array)
-        raise ArgumentError, ':permissions must be an array'
-      end
-      merge_permission_options(options)
-      find_every_without_restriction(options)
-    end
-
-    alias_method_chain :find_every, :restriction
-
-    def find_one_with_unauthorized(id, options)
-      old_options = options.clone
-      options[:permissions] ||= (view_permissions | query_permissions)
-      begin
-        return find_one_without_unauthorized(id, options)
-      rescue ActiveRecord::RecordNotFound => e
-        disable_query_restriction
-        result = find_one_without_unauthorized(id, old_options) rescue nil
-        re_enable_query_restriction
-        raise e if !result
-        raise AccessControl::Unauthorized
-      end
-    end
-
-    alias_method_chain :find_one, :unauthorized
-
-    def unrestricted_find(*args)
-      disable_query_restriction
-      result = find(*args)
-      re_enable_query_restriction
-      result
-    end
-
-    private
-
-      def merge_permission_options(options)
-        merge_permission_includes(options)
-        return unless restrict_queries?
-        if options[:permissions].any?
-          merge_permission_joins(options)
-        end
-      end
-
-      def merge_permission_includes(options)
-        options[:include] = merge_includes(
-          options[:include],
-          includes_for_permissions(options)
-        ) if options[:load_permissions]
-      end
-
-      def merge_permission_joins(options)
-        if options[:joins]
-          options[:joins] = merge_joins(
-            options[:joins],
-            joins_for_permissions(options)
-          )
-        else
-          options[:joins] = joins_for_permissions(options)
-        end
-        fix_select_clause_for_permission_joins(options)
-      end
-
-      def fix_select_clause_for_permission_joins(options)
-        options[:select] = \
-          prefix_with_distinct_and_table_name(options[:select] || '*')
-      end
-
-      def prefix_with_distinct_and_table_name(select_clause)
-        references = []
-        select_clause.strip!
-        if !(select_clause =~ /^distinct\s+/i)
-          references << "#{quoted_table_name}.`#{primary_key}`"
-        end
-        select_clause.gsub(/^distinct\s+/i, '').split(',').each do |token|
-          t = token.strip.gsub('`', '')
-          next references << "#{quoted_table_name}.*" if t == '*'
-          if columns_hash.keys.include?(t)
-            next references << "#{quoted_table_name}.`#{t}`"
-          end
-          # Functions or other references are not prefixed.
-          references << token
-        end
-        "DISTINCT #{references.join(', ')}"
-      end
-
-      def includes_for_permissions(options)
-        {
-          :ac_node => {
-            :ancestors => {
-              :principal_assignments => {
-                :role => :security_policy_items
-              }
-            }
-          }
-        }
-      end
-
-      def joins_for_permissions(options)
-
-        c = connection
-        t = table_name
-        pk = primary_key
-        principal_ids = AccessControl.get_security_manager.principal_ids
-
-        if principal_ids.size == 1
-          p_condition = "= #{c.quote(principal_ids.first)}"
-        else
-          ids = principal_ids.map{|i| c.quote(i)}.join(',')
-          p_condition = "IN (#{ids})"
-        end
-
-        # We need the same number of inclusions of the whole associations
-        # towards `ac_security_policy_items` as the number of permissions to
-        # query for.
-
-        options[:permissions].each_with_index.inject("") do |j, (p, i)|
-          j << "
-
-            INNER JOIN `ac_nodes` `nodes_chk_#{i}`
-            ON `nodes_chk_#{i}`.`securable_id` = `#{t}`.`#{pk}`
-            AND `nodes_chk_#{i}`.`securable_type` = #{c.quote(name)}
-
-            INNER JOIN `ac_paths` `paths_chk_#{i}`
-            ON `paths_chk_#{i}`.`descendant_id` = `nodes_chk_#{i}`.`id`
-
-            INNER JOIN `ac_nodes` `anc_nodes_chk_#{i}`
-            ON `anc_nodes_chk_#{i}`.`id` = `paths_chk_#{i}`.`ancestor_id`
-
-            INNER JOIN `ac_assignments` `assignments_chk_#{i}`
-            ON `assignments_chk_#{i}`.`node_id` = `anc_nodes_chk_#{i}`.`id`
-            AND `assignments_chk_#{i}`.`principal_id` #{p_condition}
-
-            INNER JOIN `ac_roles` `roles_chk_#{i}`
-              ON `roles_chk_#{i}`.`id` = `assignments_chk_#{i}`.`role_id`
-
-            INNER JOIN `ac_security_policy_items` `policy_item_chk_#{i}`
-              ON `policy_item_chk_#{i}`.`role_id` = `roles_chk_#{i}`.`id`
-              AND `policy_item_chk_#{i}`.`permission_name` = #{c.quote(p)}
-
-          "
-        end.strip.gsub(/\s+/, ' ')
-      end
-
-      def restrict_queries?
-        return false unless securable?
-        return false unless manager = AccessControl.get_security_manager
-        manager.restrict_queries?
-      end
-
-      def disable_query_restriction
-        manager = AccessControl.get_security_manager
-        return unless manager
-        manager.restrict_queries = false
-      end
-
-      def re_enable_query_restriction
-        manager = AccessControl.get_security_manager
-        return unless manager
-        manager.restrict_queries = true
-      end
-
-  end
 
   after_create :create_nodes
   after_update :update_parent_nodes
