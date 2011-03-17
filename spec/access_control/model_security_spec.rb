@@ -57,12 +57,6 @@ module AccessControl
 
       describe "protection of methods" do
 
-        let(:test_object) do
-          object = Class.new
-          object.extend(ModelSecurity::ClassMethods)
-          object
-        end
-
         before do
           model_klass.permissions_for_methods.delete(:some_method)
         end
