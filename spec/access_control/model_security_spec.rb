@@ -21,59 +21,37 @@ module AccessControl
     describe ModelSecurity::ClassMethods do
 
       describe "allocation of securable class with security manager" do
-        it "wraps the object into a proxy with `new`" do
-          AccessControl.stub!(:get_security_manager).and_return('the manager')
-          model_klass.new.security_proxied?.should be_true
-        end
-        it "wraps the object into a proxy when loaded with `find`" do
-          AccessControl.stub!(:get_security_manager).and_return(
-            SecurityManager.new('a controller')
-          )
-          AccessControl::Model::Node.create_global_node!
-          model_klass.create!
-          model_klass.unrestricted_find(:first).
-            security_proxied?.should be_true
-        end
-        it "performs checking of inheritage" do
+        it "performs checking of inheritance with `new`" do
           AccessControl.stub!(:get_security_manager).and_return('the manager')
           model_klass.should_receive(:check_inheritance!)
           model_klass.new
         end
-      end
-
-      describe "allocation without security manager" do
-        it "doesn't wrap the object into a proxy with `new`" do
-          model_klass.new.security_proxied?.should be_false
-        end
-        it "doesn't wrap the object into a proxy when loaded with `find`" do
+        it "performs checking of inheritance with `find`" do
+          AccessControl.stub!(:get_security_manager).and_return(
+            AccessControl::SecurityManager.new('a controller')
+          )
           AccessControl::Model::Node.create_global_node!
           model_klass.create!
-          model_klass.first.security_proxied?.should be_false
-        end
-        it "doesn't performs checking of inheritage" do
-          model_klass.should_not_receive(:check_inheritance!)
-          model_klass.new
+          model_klass.should_receive(:check_inheritance!)
+          model_klass.unrestricted_find(:first)
         end
       end
 
       describe "allocation of unsecurable class with security manager" do
         before { model_klass.stub!(:securable?).and_return(false) }
-        it "doesn't wrap the object into a proxy with `new`" do
-          AccessControl.stub!(:get_security_manager).and_return('the manager')
-          model_klass.new.security_proxied?.should be_false
-        end
-        it "doesn't wrap the object into a proxy when loaded with `find`" do
-          AccessControl.stub!(:get_security_manager).and_return(
-            SecurityManager.new('a controller')
-          )
-          AccessControl::Model::Node.create_global_node!
-          model_klass.create!
-          model_klass.first.security_proxied?.should be_false
-        end
-        it "doesn't performs checking of inheritage" do
+        it "performs checking of inheritance with `new`" do
           AccessControl.stub!(:get_security_manager).and_return('the manager')
           model_klass.should_not_receive(:check_inheritance!)
           model_klass.new
+        end
+        it "performs checking of inheritance with `find`" do
+          AccessControl.stub!(:get_security_manager).and_return(
+            AccessControl::SecurityManager.new('a controller')
+          )
+          AccessControl::Model::Node.create_global_node!
+          model_klass.create!
+          model_klass.should_not_receive(:check_inheritance!)
+          model_klass.unrestricted_find(:first)
         end
       end
 
@@ -86,30 +64,158 @@ module AccessControl
         end
 
         before do
-          test_object.permissions_for_methods.delete(:some_method)
+          model_klass.permissions_for_methods.delete(:some_method)
         end
 
         it "is managed through #protect" do
-          test_object.protect(:some_method, :with => 'some permission')
-          test_object.permissions_for(:some_method).should == Set.new([
+          model_klass.protect(:some_method, :with => 'some permission')
+          model_klass.permissions_for(:some_method).should == Set.new([
             'some permission'
           ])
         end
 
         it "always combines permissions" do
-          test_object.protect(:some_method, :with => 'some permission')
-          test_object.protect(:some_method, :with => 'some other permission')
-          test_object.permissions_for(:some_method).should == Set.new([
+          model_klass.protect(:some_method, :with => 'some permission')
+          model_klass.protect(:some_method, :with => 'some other permission')
+          model_klass.permissions_for(:some_method).should == Set.new([
             'some permission', 'some other permission'
           ])
         end
 
         it "accepts an array of permissions" do
-          test_object.protect(:some_method,
+          model_klass.protect(:some_method,
                               :with => ['some permission', 'some other'])
-          test_object.permissions_for(:some_method).should == Set.new([
+          model_klass.permissions_for(:some_method).should == Set.new([
             'some permission', 'some other'
           ])
+        end
+
+        describe "on instances" do
+
+          let(:manager) do
+            AccessControl::SecurityManager.new('a controller')
+          end
+
+          describe "in normal methods" do
+
+            before do
+              model_klass.class_eval do
+                def ac_node
+                  'the node of the object'
+                end
+                protect :foo, :with => 'permission'
+                def foo
+                  'foo'
+                end
+              end
+              AccessControl.stub!(:get_security_manager => manager)
+            end
+
+            it "protects a method when it is called" do
+              manager.should_receive(:verify_access!).
+                with('the node of the object', Set.new(['permission']))
+              model_klass.new.foo.should == 'foo'
+            end
+
+            it "raises unauthorized if the access is not allowed" do
+              manager.should_receive(:verify_access!).
+                with('the node of the object', Set.new(['permission'])).
+                and_raise(AccessControl::Unauthorized)
+              lambda {
+                model_klass.new.foo
+              }.should raise_exception(AccessControl::Unauthorized)
+            end
+
+            it "doesn't check permissions if the node wasn't created" do
+              model_klass.class_eval do
+                def ac_node
+                  nil
+                end
+              end
+              model_klass.new.foo.should == 'foo'
+            end
+
+          end
+
+          describe "in column attributes methods" do
+
+            before do
+              model_klass.class_eval do
+                def ac_node
+                  'the node of the object'
+                end
+                protect :field, :with => 'permission'
+              end
+              AccessControl.stub!(:get_security_manager => manager)
+            end
+
+            it "protects a method when it is called" do
+              manager.should_receive(:verify_access!).
+                with('the node of the object', Set.new(['permission']))
+              model_klass.new(:field => 15).field.should == 15
+            end
+
+            it "raises unauthorized if the access is not allowed" do
+              manager.should_receive(:verify_access!).
+                with('the node of the object', Set.new(['permission'])).
+                and_raise(AccessControl::Unauthorized)
+              lambda {
+                model_klass.new.field
+              }.should raise_exception(AccessControl::Unauthorized)
+            end
+
+            it "doesn't check permissions if the node wasn't created" do
+              model_klass.class_eval do
+                def ac_node
+                  nil
+                end
+              end
+              model_klass.new(:field => 15).field.should == 15
+            end
+
+          end
+
+          describe "in column attributes methods that are overwritten" do
+
+            before do
+              model_klass.class_eval do
+                def ac_node
+                  'the node of the object'
+                end
+                protect :field, :with => 'permission'
+                def field
+                  self[:field] + 20
+                end
+              end
+              AccessControl.stub!(:get_security_manager => manager)
+            end
+
+            it "protects a method when it is called" do
+              manager.should_receive(:verify_access!).
+                with('the node of the object', Set.new(['permission']))
+              model_klass.new(:field => 15).field.should == 35
+            end
+
+            it "raises unauthorized if the access is not allowed" do
+              manager.should_receive(:verify_access!).
+                with('the node of the object', Set.new(['permission'])).
+                and_raise(AccessControl::Unauthorized)
+              lambda {
+                model_klass.new.field
+              }.should raise_exception(AccessControl::Unauthorized)
+            end
+
+            it "doesn't check permissions if the node wasn't created" do
+              model_klass.class_eval do
+                def ac_node
+                  nil
+                end
+              end
+              model_klass.new(:field => 15).field.should == 35
+            end
+
+          end
+
         end
 
       end
@@ -493,8 +599,12 @@ module AccessControl
 
         it "will be the parent association if defined and collection" do
           model_klass.class_eval do
-            has_many :parent_assoc, :class_name => self.name
+            has_many :parent_assoc, :class_name => self.name,
+                     :foreign_key => :record_id
+            belongs_to :child_assoc, :class_name => self.name,
+                       :foreign_key => :record_id
             inherits_permissions_from :parent_assoc
+            propagates_permissions_to :child_assoc
             def parent_assoc
               ['some parents']
             end
@@ -725,6 +835,7 @@ module AccessControl
           it "updates parents of the node for :has_many" do
             model_klass.class_eval do
               inherits_permissions_from :records
+              propagates_permissions_to :record
             end
             record = model_klass.create!(:records => [parent1, parent2])
             record.records = [parent3, parent4]
@@ -742,6 +853,7 @@ module AccessControl
           it "updates parents of the node for :has_one" do
             model_klass.class_eval do
               inherits_permissions_from :one_record
+              propagates_permissions_to :record
             end
             record = model_klass.create!(:one_record => parent1)
             record.one_record = parent3
@@ -757,6 +869,7 @@ module AccessControl
           it "updates parents of the node for :habtm" do
             model_klass.class_eval do
               inherits_permissions_from :records_records
+              propagates_permissions_to :inverse_records_records
             end
             record = model_klass.create!(:records_records => [parent1, parent2])
             record.records_records = [parent3, parent4]

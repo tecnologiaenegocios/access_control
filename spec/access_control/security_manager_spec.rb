@@ -176,6 +176,13 @@ module AccessControl
         }.should raise_exception(::AccessControl::Unauthorized)
       end
 
+      it "passes unmodified the paramenters to `has_access?`" do
+        manager.should_receive(:has_access?).
+          with('some context', 'some permissions').
+          and_return(true)
+        manager.verify_access!('some context', 'some permissions')
+      end
+
     end
 
     describe "restriction in queries" do

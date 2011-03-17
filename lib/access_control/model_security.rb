@@ -152,18 +152,18 @@ module AccessControl
 
       def new *args
         object = super
+        object.class.check_inheritance! if object.class.securable?
+        protect_methods!(object)
         return object unless manager = AccessControl.get_security_manager
-        return object unless object.class.securable?
-        object.class.check_inheritance!
-        AccessControl::SecurityProxy.new(object)
+        object
       end
 
       def allocate *args
         object = super
+        object.class.check_inheritance! if object.class.securable?
+        protect_methods!(object)
         return object unless manager = AccessControl.get_security_manager
-        return object unless object.class.securable?
-        object.class.check_inheritance!
-        AccessControl::SecurityProxy.new(object)
+        object
       end
 
       def find_every_with_restriction(options)
@@ -203,6 +203,22 @@ module AccessControl
             removed.reload.send(:update_parent_nodes)
           end
           add_association_callbacks(reflection.name, reflection.options)
+        end
+
+        def protect_methods!(instance)
+          permissions_for_methods.keys.each do |m|
+            (class << instance; self; end;).class_eval do
+              define_method(m) do
+                if (manager = AccessControl.get_security_manager) &&
+                   self.class.securable? && self.ac_node
+                  manager.verify_access!(
+                    self.ac_node, self.class.permissions_for(__method__)
+                  )
+                end
+                super
+              end
+            end
+          end
         end
 
         def merge_permission_options(options)
