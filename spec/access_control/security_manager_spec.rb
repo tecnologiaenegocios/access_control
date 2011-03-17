@@ -111,22 +111,35 @@ module AccessControl
     describe "#has_access?" do
 
       let(:manager) { SecurityManager.new(controller) }
-      let(:node) { stub('node', :has_permission? => nil) }
+      let(:node1) { stub('node', :has_permission? => nil) }
+      let(:node2) { stub('node', :has_permission? => nil) }
 
       describe "with a single permission queried" do
 
         let(:permission) { 'a permission' }
 
         it "returns true if the user has the permission" do
-          node.should_receive(:has_permission?).with(permission).
+          node1.should_receive(:has_permission?).with(permission).
             and_return(true)
-          manager.has_access?(node, permission).should be_true
+          manager.has_access?(node1, permission).should be_true
         end
 
         it "returns false if the user hasn't the permission" do
-          node.should_receive(:has_permission?).with(permission).
+          node1.should_receive(:has_permission?).with(permission).
             and_return(false)
-          manager.has_access?(node, permission).should be_false
+          manager.has_access?(node1, permission).should be_false
+        end
+
+        it "returns true if the user has the permission in any of the nodes" do
+          node1.stub!(:has_permission? => true)
+          node2.stub!(:has_permission? => false)
+          manager.has_access?([node1, node2], permission).should be_true
+        end
+
+        it "returns false if the user hasn't the permission in all nodes" do
+          node1.stub!(:has_permission? => false)
+          node2.stub!(:has_permission? => false)
+          manager.has_access?([node1, node2], permission).should be_false
         end
 
       end
@@ -137,20 +150,53 @@ module AccessControl
         let(:permission2) { 'other permission' }
 
         it "returns true if the user has all permissions queried" do
-          node.should_receive(:has_permission?).
+          node1.should_receive(:has_permission?).
             with(permission1).and_return(true)
-          node.should_receive(:has_permission?).
+          node1.should_receive(:has_permission?).
             with(permission2).and_return(true)
-          manager.has_access?(node, [permission1, permission2]).
+          manager.has_access?(node1, [permission1, permission2]).
             should be_true
         end
 
         it "returns false if the user has not all permissions queried" do
-          node.should_receive(:has_permission?).
+          node1.should_receive(:has_permission?).
             with(permission1).and_return(true)
-          node.should_receive(:has_permission?).
+          node1.should_receive(:has_permission?).
             with(permission2).and_return(false)
-          manager.has_access?(node, [permission1, permission2]).
+          manager.has_access?(node1, [permission1, permission2]).
+            should be_false
+        end
+
+        it "returns true if the user has all permissions in one node" do
+          node1.stub!(:has_permission? => true)
+          node2.stub!(:has_permission? => false)
+          manager.has_access?([node1, node2], [permission1, permission2]).
+            should be_true
+        end
+
+        it "returns true if the user has all permissions combining nodes" do
+          node1.stub!(:has_permission?) do |permission|
+            next true if permission == permission1
+            false
+          end
+          node2.stub!(:has_permission?) do |permission|
+            next true if permission == permission2
+            false
+          end
+          manager.has_access?([node1, node2], [permission1, permission2]).
+            should be_true
+        end
+
+        it "returns false if user hasn't all permissions combining nodes" do
+          node1.stub!(:has_permission?) do |permission|
+            next true if permission == permission1
+            false
+          end
+          node2.stub!(:has_permission?) do |permission|
+            next true if permission == permission1
+            false
+          end
+          manager.has_access?([node1, node2], [permission1, permission2]).
             should be_false
         end
 

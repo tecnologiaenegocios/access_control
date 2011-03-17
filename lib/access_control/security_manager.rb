@@ -33,15 +33,18 @@ module AccessControl
       end
     end
 
-    def has_access? node, permissions
-      permissions = [permissions] unless permissions.respond_to?(:all?)
+    def has_access? nodes, permissions
+      nodes = Array(nodes)
+      permissions = Array(permissions)
       permissions.all? do |permission|
-        node.has_permission?(permission)
+        nodes.any? do |node|
+          node.has_permission?(permission)
+        end
       end
     end
 
-    def verify_access! node, permissions
-      raise Unauthorized unless has_access?(node, permissions)
+    def verify_access! nodes, permissions
+      raise Unauthorized unless has_access?(nodes, permissions)
     end
 
     def restrict_queries?
