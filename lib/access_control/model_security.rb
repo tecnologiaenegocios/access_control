@@ -153,7 +153,6 @@ module AccessControl
       def new *args
         object = super
         object.class.check_inheritance! if object.class.securable?
-        protect_methods!(object)
         return object unless manager = AccessControl.get_security_manager
         object
       end
@@ -161,8 +160,8 @@ module AccessControl
       def allocate *args
         object = super
         object.class.check_inheritance! if object.class.securable?
-        protect_methods!(object)
         return object unless manager = AccessControl.get_security_manager
+        protect_methods!(object) if object.class.securable?
         object
       end
 
@@ -196,6 +195,22 @@ module AccessControl
         result
       end
 
+      def create_requires *args
+        @create_permissions = Set.new(Array(args))
+      end
+
+      def permissions_required_to_create
+        @create_permissions || Set.new
+      end
+
+      def update_requires *args
+        @update_permissions = Set.new(Array(args))
+      end
+
+      def permissions_required_to_update
+        @update_permissions || Set.new
+      end
+
       private
 
         def set_remove_hook_in_habtm reflection
@@ -210,9 +225,14 @@ module AccessControl
             (class << instance; self; end;).class_eval do
               define_method(m) do
                 if (manager = AccessControl.get_security_manager) &&
-                   self.class.securable? && self.ac_node
+                   self.class.securable?
+                  if self.ac_node
+                    nodes = self.ac_node
+                  else
+                    nodes = self.parents.map(&:ac_node)
+                  end
                   manager.verify_access!(
-                    self.ac_node, self.class.permissions_for(__method__)
+                    nodes, self.class.permissions_for(__method__)
                   )
                 end
                 super
@@ -449,6 +469,22 @@ module AccessControl
           end
         end
 
+        def verify_create_permissions
+          return unless self.class.securable?
+          return unless manager = AccessControl.get_security_manager
+          return unless self.class.permissions_required_to_create.any?
+          manager.verify_access!(parents.map(&:ac_node),
+                                 self.class.permissions_required_to_create)
+        end
+
+        def verify_update_permissions
+          return unless self.class.securable?
+          return unless manager = AccessControl.get_security_manager
+          return unless self.class.permissions_required_to_update.any?
+          manager.verify_access!(self.ac_node,
+                                 self.class.permissions_required_to_update)
+        end
+
     end
 
   end
@@ -458,11 +494,13 @@ class ActiveRecord::Base
 
   include AccessControl::ModelSecurity::InstanceMethods
 
+  before_validation :disable_query_restriction
+  after_validation :re_enable_query_restriction
+  before_update :verify_update_permissions
+  before_create :verify_create_permissions
   after_create :create_nodes
   after_update :update_parent_nodes
   after_save :update_child_nodes
-  before_validation :disable_query_restriction
-  after_validation :re_enable_query_restriction
   after_destroy :reparent_saved_referenced_children
 
 end

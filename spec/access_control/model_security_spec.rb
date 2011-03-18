@@ -22,7 +22,9 @@ module AccessControl
 
       describe "allocation of securable class with security manager" do
         it "performs checking of inheritance with `new`" do
-          AccessControl.stub!(:get_security_manager).and_return('the manager')
+          AccessControl.stub!(:get_security_manager).and_return(
+            AccessControl::SecurityManager.new('a controller')
+          )
           model_klass.should_receive(:check_inheritance!)
           model_klass.new
         end
@@ -40,7 +42,9 @@ module AccessControl
       describe "allocation of unsecurable class with security manager" do
         before { model_klass.stub!(:securable?).and_return(false) }
         it "performs checking of inheritance with `new`" do
-          AccessControl.stub!(:get_security_manager).and_return('the manager')
+          AccessControl.stub!(:get_security_manager).and_return(
+            AccessControl::SecurityManager.new('a controller')
+          )
           model_klass.should_not_receive(:check_inheritance!)
           model_klass.new
         end
@@ -90,12 +94,29 @@ module AccessControl
             AccessControl::SecurityManager.new('a controller')
           end
 
-          describe "in normal methods" do
+          before do
+            AccessControl::Model::Node.create_global_node!
+          end
 
-            before do
+          describe "when there's no manager set" do
+            it "doesn't check permissions" do
               model_klass.class_eval do
-                def ac_node
-                  'the node of the object'
+                protect :foo, :with => 'permission'
+                def foo
+                  'foo'
+                end
+              end
+              manager.should_not_receive(:verify_access!)
+              model_klass.create!
+              model_klass.unrestricted_find(:first).foo.should == 'foo'
+            end
+          end
+
+          describe "that are not from securable classes" do
+            it "doesn't check permissions" do
+              model_klass.class_eval do
+                def self.securable?
+                  false
                 end
                 protect :foo, :with => 'permission'
                 def foo
@@ -103,113 +124,279 @@ module AccessControl
                 end
               end
               AccessControl.stub!(:get_security_manager => manager)
+              manager.should_not_receive(:verify_access!)
+              model_klass.create!
+              model_klass.unrestricted_find(:first).foo.should == 'foo'
+            end
+          end
+
+          describe "in normal methods" do
+
+            let(:node) do
+              model_klass.unrestricted_find(:first).ac_node
+            end
+
+            before do
+              model_klass.class_eval do
+                protect :foo, :with => 'permission'
+                def foo
+                  'foo'
+                end
+              end
+              model_klass.create!
+              AccessControl.stub!(:get_security_manager => manager)
             end
 
             it "protects a method when it is called" do
               manager.should_receive(:verify_access!).
-                with('the node of the object', Set.new(['permission']))
-              model_klass.new.foo.should == 'foo'
+                with(node, Set.new(['permission']))
+              model_klass.unrestricted_find(:first).foo.should == 'foo'
             end
 
             it "raises unauthorized if the access is not allowed" do
               manager.should_receive(:verify_access!).
-                with('the node of the object', Set.new(['permission'])).
+                with(node, Set.new(['permission'])).
                 and_raise(AccessControl::Unauthorized)
               lambda {
-                model_klass.new.foo
+                model_klass.unrestricted_find(:first).foo
               }.should raise_exception(AccessControl::Unauthorized)
-            end
-
-            it "doesn't check permissions if the node wasn't created" do
-              model_klass.class_eval do
-                def ac_node
-                  nil
-                end
-              end
-              model_klass.new.foo.should == 'foo'
             end
 
           end
 
           describe "in column attributes methods" do
 
+            let(:node) do
+              model_klass.unrestricted_find(:first).ac_node
+            end
+
             before do
               model_klass.class_eval do
-                def ac_node
-                  'the node of the object'
-                end
                 protect :field, :with => 'permission'
               end
+              model_klass.create!(:field => 15)
               AccessControl.stub!(:get_security_manager => manager)
             end
 
             it "protects a method when it is called" do
               manager.should_receive(:verify_access!).
-                with('the node of the object', Set.new(['permission']))
-              model_klass.new(:field => 15).field.should == 15
+                with(node, Set.new(['permission']))
+              model_klass.unrestricted_find(:first).field.should == 15
             end
 
             it "raises unauthorized if the access is not allowed" do
               manager.should_receive(:verify_access!).
-                with('the node of the object', Set.new(['permission'])).
+                with(node, Set.new(['permission'])).
                 and_raise(AccessControl::Unauthorized)
               lambda {
-                model_klass.new.field
+                model_klass.unrestricted_find(:first).field
               }.should raise_exception(AccessControl::Unauthorized)
-            end
-
-            it "doesn't check permissions if the node wasn't created" do
-              model_klass.class_eval do
-                def ac_node
-                  nil
-                end
-              end
-              model_klass.new(:field => 15).field.should == 15
             end
 
           end
 
           describe "in column attributes methods that are overwritten" do
 
+            let(:node) do
+              model_klass.unrestricted_find(:first).ac_node
+            end
+
             before do
               model_klass.class_eval do
-                def ac_node
-                  'the node of the object'
-                end
                 protect :field, :with => 'permission'
                 def field
                   self[:field] + 20
                 end
               end
+              model_klass.create!(:field => 15)
               AccessControl.stub!(:get_security_manager => manager)
             end
 
             it "protects a method when it is called" do
               manager.should_receive(:verify_access!).
-                with('the node of the object', Set.new(['permission']))
-              model_klass.new(:field => 15).field.should == 35
+                with(node, Set.new(['permission']))
+              model_klass.unrestricted_find(:first).field.should == 35
             end
 
             it "raises unauthorized if the access is not allowed" do
               manager.should_receive(:verify_access!).
-                with('the node of the object', Set.new(['permission'])).
+                with(node, Set.new(['permission'])).
                 and_raise(AccessControl::Unauthorized)
               lambda {
-                model_klass.new.field
+                model_klass.unrestricted_find(:first).field
               }.should raise_exception(AccessControl::Unauthorized)
-            end
-
-            it "doesn't check permissions if the node wasn't created" do
-              model_klass.class_eval do
-                def ac_node
-                  nil
-                end
-              end
-              model_klass.new(:field => 15).field.should == 35
             end
 
           end
 
+          describe "when the record is new" do
+            before do
+              model_klass.class_eval do
+                protect :field, :with => 'permission'
+              end
+              AccessControl.stub!(:get_security_manager => manager)
+            end
+
+            it "doesn't verify permissions" do
+              model_klass.new(:field => 15).field.should == 15
+            end
+          end
+
+        end
+
+      end
+
+      describe "create protection" do
+
+        let(:manager) do
+          AccessControl::SecurityManager.new('a controller')
+        end
+
+        let(:parent1) do
+          model_klass.create!
+        end
+
+        let(:parent2) do
+          model_klass.create!
+        end
+
+        before do
+          AccessControl.stub!(:get_security_manager => manager)
+          AccessControl::Model::Node.create_global_node!
+          parent1; parent2 # Create the nodes before setting protection
+          model_klass.class_eval do
+            create_requires 'permission'
+          end
+          model_klass.class_eval(<<-eos)
+            def parents
+              self.class.unrestricted_find(
+                [#{parent1.id}, #{parent2.id}]
+              )
+            end
+          eos
+        end
+
+        it "checks permissions when the record is saved" do
+          manager.should_receive(:verify_access!).
+            with([parent1.ac_node, parent2.ac_node], Set.new(['permission']))
+          model_klass.create!(:field => 1)
+        end
+
+        it "doesn't check permissions if there's no manager" do
+          AccessControl.stub!(:get_security_manager => nil)
+          manager.should_not_receive(:verify_access!)
+          model_klass.create!(:field => 1)
+        end
+
+        it "doesn't check permission if class is not securable" do
+          model_klass.class_eval do
+            def self.securable?
+              false
+            end
+          end
+          manager.should_not_receive(:verify_access!)
+          model_klass.create!(:field => 1)
+        end
+
+        it "doesn't check permission if the record was already saved" do
+          manager.should_not_receive(:verify_access!)
+          object = model_klass.unrestricted_find(:first)
+          object.field = 1
+          object.save!
+        end
+
+        describe "when the user has the required permission(s)" do
+          it "creates the record" do
+            manager.should_receive(:verify_access!).
+              with([parent1.ac_node, parent2.ac_node], Set.new(['permission']))
+            model_klass.create!
+            # Two parents and the record
+            model_klass.unrestricted_find(:all).size.should == 3
+          end
+        end
+
+        describe "when the user hasn't the required permission(s)" do
+          it "doesn't create the record if Unauthorized was raised" do
+            manager.should_receive(:verify_access!).
+              with([parent1.ac_node, parent2.ac_node],
+                   Set.new(['permission'])).
+              and_raise(AccessControl::Unauthorized)
+            lambda {
+              model_klass.create!
+            }.should raise_exception(AccessControl::Unauthorized)
+            # Only two parents
+            model_klass.unrestricted_find(:all).size.should == 2
+          end
+        end
+
+      end
+
+      describe "update protection" do
+
+        let(:manager) do
+          AccessControl::SecurityManager.new('a controller')
+        end
+
+        before do
+          model_klass.class_eval do
+            update_requires 'permission'
+          end
+          AccessControl.stub!(:get_security_manager => manager)
+          AccessControl::Model::Node.create_global_node!
+          model_klass.create!(:field => 0)
+        end
+
+        it "checks permissions when the record is saved" do
+          object = model_klass.unrestricted_find(:first)
+          manager.should_receive(:verify_access!).
+            with(object.ac_node, Set.new(['permission']))
+          object.field = 1
+          object.save!
+        end
+
+        it "doesn't check permissions if there's no manager" do
+          AccessControl.stub!(:get_security_manager => nil)
+          manager.should_not_receive(:verify_access!)
+          object = model_klass.unrestricted_find(:first)
+          object.field = 1
+          object.save!
+        end
+
+        it "doesn't check permissions if class is not securable" do
+          model_klass.class_eval do
+            def self.securable?
+              false
+            end
+          end
+          manager.should_not_receive(:verify_access!)
+          object = model_klass.unrestricted_find(:first)
+          object.field = 1
+          object.save!
+        end
+
+        describe "when the user has the required permission(s)" do
+          it "saves the record" do
+            object = model_klass.unrestricted_find(:first)
+            manager.should_receive(:verify_access!).
+              with(object.ac_node, Set.new(['permission']))
+            object.field = 1
+            object.save!
+            model_klass.unrestricted_find(:first).field.should == 1
+          end
+        end
+
+        describe "when the user hasn't the required permission(s)" do
+          it "doesn't save the record if Unauthorized was raised" do
+            object = model_klass.unrestricted_find(:first)
+            manager.should_receive(:verify_access!).
+              with(object.ac_node, Set.new(['permission'])).
+              and_raise(AccessControl::Unauthorized)
+            object.field = 1
+            lambda {
+              object.save!
+            }.should raise_exception(AccessControl::Unauthorized)
+            model_klass.unrestricted_find(:first).field.should == 0
+          end
         end
 
       end
