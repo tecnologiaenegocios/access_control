@@ -788,7 +788,7 @@ module AccessControl
             }.should raise_exception(AccessControl::MissingPropagation)
           end
 
-          it "returns true if there's a match between bt and hm" do
+          it "doesn't raise if there's a match between bt and hm" do
             model_klass.class_eval do
               belongs_to :other_record,
                          :class_name => self.name,
@@ -799,10 +799,12 @@ module AccessControl
               inherits_permissions_from :other_records
               propagates_permissions_to :other_record
             end
-            model_klass.check_inheritance!.should be_true
+            lambda {
+              model_klass.check_inheritance!
+            }.should_not raise_exception
           end
 
-          it "returns true if there's a match between bt and ho" do
+          it "doesn't raise if there's a match between bt and ho" do
             model_klass.class_eval do
               belongs_to :other_record,
                          :class_name => self.name,
@@ -813,10 +815,12 @@ module AccessControl
               inherits_permissions_from :one_other_record
               propagates_permissions_to :other_record
             end
-            model_klass.check_inheritance!.should be_true
+            lambda {
+              model_klass.check_inheritance!
+            }.should_not raise_exception
           end
 
-          it "returns true if there's a match between habtm and habtm" do
+          it "doesn't raise if there's a match between habtm and habtm" do
             model_klass.class_eval do
               has_and_belongs_to_many :other_records,
                                       :join_table => :records_records,
@@ -831,7 +835,29 @@ module AccessControl
               inherits_permissions_from :other_records
               propagates_permissions_to :inv_other_records
             end
-            model_klass.check_inheritance!.should be_true
+            lambda {
+              model_klass.check_inheritance!
+            }.should_not raise_exception
+          end
+
+          it "doesn't look for match if inheriting permissions from bt" do
+            model_klass.class_eval do
+              belongs_to :record, :class_name => self.name
+              inherits_permissions_from :record
+            end
+            lambda {
+              model_klass.check_inheritance!
+            }.should_not raise_exception
+          end
+
+          it "doesn't look for match if inheriting from polymorphic bt" do
+            model_klass.class_eval do
+              belongs_to :recordable, :polymorphic => true
+              inherits_permissions_from :recordable
+            end
+            lambda {
+              model_klass.check_inheritance!
+            }.should_not raise_exception
           end
 
         end

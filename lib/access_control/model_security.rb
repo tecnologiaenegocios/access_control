@@ -115,10 +115,11 @@ module AccessControl
 
       def check_inheritance!
 
-        return true if @already_checked_inheritance
+        return if @already_checked_inheritance
 
         inherits_permissions_from.each do |a1|
           reflection = reflections[a1.to_sym]
+          next if reflection.macro == :belongs_to
           klass = reflection.klass
           case reflection.macro
           when :has_many, :has_one
