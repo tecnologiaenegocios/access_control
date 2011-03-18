@@ -230,6 +230,7 @@ module AccessControl
           end
 
           describe "when the record is new" do
+
             before do
               model_klass.class_eval do
                 protect :field, :with => 'permission'
@@ -237,9 +238,38 @@ module AccessControl
               AccessControl.stub!(:get_security_manager => manager)
             end
 
-            it "doesn't verify permissions" do
+            it "doesn't verify permissions while not saved" do
               model_klass.new(:field => 15).field.should == 15
             end
+
+            it "verifies permissions when the record is saved" do
+              manager.should_receive(:verify_access!).
+                with([], Set.new(['permission'])).
+                and_raise(AccessControl::Unauthorized)
+              object = model_klass.new(:field => 15)
+              lambda {
+                object.save!
+              }.should raise_exception(AccessControl::Unauthorized)
+            end
+
+            it "skips verification if class is not securable" do
+              model_klass.class_eval do
+                def self.securable?
+                  false
+                end
+              end
+              manager.should_not_receive(:verify_access!)
+              object = model_klass.new(:field => 15)
+              lambda { object.save! }.should_not raise_exception
+            end
+
+            it "skips verification if there's no manager" do
+              AccessControl.stub!(:get_security_manager => nil)
+              manager.should_not_receive(:verify_access!)
+              object = model_klass.new(:field => 15)
+              lambda { object.save! }.should_not raise_exception
+            end 
+
           end
 
         end
