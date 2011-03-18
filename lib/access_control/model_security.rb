@@ -196,19 +196,39 @@ module AccessControl
       end
 
       def create_requires *args
+        args = args.first if args.size == 1
         @create_permissions = Set.new(Array(args))
       end
 
+      def add_create_requirement *args
+        create_requires(permissions_required_to_create + Array(args))
+      end
+
       def permissions_required_to_create
-        @create_permissions || Set.new
+        return @create_permissions if @create_permissions
+        if superclass.respond_to? :permissions_required_to_create
+          superclass.permissions_required_to_create
+        else
+          Set.new
+        end
       end
 
       def update_requires *args
+        args = args.first if args.size == 1
         @update_permissions = Set.new(Array(args))
       end
 
+      def add_update_requirement *args
+        update_requires(permissions_required_to_update + Array(args))
+      end
+
       def permissions_required_to_update
-        @update_permissions || Set.new
+        return @update_permissions if @update_permissions
+        if superclass.respond_to? :permissions_required_to_update
+          superclass.permissions_required_to_update
+        else
+          Set.new
+        end
       end
 
       private

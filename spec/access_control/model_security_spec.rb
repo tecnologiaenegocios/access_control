@@ -329,6 +329,44 @@ module AccessControl
           end
         end
 
+        describe "inheritance" do
+
+          let(:another_klass) {Class.new(model_klass)}
+
+          before do
+            another_klass.class_eval do
+              set_table_name = 'records'
+            end
+          end
+
+          it "can be inherited by subclasses" do
+            manager.should_receive(:verify_access!).
+              with([parent1.ac_node, parent2.ac_node], Set.new(['permission']))
+            another_klass.create!(:field => 1)
+          end
+
+          it "can be changed in the subclass" do
+            another_klass.class_eval do
+              create_requires 'another permission'
+            end
+            manager.should_receive(:verify_access!).
+              with([parent1.ac_node, parent2.ac_node],
+                   Set.new(['another permission']))
+            another_klass.create!(:field => 1)
+          end
+
+          it "can add another permission" do
+            another_klass.class_eval do
+              add_create_requirement 'another permission'
+            end
+            manager.should_receive(:verify_access!).
+              with([parent1.ac_node, parent2.ac_node],
+                   Set.new(['permission', 'another permission']))
+            another_klass.create!(:field => 1)
+          end
+
+        end
+
       end
 
       describe "update protection" do
@@ -397,6 +435,51 @@ module AccessControl
             }.should raise_exception(AccessControl::Unauthorized)
             model_klass.unrestricted_find(:first).field.should == 0
           end
+        end
+
+        describe "inheritance" do
+
+          let(:another_klass) {Class.new(model_klass)}
+
+          before do
+            another_klass.class_eval do
+              set_table_name = 'records'
+            end
+            model_klass.delete_all
+            another_klass.create!(:field => 0)
+          end
+
+          it "can be inherited by subclasses" do
+            object = another_klass.unrestricted_find(:first)
+            manager.should_receive(:verify_access!).
+              with(object.ac_node, Set.new(['permission']))
+            object.field = 1
+            object.save!
+          end
+
+          it "can be changed in the subclass" do
+            another_klass.class_eval do
+              update_requires 'another permission'
+            end
+            object = another_klass.unrestricted_find(:first)
+            manager.should_receive(:verify_access!).
+              with(object.ac_node, Set.new(['another permission']))
+            object.field = 1
+            object.save!
+          end
+
+          it "can add another permission" do
+            another_klass.class_eval do
+              add_update_requirement 'another permission'
+            end
+            object = another_klass.unrestricted_find(:first)
+            manager.should_receive(:verify_access!).
+              with(object.ac_node,
+                   Set.new(['permission', 'another permission']))
+            object.field = 1
+            object.save!
+          end
+
         end
 
       end
