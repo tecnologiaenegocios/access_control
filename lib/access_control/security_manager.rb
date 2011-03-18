@@ -34,8 +34,8 @@ module AccessControl
     end
 
     def has_access? nodes, permissions
-      nodes = Array(nodes)
-      permissions = Array(permissions)
+      nodes = [nodes] unless nodes.respond_to?(:any?)
+      permissions = [permissions] unless permissions.respond_to?(:all?)
       permissions.all? do |permission|
         nodes.any? do |node|
           node.has_permission?(permission)
