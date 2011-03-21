@@ -37,9 +37,11 @@ module AccessControl
       nodes = [nodes] unless nodes.respond_to?(:any?)
       permissions = [permissions] unless permissions.respond_to?(:all?)
       permissions.all? do |permission|
-        nodes.any? do |node|
+        result = nodes.any? do |node|
           node.has_permission?(permission)
         end
+        Rails.logger.info("MISSING PERMISSION '#{permission}'.") unless result
+        result
       end
     end
 
