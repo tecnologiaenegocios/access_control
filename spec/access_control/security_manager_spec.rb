@@ -59,7 +59,7 @@ module AccessControl
       group1.stub(:principal).and_return(group1_principal)
       group2.stub(:principal).and_return(group2_principal)
 
-      Model::Principal.create_anonymous_principal!
+      Principal.create_anonymous_principal!
     end
 
     after do
@@ -94,7 +94,7 @@ module AccessControl
       it "returns the anonymous user when controller#current_user is nil" do
         controller.stub!(:_through_send_current_user).and_return(nil)
         sm = SecurityManager.new(controller)
-        sm.principal_ids.should == [Model::Principal.anonymous_id]
+        sm.principal_ids.should == [Principal.anonymous_id]
       end
 
       it "smartly caches stuff" do

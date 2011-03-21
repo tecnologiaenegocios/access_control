@@ -1,6 +1,6 @@
 require 'spec_helper'
 
-module AccessControl::Model
+module AccessControl
   describe Node do
 
     let(:global_node) do

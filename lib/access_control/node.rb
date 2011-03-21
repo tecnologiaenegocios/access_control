@@ -1,4 +1,4 @@
-module AccessControl::Model
+module AccessControl
   class Node < ActiveRecord::Base
 
     set_table_name :ac_nodes
@@ -51,7 +51,7 @@ module AccessControl::Model
     has_many(
       :principal_assignments,
       :foreign_key => :node_id,
-      :class_name => 'AccessControl::Model::Assignment'
+      :class_name => 'AccessControl::Assignment'
     )
 
     reflections[:principal_assignments].instance_eval do
@@ -79,7 +79,7 @@ module AccessControl::Model
     has_many(
       :assignments,
       :foreign_key => :node_id,
-      :class_name => 'AccessControl::Model::Assignment',
+      :class_name => 'AccessControl::Assignment',
       :dependent => :destroy
     )
 

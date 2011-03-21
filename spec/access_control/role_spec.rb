@@ -1,6 +1,6 @@
 require 'spec_helper'
 
-module AccessControl::Model
+module AccessControl
   describe Role do
 
     it "can be created with valid attributes" do

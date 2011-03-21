@@ -387,7 +387,7 @@ module AccessControl
         base.extend(ClassMethods)
         base.has_one :ac_node,
                      :as => :securable,
-                     :class_name => ::AccessControl::Model::Node.name,
+                     :class_name => ::AccessControl::Node.name,
                      :dependent => :destroy
         base.class_eval do
           alias_method_chain :destroy, :referenced_children
@@ -425,7 +425,7 @@ module AccessControl
       private
 
         def create_nodes
-          AccessControl::Model::Node.create!(
+          AccessControl::Node.create!(
             :securable => self, :parents => parents.map(&:ac_node)
           ) if self.class.securable?
         end

@@ -32,7 +32,7 @@ module AccessControl
           AccessControl.stub!(:get_security_manager).and_return(
             AccessControl::SecurityManager.new('a controller')
           )
-          AccessControl::Model::Node.create_global_node!
+          AccessControl::Node.create_global_node!
           model_klass.create!
           model_klass.should_receive(:check_inheritance!)
           model_klass.unrestricted_find(:first)
@@ -52,7 +52,7 @@ module AccessControl
           AccessControl.stub!(:get_security_manager).and_return(
             AccessControl::SecurityManager.new('a controller')
           )
-          AccessControl::Model::Node.create_global_node!
+          AccessControl::Node.create_global_node!
           model_klass.create!
           model_klass.should_not_receive(:check_inheritance!)
           model_klass.unrestricted_find(:first)
@@ -95,7 +95,7 @@ module AccessControl
           end
 
           before do
-            AccessControl::Model::Node.create_global_node!
+            AccessControl::Node.create_global_node!
           end
 
           describe "when there's no manager set" do
@@ -292,7 +292,7 @@ module AccessControl
 
         before do
           AccessControl.stub!(:get_security_manager => manager)
-          AccessControl::Model::Node.create_global_node!
+          AccessControl::Node.create_global_node!
           parent1; parent2 # Create the nodes before setting protection
           model_klass.class_eval do
             create_requires 'permission'
@@ -410,7 +410,7 @@ module AccessControl
             update_requires 'permission'
           end
           AccessControl.stub!(:get_security_manager => manager)
-          AccessControl::Model::Node.create_global_node!
+          AccessControl::Node.create_global_node!
           model_klass.create!(:field => 0)
         end
 
@@ -1056,13 +1056,13 @@ module AccessControl
       describe "on create" do
 
         before do
-          ::AccessControl::Model::Node.create_global_node!
+          ::AccessControl::Node.create_global_node!
         end
 
         it "creates a node when the instance is created" do
           record = model_klass.new
           record.save!
-          ::AccessControl::Model::Node.
+          ::AccessControl::Node.
             find_all_by_securable_type_and_securable_id(
               record.class.name, record.id
             ).size.should == 1
@@ -1075,7 +1075,7 @@ module AccessControl
           parent2 = stub('parent2', :ac_node => parent_node2)
           record = model_klass.new
           record.stub!(:parents).and_return([parent1, parent2])
-          ::AccessControl::Model::Node.should_receive(:create!).
+          ::AccessControl::Node.should_receive(:create!).
             with(:securable => record, :parents => [parent_node1, parent_node2])
           record.save
         end
@@ -1084,17 +1084,17 @@ module AccessControl
           record = model_klass.new
           record.stub!(:parents).and_return([])
           model_klass.stub!(:securable?).and_return(false)
-          ::AccessControl::Model::Node.should_not_receive(:create!)
+          ::AccessControl::Node.should_not_receive(:create!)
           record.save
         end
 
         it "creates the node using a saved instance" do
           # The reason for this is that if the instance is not saved yet,
-          # AccessControl::Model::Node will try to save it before being saved
-          # itself, which may lead to infinite recursion.
+          # AccessControl::Node will try to save it before being saved itself,
+          # which may lead to infinite recursion.
           record = model_klass.new
           record.stub!(:parents).and_return([])
-          ::AccessControl::Model::Node.stub!(:create!) do |hash|
+          ::AccessControl::Node.stub!(:create!) do |hash|
             hash[:securable].should_not be_new_record
           end
           record.save
@@ -1126,10 +1126,10 @@ module AccessControl
           end
         end
 
-        let(:global_node) { ::AccessControl::Model::Node.global }
+        let(:global_node) { ::AccessControl::Node.global }
 
         before do
-          ::AccessControl::Model::Node.create_global_node!
+          ::AccessControl::Node.create_global_node!
         end
 
         describe "on update" do
@@ -1295,7 +1295,7 @@ module AccessControl
             end
 
             it "destroys the ac_node" do
-              AccessControl::Model::Node.
+              AccessControl::Node.
                 find_all_by_securable_type_and_securable_id(
                   record.class.name, record.id
                 ).size.should == 0
@@ -1338,18 +1338,18 @@ module AccessControl
             end
 
             it "destroys the ac_node" do
-              AccessControl::Model::Node.
+              AccessControl::Node.
                 find_all_by_securable_type_and_securable_id(
                   record.class.name, record.id
                 ).size.should == 0
             end
 
             it "destroys descendant ac_nodes" do
-              AccessControl::Model::Node.
+              AccessControl::Node.
                 find_all_by_securable_type_and_securable_id(
                   child.class.name, child.id
                 ).size.should == 0
-              AccessControl::Model::Node.
+              AccessControl::Node.
                 find_all_by_securable_type_and_securable_id(
                   descendant.class.name, descendant.id
                 ).size.should == 0
@@ -1391,7 +1391,7 @@ module AccessControl
             end
 
             it "destroys the ac_node" do
-              AccessControl::Model::Node.
+              AccessControl::Node.
                 find_all_by_securable_type_and_securable_id(
                   record.class.name, record.id
                 ).size.should == 0
@@ -1553,15 +1553,15 @@ module AccessControl
 
     describe "query interface" do
 
-      let(:principal) { Model::Principal.create!(:subject_type => 'User',
+      let(:principal) { Principal.create!(:subject_type => 'User',
                                                  :subject_id => 1) }
-      let(:querier_role) { Model::Role.create!(:name => 'Querier') }
-      let(:simple_role) { Model::Role.create!(:name => 'Simple') }
+      let(:querier_role) { Role.create!(:name => 'Querier') }
+      let(:simple_role) { Role.create!(:name => 'Simple') }
       let(:manager) { SecurityManager.new('a controller') }
 
       before do
-        Model::Node.create_global_node!
-        Model::SecurityPolicyItem.create!(:permission_name => 'query',
+        Node.create_global_node!
+        SecurityPolicyItem.create!(:permission_name => 'query',
                                           :role_id => querier_role.id)
         AccessControl.stub!(:get_security_manager).and_return(manager)
         manager.stub!(:principal_ids).and_return([principal.id])
@@ -1709,7 +1709,7 @@ module AccessControl
           end
 
           it "doesn't return duplicated records" do
-            Model::Node.global.assignments.create!(:principal => principal,
+            Node.global.assignments.create!(:principal => principal,
                                                   :role => querier_role)
             record1 = model_klass.create!(:name => 'any name')
             record1.ac_node.assignments.create!(:principal => principal,
@@ -1736,17 +1736,17 @@ module AccessControl
 
         describe "with multiple query permissions" do
 
-          let(:viewer_role) { Model::Role.create!(:name => 'Viewer') }
-          let(:manager_role) { Model::Role.create!(:name => 'Manager') }
+          let(:viewer_role) { Role.create!(:name => 'Viewer') }
+          let(:manager_role) { Role.create!(:name => 'Manager') }
 
           before do
             model_klass.query_permissions = ['view', 'query']
-            Model::SecurityPolicyItem.create!(:permission_name => 'view',
-                                              :role_id => viewer_role.id)
-            Model::SecurityPolicyItem.create!(:permission_name => 'view',
-                                              :role_id => manager_role.id)
-            Model::SecurityPolicyItem.create!(:permission_name => 'query',
-                                              :role_id => manager_role.id)
+            SecurityPolicyItem.create!(:permission_name => 'view',
+                                       :role_id => viewer_role.id)
+            SecurityPolicyItem.create!(:permission_name => 'view',
+                                       :role_id => manager_role.id)
+            SecurityPolicyItem.create!(:permission_name => 'query',
+                                       :role_id => manager_role.id)
           end
 
           it "checks multiple permissions in the same role" do
@@ -1784,8 +1784,8 @@ module AccessControl
             record2 = model_klass.create!
             record3 = model_klass.create!
 
-            Model::Node.global.assignments.create!(:principal => principal,
-                                                   :role => viewer_role)
+            Node.global.assignments.create!(:principal => principal,
+                                            :role => viewer_role)
             record1.ac_node.assignments.create!(:principal => principal,
                                                 :role => querier_role)
             model_klass.find(:all).should == [record1]
@@ -1793,7 +1793,7 @@ module AccessControl
 
           it "checks multiple permissions for different principals in the "\
              "same node" do
-            other_principal = Model::Principal.create!(
+            other_principal = Principal.create!(
               :subject_type => 'Group', :subject_id => 1
             )
             manager.stub!(:principal_ids).and_return([principal.id,
@@ -1811,7 +1811,7 @@ module AccessControl
 
           it "checks multiple permissions for different principals in "\
              "different nodes" do
-            other_principal = Model::Principal.create!(
+            other_principal = Principal.create!(
               :subject_type => 'Group', :subject_id => 1
             )
             manager.stub!(:principal_ids).and_return([principal.id,
@@ -1820,8 +1820,8 @@ module AccessControl
             record2 = model_klass.create!
             record3 = model_klass.create!
 
-            Model::Node.global.assignments.create!(:principal => principal,
-                                                   :role => viewer_role)
+            Node.global.assignments.create!(:principal => principal,
+                                            :role => viewer_role)
             record1.ac_node.assignments.create!(:principal => other_principal,
                                                 :role => querier_role)
             model_klass.find(:all).should == [record1]
@@ -1838,11 +1838,11 @@ module AccessControl
           end
 
           it "checks explicitly the permissions passed in :permissions" do
-            manager_role = Model::Role.create!(:name => 'Manager')
-            Model::SecurityPolicyItem.create!(:permission_name => 'view',
-                                              :role_id => manager_role.id)
-            Model::SecurityPolicyItem.create!(:permission_name => 'query',
-                                              :role_id => manager_role.id)
+            manager_role = Role.create!(:name => 'Manager')
+            SecurityPolicyItem.create!(:permission_name => 'view',
+                                       :role_id => manager_role.id)
+            SecurityPolicyItem.create!(:permission_name => 'query',
+                                       :role_id => manager_role.id)
             record1 = model_klass.create!
             record1.ac_node.assignments.create!(:principal => principal,
                                                 :role => querier_role)
@@ -1864,18 +1864,18 @@ module AccessControl
         describe "#find with permission loading" do
 
           it "loads all permissions when :load_permissions is true" do
-            Model::SecurityPolicyItem.create!(:permission_name => 'view',
-                                              :role_id => querier_role.id)
+            SecurityPolicyItem.create!(:permission_name => 'view',
+                                       :role_id => querier_role.id)
             record1 = model_klass.create!
             record1.ac_node.assignments.create!(:principal => principal,
                                                 :role => querier_role)
             found = model_klass.find(:first, :load_permissions => true)
             model_klass.should_not_receive(:find) # Do not hit the database
                                                   # anymore.
-            Model::Node.should_not_receive(:find)
-            Model::Assignment.should_not_receive(:find)
-            Model::Role.should_not_receive(:find)
-            Model::SecurityPolicyItem.should_not_receive(:find)
+            Node.should_not_receive(:find)
+            Assignment.should_not_receive(:find)
+            Role.should_not_receive(:find)
+            SecurityPolicyItem.should_not_receive(:find)
             permissions = found.ac_node.ancestors.
               map(&:principal_assignments).flatten.
               map(&:role).
@@ -1888,18 +1888,18 @@ module AccessControl
 
           it "loads all permissions even if query restriction is disabled" do
             manager.stub!(:restrict_queries?).and_return(false)
-            Model::SecurityPolicyItem.create!(:permission_name => 'view',
-                                              :role_id => querier_role.id)
+            SecurityPolicyItem.create!(:permission_name => 'view',
+                                       :role_id => querier_role.id)
             record1 = model_klass.create!
             record1.ac_node.assignments.create!(:principal => principal,
                                                 :role => querier_role)
             found = model_klass.find(:first, :load_permissions => true)
             model_klass.should_not_receive(:find) # Do not hit the database
                                                   # anymore.
-            Model::Node.should_not_receive(:find)
-            Model::Assignment.should_not_receive(:find)
-            Model::Role.should_not_receive(:find)
-            Model::SecurityPolicyItem.should_not_receive(:find)
+            Node.should_not_receive(:find)
+            Assignment.should_not_receive(:find)
+            Role.should_not_receive(:find)
+            SecurityPolicyItem.should_not_receive(:find)
             permissions = found.ac_node.ancestors.
               map(&:principal_assignments).flatten.
               map(&:role).
@@ -1914,11 +1914,11 @@ module AccessControl
 
         describe "#find_one" do
 
-          let(:viewer_role) { Model::Role.create!(:name => 'Viewer') }
+          let(:viewer_role) { Role.create!(:name => 'Viewer') }
 
           before do
-            Model::SecurityPolicyItem.create!(:permission_name => 'view',
-                                              :role_id => viewer_role.id)
+            SecurityPolicyItem.create!(:permission_name => 'view',
+                                       :role_id => viewer_role.id)
           end
 
           it "requires view permission and query permission" do

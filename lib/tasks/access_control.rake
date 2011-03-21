@@ -2,11 +2,11 @@ namespace :db do
   namespace :access_control do
     desc "Access control seeds"
     task :seed => :environment do
-      if !AccessControl::Model::Node.global
-        AccessControl::Model::Node.create_global_node!
+      if !AccessControl::Node.global
+        AccessControl::Node.create_global_node!
       end
-      if !AccessControl::Model::Principal.anonymous
-        AccessControl::Model::Principal.create_anonymous_principal!
+      if !AccessControl::Principal.anonymous
+        AccessControl::Principal.create_anonymous_principal!
       end
     end
   end
