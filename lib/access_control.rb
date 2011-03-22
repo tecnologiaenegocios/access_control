@@ -15,7 +15,6 @@ require 'access_control/security_policy_item'
 
 require 'access_control/model_security'
 require 'access_control/security_manager'
-require 'access_control/security_proxy'
 
 module AccessControl
   LIB_PATH = File.dirname(__FILE__)

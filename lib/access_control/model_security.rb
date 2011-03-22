@@ -1,7 +1,6 @@
 require 'access_control/configuration'
 require 'access_control/exceptions'
 require 'access_control/security_manager'
-require 'access_control/security_proxy'
 
 module AccessControl
   module ModelSecurity
