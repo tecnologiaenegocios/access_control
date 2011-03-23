@@ -16,6 +16,8 @@ module AccessControl
 
   class SecurityManager
 
+    include AccessControl::Util
+
     attr_writer :restrict_queries
 
     def initialize controller
@@ -51,6 +53,12 @@ module AccessControl
 
     def restrict_queries?
       !!@restrict_queries
+    end
+
+    def permissions_in_context *args
+      make_set_from_args(*args).inject(Set.new) do |permissions, node|
+        permissions | node.permission_names
+      end
     end
 
     private

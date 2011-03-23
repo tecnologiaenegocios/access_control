@@ -123,6 +123,17 @@ module AccessControl
       end
     end
 
+    def permission_names
+      strict_ancestors.inject(
+        principal_assignments.inject(Set.new) do |permissions, assignment|
+          permissions | assignment.role.
+            security_policy_items.map(&:permission_name)
+        end
+      ) do |permissions, node|
+        permissions | node.permission_names
+      end
+    end
+
     def self.securable?
       false
     end

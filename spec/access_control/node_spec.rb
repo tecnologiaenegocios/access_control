@@ -159,7 +159,7 @@ module AccessControl
 
     end
 
-    describe "#has_permission?" do
+    describe "permissions API" do
 
       let(:parent) { stub_model(Node) }
       let(:node) { stub_model(Node) }
@@ -191,19 +191,38 @@ module AccessControl
           stub('an assignment', :role => role1),
           stub('another assignment', :role => role2)
         ])
-        parent.stub!(:principal_assignments => [
-          stub('an assignment', :role => role3),
-          stub('another assignment', :role => role4)
-        ])
+        parent.stub!(
+          :principal_assignments => [
+            stub('an assignment', :role => role3),
+            stub('another assignment', :role => role4)
+          ],
+          :strict_ancestors => []
+        )
         node.stub!(:ancestors).and_return([parent, node])
+        node.stub!(:strict_ancestors).and_return([parent])
       end
 
-      it "returns true when the user has the required permission" do
-        node.has_permission?('permission 6').should be_true
+      describe "#has_permissions?" do
+        it "returns true when the user has the required permission" do
+          node.has_permission?('permission 6').should be_true
+        end
+
+        it "returns false when the user has not the permission" do
+          node.has_permission?('permission 7001').should be_false
+        end
       end
 
-      it "returns false when the user has not the permission" do
-        node.has_permission?('permission 7001').should be_false
+      describe "permission_names" do
+        it "returns the permissions in the node for the current principal" do
+          node.permission_names.should == Set.new([
+            'permission 1',
+            'permission 2',
+            'permission 3',
+            'permission 4',
+            'permission 5',
+            'permission 6',
+          ])
+        end
       end
 
     end

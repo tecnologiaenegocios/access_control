@@ -231,6 +231,36 @@ module AccessControl
 
     end
 
+    describe "permissions_in_context" do
+
+      let(:node) { mock('node') }
+      let(:node1) { mock('node') }
+      let(:node2) { mock('node') }
+      let(:manager) { SecurityManager.new(controller) }
+
+      it "computes permissions from a single node" do
+        node.stub!(:permission_names).and_return([
+          'permission1', 'permission2'
+        ])
+        manager.permissions_in_context(node).should == Set.new([
+          'permission1', 'permission2'
+        ])
+      end
+
+      it "computes permissions from multiple nodes" do
+        node1.stub!(:permission_names).and_return([
+          'permission1', 'permission2'
+        ])
+        node2.stub!(:permission_names).and_return([
+          'permission2', 'permission3'
+        ])
+        manager.permissions_in_context(node1, node2).should == Set.new([
+          'permission1', 'permission2', 'permission3'
+        ])
+      end
+
+    end
+
     describe "restriction in queries" do
       let(:manager) { SecurityManager.new(controller) }
       it "can set a flag (#restrict_queries) for restrictions" do
