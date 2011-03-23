@@ -208,9 +208,7 @@ module AccessControl
           result = find_one_without_unauthorized(id, old_options) rescue nil
           re_enable_query_restriction
           raise e if !result
-          Rails.logger.info(
-            "MISSING PERMISSIONS #{options[:permissions].inspect}."
-          )
+          log_missing_permissions(result.ac_node, options[:permissions])
           raise AccessControl::Unauthorized
         end
       end

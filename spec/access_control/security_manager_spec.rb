@@ -208,6 +208,13 @@ module AccessControl
 
       let(:manager) { SecurityManager.new(controller) }
 
+      it "passes unmodified the paramenters to `has_access?`" do
+        manager.should_receive(:has_access?).
+          with('some context', 'some permissions').
+          and_return(true)
+        manager.verify_access!('some context', 'some permissions')
+      end
+
       it "doesn't raise Unauthorized when the user has the permissions" do
         manager.stub!(:has_access?).and_return(true)
         lambda {
@@ -217,16 +224,19 @@ module AccessControl
 
       it "raises Unauthorized when the user has no permissions" do
         manager.stub!(:has_access?).and_return(false)
+        manager.stub!(:log_missing_permissions)
         lambda {
           manager.verify_access!('some context', 'some permissions')
         }.should raise_exception(::AccessControl::Unauthorized)
       end
 
-      it "passes unmodified the paramenters to `has_access?`" do
-        manager.should_receive(:has_access?).
-          with('some context', 'some permissions').
-          and_return(true)
-        manager.verify_access!('some context', 'some permissions')
+      it "logs the exception when the user has no permissions" do
+        manager.stub!(:has_access?).and_return(false)
+        manager.should_receive(:log_missing_permissions).
+          with('some context', 'some permissions')
+        lambda {
+          manager.verify_access!('some context', 'some permissions')
+        }.should raise_exception(::AccessControl::Unauthorized)
       end
 
     end

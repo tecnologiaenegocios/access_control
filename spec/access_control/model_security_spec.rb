@@ -2009,6 +2009,16 @@ module AccessControl
             }.should raise_exception(AccessControl::Unauthorized)
           end
 
+          it "logs the exception if the record exists but the user has no "\
+             "permission" do
+            record1 = model_klass.create!
+            model_klass.should_receive(:log_missing_permissions).
+              with(record1.ac_node, Set.new(['view', 'query']))
+            lambda {
+              model_klass.find(record1.id)
+            }.should raise_exception(AccessControl::Unauthorized)
+          end
+
           it "raises RecordNotFound if the record doesn't exists" do
             record1 = model_klass.create!
             id = record1.id

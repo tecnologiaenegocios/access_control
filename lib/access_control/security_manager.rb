@@ -39,16 +39,16 @@ module AccessControl
       nodes = [nodes] unless nodes.respond_to?(:any?)
       permissions = [permissions] unless permissions.respond_to?(:all?)
       permissions.all? do |permission|
-        result = nodes.any? do |node|
+        nodes.any? do |node|
           node.has_permission?(permission)
         end
-        Rails.logger.info("MISSING PERMISSION '#{permission}'.") unless result
-        result
       end
     end
 
     def verify_access! nodes, permissions
-      raise Unauthorized unless has_access?(nodes, permissions)
+      return if has_access?(nodes, permissions)
+      log_missing_permissions(nodes, permissions)
+      raise AccessControl::Unauthorized
     end
 
     def restrict_queries?
