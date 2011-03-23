@@ -17,7 +17,7 @@ Restriction by default
 In order to a record to be returned by
 :meth:`ModelSecurity::ClassMethods#find` or variations, the user must have all
 permissions returned by
-:meth:`ModelSecurity::ClassMethods#query_permissions` in the context of the
+:meth:`ModelSecurity::ClassMethods#query_requires` in the context of the
 record being returned.  This method is included in
 :class:`ActiveRecord::Base`.
 
@@ -286,7 +286,7 @@ Class methods available in the model's class level:
    non-``belongs_to`` association,
    :class:`AccessControl::InvalidPropagation` is raised.
 
-.. method:: query_permissions=(permissions)
+.. method:: query_requires(permissions)
 
    Set a default set of permissions to use to restrict query results (namely
    when using :meth:`find` or similars).
@@ -298,44 +298,37 @@ Class methods available in the model's class level:
    permissions used system-widely just for the class where it is being
    defined.
 
-.. method:: query_permissions
-
-   Return the current query permissions used by the class.  If no permissions
-   wher set through :meth:`query_permissions=`, the default permissions from
-   system configuration are returned, along with additional permissions
-   defined through :meth:`additional_query_permissions=`.  In any case, the
-   value returned is an array.
-
-   If :meth:`query_permissions=` was used to set permissions, the default
-   permissions from the system configuration and any additional permissions
-   are ignored, and the value set is returned.
-
-   .. warning::
-
-      Modifying the array returned from this method **when there were no
-      permissions set previously** through :meth:`query_permissions=`, like
-      :meth:`<<`'ing to it or :meth:`concat`'ing it, will modify the
-      system-wide default value.  It's ok to do it if some permissions where
-      set previously, though.
-
-.. method:: additional_query_permissions=(permissions)
+.. method:: add_query_requirements(permissions)
 
    Set additional query permissions to use to restrict query results (namely
    when using :meth:`find` or similars).
 
-   The behaviour of this method is similar to :meth:`query_permissions=`,
+   The behaviour of this method is similar to :meth:`query_requires`,
    except that it do not override system-wide query permissions for this
    class.  Using it will make queries to be restricted with the default query
    permissions in addition to those defined with this method.
 
-.. method:: additional_query_permissions
+.. method:: permissions_required_to_query
 
-   Return the current additional query permissions for the class or an empty
-   array if none was set through :meth:`additional_query_permissions=`.
+   Return the current query permissions used by the class.
+   
+   If no permissions where set through :meth:`query_requires`, the default
+   permissions from system configuration are returned, along with additional
+   permissions defined through :meth:`additional_query_requires`.
+   Superclasses are queried through the same method in order to simulate
+   inheritance and the results are combined.
+   
+   If :meth:`query_requires` was used to set permissions, the default
+   permissions from the system configuration are ignored, but any additional
+   permissions are still taken into account.  In this case, superclasses are
+   not queried.
 
-   .. note::
+   In any case, the value returned is a set.
 
-      Modifying the array returned is ok in any situation.
+   .. warning::
+
+      Modifying the set returned will not affect further calls, and thus will
+      not affect the way queries are restricted.
 
 .. method:: unrestricted_find(*args)
 

@@ -3,24 +3,47 @@ require 'spec_helper'
 module AccessControl
   describe Configuration do
 
-    { "view permission" => 'view',
-      "query permission" => 'query'}.each do |k, v|
+    {
+      "view" => 'view',
+      "query" => 'query',
+      "create" => 'add',
+      "update" => 'modify',
+    }.each do |k, v|
 
-      it "can define a default #{v} permissions" do
-        Configuration.new.send(
-          "default_#{v}_permissions=",
-          'some permission'
-        )
+      it "can define default #{k} permissions" do
+        Configuration.new.send("default_#{k}_permissions=",
+                               'some permission')
       end
 
-      it "can retrieve the query permission" do
+      it "can retrieve the #{k} permission, returns a set" do
         config = Configuration.new
-        config.send("default_#{v}_permissions=", 'some permission')
-        config.send("default_#{v}_permissions").should == 'some permission'
+        config.send("default_#{k}_permissions=", 'some permission')
+        config.send("default_#{k}_permissions").
+          should == Set.new(['some permission'])
+        config.send("default_#{k}_permissions=", ['some permission'])
+        config.send("default_#{k}_permissions").
+          should == Set.new(['some permission'])
       end
 
-      it "defaults to '#{v}'" do
-        Configuration.new.send("default_#{v}_permissions").should == [v]
+      it "accepts a list of arguments" do
+        config = Configuration.new
+        config.send("default_#{k}_permissions=",
+                    'some permission', 'another permission')
+        config.send("default_#{k}_permissions").
+          should == Set.new(['some permission', 'another permission'])
+      end
+
+      it "accepts an enumerable as a single argument" do
+        config = Configuration.new
+        config.send("default_#{k}_permissions=",
+                    ['some permission', 'another permission'])
+        config.send("default_#{k}_permissions").
+          should == Set.new(['some permission', 'another permission'])
+      end
+
+      it "defaults to '#{k}'" do
+        Configuration.new.send("default_#{k}_permissions").
+          should == Set.new([v])
       end
 
     end
@@ -49,11 +72,11 @@ module AccessControl
           config.is_a?(Configuration).should be_true
         end
       end
-      it "yields a new configuration object every time" do
+      it "yields the same configuration object every time" do
         first = second = nil
         AccessControl.configure{|config| first = config}
         AccessControl.configure{|config| second = config}
-        first.should_not equal(second)
+        first.should equal(second)
       end
     end
 

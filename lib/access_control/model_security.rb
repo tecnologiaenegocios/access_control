@@ -7,6 +7,8 @@ module AccessControl
 
     module ClassMethods
 
+      include AccessControl::Util
+
       def protect method_name, options
         permissions = options[:with]
         permissions_for_methods[method_name.to_s].merge(permissions)
@@ -77,34 +79,39 @@ module AccessControl
         @propagates_permissions_to ||= []
       end
 
-      [:query, :view].each do |name|
-        define_method(:"#{name}_permissions=") do |permissions|
-          permissions = [permissions] unless permissions.is_a?(Array)
-          instance_variable_set("@#{name}_permissions", permissions)
+      [:query, :view, :create, :update].each do |name|
+        define_method(:"#{name}_requires") do |*permissions|
+          instance_variable_set("@added_#{name}_requirements", Set.new)
+          instance_variable_set("@declared_#{name}_requirements",
+                                make_set_from_args(*permissions))
         end
 
-        define_method(:"#{name}_permissions") do
-          if !instance_variable_get("@#{name}_permissions")
-            permissions = AccessControl.config.send(
-              "default_#{name}_permissions"
-            )
-            permissions = [permissions] unless permissions.is_a?(Array)
-            return (permissions +
-                    send("additional_#{name}_permissions")).uniq
-          end
-          instance_variable_get("@#{name}_permissions")
+        define_method(:"declared_#{name}_requirements") do
+          instance_variable_get("@declared_#{name}_requirements")
         end
 
-        define_method(:"additional_#{name}_permissions=") do |permissions|
-          permissions = [permissions] unless permissions.is_a?(Array)
-          instance_variable_set("@additional_#{name}_permissions", permissions)
+        define_method(:"add_#{name}_requirement") do |*permissions|
+          current = send("added_#{name}_requirements")
+          make_set_from_args(*permissions).each{|e| current.add(e)}
         end
 
-        define_method(:"additional_#{name}_permissions") do
-          unless v = instance_variable_get("@additional_#{name}_permissions")
-            v = instance_variable_set("@additional_#{name}_permissions", [])
+        define_method(:"added_#{name}_requirements") do
+          unless v = instance_variable_get("@added_#{name}_requirements")
+            v = instance_variable_set("@added_#{name}_requirements", Set.new)
           end
           v
+        end
+
+        define_method(:"permissions_required_to_#{name}") do
+          added = send("added_#{name}_requirements")
+          declared = send("declared_#{name}_requirements")
+          return declared | added if declared
+          if superclass.respond_to?("permissions_required_to_#{name}")
+            p = superclass.send("permissions_required_to_#{name}")
+          else
+            p = AccessControl.config.send("default_#{name}_permissions")
+          end
+          p | added
         end
       end
 
@@ -166,9 +173,9 @@ module AccessControl
       end
 
       def find_every_with_restriction(options)
-        options[:permissions] ||= query_permissions
-        if !options[:permissions].is_a?(Array)
-          raise ArgumentError, ':permissions must be an array'
+        options[:permissions] ||= permissions_required_to_query
+        if !options[:permissions].is_a?(Enumerable)
+          raise ArgumentError, ':permissions must be an enumerable'
         end
         merge_permission_options(options)
         find_every_without_restriction(options)
@@ -176,7 +183,9 @@ module AccessControl
 
       def find_one_with_unauthorized(id, options)
         old_options = options.clone
-        options[:permissions] ||= (view_permissions | query_permissions)
+        options[:permissions] ||= (
+          permissions_required_to_view | permissions_required_to_query
+        )
         begin
           return find_one_without_unauthorized(id, options)
         rescue ActiveRecord::RecordNotFound => e
@@ -196,42 +205,6 @@ module AccessControl
         result = find(*args)
         re_enable_query_restriction
         result
-      end
-
-      def create_requires *args
-        args = args.first if args.size == 1
-        @create_permissions = Set.new(Array(args))
-      end
-
-      def add_create_requirement *args
-        create_requires(permissions_required_to_create + Array(args))
-      end
-
-      def permissions_required_to_create
-        return @create_permissions if @create_permissions
-        if superclass.respond_to? :permissions_required_to_create
-          superclass.permissions_required_to_create
-        else
-          Set.new
-        end
-      end
-
-      def update_requires *args
-        args = args.first if args.size == 1
-        @update_permissions = Set.new(Array(args))
-      end
-
-      def add_update_requirement *args
-        update_requires(permissions_required_to_update + Array(args))
-      end
-
-      def permissions_required_to_update
-        return @update_permissions if @update_permissions
-        if superclass.respond_to? :permissions_required_to_update
-          superclass.permissions_required_to_update
-        else
-          Set.new
-        end
       end
 
       private

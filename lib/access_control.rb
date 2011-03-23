@@ -1,6 +1,7 @@
 require 'rubygems'
 require 'active_record'
 require 'action_controller'
+require 'access_control/util'
 require 'access_control/configuration'
 require 'access_control/version'
 require 'access_control/exceptions'

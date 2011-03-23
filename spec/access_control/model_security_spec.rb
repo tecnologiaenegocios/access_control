@@ -13,6 +13,15 @@ module AccessControl
       Object::Record
     end
 
+    before do
+      AccessControl.configure do |config|
+        config.default_query_permissions = []
+        config.default_view_permissions = []
+        config.default_create_permissions = []
+        config.default_update_permissions = []
+      end
+    end
+
     after do
       model_klass
       Object.send(:remove_const, 'Record')
@@ -294,9 +303,8 @@ module AccessControl
           AccessControl.stub!(:get_security_manager => manager)
           AccessControl::Node.create_global_node!
           parent1; parent2 # Create the nodes before setting protection
-          model_klass.class_eval do
-            create_requires 'permission'
-          end
+          model_klass.stub!(:permissions_required_to_create).
+            and_return(Set.new(['permission']))
           model_klass.class_eval(<<-eos)
             def parents
               self.class.unrestricted_find(
@@ -359,44 +367,6 @@ module AccessControl
           end
         end
 
-        describe "inheritance" do
-
-          let(:another_klass) {Class.new(model_klass)}
-
-          before do
-            another_klass.class_eval do
-              set_table_name = 'records'
-            end
-          end
-
-          it "can be inherited by subclasses" do
-            manager.should_receive(:verify_access!).
-              with([parent1.ac_node, parent2.ac_node], Set.new(['permission']))
-            another_klass.create!(:field => 1)
-          end
-
-          it "can be changed in the subclass" do
-            another_klass.class_eval do
-              create_requires 'another permission'
-            end
-            manager.should_receive(:verify_access!).
-              with([parent1.ac_node, parent2.ac_node],
-                   Set.new(['another permission']))
-            another_klass.create!(:field => 1)
-          end
-
-          it "can add another permission" do
-            another_klass.class_eval do
-              add_create_requirement 'another permission'
-            end
-            manager.should_receive(:verify_access!).
-              with([parent1.ac_node, parent2.ac_node],
-                   Set.new(['permission', 'another permission']))
-            another_klass.create!(:field => 1)
-          end
-
-        end
-
       end
 
       describe "update protection" do
@@ -406,9 +376,8 @@ module AccessControl
         end
 
         before do
-          model_klass.class_eval do
-            update_requires 'permission'
-          end
+          model_klass.stub!(:permissions_required_to_update).
+            and_return(Set.new(['permission']))
           AccessControl.stub!(:get_security_manager => manager)
           AccessControl::Node.create_global_node!
           model_klass.create!(:field => 0)
@@ -465,51 +434,6 @@ module AccessControl
             }.should raise_exception(AccessControl::Unauthorized)
             model_klass.unrestricted_find(:first).field.should == 0
           end
-        end
-
-        describe "inheritance" do
-
-          let(:another_klass) {Class.new(model_klass)}
-
-          before do
-            another_klass.class_eval do
-              set_table_name = 'records'
-            end
-            model_klass.delete_all
-            another_klass.create!(:field => 0)
-          end
-
-          it "can be inherited by subclasses" do
-            object = another_klass.unrestricted_find(:first)
-            manager.should_receive(:verify_access!).
-              with(object.ac_node, Set.new(['permission']))
-            object.field = 1
-            object.save!
-          end
-
-          it "can be changed in the subclass" do
-            another_klass.class_eval do
-              update_requires 'another permission'
-            end
-            object = another_klass.unrestricted_find(:first)
-            manager.should_receive(:verify_access!).
-              with(object.ac_node, Set.new(['another permission']))
-            object.field = 1
-            object.save!
-          end
-
-          it "can add another permission" do
-            another_klass.class_eval do
-              add_update_requirement 'another permission'
-            end
-            object = another_klass.unrestricted_find(:first)
-            manager.should_receive(:verify_access!).
-              with(object.ac_node,
-                   Set.new(['permission', 'another permission']))
-            object.field = 1
-            object.save!
-          end
-
         end
 
       end
@@ -1447,104 +1371,150 @@ module AccessControl
     # These permissions are the permissions applied to restricted queries (see
     # in query interface).
 
-    { "view permissions" => 'view',
-      "query permissions" => 'query'}.each do |k, v|
+    {
+      "view requirement" => 'view',
+      "query requirement" => 'query',
+      "create requirement" => 'create',
+      "update requirement" => 'update',
+    }.each do |k, v|
 
       describe k do
 
         it "can be defined in class level" do
-          model_klass.send("#{v}_permissions=", 'some permission')
+          model_klass.send("#{v}_requires", 'some permission')
         end
 
-        it "can be queried in class level (returns an array)" do
-          model_klass.send("#{v}_permissions=", 'some permission')
-          model_klass.send("#{v}_permissions").should == ['some permission']
+        it "can be queried in class level (returns a set)" do
+          model_klass.send("#{v}_requires", 'some permission')
+          model_klass.send("permissions_required_to_#{v}").
+            should == Set.new(['some permission'])
         end
 
-        it "defaults to config's value if it is already an array" do
-          AccessControl.config.send(
-            "default_#{v}_permissions=",
-            ['some permission']
-          )
-          model_klass.send("#{v}_permissions").should == ['some permission']
+        it "can accept a list of arguments" do
+          model_klass.send("#{v}_requires", 'some permission',
+                           'another permission')
+          model_klass.send("permissions_required_to_#{v}").
+            should == Set.new(['some permission', 'another permission'])
         end
 
-        it "defaults to config's value if it is a string, returns an array" do
-          AccessControl.config.send(
-            "default_#{v}_permissions=",
-            'some permission'
-          )
-          model_klass.send("#{v}_permissions").should == ['some permission']
+        it "can accept an enumerable as a single argument" do
+          model_klass.send("#{v}_requires",
+                           ['some permission', 'another permission'])
+          model_klass.send("permissions_required_to_#{v}").
+            should == Set.new(['some permission', 'another permission'])
+        end
+
+        it "defaults to config's value" do
+          AccessControl.config.send("default_#{v}_permissions=",
+                                    ['some permission'])
+          model_klass.send("permissions_required_to_#{v}").
+            should == Set.new(['some permission'])
         end
 
         it "defaults to config's value even if it changes between calls" do
-          AccessControl.config.send(
-            "default_#{v}_permissions=",
-            ['some permission']
-          )
-          model_klass.send("#{v}_permissions").should == ['some permission']
-          AccessControl.config.send(
-            "default_#{v}_permissions=",
-            ['another permission']
-          )
-          model_klass.send("#{v}_permissions").should == ['another permission']
+          AccessControl.config.send("default_#{v}_permissions=",
+                                    ['some permission'])
+          model_klass.send("permissions_required_to_#{v}").
+            should == Set.new(['some permission'])
+          AccessControl.config.send("default_#{v}_permissions=",
+                                    ['another permission'])
+          model_klass.send("permissions_required_to_#{v}").
+            should == Set.new(['another permission'])
         end
 
         it "doesn't mess with the config's value" do
-          AccessControl.config.send(
-            "default_#{v}_permissions=",
-            ['some permission']
-          )
-          model_klass.send("#{v}_permissions=", 'another permission')
+          AccessControl.config.send("default_#{v}_permissions=",
+                                    ['some permission'])
+          model_klass.send("#{v}_requires", 'another permission')
           AccessControl.config.send("default_#{v}_permissions").
-            should == ['some permission']
+            should == Set.new(['some permission'])
+        end
+
+        it "can be inherited by subclasses" do
+          subclass = Class.new(model_klass)
+          model_klass.send("#{v}_requires", 'some permission')
+          subclass.send("permissions_required_to_#{v}").
+            should == Set.new(['some permission'])
+        end
+
+        it "can be changed in subclasses" do
+          subclass = Class.new(model_klass)
+          model_klass.send("#{v}_requires", 'some permission')
+          subclass.send("#{v}_requires", 'another permission')
+          subclass.send("permissions_required_to_#{v}").
+            should == Set.new(['another permission'])
         end
 
       end
 
       describe "additional #{k}" do
 
-        it "is empty by default" do
-          model_klass.send("additional_#{v}_permissions").should be_empty
-        end
-
         it "can be defined in class level" do
-          model_klass.send("additional_#{v}_permissions=", 'some permission')
+          model_klass.send("add_#{v}_requirement", 'some permission')
         end
 
-        it "can be queried in class level (returns an array)" do
-          model_klass.send("additional_#{v}_permissions=", 'some permission')
-          model_klass.send("additional_#{v}_permissions").
-            should == ['some permission']
+        it "can be queried in class level, combines with current permissions" do
+          AccessControl.config.send("default_#{v}_permissions=",
+                                    ['some permission'])
+          model_klass.send("add_#{v}_requirement", 'another permission')
+          model_klass.send("permissions_required_to_#{v}").
+            should == Set.new(['some permission', 'another permission'])
         end
 
-        it "can have a string appended (seen by ##{v}_permissions)" do
-          AccessControl.config.send(
-            "default_#{v}_permissions=",
-            ['some permission']
-          )
-          model_klass.
-            send("additional_#{v}_permissions") << 'another permission'
-          model_klass.send("#{v}_permissions").should == ['some permission',
-                                                          'another permission']
+        it "can accept a list of arguments" do
+          model_klass.send("add_#{v}_requirement", 'some permission',
+                           'another permission')
+          model_klass.send("permissions_required_to_#{v}").
+            should == Set.new(['some permission', 'another permission'])
+        end
+
+        it "can accept an enumerable as a single argument" do
+          model_klass.send("add_#{v}_requirement",
+                           ['some permission', 'another permission'])
+          model_klass.send("permissions_required_to_#{v}").
+            should == Set.new(['some permission', 'another permission'])
         end
 
         it "doesn't mess with the config's value when we push a new string" do
-          AccessControl.config.send(
-            "default_#{v}_permissions=",
-            ['some permission']
-          )
-          model_klass.
-            send("additional_#{v}_permissions") << 'another permission'
+          AccessControl.config.send("default_#{v}_permissions=",
+                                    ['some permission'])
+          model_klass.send("add_#{v}_requirement", 'another permission')
           AccessControl.config.send("default_#{v}_permissions").
-            should == ['some permission']
+            should == Set.new(['some permission'])
         end
 
-        it "cannot set additional permissions if ##{v}_permissions was set" do
-          model_klass.send("#{v}_permissions=", 'some permission')
-          model_klass.send("additional_#{v}_permissions=",
-                           'another permission')
-          model_klass.send("#{v}_permissions").should == ['some permission']
+        it "can set additional permissions even if ##{v}_requires was set" do
+          model_klass.send("#{v}_requires", 'some permission')
+          model_klass.send("add_#{v}_requirement", 'another permission')
+          model_klass.send("permissions_required_to_#{v}").
+            should == Set.new(['some permission', 'another permission'])
+        end
+
+        it "combines permissions from superclasses" do
+          subclass = Class.new(model_klass)
+          model_klass.send("#{v}_requires", 'permission one')
+          subclass.send("add_#{v}_requirement", 'permission two')
+          subclass.send("permissions_required_to_#{v}").
+            should == Set.new(['permission one', 'permission two'])
+        end
+
+        it "combines permissions from superclasses and config" do
+          AccessControl.config.send("default_#{v}_permissions=",
+                                    ['permission one'])
+          subclass = Class.new(model_klass)
+          model_klass.send("add_#{v}_requirement", 'permission two')
+          subclass.send("add_#{v}_requirement", 'permission three')
+          subclass.send("permissions_required_to_#{v}").
+            should == Set.new(['permission one', 'permission two',
+                               'permission three'])
+        end
+
+        it "doesn't mess with superclass' permissions" do
+          subclass = Class.new(model_klass)
+          model_klass.send("#{v}_requires", 'permission one')
+          subclass.send("add_#{v}_requirement", 'permission two')
+          model_klass.send("permissions_required_to_#{v}").
+            should == Set.new(['permission one'])
         end
 
       end
@@ -1554,7 +1524,7 @@ module AccessControl
     describe "query interface" do
 
       let(:principal) { Principal.create!(:subject_type => 'User',
-                                                 :subject_id => 1) }
+                                          :subject_id => 1) }
       let(:querier_role) { Role.create!(:name => 'Querier') }
       let(:simple_role) { Role.create!(:name => 'Simple') }
       let(:manager) { SecurityManager.new('a controller') }
@@ -1562,11 +1532,11 @@ module AccessControl
       before do
         Node.create_global_node!
         SecurityPolicyItem.create!(:permission_name => 'query',
-                                          :role_id => querier_role.id)
+                                   :role_id => querier_role.id)
         AccessControl.stub!(:get_security_manager).and_return(manager)
         manager.stub!(:principal_ids).and_return([principal.id])
-        model_klass.query_permissions = 'query'
-        model_klass.view_permissions = 'view'
+        model_klass.query_requires 'query'
+        model_klass.view_requires 'view'
       end
 
       describe "#find" do
@@ -1740,7 +1710,7 @@ module AccessControl
           let(:manager_role) { Role.create!(:name => 'Manager') }
 
           before do
-            model_klass.query_permissions = ['view', 'query']
+            model_klass.query_requires ['view', 'query']
             SecurityPolicyItem.create!(:permission_name => 'view',
                                        :role_id => viewer_role.id)
             SecurityPolicyItem.create!(:permission_name => 'view',
@@ -1831,9 +1801,9 @@ module AccessControl
 
         describe "#find with :permissions option" do
 
-          it "complains if :permissions is not an array" do
+          it "complains if :permissions is not an enumerable" do
             lambda {
-              model_klass.find(:all, :permissions => 'not an array')
+              model_klass.find(:all, :permissions => 123)
             }.should raise_exception(ArgumentError)
           end
 
@@ -1853,10 +1823,8 @@ module AccessControl
             record3.ac_node.assignments.create!(:principal => principal,
                                                 :role => manager_role)
             record4 = model_klass.create!
-            model_klass.find(
-              :all,
-              :permissions => ['view', 'query']
-            ).should == [record3]
+            model_klass.find(:all, :permissions => ['view', 'query']).
+              should == [record3]
           end
 
         end
