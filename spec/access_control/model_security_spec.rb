@@ -285,6 +285,72 @@ module AccessControl
 
       end
 
+      describe "instantiation protection" do
+
+        let(:manager) do
+          AccessControl::SecurityManager.new('a controller')
+        end
+
+        before do
+          AccessControl.stub!(:get_security_manager => manager)
+          model_klass.set_temporary_instantiation_requirement(
+            'some context',
+            'some permission'
+          )
+        end
+
+        it "checks permissions when a record is instantiated" do
+          manager.should_receive(:verify_access!).
+            with('some context', 'some permission')
+          lambda { model_klass.new }.should_not raise_exception
+        end
+
+        it "doesn't check permissions if there's no manager" do
+          AccessControl.stub!(:get_security_manager => nil)
+          manager.should_not_receive(:verify_access!)
+          lambda { model_klass.new }.should_not raise_exception
+        end
+
+        it "raises exception when the user cannot instantiate" do
+          manager.should_receive(:verify_access!).
+            with('some context', 'some permission').
+            and_raise('the unauthorized exception')
+          lambda {
+            model_klass.new
+          }.should raise_exception('the unauthorized exception')
+        end
+
+        it "doesn't verify permissions more than once" do
+          manager.should_receive(:verify_access!).once.
+            with('some context', 'some permission').
+            and_raise('the unauthorized exception')
+          lambda {
+            model_klass.new
+          }.should raise_exception('the unauthorized exception')
+          lambda { model_klass.new }.should_not raise_exception
+        end
+
+        it "doesn't work for subclasses" do
+          subclass = Class.new(model_klass)
+          manager.should_not_receive(:verify_access!)
+          lambda { subclass.new }.should_not raise_exception
+        end
+
+        it "doesn't mess with other models" do
+          other_klass = Class.new(ActiveRecord::Base)
+          manager.should_not_receive(:verify_access!)
+          lambda {
+            other_klass.new
+          }.should_not raise_exception('the unauthorized exception')
+        end
+
+        it "can drop all temporary instantiation requirements" do
+          ActiveRecord::Base.drop_all_temporary_instantiation_requirements!
+          lambda { model_klass.new }.should_not raise_exception
+        end
+
+      end
+
       describe "create protection" do
 
         let(:manager) do

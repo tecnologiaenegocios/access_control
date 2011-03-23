@@ -115,6 +115,15 @@ module AccessControl
         end
       end
 
+      def set_temporary_instantiation_requirement context, permissions
+        reqs = (Thread.current[:instantiation_requirements] ||= {})
+        reqs[self] = [context, permissions]
+      end
+
+      def drop_all_temporary_instantiation_requirements!
+        Thread.current[:instantiation_requirements] = {}
+      end
+
       def securable?
         true
       end
@@ -161,6 +170,12 @@ module AccessControl
         object = super
         object.class.check_inheritance! if object.class.securable?
         return object unless manager = AccessControl.get_security_manager
+        reqs = Thread.current[:instantiation_requirements] || {}
+        if reqs[self]
+          context, permissions = reqs[self]
+          reqs.delete self
+          manager.verify_access!(context, permissions)
+        end
         object
       end
 

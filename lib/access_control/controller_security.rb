@@ -11,11 +11,29 @@ module AccessControl
           permissions = options[:with]
           permissions = [permissions] if !permissions.is_a?(Enumerable)
           permissions = Set.new(permissions)
-          context = controller.send(:current_security_context)
+
+          context = nil
+          case options[:context]
+          when Symbol, String
+            context = controller.send(options[:context])
+          when Proc
+            context = options[:context].call(controller)
+          else
+            context = controller.send(:current_security_context)
+          end
+
           raise ::AccessControl::NoSecurityContextError unless context
-          AccessControl.get_security_manager.verify_access!(
-            context, permissions
-          )
+
+          manager = AccessControl.get_security_manager
+
+          if options[:when_instantiating]
+            model = options[:when_instantiating]
+            model = model.to_s.constantize if !model.is_a?(Class)
+            model.set_temporary_instantiation_requirement(context, permissions)
+            next
+          end
+
+          manager.verify_access!(context, permissions)
         end
       end
 
@@ -34,6 +52,7 @@ module AccessControl
           yield
         ensure
           AccessControl.no_security_manager
+          ActiveRecord::Base.drop_all_temporary_instantiation_requirements!
         end
 
         def current_security_context

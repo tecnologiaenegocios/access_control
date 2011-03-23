@@ -11,6 +11,7 @@ module AccessControl
       class ::Object::TestController
         include ControllerSecurity::InstanceMethods
       end
+      ActiveRecord::Base.stub!(:drop_all_temporary_instantiation_requirements!)
     end
 
     after do
@@ -50,6 +51,12 @@ module AccessControl
       it "unsets security manager after action execution" do
         test_controller.send(:run_with_security_manager) {}
         AccessControl.get_security_manager.should be_nil
+      end
+
+      it "drops all temp instantiation requirements after action execution" do
+        ActiveRecord::Base.
+          should_receive(:drop_all_temporary_instantiation_requirements!)
+        test_controller.send(:run_with_security_manager) {}
       end
 
       it "is declared private" do
@@ -139,6 +146,45 @@ module AccessControl
         }.should_not raise_exception
       end
 
+      it "accepts a custom context as symbol that is the name of a method" do
+        test_controller.class.class_eval do
+          protect :some_action,
+                  :with => 'some permission',
+                  :context => :custom_context
+          def custom_context
+            'a custom context'
+          end
+        end
+        manager.should_receive(:verify_access!).
+          with('a custom context', Set.new(['some permission']))
+        test_controller.some_action
+      end
+
+      it "accepts a proc as a custom context" do
+        test_controller.class.class_eval do
+          protect :some_action,
+                  :with => 'some permission',
+                  :context => Proc.new{|controller| 'a custom context'}
+        end
+        manager.should_receive(:verify_access!).
+          with('a custom context', Set.new(['some permission']))
+        test_controller.some_action
+      end
+
+      it "passes the controller instance to the proc for context" do
+        test_controller.class.class_eval do
+          protect :some_action,
+                  :with => 'some permission',
+                  :context => Proc.new{|controller| controller.custom_context}
+          def custom_context
+            'a custom context'
+          end
+        end
+        manager.should_receive(:verify_access!).
+          with('a custom context', Set.new(['some permission']))
+        test_controller.some_action
+      end
+
       it "raises unauthorized if action is accessed without permission" do
         test_controller.class.class_eval do
           protect :some_action, :with => 'some permission'
@@ -180,6 +226,39 @@ module AccessControl
           end
           test_controller.some_action
         end
+      end
+
+      describe "instantiation protection" do
+
+        before do
+          class Object::TestModel < ActiveRecord::Base
+          end
+        end
+
+        after do
+          Object.send(:remove_const, 'TestModel')
+        end
+
+        it "protects a model from being instantiated" do
+          test_controller.class.class_eval do
+            protect :some_action,
+                    :with => 'some permission',
+                    :when_instantiating => 'TestModel',
+                    :context => :context_method
+            def some_action
+              call_filters_for_some_action
+              TestModel.new('the args for a new test model')
+            end
+            def context_method
+              'some context'
+            end
+          end
+          TestModel.should_receive(:set_temporary_instantiation_requirement).
+            with('some context', Set.new(['some permission']))
+          TestModel.should_receive(:new).with('the args for a new test model')
+          test_controller.some_action
+        end
+
       end
 
     end
