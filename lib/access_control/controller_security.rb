@@ -37,6 +37,10 @@ module AccessControl
         end
 
         def current_security_context
+          if AccessControl::Node.global
+            return AccessControl::Node.global
+          end
+          nil
         end
 
         def current_groups

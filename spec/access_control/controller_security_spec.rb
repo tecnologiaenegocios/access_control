@@ -66,6 +66,12 @@ module AccessControl
         test_controller.send(:current_security_context).should be_nil
       end
 
+      it "returns the global node if there is one" do
+        AccessControl::Node.create_global_node!
+        global = AccessControl::Node.global
+        test_controller.send(:current_security_context).should == global
+      end
+
       it "is declared private" do
         test_controller.private_methods.should(
           include('current_security_context')
@@ -81,7 +87,6 @@ module AccessControl
 
       before do
         test_controller.class.instance_eval do
-          # Make the before filter call the block immediately.
           def before_filter options, &block
             @filters ||= {}
             @filters[options[:only].to_sym] = block
@@ -91,8 +96,11 @@ module AccessControl
           end
         end
         test_controller.class.class_eval do
-          def some_action
+          def call_filters_for_some_action
             self.class.filters[:some_action].call(self)
+          end
+          def some_action
+            call_filters_for_some_action
           end
         end
         test_controller.stub!(:current_security_context).and_return(node)
