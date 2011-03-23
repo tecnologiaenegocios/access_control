@@ -28,9 +28,7 @@ module AccessControl
       end
 
       it "is declared private" do
-        test_controller.private_methods.should(
-          include('current_groups')
-        )
+        test_controller.private_methods.should include('current_groups')
       end
     end
 
