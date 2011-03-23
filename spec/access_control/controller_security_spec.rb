@@ -19,7 +19,7 @@ module AccessControl
 
     describe "#current_groups" do
 
-      # There is by default an implementation of `current_groups` thar is
+      # There must be by default an implementation of `current_groups` that is
       # private and returns an empty array.  This simplifies the common case
       # where there's no concept of user groups.
 
