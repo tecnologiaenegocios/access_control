@@ -64,6 +64,17 @@ module AccessControl
         Node.global.should be_nil
       end
 
+      it "returns true in #global? if the node is the global one" do
+        Node.create_global_node!
+        Node.global.global?.should be_true
+      end
+
+      it "returns false in #global? if the node is not the global one" do
+        Node.create_global_node!
+        other_node = Node.create!(:securable => securable)
+        other_node.global?.should be_false
+      end
+
     end
 
     it "complains if the global node doesn't exist" do

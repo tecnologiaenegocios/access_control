@@ -136,6 +136,13 @@ module AccessControl
       end
     end
 
+    def global?
+      [securable_type, securable_id] == [
+        self.class.global_securable_type,
+        self.class.global_securable_id
+      ]
+    end
+
     def self.securable?
       false
     end
@@ -151,13 +158,6 @@ module AccessControl
 
       def verify_global_node
         raise AccessControl::NoGlobalNode unless self.class.global
-      end
-
-      def global?
-        [securable_type, securable_id] == [
-          self.class.global_securable_type,
-          self.class.global_securable_id
-        ]
       end
 
       def is_valid_parent? parent
