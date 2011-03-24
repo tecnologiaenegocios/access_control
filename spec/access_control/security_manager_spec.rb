@@ -241,7 +241,7 @@ module AccessControl
 
     end
 
-    describe "permissions_in_context" do
+    describe "#permissions_in_context" do
 
       let(:node) { mock('node') }
       let(:node1) { mock('node') }
@@ -266,6 +266,28 @@ module AccessControl
         ])
         manager.permissions_in_context(node1, node2).should == Set.new([
           'permission1', 'permission2', 'permission3'
+        ])
+      end
+
+    end
+
+    describe "#roles_in_context" do
+
+      let(:node) { mock('node') }
+      let(:node1) { mock('node') }
+      let(:node2) { mock('node') }
+      let(:manager) { SecurityManager.new(controller) }
+
+      it "computes roles from a single node" do
+        node.stub!(:roles).and_return(['role1', 'role2'])
+        manager.roles_in_context(node).should == Set.new(['role1', 'role2'])
+      end
+
+      it "computes roles from multiple nodes" do
+        node1.stub!(:roles).and_return(['role1', 'role2'])
+        node2.stub!(:roles).and_return(['role2', 'role3'])
+        manager.roles_in_context(node1, node2).should == Set.new([
+          'role1', 'role2', 'role3'
         ])
       end
 

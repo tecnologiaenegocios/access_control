@@ -61,6 +61,12 @@ module AccessControl
       end
     end
 
+    def roles_in_context *args
+      make_set_from_args(*args).inject(Set.new) do |roles, node|
+        roles | node.roles
+      end
+    end
+
     private
 
       def current_user
