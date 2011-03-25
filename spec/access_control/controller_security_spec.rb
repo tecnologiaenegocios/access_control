@@ -70,6 +70,7 @@ module AccessControl
     describe "#current_security_context" do
 
       it "returns nil by default (no context)" do
+        AccessControl::Node.clear_global_node_cache
         test_controller.send(:current_security_context).should be_nil
       end
 
