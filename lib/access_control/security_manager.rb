@@ -16,8 +16,6 @@ module AccessControl
 
   class SecurityManager
 
-    include AccessControl::Util
-
     attr_writer :restrict_queries
 
     def initialize controller
@@ -47,7 +45,7 @@ module AccessControl
 
     def verify_access! nodes, permissions
       return if has_access?(nodes, permissions)
-      log_missing_permissions(nodes, permissions)
+      Util.log_missing_permissions(nodes, permissions)
       raise AccessControl::Unauthorized
     end
 
@@ -56,13 +54,13 @@ module AccessControl
     end
 
     def permissions_in_context *args
-      make_set_from_args(*args).inject(Set.new) do |permissions, node|
+      Util.make_set_from_args(*args).inject(Set.new) do |permissions, node|
         permissions | node.permission_names
       end
     end
 
     def roles_in_context *args
-      make_set_from_args(*args).inject(Set.new) do |roles, node|
+      Util.make_set_from_args(*args).inject(Set.new) do |roles, node|
         roles | node.principal_roles
       end
     end

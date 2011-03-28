@@ -2012,7 +2012,7 @@ module AccessControl
           it "logs the exception if the record exists but the user has no "\
              "permission" do
             record1 = model_klass.create!
-            model_klass.should_receive(:log_missing_permissions).
+            Util.should_receive(:log_missing_permissions).
               with(record1.ac_node, Set.new(['view', 'query']))
             lambda {
               model_klass.find(record1.id)

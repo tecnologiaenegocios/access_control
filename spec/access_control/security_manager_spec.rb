@@ -224,7 +224,7 @@ module AccessControl
 
       it "raises Unauthorized when the user has no permissions" do
         manager.stub!(:has_access?).and_return(false)
-        manager.stub!(:log_missing_permissions)
+        AccessControl::Util.stub!(:log_missing_permissions)
         lambda {
           manager.verify_access!('some context', 'some permissions')
         }.should raise_exception(::AccessControl::Unauthorized)
@@ -232,7 +232,7 @@ module AccessControl
 
       it "logs the exception when the user has no permissions" do
         manager.stub!(:has_access?).and_return(false)
-        manager.should_receive(:log_missing_permissions).
+        AccessControl::Util.should_receive(:log_missing_permissions).
           with('some context', 'some permissions')
         lambda {
           manager.verify_access!('some context', 'some permissions')

@@ -2,8 +2,6 @@ module AccessControl
 
   class Configuration
 
-    include AccessControl::Util
-
     attr_reader :default_query_permissions
     attr_reader :default_view_permissions
     attr_reader :default_update_permissions
@@ -22,7 +20,7 @@ module AccessControl
       :create => 'add', :update => 'modify'}.each do |name, permission|
       define_method(:"default_#{name}_permissions=") do |*args|
         instance_variable_set(:"@default_#{name}_permissions",
-                              make_set_from_args(*args))
+                              Util.make_set_from_args(*args))
       end
     end
 

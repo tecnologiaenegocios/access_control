@@ -7,8 +7,6 @@ module AccessControl
 
     module ClassMethods
 
-      include AccessControl::Util
-
       def protect method_name, options
         permissions = options[:with]
         permissions_for_methods[method_name.to_s].merge(permissions)
@@ -83,7 +81,7 @@ module AccessControl
         define_method(:"#{name}_requires") do |*permissions|
           instance_variable_set("@added_#{name}_requirements", Set.new)
           instance_variable_set("@declared_#{name}_requirements",
-                                make_set_from_args(*permissions))
+                                Util.make_set_from_args(*permissions))
         end
 
         define_method(:"declared_#{name}_requirements") do
@@ -92,7 +90,7 @@ module AccessControl
 
         define_method(:"add_#{name}_requirement") do |*permissions|
           current = send("added_#{name}_requirements")
-          make_set_from_args(*permissions).each{|e| current.add(e)}
+          Util.make_set_from_args(*permissions).each{|e| current.add(e)}
         end
 
         define_method(:"added_#{name}_requirements") do
@@ -208,7 +206,7 @@ module AccessControl
           result = find_one_without_unauthorized(id, old_options) rescue nil
           re_enable_query_restriction
           raise e if !result
-          log_missing_permissions(result.ac_node, options[:permissions])
+          Util.log_missing_permissions(result.ac_node, options[:permissions])
           raise AccessControl::Unauthorized
         end
       end
