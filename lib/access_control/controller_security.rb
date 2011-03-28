@@ -7,8 +7,10 @@ module AccessControl
     module ClassMethods
 
       def protect action, options
+
+        PermissionRegistry.register(permissions = options[:with])
+
         before_filter :only => action do |controller|
-          permissions = options[:with]
           permissions = [permissions] if !permissions.is_a?(Enumerable)
           permissions = Set.new(permissions)
 

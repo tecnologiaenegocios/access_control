@@ -72,6 +72,7 @@ module AccessControl
 
         before do
           model_klass.permissions_for_methods.delete(:some_method)
+          PermissionRegistry.stub!(:register)
         end
 
         it "is managed through #protect" do
@@ -95,6 +96,11 @@ module AccessControl
           model_klass.permissions_for(:some_method).should == Set.new([
             'some permission', 'some other'
           ])
+        end
+
+        it "register permissions passed" do
+          PermissionRegistry.should_receive(:register).with('some permission')
+          model_klass.protect(:some_method, :with => 'some permission')
         end
 
         describe "on instances" do

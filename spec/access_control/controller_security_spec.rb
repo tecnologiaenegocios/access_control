@@ -111,6 +111,7 @@ module AccessControl
             call_filters_for_some_action
           end
         end
+        PermissionRegistry.stub!(:register)
         test_controller.stub!(:current_security_context).and_return(node)
         AccessControl.stub!(:get_security_manager).and_return(manager)
         manager.stub!(:verify_access!)
@@ -194,6 +195,14 @@ module AccessControl
         lambda {
           test_controller.some_action
         }.should raise_exception('the unauthorized exception')
+      end
+
+      it "register the permissions passed in :with" do
+        PermissionRegistry.should_receive(:register).
+          with('the content of the :with option')
+        test_controller.class.class_eval do
+          protect :some_action, :with => 'the content of the :with option'
+        end
       end
 
       describe "with string permission" do
