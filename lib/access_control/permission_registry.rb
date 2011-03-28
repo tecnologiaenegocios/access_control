@@ -10,7 +10,8 @@ module AccessControl
       end
 
       def register *args
-        @permissions = registered | Util.make_set_from_args(*args)
+        @permissions = (@permissions || Set.new) |
+          Util.make_set_from_args(*args)
       end
 
       def registered
