@@ -63,7 +63,7 @@ module AccessControl
 
     def roles_in_context *args
       make_set_from_args(*args).inject(Set.new) do |roles, node|
-        roles | node.roles
+        roles | node.principal_roles
       end
     end
 

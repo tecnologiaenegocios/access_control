@@ -83,7 +83,7 @@ module AccessControl
       :dependent => :destroy
     )
 
-    has_many :roles, :through => :principal_assignments
+    has_many :principal_roles, :through => :principal_assignments
 
     def self.global
       @global ||= find_by_securable_type_and_securable_id(
