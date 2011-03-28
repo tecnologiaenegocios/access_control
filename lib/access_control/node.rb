@@ -51,7 +51,7 @@ module AccessControl
     has_many(
       :principal_assignments,
       :foreign_key => :node_id,
-      :class_name => 'AccessControl::Assignment'
+      :class_name => Assignment.name
     )
 
     reflections[:principal_assignments].instance_eval do
@@ -79,7 +79,7 @@ module AccessControl
     has_many(
       :assignments,
       :foreign_key => :node_id,
-      :class_name => 'AccessControl::Assignment',
+      :class_name => Assignment.name,
       :dependent => :destroy
     )
 
@@ -87,7 +87,8 @@ module AccessControl
 
     def self.global
       @global ||= find_by_securable_type_and_securable_id(
-        'AccessControlGlobalNode', 0, :readonly => true
+        global_securable_type,
+        global_securable_id
       )
     end
 
@@ -96,7 +97,7 @@ module AccessControl
     end
 
     def self.global_securable_type
-      'AccessControlGlobalNode'
+      'AccessControlGlobalRecord'
     end
 
     def self.global_securable_id
