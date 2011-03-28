@@ -51,6 +51,20 @@ module AccessControl
         Principal.anonymous.should be_nil
       end
 
+      describe "predicate method #anonymous?" do
+
+        it "returns true if the principal is the anonymous principal" do
+          Principal.create_anonymous_principal!
+          Principal.anonymous.anonymous?.should be_true
+        end
+
+        it "returns false otherwise" do
+          principal = Principal.create!(:subject => stub_model(SubjectObj))
+          principal.anonymous?.should be_false
+        end
+
+      end
+
     end
 
   end

@@ -14,6 +14,11 @@ module AccessControl
       anonymous.id
     end
 
+    def anonymous?
+      subject_type == self.class.anonymous_subject_type &&
+        subject_id == self.class.anonymous_subject_id
+    end
+
     def self.create_anonymous_principal!
       create!(
         :subject_type => anonymous_subject_type,
