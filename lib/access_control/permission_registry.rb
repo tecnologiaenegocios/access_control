@@ -39,7 +39,7 @@ module AccessControl
         # class).  If the class wasn't loaded yet, ActiveSupport::Dependencies
         # will get it from the file anyway, taking into consideration the
         # cache_class config option.
-        File.basename(filename, '.rb').classify.constantize
+        File.basename(filename, '.rb').camelize.constantize
       end
 
     end
