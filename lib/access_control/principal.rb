@@ -28,7 +28,7 @@ module AccessControl
     end
 
     def self.anonymous_subject_type
-      'AccessControl::AnonymousUser'
+      AnonymousUser.name
     end
 
     def self.anonymous_subject_id
