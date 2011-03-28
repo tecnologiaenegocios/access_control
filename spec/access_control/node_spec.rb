@@ -141,9 +141,12 @@ module AccessControl
       it "returns all assignments, regardless the principals" do
         Node.create_global_node!
         node = Node.create!(:securable_type => 'Foo', :securable_id => 1)
-        principal1 = Principal.create!(:subject_type => 'User', :subject_id => 1)
-        principal2 = Principal.create!(:subject_type => 'User', :subject_id => 2)
-        principal3 = Principal.create!(:subject_type => 'User', :subject_id => 3)
+        principal1 = Principal.create!(:subject_type => 'User',
+                                       :subject_id => 1)
+        principal2 = Principal.create!(:subject_type => 'User',
+                                       :subject_id => 2)
+        principal3 = Principal.create!(:subject_type => 'User',
+                                       :subject_id => 3)
         assignment1 = Assignment.create!(:role_id => 0,
                                          :principal_id => principal1.id,
                                          :node_id => node.id)
@@ -223,7 +226,7 @@ module AccessControl
         end
       end
 
-      describe "permission_names" do
+      describe "#permission_names" do
         it "returns the permissions in the node for the current principal" do
           node.permission_names.should == Set.new([
             'permission 1',
