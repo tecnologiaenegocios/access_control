@@ -76,6 +76,8 @@ module AccessControl
 
     end
 
+    has_many :principal_roles, :through => :principal_assignments
+
     has_many(
       :assignments,
       :foreign_key => :node_id,
@@ -83,7 +85,7 @@ module AccessControl
       :dependent => :destroy
     )
 
-    has_many :principal_roles, :through => :principal_assignments
+    accepts_nested_attributes_for :assignments, :allow_destroy => true
 
     def self.global
       @global ||= find_by_securable_type_and_securable_id(

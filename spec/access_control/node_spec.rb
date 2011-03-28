@@ -138,8 +138,11 @@ module AccessControl
 
     describe "#assignments" do
 
-      it "returns all assignments, regardless the principals" do
+      before do
         Node.create_global_node!
+      end
+
+      it "returns all assignments, regardless the principals" do
         node = Node.create!(:securable_type => 'Foo', :securable_id => 1)
         principal1 = Principal.create!(:subject_type => 'User',
                                        :subject_id => 1)
@@ -162,13 +165,38 @@ module AccessControl
       end
 
       it "destroys the dependant assignments when the node is destroyed" do
-        Node.create_global_node!
         node = Node.create!(:securable_type => 'Foo', :securable_id => 1)
         assignment = Assignment.create!(:role_id => 0,
                                         :principal_id => 0,
                                         :node_id => node.id)
         node.destroy
         Assignment.count.should == 0
+      end
+
+      it "accepts nested attributes" do
+        node = Node.create!(
+          :securable_type => 'Foo',
+          :securable_id => 1,
+          :assignments_attributes => {
+            '0' => {:role_id => 1, :principal_id => 1}
+          }
+        )
+        node.assignments.first.node_id.should == node.id
+        node.assignments.first.role_id.should == 1
+        node.assignments.first.principal_id.should == 1
+      end
+
+      it "allows destruction of assignments" do
+        node = Node.create!(:securable_type => 'Foo', :securable_id => 1)
+        assignment = Assignment.create!(:role_id => 0,
+                                        :principal_id => 0,
+                                        :node_id => node.id)
+        node.reload.update_attributes(
+          :assignments_attributes => {
+            '0' => {:id => assignment.to_param, :_destroy => '1'}
+          }
+        )
+        node.reload.assignments.should be_empty
       end
 
     end
