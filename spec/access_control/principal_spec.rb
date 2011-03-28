@@ -65,6 +65,23 @@ module AccessControl
 
       end
 
+      describe "anonymous subject" do
+
+        before do
+          Principal.create_anonymous_principal!
+        end
+
+        it "returns a valid subject" do
+          Principal.anonymous.subject.should_not be_nil
+        end
+
+        it "has id == Principal.anonymous_subject_id" do
+          Principal.anonymous.subject.id.
+            should == Principal.anonymous_subject_id
+        end
+
+      end
+
     end
 
   end

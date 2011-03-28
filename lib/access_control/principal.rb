@@ -1,4 +1,5 @@
 module AccessControl
+
   class Principal < ActiveRecord::Base
     set_table_name :ac_principals
     belongs_to :subject, :polymorphic => true
@@ -27,7 +28,7 @@ module AccessControl
     end
 
     def self.anonymous_subject_type
-      'AnonymousPrincipal'
+      'AccessControl::AnonymousUser'
     end
 
     def self.anonymous_subject_id
@@ -38,4 +39,25 @@ module AccessControl
       false
     end
   end
+
+  class AnonymousUser
+
+    include Singleton
+
+    def self.find(*args)
+      return instance
+    end
+
+    def self.disable_query_restriction
+    end
+
+    def self.re_enable_query_restriction
+    end
+
+    def id
+      Principal.anonymous_subject_id
+    end
+
+  end
+
 end
