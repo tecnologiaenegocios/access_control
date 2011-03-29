@@ -1,3 +1,5 @@
+require 'access_control/exceptions'
+
 module AccessControl
   class Node < ActiveRecord::Base
 
