@@ -38,8 +38,10 @@ module AccessControl
                   :permission_name => 'some other permission'},
           '3' => {:id => item4.to_param, :_destroy => '1'},
           '4' => {:id => item5.to_param, :_destroy => '1'},
-          '5' => {:role_id => '1', :permission_name => 'another permission'},
-          '6' => {:role_id => '2', :permission_name => 'some other permission'}
+          '5' => {:role_id => '1', :id => '',
+                  :permission_name => 'another permission'},
+          '6' => {:role_id => '2',
+                  :permission_name => 'some other permission'}
         })
         SecurityPolicyItem.find(item1.id).role_id.should == 3
         SecurityPolicyItem.find(item1.id).
@@ -67,7 +69,8 @@ module AccessControl
           {:id => item3.to_param, :permission_name => 'some other permission'},
           {:id => item4.to_param, :_destroy => '1'},
           {:id => item5.to_param, :_destroy => '1'},
-          {:role_id => '1', :permission_name => 'another permission'},
+          {:role_id => '1', :id => '',
+           :permission_name => 'another permission'},
           {:role_id => '2', :permission_name => 'some other permission'}
         ])
         SecurityPolicyItem.find(item1.id).role_id.should == 3

@@ -15,7 +15,7 @@ module AccessControl
         attributes = attributes.with_indifferent_access
         id = attributes.delete(:id)
         destroy = param_to_boolean(attributes.delete(:_destroy))
-        if id
+        if id.present?
           item = find(id)
           next item.destroy if destroy
           next item.update_attributes!(attributes)
