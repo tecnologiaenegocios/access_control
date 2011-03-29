@@ -37,7 +37,7 @@ module AccessControl
           result[permission_name] = roles.map do |role|
             if all_by_permission_and_role[permission_name] &&
                item = all_by_permission_and_role[permission_name][role.id]
-              # item is an array, so get the first (hopeless the only) member.
+              # item is an array, so get the first (hopefully the only) member.
               next item.first
             end
             SecurityPolicyItem.new(:role_id => role.id,
