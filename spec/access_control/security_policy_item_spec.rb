@@ -7,7 +7,7 @@ module AccessControl
       SecurityPolicyItem.securable?.should be_false
     end
 
-    describe "mass-update/destruction of items" do
+    describe "mass-update/create/destroy items" do
 
       let(:item1) do
         SecurityPolicyItem.create!(:role_id => 0,
@@ -31,13 +31,15 @@ module AccessControl
       end
 
       it "can mass-update or mass-destroy with a hash of attribute hashes" do
-        SecurityPolicyItem.mass_update_and_destroy!({
+        SecurityPolicyItem.mass_manage!({
           '0' => {:id => item1.to_param, :role_id => '3', :_destroy => '0'},
           '1' => {:id => item2.to_param, :role_id => '3'},
           '2' => {:id => item3.to_param,
                   :permission_name => 'some other permission'},
           '3' => {:id => item4.to_param, :_destroy => '1'},
-          '4' => {:id => item5.to_param, :_destroy => '1'}
+          '4' => {:id => item5.to_param, :_destroy => '1'},
+          '5' => {:role_id => '1', :permission_name => 'another permission'},
+          '6' => {:role_id => '2', :permission_name => 'some other permission'}
         })
         SecurityPolicyItem.find(item1.id).role_id.should == 3
         SecurityPolicyItem.find(item1.id).
@@ -50,15 +52,23 @@ module AccessControl
           permission_name.should == 'some other permission'
         SecurityPolicyItem.find_by_id(item4.id).should be_nil
         SecurityPolicyItem.find_by_id(item5.id).should be_nil
+        SecurityPolicyItem.find_by_role_id_and_permission_name(
+          1, 'another permission'
+        ).should_not be_nil
+        SecurityPolicyItem.find_by_role_id_and_permission_name(
+          2, 'some other permission'
+        ).should_not be_nil
       end
 
       it "can mass-update or mass-destroy with an array of attribute hashes" do
-        SecurityPolicyItem.mass_update_and_destroy!([
+        SecurityPolicyItem.mass_manage!([
           {:id => item1.to_param, :role_id => '3', :_destroy => '0'},
           {:id => item2.to_param, :role_id => '3'},
           {:id => item3.to_param, :permission_name => 'some other permission'},
           {:id => item4.to_param, :_destroy => '1'},
-          {:id => item5.to_param, :_destroy => '1'}
+          {:id => item5.to_param, :_destroy => '1'},
+          {:role_id => '1', :permission_name => 'another permission'},
+          {:role_id => '2', :permission_name => 'some other permission'}
         ])
         SecurityPolicyItem.find(item1.id).role_id.should == 3
         SecurityPolicyItem.find(item1.id).
@@ -71,11 +81,17 @@ module AccessControl
           permission_name.should == 'some other permission'
         SecurityPolicyItem.find_by_id(item4.id).should be_nil
         SecurityPolicyItem.find_by_id(item5.id).should be_nil
+        SecurityPolicyItem.find_by_role_id_and_permission_name(
+          1, 'another permission'
+        ).should_not be_nil
+        SecurityPolicyItem.find_by_role_id_and_permission_name(
+          2, 'some other permission'
+        ).should_not be_nil
       end
 
       it "raises ActiveRecord::RecordNotFound if some item is not found" do
         lambda {
-          SecurityPolicyItem.mass_update_and_destroy!([
+          SecurityPolicyItem.mass_manage!([
             {:id => -10, :role_id => '3', :_destroy => '0'}
           ])
         }.should raise_exception(ActiveRecord::RecordNotFound)
@@ -85,7 +101,7 @@ module AccessControl
         SecurityPolicyItem.stub!(:find).and_return(item1)
         item1.stub!(:valid?).and_return(false)
         lambda {
-          SecurityPolicyItem.mass_update_and_destroy!([
+          SecurityPolicyItem.mass_manage!([
             {:id => item1.to_param, :role_id => '3'}
           ])
         }.should raise_exception(ActiveRecord::RecordInvalid)

@@ -8,17 +8,19 @@ module AccessControl
       false
     end
 
-    def self.mass_update_and_destroy!(params)
+    def self.mass_manage!(params)
       params ||= {}
       params = params.values if params.is_a?(Hash)
       params.each do |attributes|
         attributes = attributes.with_indifferent_access
-        next unless id = attributes.delete(:id)
-        item = find(id)
-        if param_to_boolean(attributes.delete(:_destroy))
-          next item.destroy
+        id = attributes.delete(:id)
+        destroy = param_to_boolean(attributes.delete(:_destroy))
+        if id
+          item = find(id)
+          next item.destroy if destroy
+          next item.update_attributes!(attributes)
         end
-        item.update_attributes!(attributes)
+        create!(attributes) unless destroy
       end
     end
 
