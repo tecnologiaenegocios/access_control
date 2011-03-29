@@ -109,5 +109,59 @@ module AccessControl
 
     end
 
+    describe "items for management" do
+
+      before do
+        roles = [
+          @role1 = Role.create!(:name => 'role1'),
+          @role2 = Role.create!(:name => 'role2')
+        ]
+        @item = SecurityPolicyItem.create!(:role => @role1,
+                                           :permission_name => 'a permission')
+        PermissionRegistry.stub!(:registered).and_return(Set.new([
+          'another permission', 'some other permission'
+        ]))
+        @items = SecurityPolicyItem.items_for_management(roles)
+      end
+
+      it "returns one key for each different permission" do
+        @items.size.should == 3
+      end
+
+      it "returns one value for each role passed" do
+        @items['a permission'].size.should == 2
+        @items['another permission'].size.should == 2
+        @items['some other permission'].size.should == 2
+      end
+
+      it "returns the item that exists" do
+        @items['a permission'].first.should == @item
+      end
+
+      it "returns a new item if there's no security policy items" do
+        @items['a permission'].second.should be_new_record
+        @items['a permission'].second.role_id.should == @role2.id
+        @items['a permission'].second.permission_name.should == 'a permission'
+
+        @items['another permission'].first.should be_new_record
+        @items['another permission'].first.role_id.should == @role1.id
+        @items['another permission'].first.permission_name.
+          should == 'another permission'
+        @items['another permission'].second.should be_new_record
+        @items['another permission'].second.role_id.should == @role2.id
+        @items['another permission'].second.permission_name.
+          should == 'another permission'
+
+        @items['some other permission'].first.should be_new_record
+        @items['some other permission'].first.role_id.should == @role1.id
+        @items['some other permission'].first.permission_name.
+          should == 'some other permission'
+        @items['some other permission'].second.should be_new_record
+        @items['some other permission'].second.role_id.should == @role2.id
+        @items['some other permission'].second.permission_name.
+          should == 'some other permission'
+      end
+    end
+
   end
 end
