@@ -206,23 +206,23 @@ module AccessControl
       let(:parent) { stub_model(Node) }
       let(:node) { stub_model(Node) }
       let(:role1) do
-        stub('role1', :security_policy_items => [
+        stub_model(Role, :security_policy_items => [
           stub(:permission_name => 'permission 1'),
         ])
       end
       let(:role2) do
-        stub('role2', :security_policy_items => [
+        stub_model(Role, :security_policy_items => [
           stub(:permission_name => 'permission 2'),
         ])
       end
       let(:role3) do
-        stub('role3', :security_policy_items => [
+        stub_model(Role, :security_policy_items => [
           stub(:permission_name => 'permission 3'),
           stub(:permission_name => 'permission 4'),
         ])
       end
       let(:role4) do
-        stub('role4', :security_policy_items => [
+        stub_model(Role, :security_policy_items => [
           stub(:permission_name => 'permission 5'),
           stub(:permission_name => 'permission 6'),
         ])
@@ -274,30 +274,67 @@ module AccessControl
         end
       end
 
-      describe "#roles_for(principal)" do
-        it "returns the roles for a given principal" do
-          principal = stub_model(Principal)
+      describe "#inherited_roles_for_all_principals(filter_roles)" do
 
-          node_assignments = mock('assignments association')
-          node_assignments.should_receive(:find).with(
-            :conditions => {:principal_id => principal.id}
-          ).and_return([stub(:role => role1), stub(:role => role2)])
+        let(:principal1) { stub_model(Principal) }
+        let(:principal2) { stub_model(Principal) }
+        let(:role_ids) { [role1.id, role2.id, role3.id] }
+        let(:ancestor) { stub_model(Node) }
+        let(:global) { stub_model(Node, :global? => true) }
+        let(:parent_assignments) { mock('assignments association') }
+        let(:ancestor_assignments) { mock('assignments association') }
+        let(:global_assignments) { mock('assignments association') }
 
-          parent_assignments = mock('assignments association')
-          parent_assignments.should_receive(:find).twice.with(
-            :conditions => {:principal_id => principal.id}
-          ).and_return([stub(:role => role3), stub(:role => role4)])
+        before do
+          parent.should_receive(:assignments).and_return(parent_assignments)
+          ancestor.should_receive(:assignments).and_return(ancestor_assignments)
+          global.should_receive(:assignments).and_return(global_assignments)
 
-          node.should_receive(:assignments).and_return(node_assignments)
-          parent.should_receive(:assignments).twice.and_return(parent_assignments)
+          node.stub!(:strict_ancestors).and_return([parent, ancestor, global])
 
-          node.should_not_receive(:principal_assignments)
-          parent.should_not_receive(:principal_assignments)
+          parent_assignments.should_receive(:find).with(
+            :conditions => {:role_id => role_ids}
+          ).and_return([])
+          ancestor_assignments.should_receive(:find).with(
+            :conditions => {:role_id => role_ids}
+          ).and_return([
+            stub(:role_id => role1.id, :principal_id => principal1.id),
+            stub(:role_id => role1.id, :principal_id => principal2.id),
+            stub(:role_id => role3.id, :principal_id => principal1.id),
+          ])
+          global_assignments.should_receive(:find).with(
+            :conditions => {:role_id => role_ids}
+          ).and_return([
+            stub(:role_id => role2.id, :principal_id => principal1.id),
+            stub(:role_id => role3.id, :principal_id => principal1.id),
+          ])
 
-          node.roles_for(principal).
-            should == Set.new([role1, role2, role3, role4])
-          parent.roles_for(principal).
-            should == Set.new([role3, role4])
+          @items = node.inherited_roles_for_all_principals([role1,
+                                                            role2,
+                                                            role3])
+        end
+
+        it "returns as many items as principals with assignments" do
+          @items.size.should == 2
+        end
+
+        it "returns a hash keyed by principal ids" do
+          @items.keys.sort.should == [principal1.id, principal2.id].sort
+        end
+
+        it "returns values as hashes keyed by role ids, only requested ones" do
+          Set.new(@items.map{|k, v| v.keys}.flatten).
+            should be_subset(Set.new(role_ids))
+        end
+
+        it "returns a set of 'global' and 'inherited' strings or nil" do
+          @items[principal1.id][role1.id].should == Set.new(['inherited'])
+          @items[principal1.id][role2.id].should == Set.new(['global'])
+          @items[principal1.id][role3.id].should == Set.new(['inherited',
+                                                             'global'])
+          @items[principal2.id][role2.id].should be_nil
+          @items[principal2.id][role1.id].should == Set.new(['inherited'])
+          @items[principal2.id][role3.id].should be_nil
         end
       end
 
