@@ -278,7 +278,8 @@ module AccessControl
 
         let(:principal1) { stub_model(Principal) }
         let(:principal2) { stub_model(Principal) }
-        let(:role_ids) { [role1.id, role2.id, role3.id] }
+        let(:roles) { [role1, role2, role3, role4] }
+        let(:role_ids) { roles.map(&:id) }
         let(:ancestor) { stub_model(Node) }
         let(:global) { stub_model(Node, :global? => true) }
         let(:parent_assignments) { mock('assignments association') }
@@ -290,7 +291,8 @@ module AccessControl
           ancestor.should_receive(:assignments).and_return(ancestor_assignments)
           global.should_receive(:assignments).and_return(global_assignments)
 
-          node.stub!(:strict_ancestors).and_return([parent, ancestor, global])
+          node.stub!(:strict_unblocked_ancestors).
+            and_return([parent, ancestor, global])
 
           parent_assignments.should_receive(:find).with(
             :all,
@@ -312,9 +314,7 @@ module AccessControl
             stub(:role_id => role3.id, :principal_id => principal1.id),
           ])
 
-          @items = node.inherited_roles_for_all_principals([role1,
-                                                            role2,
-                                                            role3])
+          @items = node.inherited_roles_for_all_principals(roles)
         end
 
         it "returns as many items as principals with assignments" do
@@ -610,6 +610,13 @@ module AccessControl
           it "keeps the global node as an ancestor of its decendants" do
             child.ancestors.should include(global_node)
             descendant.ancestors.should include(global_node)
+          end
+
+          it "keeps strict ancestors through #strict_unblocked_ancestors" do
+            node.strict_unblocked_ancestors.should include(parent)
+            node.strict_unblocked_ancestors.should include(ancestor)
+            node.strict_unblocked_ancestors.should include(global_node)
+            node.strict_unblocked_ancestors.size.should == 3
           end
 
         end

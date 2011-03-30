@@ -118,6 +118,12 @@ module AccessControl
       @global = nil
     end
 
+    def strict_unblocked_ancestors
+      parents.inject(Set.new([self.class.global])) do |ancs, parent|
+        ancs.add(parent) | parent.strict_unblocked_ancestors
+      end
+    end
+
     def has_permission? permission
       ancestors.any? do |node|
         node.principal_assignments.any? do |assignment|
@@ -151,7 +157,7 @@ module AccessControl
 
     def inherited_roles_for_all_principals(filter_roles)
       role_ids = filter_roles.map(&:id)
-      strict_ancestors.inject({}) do |results, node|
+      strict_unblocked_ancestors.inject({}) do |results, node|
         node.assignments.find(:all,
                               :conditions => {:role_id => role_ids}).each do |a|
           results[a.principal_id] ||= {}
