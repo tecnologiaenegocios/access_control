@@ -279,13 +279,13 @@ module AccessControl
       let(:manager) { SecurityManager.new(controller) }
 
       it "computes roles from a single node" do
-        node.stub!(:principal_roles).and_return(['role1', 'role2'])
+        node.stub!(:current_roles).and_return(['role1', 'role2'])
         manager.roles_in_context(node).should == Set.new(['role1', 'role2'])
       end
 
       it "computes roles from multiple nodes" do
-        node1.stub!(:principal_roles).and_return(['role1', 'role2'])
-        node2.stub!(:principal_roles).and_return(['role2', 'role3'])
+        node1.stub!(:current_roles).and_return(['role1', 'role2'])
+        node2.stub!(:current_roles).and_return(['role2', 'role3'])
         manager.roles_in_context(node1, node2).should == Set.new([
           'role1', 'role2', 'role3'
         ])

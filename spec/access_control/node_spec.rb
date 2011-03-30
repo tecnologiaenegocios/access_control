@@ -267,6 +267,40 @@ module AccessControl
         end
       end
 
+      describe "#current_roles" do
+        it "returns the roles that are assigned to the current principal" do
+          node.current_roles.should == Set.new([role1, role2, role3, role4])
+          parent.current_roles.should == Set.new([role3, role4])
+        end
+      end
+
+      describe "#roles_for(principal)" do
+        it "returns the roles for a given principal" do
+          principal = stub_model(Principal)
+
+          node_assignments = mock('assignments association')
+          node_assignments.should_receive(:find).with(
+            :conditions => {:principal_id => principal.id}
+          ).and_return([stub(:role => role1), stub(:role => role2)])
+
+          parent_assignments = mock('assignments association')
+          parent_assignments.should_receive(:find).twice.with(
+            :conditions => {:principal_id => principal.id}
+          ).and_return([stub(:role => role3), stub(:role => role4)])
+
+          node.should_receive(:assignments).and_return(node_assignments)
+          parent.should_receive(:assignments).twice.and_return(parent_assignments)
+
+          node.should_not_receive(:principal_assignments)
+          parent.should_not_receive(:principal_assignments)
+
+          node.roles_for(principal).
+            should == Set.new([role1, role2, role3, role4])
+          parent.roles_for(principal).
+            should == Set.new([role3, role4])
+        end
+      end
+
     end
 
     describe "tree management" do

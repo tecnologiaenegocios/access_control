@@ -78,8 +78,6 @@ module AccessControl
 
     end
 
-    has_many :principal_roles, :through => :principal_assignments
-
     has_many(
       :assignments,
       :foreign_key => :node_id,
@@ -138,6 +136,27 @@ module AccessControl
         end
       ) do |permissions, node|
         permissions | node.permission_names
+      end
+    end
+
+    def current_roles
+      strict_ancestors.inject(
+        principal_assignments.inject(Set.new) do |roles, assignment|
+          roles.add(assignment.role)
+        end
+      ) do |roles, node|
+        roles | node.current_roles
+      end
+    end
+
+    def roles_for principal
+      strict_ancestors.inject(
+        assignments.find(:conditions => {:principal_id => principal.id}).
+          inject(Set.new) do |roles, assignment|
+            roles.add(assignment.role)
+          end
+      ) do |roles, node|
+        roles | node.roles_for(principal)
       end
     end
 
