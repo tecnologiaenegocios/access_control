@@ -152,7 +152,8 @@ module AccessControl
     def inherited_roles_for_all_principals(filter_roles)
       role_ids = filter_roles.map(&:id)
       strict_ancestors.inject({}) do |results, node|
-        node.assignments.find(:conditions => {:role_id => role_ids}).each do |a|
+        node.assignments.find(:all,
+                              :conditions => {:role_id => role_ids}).each do |a|
           results[a.principal_id] ||= {}
           results[a.principal_id][a.role_id] ||= Set.new
           if node.global?

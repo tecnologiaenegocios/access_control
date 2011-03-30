@@ -293,9 +293,11 @@ module AccessControl
           node.stub!(:strict_ancestors).and_return([parent, ancestor, global])
 
           parent_assignments.should_receive(:find).with(
+            :all,
             :conditions => {:role_id => role_ids}
           ).and_return([])
           ancestor_assignments.should_receive(:find).with(
+            :all,
             :conditions => {:role_id => role_ids}
           ).and_return([
             stub(:role_id => role1.id, :principal_id => principal1.id),
@@ -303,6 +305,7 @@ module AccessControl
             stub(:role_id => role3.id, :principal_id => principal1.id),
           ])
           global_assignments.should_receive(:find).with(
+            :all,
             :conditions => {:role_id => role_ids}
           ).and_return([
             stub(:role_id => role2.id, :principal_id => principal1.id),
