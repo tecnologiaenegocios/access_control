@@ -3,6 +3,11 @@ require 'spec_helper'
 module AccessControl
   describe Role do
 
+    it "validates uniqueness of name" do
+      Role.create!(:name => 'the role name')
+      Role.new(:name => 'the role name').should have(1).error_on(:name)
+    end
+
     it "can be created with valid attributes" do
       Role.create!(:name => 'the role name')
     end

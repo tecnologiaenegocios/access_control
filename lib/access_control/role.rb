@@ -7,6 +7,9 @@ module AccessControl
     has_many :assignments,
              :dependent => :destroy,
              :class_name => 'AccessControl::Assignment'
+
+    validates_uniqueness_of :name
+
     def self.securable?
       false
     end
