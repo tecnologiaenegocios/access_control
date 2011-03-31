@@ -22,6 +22,7 @@ module AccessControl
         end
         create!(attributes) unless destroy
       end
+      Node.clear_global_node_cache
     end
 
     def self.items_for_management roles

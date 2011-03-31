@@ -110,6 +110,14 @@ module AccessControl
         }.should raise_exception(ActiveRecord::RecordInvalid)
       end
 
+      it "clears the global node cache" do
+        SecurityPolicyItem.stub!(:find).and_return(item1)
+        Node.should_receive(:clear_global_node_cache).once
+        SecurityPolicyItem.mass_manage!([
+          {:id => item1.to_param, :role_id => '3'}
+        ])
+      end
+
     end
 
     describe "items for management" do
