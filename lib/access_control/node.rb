@@ -88,10 +88,11 @@ module AccessControl
     accepts_nested_attributes_for :assignments, :allow_destroy => true
 
     def self.global
-      @global ||= find_by_securable_type_and_securable_id(
-        global_securable_type,
-        global_securable_id
-      )
+      Thread.current[:global_node_cache] ||= \
+        find_by_securable_type_and_securable_id(
+          global_securable_type,
+          global_securable_id
+        )
     end
 
     def self.global_id
@@ -115,7 +116,7 @@ module AccessControl
     end
 
     def self.clear_global_node_cache
-      @global = nil
+      Thread.current[:global_node_cache] = nil
     end
 
     def strict_unblocked_ancestors
