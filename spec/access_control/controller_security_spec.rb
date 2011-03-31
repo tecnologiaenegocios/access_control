@@ -53,6 +53,11 @@ module AccessControl
         AccessControl.get_security_manager.should be_nil
       end
 
+      it "clears the global cache after action execution" do
+        AccessControl::Node.should_receive(:clear_global_node_cache)
+        test_controller.send(:run_with_security_manager) {}
+      end
+
       it "drops all temp instantiation requirements after action execution" do
         ActiveRecord::Base.
           should_receive(:drop_all_temporary_instantiation_requirements!)

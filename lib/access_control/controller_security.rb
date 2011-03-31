@@ -54,6 +54,7 @@ module AccessControl
           yield
         ensure
           AccessControl.no_security_manager
+          AccessControl::Node.clear_global_node_cache
           ActiveRecord::Base.drop_all_temporary_instantiation_requirements!
         end
 
