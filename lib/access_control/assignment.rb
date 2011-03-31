@@ -4,6 +4,9 @@ module AccessControl
     belongs_to :node, :class_name => 'AccessControl::Node'
     belongs_to :principal, :class_name => 'AccessControl::Principal'
     belongs_to :role, :class_name => 'AccessControl::Role'
+
+    validates_uniqueness_of :role_id, :scope => [:node_id, :principal_id]
+
     def self.securable?
       false
     end

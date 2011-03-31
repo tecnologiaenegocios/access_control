@@ -13,6 +13,18 @@ module AccessControl
     it "cannot be wrapped by a security proxy" do
       Assignment.securable?.should be_false
     end
+
+    it "validates uniqueness of role_id, principal_id and node_id" do
+      Assignment.create!(:node_id => 0, :principal_id => 0, :role_id => 0)
+      Assignment.new(:node_id => 0, :principal_id => 0, :role_id => 0).
+        should have(1).error_on(:role_id)
+      Assignment.new(:node_id => 0, :principal_id => 0, :role_id => 1).
+        should have(:no).errors_on(:role_id)
+      Assignment.new(:node_id => 0, :principal_id => 1, :role_id => 0).
+        should have(:no).errors_on(:role_id)
+      Assignment.new(:node_id => 1, :principal_id => 0, :role_id => 0).
+        should have(:no).errors_on(:role_id)
+    end
   end
 
   describe "assignments for management" do
