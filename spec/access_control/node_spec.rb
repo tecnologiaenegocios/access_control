@@ -223,6 +223,17 @@ module AccessControl
           }.should_not raise_exception
         end
 
+        it "revokes fine if the role belongs to the principal" do
+          node.should_receive(:current_roles).and_return(Set.new([role]))
+          Assignment.create!(:node => node, :role => role, :principal_id => 1)
+          lambda {
+            node.update_attributes!(:assignments_attributes => {
+              '0' => {:_destroy => '1', :role_id => role.id,
+                      :principal_id => 1},
+            })
+          }.should_not raise_exception
+        end
+
         it "assigns using an array instead of a hash" do
           node.should_receive(:current_roles).and_return(Set.new([role]))
           lambda {
@@ -248,6 +259,19 @@ module AccessControl
             node.update_attributes!(:assignments_attributes => [
               {:role_id => other_role.id, :principal_id => 1},
             ])
+          }.should raise_exception(Unauthorized)
+        end
+
+        it "raises Unauthorized if a role that doesn't belong to the "\
+           "principal is revoked" do
+          node.should_receive(:current_roles).and_return(Set.new([role]))
+          Assignment.create!(:node => node, :role => other_role,
+                             :principal_id => 1)
+          lambda {
+            node.update_attributes!(:assignments_attributes => {
+              '0' => {:_destroy => '1', :role_id => other_role.id,
+                      :principal_id => 1},
+            })
           }.should raise_exception(Unauthorized)
         end
 
