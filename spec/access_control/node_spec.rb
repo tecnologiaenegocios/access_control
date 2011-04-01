@@ -199,6 +199,60 @@ module AccessControl
         node.reload.assignments.should be_empty
       end
 
+      describe "when there's a security manager" do
+
+        let(:manager) { mock('security manager') }
+        let(:node) do
+          Node.create!(:securable_type => 'Foo', :securable_id => 1).reload
+        end
+        let(:role) { stub_model(Role, :name => 'some_role') }
+        let(:other_role) { stub_model(Role, :name => 'other_role') }
+
+        before do
+          AccessControl.stub!(:get_security_manager).and_return(manager)
+          manager.stub!(:restrict_queries=)
+          manager.stub!(:verify_access!).and_return(true)
+        end
+
+        it "assigns fine if the role belongs to the principal" do
+          node.should_receive(:current_roles).and_return(Set.new([role]))
+          lambda {
+            node.update_attributes!(:assignments_attributes => {
+              '0' => {:role_id => role.id, :principal_id => 1},
+            })
+          }.should_not raise_exception
+        end
+
+        it "assigns using an array instead of a hash" do
+          node.should_receive(:current_roles).and_return(Set.new([role]))
+          lambda {
+            node.update_attributes!(:assignments_attributes => [
+              {:role_id => role.id, :principal_id => 1},
+            ])
+          }.should_not raise_exception
+        end
+
+        it "raises Unauthorized if a role that doesn't belong to the "\
+           "principal is assigned" do
+          node.should_receive(:current_roles).and_return(Set.new([role]))
+          lambda {
+            node.update_attributes!(:assignments_attributes => {
+              '0' => {:role_id => other_role.id, :principal_id => 1},
+            })
+          }.should raise_exception(Unauthorized)
+        end
+
+        it "raises Unauthorized using an array instead of a hash" do
+          node.should_receive(:current_roles).and_return(Set.new([role]))
+          lambda {
+            node.update_attributes!(:assignments_attributes => [
+              {:role_id => other_role.id, :principal_id => 1},
+            ])
+          }.should raise_exception(Unauthorized)
+        end
+
+      end
+
     end
 
     describe "permissions API" do

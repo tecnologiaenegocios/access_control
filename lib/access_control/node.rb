@@ -87,6 +87,19 @@ module AccessControl
 
     accepts_nested_attributes_for :assignments, :allow_destroy => true
 
+    def assignments_attributes=(attrs)
+      if AccessControl.get_security_manager
+        attrs = attrs.values if attrs.is_a?(Hash)
+        attrs.each do |record_attrs|
+          if record_attrs.has_key?(:role_id) &&
+            !current_roles.map(&:id).include?(record_attrs[:role_id])
+            raise Unauthorized
+          end
+        end
+      end
+      assign_nested_attributes_for_collection_association(:assignments, attrs)
+    end
+
     def self.global
       Thread.current[:global_node_cache] ||= \
         find_by_securable_type_and_securable_id(
