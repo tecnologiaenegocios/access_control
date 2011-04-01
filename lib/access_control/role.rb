@@ -10,6 +10,12 @@ module AccessControl
 
     validates_uniqueness_of :name
 
+    named_scope :local_assignables,
+                :conditions => {:local => true}
+
+    named_scope :global_assignables,
+                :conditions => {:global => true}
+
     def self.securable?
       false
     end

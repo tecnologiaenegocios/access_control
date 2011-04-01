@@ -7,6 +7,7 @@ class CreateAccessControl < ActiveRecord::Migration
       t.string :securable_type, :limit => 40, :null => false
       t.integer :securable_id, :limit => 8, :null => false
       t.boolean :block, :default => false, :null => false
+      t.integer :lock_version, :default => 0
     end
     execute "
       ALTER TABLE `ac_nodes`
@@ -75,6 +76,9 @@ class CreateAccessControl < ActiveRecord::Migration
       t.string :name, :limit => 40, :null => false
       t.string :title, :limit => 40
       t.string :description, :limit => 100
+      t.boolean :local, :default => true, :null => false
+      t.boolean :global, :default => true, :null => false
+      t.integer :lock_version, :default => 0
     end
     add_index :ac_roles, :name, :unique => true
 
@@ -99,6 +103,7 @@ class CreateAccessControl < ActiveRecord::Migration
       t.integer :node_id, :limit => 8, :null => false
       t.integer :principal_id, :null => false
       t.integer :role_id, :null => false
+      t.integer :lock_version, :default => 0
     end
     add_index(
       :ac_assignments,

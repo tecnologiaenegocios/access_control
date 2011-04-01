@@ -35,5 +35,25 @@ module AccessControl
       SecurityPolicyItem.count.should == 0
     end
 
+    describe "#local_assignables" do
+
+      it "returns only roles with local = true" do
+        r1 = Role.create!(:name => 'local unassignable', :local => false)
+        r2 = Role.create!(:name => 'local assignable', :local => true)
+        Role.local_assignables.should == [r2]
+      end
+
+    end
+
+    describe "#global_assignables" do
+
+      it "returns only roles with global = true" do
+        r1 = Role.create!(:name => 'global unassignable', :global => false)
+        r2 = Role.create!(:name => 'global assignable', :global => true)
+        Role.global_assignables.should == [r2]
+      end
+
+    end
+
   end
 end
