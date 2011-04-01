@@ -3,6 +3,7 @@ require 'spec_helper'
 module AccessControl
 
   describe Assignment do
+
     it "can be created with valid attributes" do
       Assignment.create!(
         :node => stub_model(AccessControl::Node),
@@ -10,6 +11,7 @@ module AccessControl
         :role => stub_model(AccessControl::Role)
       )
     end
+
     it "cannot be wrapped by a security proxy" do
       Assignment.securable?.should be_false
     end
@@ -25,6 +27,165 @@ module AccessControl
       Assignment.new(:node_id => 1, :principal_id => 0, :role_id => 0).
         should have(:no).errors_on(:role_id)
     end
+
+  end
+
+  describe "validation" do
+
+    describe "for global node" do
+
+      let(:node) { stub_model(Node, :global? => true) }
+
+      it "accepts a role if it is global assignable" do
+        Assignment.new(:node => node,
+                       :role => stub_model(Role, :global => true)).
+                       should have(:no).errors_on(:role)
+      end
+
+      it "rejects a role if it is not global assignable" do
+        Assignment.new(:node => node,
+                       :role => stub_model(Role, :global => false)).
+                       should have(1).errors_on(:role)
+      end
+
+    end
+
+    describe "for local nodes" do
+
+      let(:node) { stub_model(Node, :global? => false) }
+
+      it "accepts a role if it is local assignable" do
+        Assignment.new(:node => node,
+                       :role => stub_model(Role, :local => true)).
+                       should have(:no).errors_on(:role)
+      end
+
+      it "rejects a role if it is not local assignable" do
+        Assignment.new(:node => node,
+                       :role => stub_model(Role, :local => false)).
+                       should have(1).errors_on(:role)
+      end
+
+    end
+
+    describe "when there's a security manager" do
+
+      let(:manager) { mock('security manager') }
+      let(:node) do
+        Node.create!(:securable_type => 'Foo', :securable_id => 1).reload
+      end
+      let(:role) { stub_model(Role, :name => 'some_role', :local => true) }
+      let(:other_role) { stub_model(Role, :name => 'other_role',
+                                    :local => true) }
+
+      before do
+        AccessControl.stub!(:get_security_manager).and_return(manager)
+        manager.stub!(:restrict_queries=)
+        manager.stub!(:verify_access!).and_return(true)
+        node.stub!(:current_roles).and_return(Set.new([role]))
+      end
+
+      describe "when the principal has 'share_own_roles'" do
+
+        before do
+          node.should_receive(:has_permission?).
+            with('share_own_roles').any_number_of_times.
+            and_return(true)
+          node.should_receive(:has_permission?).
+            with('grant_roles').any_number_of_times.
+            and_return(false)
+        end
+
+        it "saves fine if the role belongs to the principal" do
+          assignment = Assignment.new(:node => node, :role => role,
+                                      :principal_id => 1)
+          lambda { assignment.save! }.should_not raise_exception
+        end
+
+        it "raises Unauthorized if a role that doesn't belong to the "\
+           "principal is assigned" do
+          assignment = Assignment.new(:node => node, :role => other_role,
+                                      :principal_id => 1)
+          lambda { assignment.save! }.should raise_exception(Unauthorized)
+        end
+
+        describe "when destroying" do
+
+          it "destroys fine if the role belongs to the principal" do
+            assignment = Assignment.create!(:node => node, :role => role,
+                                            :principal_id => 1)
+            lambda { assignment.destroy }.should_not raise_exception
+          end
+
+          it "raises Unauthorized if has a role that doesn't belong to the "\
+             "principal" do
+            node.stub!(:current_roles).and_return(Set.new([other_role]))
+            assignment = Assignment.create!(:node => node, :role => other_role,
+                                            :principal_id => 1)
+            node.stub!(:current_roles).and_return(Set.new([role]))
+            lambda { assignment.destroy }.should raise_exception(Unauthorized)
+          end
+
+        end
+
+      end
+
+      describe "when the principal has 'grant_roles'" do
+
+        before do
+          node.should_receive(:has_permission?).
+            with('grant_roles').any_number_of_times.
+            and_return(true)
+        end
+
+        it "saves fine even if the role doesn't belongs to the principal" do
+          Assignment.create!(:node => node, :role => other_role,
+                             :principal_id => 1)
+        end
+
+        it "destroys even if the role doesn't belongs to the principal" do
+          assignment = Assignment.create!(:node => node, :role => other_role,
+                                          :principal_id => 1)
+          lambda { assignment.destroy }.should_not raise_exception
+        end
+
+      end
+
+      describe "when the principal hasn't 'grant_roles' neither "\
+               "'share_own_roles'" do
+
+        it "raises Unauthorized when saving" do
+          node.should_receive(:has_permission?).
+            with('grant_roles').
+            and_return(false)
+          node.should_receive(:has_permission?).
+            with('share_own_roles').
+            and_return(false)
+          lambda {
+            Assignment.create!(:node => node, :role => other_role,
+                               :principal_id => 1)
+          }.should raise_exception(Unauthorized)
+        end
+
+        it "raises Unauthorized when destroying" do
+          node.should_receive(:has_permission?).
+            with('grant_roles').
+            and_return(true)
+          assignment = Assignment.create!(:node => node, :role => other_role,
+                                          :principal_id => 1)
+          node.should_receive(:has_permission?).
+            with('grant_roles').
+            and_return(false)
+          node.should_receive(:has_permission?).
+            with('share_own_roles').
+            and_return(false)
+          lambda { assignment.destroy }.should raise_exception(Unauthorized)
+        end
+
+      end
+
+    end
+
   end
 
   describe "assignments for management" do

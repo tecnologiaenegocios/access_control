@@ -1,3 +1,5 @@
+require 'access_control/security_manager'
+
 module AccessControl
   class Assignment < ActiveRecord::Base
     set_table_name :ac_assignments
@@ -6,6 +8,27 @@ module AccessControl
     belongs_to :role, :class_name => 'AccessControl::Role'
 
     validates_uniqueness_of :role_id, :scope => [:node_id, :principal_id]
+
+    validate :validate_role
+
+    before_save :verify_roles
+    before_destroy :verify_roles
+
+    def validate_role
+      return unless role && node
+      if !role.global && node.global?
+        errors.add(:role, :invalid)
+      elsif !role.local && !node.global?
+        errors.add(:role, :invalid)
+      end
+    end
+
+    def verify_roles
+      return unless AccessControl.get_security_manager
+      return if node.has_permission?('grant_roles')
+      raise Unauthorized unless node.has_permission?('share_own_roles')
+      raise Unauthorized unless node.current_roles.map(&:id).include?(role_id)
+    end
 
     def self.securable?
       false
@@ -25,5 +48,6 @@ module AccessControl
         r
       end
     end
+
   end
 end

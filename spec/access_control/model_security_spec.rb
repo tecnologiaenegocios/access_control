@@ -1605,7 +1605,6 @@ module AccessControl
         Node.create_global_node!
         SecurityPolicyItem.create!(:permission_name => 'query',
                                    :role_id => querier_role.id)
-        AccessControl.stub!(:get_security_manager).and_return(manager)
         manager.stub!(:principal_ids).and_return([principal.id])
         model_klass.query_requires 'query'
         model_klass.view_requires 'view'
@@ -1622,6 +1621,8 @@ module AccessControl
                                               :role => querier_role)
           record2.ac_node.assignments.create!(:principal => principal,
                                               :role => simple_role)
+
+          AccessControl.stub!(:get_security_manager).and_return(manager)
           result = model_klass.find(:all)
           result.should include(record1)
           result.should_not include(record2)
@@ -1638,6 +1639,8 @@ module AccessControl
                                               :role => querier_role)
           record2.ac_node.assignments.create!(:principal => principal,
                                               :role => simple_role)
+
+          AccessControl.stub!(:get_security_manager).and_return(manager)
           result = model_klass.find(:all)
           result.should include(record1)
           result.should include(record2)
@@ -1654,6 +1657,8 @@ module AccessControl
           record2.ac_node.assignments.create!(:principal => principal,
                                               :role => simple_role)
           record3 = model_klass.create!
+
+          AccessControl.stub!(:get_security_manager).and_return(manager)
           result = model_klass.find(:all, :conditions => 'field = 1')
           result.should == [record1]
         end
@@ -1668,6 +1673,9 @@ module AccessControl
           record2.ac_node.assignments.create!(:principal => principal,
                                               :role => simple_role)
           record3 = model_klass.create!
+
+          AccessControl.stub!(:get_security_manager).and_return(manager)
+
           # We join more records asking for records that has a complementary
           # record in the same table but with opposite signal, which will
           # result in no records.
@@ -1682,6 +1690,8 @@ module AccessControl
         end
 
         it "doesn't make permission checking during validation" do
+          AccessControl.stub!(:get_security_manager).and_return(manager)
+
           model_klass.class_eval do
             validates_uniqueness_of :field
           end
@@ -1695,6 +1705,25 @@ module AccessControl
           record2.should have(1).error_on(:field)
         end
 
+        it "doesn't return readonly records by default" do
+          record1 = model_klass.create!
+          record1.ac_node.assignments.create!(:principal => principal,
+                                              :role => querier_role)
+
+          AccessControl.stub!(:get_security_manager).and_return(manager)
+          model_klass.find(:all).first.readonly?.should be_false
+        end
+
+        it "returns readonly records if :readonly => true" do
+          record1 = model_klass.create!
+          record1.ac_node.assignments.create!(:principal => principal,
+                                              :role => querier_role)
+
+          AccessControl.stub!(:get_security_manager).and_return(manager)
+          model_klass.find(:all, :readonly => true).first.readonly?.
+            should be_true
+        end
+
         describe "fields selection" do
 
           it "accepts :select => '*'" do
@@ -1702,6 +1731,8 @@ module AccessControl
             record1.ac_node.assignments.create!(:principal => principal,
                                                 :role => querier_role)
             record2 = model_klass.create!
+
+            AccessControl.stub!(:get_security_manager).and_return(manager)
             model_klass.find(:all, :select => '*').first.id.should == record1.id
             model_klass.find(:all, :select => '*').first.name.should == \
               record1.name
@@ -1714,6 +1745,8 @@ module AccessControl
                                                 :role => querier_role)
             record2.ac_node.assignments.create!(:principal => principal,
                                                 :role => querier_role)
+
+            AccessControl.stub!(:get_security_manager).and_return(manager)
             result = model_klass.find(:all, :select => 'DISTINCT *')
             result.size.should == 2
             result.first.name.should == 'same name'
@@ -1732,6 +1765,8 @@ module AccessControl
                                                 :role => querier_role)
             record3.ac_node.assignments.create!(:principal => principal,
                                                 :role => querier_role)
+
+            AccessControl.stub!(:get_security_manager).and_return(manager)
             result = model_klass.find(:all, :select => 'field')
             result.size.should == 3
             result.map(&:field).sort.should == [1, 2, 2]
@@ -1744,6 +1779,8 @@ module AccessControl
                                                 :role => querier_role)
             record2.ac_node.assignments.create!(:principal => principal,
                                                 :role => querier_role)
+
+            AccessControl.stub!(:get_security_manager).and_return(manager)
             result = model_klass.find(:all, :select => 'DISTINCT name, field')
             result.size.should == 1
             result.first.name.should == 'same name'
@@ -1752,28 +1789,14 @@ module AccessControl
 
           it "doesn't return duplicated records" do
             Node.global.assignments.create!(:principal => principal,
-                                                  :role => querier_role)
+                                            :role => querier_role)
             record1 = model_klass.create!(:name => 'any name')
             record1.ac_node.assignments.create!(:principal => principal,
                                                 :role => querier_role)
+            AccessControl.stub!(:get_security_manager).and_return(manager)
             model_klass.find(:all).size.should == 1
           end
 
-        end
-
-        it "doesn't return readonly records by default" do
-          record1 = model_klass.create!
-          record1.ac_node.assignments.create!(:principal => principal,
-                                              :role => querier_role)
-          model_klass.find(:all).first.readonly?.should be_false
-        end
-
-        it "returns readonly records if :readonly => true" do
-          record1 = model_klass.create!
-          record1.ac_node.assignments.create!(:principal => principal,
-                                              :role => querier_role)
-          model_klass.find(:all, :readonly => true).first.readonly?.
-            should be_true
         end
 
         describe "with multiple query permissions" do
@@ -1789,6 +1812,7 @@ module AccessControl
                                        :role_id => manager_role.id)
             SecurityPolicyItem.create!(:permission_name => 'query',
                                        :role_id => manager_role.id)
+            AccessControl.stub!(:get_security_manager).and_return(nil)
           end
 
           it "checks multiple permissions in the same role" do
@@ -1802,6 +1826,8 @@ module AccessControl
                                                 :role => viewer_role)
             record3.ac_node.assignments.create!(:principal => principal,
                                                 :role => viewer_role)
+
+            AccessControl.stub!(:get_security_manager).and_return(manager)
             model_klass.find(:all).should == [record1]
           end
 
@@ -1818,6 +1844,8 @@ module AccessControl
                                                 :role => viewer_role)
             record3.ac_node.assignments.create!(:principal => principal,
                                                 :role => querier_role)
+
+            AccessControl.stub!(:get_security_manager).and_return(manager)
             model_klass.find(:all).should == [record1]
           end
 
@@ -1830,6 +1858,8 @@ module AccessControl
                                             :role => viewer_role)
             record1.ac_node.assignments.create!(:principal => principal,
                                                 :role => querier_role)
+
+            AccessControl.stub!(:get_security_manager).and_return(manager)
             model_klass.find(:all).should == [record1]
           end
 
@@ -1838,8 +1868,6 @@ module AccessControl
             other_principal = Principal.create!(
               :subject_type => 'Group', :subject_id => 1
             )
-            manager.stub!(:principal_ids).and_return([principal.id,
-                                                      other_principal.id])
             record1 = model_klass.create!
             record2 = model_klass.create!
             record3 = model_klass.create!
@@ -1848,6 +1876,10 @@ module AccessControl
                                                 :role => viewer_role)
             record1.ac_node.assignments.create!(:principal => principal,
                                                 :role => querier_role)
+
+            manager.stub!(:principal_ids).and_return([principal.id,
+                                                      other_principal.id])
+            AccessControl.stub!(:get_security_manager).and_return(manager)
             model_klass.find(:all).should == [record1]
           end
 
@@ -1856,8 +1888,6 @@ module AccessControl
             other_principal = Principal.create!(
               :subject_type => 'Group', :subject_id => 1
             )
-            manager.stub!(:principal_ids).and_return([principal.id,
-                                                      other_principal.id])
             record1 = model_klass.create!
             record2 = model_klass.create!
             record3 = model_klass.create!
@@ -1866,6 +1896,10 @@ module AccessControl
                                             :role => viewer_role)
             record1.ac_node.assignments.create!(:principal => other_principal,
                                                 :role => querier_role)
+
+            manager.stub!(:principal_ids).and_return([principal.id,
+                                                      other_principal.id])
+            AccessControl.stub!(:get_security_manager).and_return(manager)
             model_klass.find(:all).should == [record1]
           end
 
@@ -1895,6 +1929,8 @@ module AccessControl
             record3.ac_node.assignments.create!(:principal => principal,
                                                 :role => manager_role)
             record4 = model_klass.create!
+
+            AccessControl.stub!(:get_security_manager).and_return(manager)
             model_klass.find(:all, :permissions => ['view', 'query']).
               should == [record3]
           end
@@ -1909,6 +1945,9 @@ module AccessControl
             record1 = model_klass.create!
             record1.ac_node.assignments.create!(:principal => principal,
                                                 :role => querier_role)
+
+            AccessControl.stub!(:get_security_manager).and_return(manager)
+
             found = model_klass.find(:first, :load_permissions => true)
             model_klass.should_not_receive(:find) # Do not hit the database
                                                   # anymore.
@@ -1933,6 +1972,9 @@ module AccessControl
             record1 = model_klass.create!
             record1.ac_node.assignments.create!(:principal => principal,
                                                 :role => querier_role)
+
+            AccessControl.stub!(:get_security_manager).and_return(manager)
+
             found = model_klass.find(:first, :load_permissions => true)
             model_klass.should_not_receive(:find) # Do not hit the database
                                                   # anymore.
@@ -1975,6 +2017,8 @@ module AccessControl
             record3.ac_node.assignments.create!(:principal => principal,
                                                 :role_id => querier_role.id)
 
+            AccessControl.stub!(:get_security_manager).and_return(manager)
+
             lambda {
               model_klass.find(record1.id)
             }.should raise_exception
@@ -2000,6 +2044,8 @@ module AccessControl
             record3.ac_node.assignments.create!(:principal => principal,
                                                 :role_id => querier_role.id)
 
+            AccessControl.stub!(:get_security_manager).and_return(manager)
+
             model_klass.find(record1.id,
                              :permissions => ['view']).should == record1
             model_klass.find(record2.id,
@@ -2009,6 +2055,7 @@ module AccessControl
 
           it "raises Unauthorized if the record exists but the user has no "\
              "permission" do
+            AccessControl.stub!(:get_security_manager).and_return(manager)
             record1 = model_klass.create!
             lambda {
               model_klass.find(record1.id)
@@ -2017,6 +2064,7 @@ module AccessControl
 
           it "logs the exception if the record exists but the user has no "\
              "permission" do
+            AccessControl.stub!(:get_security_manager).and_return(manager)
             record1 = model_klass.create!
             Util.should_receive(:log_missing_permissions).
               with(record1.ac_node, Set.new(['view', 'query']))
@@ -2026,6 +2074,7 @@ module AccessControl
           end
 
           it "raises RecordNotFound if the record doesn't exists" do
+            AccessControl.stub!(:get_security_manager).and_return(manager)
             record1 = model_klass.create!
             id = record1.id
             record1.destroy
@@ -2041,6 +2090,7 @@ module AccessControl
       describe "#unrestricted_find" do
 
         it "doesn't make permission checking" do
+          AccessControl.stub!(:get_security_manager).and_return(manager)
           record1 = model_klass.create!(:field => 1)
           model_klass.unrestricted_find(:all).should == [record1]
         end
@@ -2049,6 +2099,7 @@ module AccessControl
 
       describe "#parents" do
         before do
+          AccessControl.stub!(:get_security_manager).and_return(manager)
           model_klass.class_eval do
             belongs_to :record
             inherits_permissions_from :record
@@ -2078,6 +2129,7 @@ module AccessControl
 
       describe "#children" do
         before do
+          AccessControl.stub!(:get_security_manager).and_return(manager)
           model_klass.class_eval do
             has_many :records
             belongs_to :record

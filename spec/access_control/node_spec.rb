@@ -87,10 +87,6 @@ module AccessControl
 
       let(:manager) { ::AccessControl::SecurityManager.new('a controller') }
 
-      before do
-        ::AccessControl.stub!(:get_security_manager).and_return(manager)
-      end
-
       it "returns only the assignments belonging to the current principals" do
         Node.create_global_node!
         node = Node.create!(:securable_type => 'Foo', :securable_id => 1)
@@ -106,6 +102,7 @@ module AccessControl
         assignment3 = Assignment.create!(:role_id => 0,
                                          :principal_id => principal3.id,
                                          :node_id => node.id)
+        AccessControl.stub!(:get_security_manager).and_return(manager)
         manager.stub!(:principal_ids).and_return([principal1.id, principal3.id])
         node.reload.principal_assignments.should include(assignment1)
         node.principal_assignments.should include(assignment3)
@@ -113,6 +110,11 @@ module AccessControl
       end
 
       describe "conditions optimization" do
+
+        before do
+          AccessControl.stub!(:get_security_manager).and_return(manager)
+        end
+
         describe "conditions with single principal" do
           it "uses the single element of the `principal_ids` from manager" do
             manager.should_receive(:principal_ids).and_return(['principal id'])
@@ -122,6 +124,7 @@ module AccessControl
               }
           end
         end
+
         describe "conditions with multiple principals" do
           it "passes along all principal ids from manager in an array" do
             manager.should_receive(:principal_ids).
@@ -197,84 +200,6 @@ module AccessControl
           }
         )
         node.reload.assignments.should be_empty
-      end
-
-      describe "when there's a security manager" do
-
-        let(:manager) { mock('security manager') }
-        let(:node) do
-          Node.create!(:securable_type => 'Foo', :securable_id => 1).reload
-        end
-        let(:role) { stub_model(Role, :name => 'some_role') }
-        let(:other_role) { stub_model(Role, :name => 'other_role') }
-
-        before do
-          AccessControl.stub!(:get_security_manager).and_return(manager)
-          manager.stub!(:restrict_queries=)
-          manager.stub!(:verify_access!).and_return(true)
-        end
-
-        it "assigns fine if the role belongs to the principal" do
-          node.should_receive(:current_roles).and_return(Set.new([role]))
-          lambda {
-            node.update_attributes!(:assignments_attributes => {
-              '0' => {:role_id => role.id, :principal_id => 1},
-            })
-          }.should_not raise_exception
-        end
-
-        it "revokes fine if the role belongs to the principal" do
-          node.should_receive(:current_roles).and_return(Set.new([role]))
-          Assignment.create!(:node => node, :role => role, :principal_id => 1)
-          lambda {
-            node.update_attributes!(:assignments_attributes => {
-              '0' => {:_destroy => '1', :role_id => role.id,
-                      :principal_id => 1},
-            })
-          }.should_not raise_exception
-        end
-
-        it "assigns using an array instead of a hash" do
-          node.should_receive(:current_roles).and_return(Set.new([role]))
-          lambda {
-            node.update_attributes!(:assignments_attributes => [
-              {:role_id => role.id, :principal_id => 1},
-            ])
-          }.should_not raise_exception
-        end
-
-        it "raises Unauthorized if a role that doesn't belong to the "\
-           "principal is assigned" do
-          node.should_receive(:current_roles).and_return(Set.new([role]))
-          lambda {
-            node.update_attributes!(:assignments_attributes => {
-              '0' => {:role_id => other_role.id, :principal_id => 1},
-            })
-          }.should raise_exception(Unauthorized)
-        end
-
-        it "raises Unauthorized using an array instead of a hash" do
-          node.should_receive(:current_roles).and_return(Set.new([role]))
-          lambda {
-            node.update_attributes!(:assignments_attributes => [
-              {:role_id => other_role.id, :principal_id => 1},
-            ])
-          }.should raise_exception(Unauthorized)
-        end
-
-        it "raises Unauthorized if a role that doesn't belong to the "\
-           "principal is revoked" do
-          node.should_receive(:current_roles).and_return(Set.new([role]))
-          Assignment.create!(:node => node, :role => other_role,
-                             :principal_id => 1)
-          lambda {
-            node.update_attributes!(:assignments_attributes => {
-              '0' => {:_destroy => '1', :role_id => other_role.id,
-                      :principal_id => 1},
-            })
-          }.should raise_exception(Unauthorized)
-        end
-
       end
 
     end
