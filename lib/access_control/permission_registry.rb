@@ -17,6 +17,7 @@ module AccessControl
       def registered
         load_all_controllers
         load_all_models
+        register_undeclared_permissions
         @permissions || Set.new
       end
 
@@ -40,6 +41,10 @@ module AccessControl
         # will get it from the file anyway, taking into consideration the
         # cache_class config option.
         File.basename(filename, '.rb').camelize.constantize
+      end
+
+      def register_undeclared_permissions
+        register(['grant_roles', 'share_own_roles'])
       end
 
     end

@@ -12,6 +12,7 @@ module AccessControl
       before do
         PermissionRegistry.stub!(:load_all_controllers)
         PermissionRegistry.stub!(:load_all_models)
+        PermissionRegistry.stub!(:register_undeclared_permissions)
       end
 
       it "registers permissions through self.register" do
@@ -99,6 +100,18 @@ module AccessControl
         ActiveSupport::Inflector.should_receive(:constantize).
           with('AnotherModel')
         PermissionRegistry.load_all_models
+      end
+
+    end
+
+    describe "undeclared permissions" do
+
+      it "registers 'grant_roles' and 'share_own_roles'" do
+        PermissionRegistry.stub!(:load_all_controllers)
+        PermissionRegistry.stub!(:load_all_models)
+        PermissionRegistry.registered.should == Set.new([
+          'grant_roles', 'share_own_roles'
+        ])
       end
 
     end
