@@ -1,4 +1,5 @@
 require 'spec_helper'
+require 'access_control/security_manager'
 
 describe AccessControl do
 

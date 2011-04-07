@@ -1,4 +1,5 @@
 require 'spec_helper'
+require 'access_control/association_security'
 require 'access_control/model_security'
 
 module AccessControl

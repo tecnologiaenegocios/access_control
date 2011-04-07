@@ -1,3 +1,5 @@
+require 'access_control/exceptions'
+
 module AccessControl
 
   def self.set_security_manager current_controller
@@ -46,7 +48,7 @@ module AccessControl
     def verify_access! nodes, permissions
       return if has_access?(nodes, permissions)
       Util.log_missing_permissions(nodes, permissions)
-      raise AccessControl::Unauthorized
+      raise Unauthorized
     end
 
     def restrict_queries?

@@ -1,4 +1,5 @@
 require 'spec_helper'
+require 'access_control/model_security'
 
 module AccessControl
   describe ModelSecurity do

@@ -1,4 +1,5 @@
 require 'spec_helper'
+require 'access_control/node'
 
 module AccessControl
   describe Node do

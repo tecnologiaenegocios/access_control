@@ -54,7 +54,7 @@ module AccessControl
     has_many(
       :principal_assignments,
       :foreign_key => :node_id,
-      :class_name => Assignment.name
+      :class_name => 'AccessControl::Assignment'
     )
 
     reflections[:principal_assignments].instance_eval do
@@ -82,7 +82,7 @@ module AccessControl
     has_many(
       :assignments,
       :foreign_key => :node_id,
-      :class_name => Assignment.name,
+      :class_name => 'AccessControl::Assignment',
       :dependent => :destroy
     )
 

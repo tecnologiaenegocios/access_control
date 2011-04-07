@@ -1,4 +1,5 @@
 require 'spec_helper'
+require 'access_control/role'
 
 module AccessControl
   describe Role do

@@ -1,4 +1,5 @@
 require 'spec_helper'
+require 'access_control/principal'
 
 module AccessControl
   describe Principal do

@@ -1,4 +1,5 @@
 require 'spec_helper'
+require 'access_control/permission_registry'
 
 module AccessControl
   describe PermissionRegistry do

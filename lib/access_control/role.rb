@@ -1,5 +1,6 @@
 require 'access_control/assignment'
 require 'access_control/security_policy_item'
+require 'access_control/security_manager'
 
 module AccessControl
   class Role < ActiveRecord::Base

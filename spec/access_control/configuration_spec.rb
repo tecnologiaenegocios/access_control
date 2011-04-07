@@ -1,4 +1,5 @@
 require 'spec_helper'
+require 'access_control/configuration'
 
 module AccessControl
   describe Configuration do

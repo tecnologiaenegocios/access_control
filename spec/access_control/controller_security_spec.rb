@@ -1,4 +1,5 @@
 require 'spec_helper'
+require 'access_control/controller_security'
 
 module AccessControl
   describe ControllerSecurity do
