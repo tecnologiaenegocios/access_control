@@ -112,18 +112,9 @@ module AccessControl
           [AccessControlGlobalRecord.instance]
         end
 
-        def verify_methods_on_create!
-          manager = AccessControl.get_security_manager
-          self.class.permissions_for_methods.keys.each do |m|
-            manager.verify_access!(parents.map(&:ac_node),
-                                    self.class.permissions_for(m))
-          end
-        end
-
         def verify_create_permissions
           return unless self.class.securable?
           return unless manager = AccessControl.get_security_manager
-          verify_methods_on_create!
           return unless self.class.permissions_required_to_create.any?
           parents_for_creation.each do |parent|
             manager.verify_access!(parent.ac_node,

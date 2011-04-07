@@ -175,6 +175,7 @@ module AccessControl
           reqs.delete self
           manager.verify_access!(context, permissions)
         end
+        protect_methods!(object)
         object
       end
 
@@ -233,8 +234,9 @@ module AccessControl
           permissions_for_methods.keys.each do |m|
             (class << instance; self; end;).class_eval do
               define_method(m) do
-                manager.verify_access!(ac_node,
-                                        self.class.permissions_for(__method__))
+                nodes = ac_node || parents_for_creation.map(&:ac_node)
+                manager.verify_access!(nodes,
+                                       self.class.permissions_for(__method__))
                 super
               end
             end

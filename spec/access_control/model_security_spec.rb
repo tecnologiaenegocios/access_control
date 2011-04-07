@@ -247,25 +247,33 @@ module AccessControl
 
           describe "when the record is new" do
 
+            let(:parent1) { model_klass.create! }
+            let(:parent2) { model_klass.create! }
+
             before do
               model_klass.class_eval do
                 protect :field, :with => 'permission'
               end
+              parent1; parent2; # Create stuff before we setup the manager.
               AccessControl.stub!(:get_security_manager => manager)
             end
 
-            it "doesn't verify permissions while not saved" do
+            it "verifies permissions using the global node" do
+              manager.should_receive(:verify_access!).
+                with([Node.global], Set.new(['permission']))
               model_klass.new(:field => 15).field.should == 15
             end
 
-            it "verifies permissions when the record is saved" do
+            it "verifies permissions using parents if this isn't empty" do
+              model_klass.class_eval(<<-eos)
+                def parents
+                  self.class.unrestricted_find([#{parent1.id}, #{parent2.id}])
+                end
+              eos
               manager.should_receive(:verify_access!).
-                with([], Set.new(['permission'])).
-                and_raise(AccessControl::Unauthorized)
-              object = model_klass.new(:field => 15)
-              lambda {
-                object.save!
-              }.should raise_exception(AccessControl::Unauthorized)
+                with([parent1.ac_node, parent2.ac_node],
+                     Set.new(['permission']))
+              model_klass.new(:field => 15).field.should == 15
             end
 
             it "skips verification if class is not securable" do
