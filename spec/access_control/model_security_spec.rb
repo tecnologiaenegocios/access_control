@@ -380,16 +380,26 @@ module AccessControl
             and_return(Set.new(['permission']))
           model_klass.class_eval(<<-eos)
             def parents
-              self.class.unrestricted_find(
-                [#{parent1.id}, #{parent2.id}]
-              )
+              self.class.unrestricted_find([#{parent1.id}, #{parent2.id}])
             end
           eos
         end
 
-        it "checks permissions when the record is saved" do
+        it "checks permissions in each parent node when the record is saved" do
+
+          # Any record, in order to be added below a parent, must have the
+          # required create permission in each parent involved individually.  A
+          # record cannot be added below a parent without the create
+          # permission.  Since we're expecting that verify_access! must be
+          # called, thus we're specifing that if some of the parents doesn't
+          # provide the required permission through inheritance Unauthorized
+          # will be raised.
+
           manager.should_receive(:verify_access!).
-            with([parent1.ac_node, parent2.ac_node], Set.new(['permission']))
+            with(parent1.ac_node, Set.new(['permission']))
+          manager.should_receive(:verify_access!).
+            with(parent2.ac_node, Set.new(['permission']))
+
           model_klass.create!(:field => 1)
         end
 
@@ -418,8 +428,7 @@ module AccessControl
 
         describe "when the user has the required permission(s)" do
           it "creates the record" do
-            manager.should_receive(:verify_access!).
-              with([parent1.ac_node, parent2.ac_node], Set.new(['permission']))
+            manager.stub!(:verify_access!)
             model_klass.create!
             # Two parents and the record
             model_klass.unrestricted_find(:all).size.should == 3
@@ -428,9 +437,7 @@ module AccessControl
 
         describe "when the user hasn't the required permission(s)" do
           it "doesn't create the record if Unauthorized was raised" do
-            manager.should_receive(:verify_access!).
-              with([parent1.ac_node, parent2.ac_node],
-                   Set.new(['permission'])).
+            manager.should_receive(:verify_access!).with(any_args).
               and_raise(AccessControl::Unauthorized)
             lambda {
               model_klass.create!

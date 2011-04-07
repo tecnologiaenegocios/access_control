@@ -119,8 +119,10 @@ module AccessControl
           return unless manager = AccessControl.get_security_manager
           verify_methods_on_create!
           return unless self.class.permissions_required_to_create.any?
-          manager.verify_access!(parents.map(&:ac_node),
-                                  self.class.permissions_required_to_create)
+          parents.each do |parent|
+            manager.verify_access!(parent.ac_node,
+                                   self.class.permissions_required_to_create)
+          end
         end
 
         def verify_update_permissions
