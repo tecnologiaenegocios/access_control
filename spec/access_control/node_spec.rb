@@ -31,7 +31,7 @@ module AccessControl
       Object.send(:remove_const, 'SecurableObj')
     end
 
-    it "cannot be wrapped by a security proxy" do
+    it "is not securable" do
       Node.securable?.should be_false
     end
 

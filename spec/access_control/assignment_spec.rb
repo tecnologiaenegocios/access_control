@@ -12,7 +12,7 @@ module AccessControl
       )
     end
 
-    it "cannot be wrapped by a security proxy" do
+    it "is not securable" do
       Assignment.securable?.should be_false
     end
 
