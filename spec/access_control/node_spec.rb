@@ -578,93 +578,174 @@ module AccessControl
 
         describe "when blocking" do
 
-          before do
-            node.block = true
-            node.save!
+          describe "when there's no security manager" do
+
+            before do
+              node.block = true
+              node.save!
+            end
+
+            it "removes ancestors" do
+              node.ancestors.should include(node)
+              node.ancestors.should_not include(parent)
+              node.ancestors.should_not include(ancestor)
+            end
+
+            it "keeps the global node as an ancestor" do
+              node.ancestors.should include(global_node)
+            end
+
+            it "keeps its descendants" do
+              node.descendants.should include(node)
+              node.descendants.should include(child)
+              node.descendants.should include(descendant)
+            end
+
+            it "removes ancestors for its descendants" do
+              child.ancestors.should include(child)
+              child.ancestors.should include(node)
+              child.ancestors.should_not include(parent)
+              child.ancestors.should_not include(ancestor)
+              descendant.ancestors.should include(descendant)
+              descendant.ancestors.should include(child)
+              descendant.ancestors.should include(node)
+              descendant.ancestors.should_not include(parent)
+              descendant.ancestors.should_not include(ancestor)
+            end
+
+            it "keeps the global node as an ancestor of its decendants" do
+              child.ancestors.should include(global_node)
+              descendant.ancestors.should include(global_node)
+            end
+
+            it "keeps strict ancestors through #strict_unblocked_ancestors" do
+              node.strict_unblocked_ancestors.should include(parent)
+              node.strict_unblocked_ancestors.should include(ancestor)
+              node.strict_unblocked_ancestors.should include(global_node)
+              node.strict_unblocked_ancestors.size.should == 3
+            end
+
           end
 
-          it "removes ancestors" do
-            node.ancestors.should include(node)
-            node.ancestors.should_not include(parent)
-            node.ancestors.should_not include(ancestor)
-          end
+          describe "when there's a security manager" do
 
-          it "keeps the global node as an ancestor" do
-            node.ancestors.should include(global_node)
-          end
+            let(:manager) { mock('security manager') }
 
-          it "keeps its descendants" do
-            node.descendants.should include(node)
-            node.descendants.should include(child)
-            node.descendants.should include(descendant)
-          end
+            before do
+              AccessControl.stub!(:get_security_manager).and_return(manager)
+              manager.stub!(:restrict_queries=)
+              manager.stub!(:verify_access!).and_return(true)
+            end
 
-          it "removes ancestors for its descendants" do
-            child.ancestors.should include(child)
-            child.ancestors.should include(node)
-            child.ancestors.should_not include(parent)
-            child.ancestors.should_not include(ancestor)
-            descendant.ancestors.should include(descendant)
-            descendant.ancestors.should include(child)
-            descendant.ancestors.should include(node)
-            descendant.ancestors.should_not include(parent)
-            descendant.ancestors.should_not include(ancestor)
-          end
+            describe "when the principal has 'change_inheritance_blocking'" do
 
-          it "keeps the global node as an ancestor of its decendants" do
-            child.ancestors.should include(global_node)
-            descendant.ancestors.should include(global_node)
-          end
+              it "blocks fine" do
+                node.should_receive(:has_permission?).
+                  with('change_inheritance_blocking').
+                  and_return(true)
+                node.block = true
+                lambda { node.save! }.should_not raise_exception
+              end
 
-          it "keeps strict ancestors through #strict_unblocked_ancestors" do
-            node.strict_unblocked_ancestors.should include(parent)
-            node.strict_unblocked_ancestors.should include(ancestor)
-            node.strict_unblocked_ancestors.should include(global_node)
-            node.strict_unblocked_ancestors.size.should == 3
+            end
+
+            describe "when the principal hasn't 'change_inheritance_blocking'"\
+              do
+                it "fails to block" do
+                  node.should_receive(:has_permission?).
+                    with('change_inheritance_blocking').
+                    and_return(false)
+                  node.block = true
+                  lambda do
+                    node.save!
+                  end.should raise_exception(AccessControl::Unauthorized)
+                end
+              end
+
           end
 
         end
 
         describe "when unblocking" do
 
-          before do
-            node.block = true
-            node.save!
-            node.block = false
-            node.save!
+          describe "when there's no security manager" do
+
+            before do
+              node.block = true
+              node.save!
+              node.block = false
+              node.save!
+            end
+
+            it "reconnects ancestors" do
+              node.ancestors.should include(node)
+              node.ancestors.should include(parent)
+              node.ancestors.should include(ancestor)
+            end
+
+            it "keeps the global node as an ancestor" do
+              node.ancestors.should include(global_node)
+            end
+
+            it "keeps its descendants" do
+              node.descendants.should include(node)
+              node.descendants.should include(child)
+              node.descendants.should include(descendant)
+            end
+
+            it "reconnects ancestors for its descendants" do
+              child.ancestors.should include(child)
+              child.ancestors.should include(node)
+              child.ancestors.should include(parent)
+              child.ancestors.should include(ancestor)
+              descendant.ancestors.should include(descendant)
+              descendant.ancestors.should include(child)
+              descendant.ancestors.should include(node)
+              descendant.ancestors.should include(parent)
+              descendant.ancestors.should include(ancestor)
+            end
+
+            it "keeps the global node as an ancestor of its decendants" do
+              child.ancestors.should include(global_node)
+              descendant.ancestors.should include(global_node)
+            end
+
           end
 
-          it "reconnects ancestors" do
-            node.ancestors.should include(node)
-            node.ancestors.should include(parent)
-            node.ancestors.should include(ancestor)
-          end
+          describe "when there's a security manager" do
 
-          it "keeps the global node as an ancestor" do
-            node.ancestors.should include(global_node)
-          end
+            let(:manager) { mock('security manager') }
 
-          it "keeps its descendants" do
-            node.descendants.should include(node)
-            node.descendants.should include(child)
-            node.descendants.should include(descendant)
-          end
+            before do
+              node.block = true
+              node.save!
+              AccessControl.stub!(:get_security_manager).and_return(manager)
+              manager.stub!(:restrict_queries=)
+              manager.stub!(:verify_access!).and_return(true)
+            end
 
-          it "reconnects ancestors for its descendants" do
-            child.ancestors.should include(child)
-            child.ancestors.should include(node)
-            child.ancestors.should include(parent)
-            child.ancestors.should include(ancestor)
-            descendant.ancestors.should include(descendant)
-            descendant.ancestors.should include(child)
-            descendant.ancestors.should include(node)
-            descendant.ancestors.should include(parent)
-            descendant.ancestors.should include(ancestor)
-          end
+            describe "when the principal has 'change_inheritance_blocking'" do
+              it "unblocks fine" do
+                node.should_receive(:has_permission?).
+                  with('change_inheritance_blocking').
+                  and_return(true)
+                node.block = false
+                lambda { node.save! }.should_not raise_exception
+              end
+            end
 
-          it "keeps the global node as an ancestor of its decendants" do
-            child.ancestors.should include(global_node)
-            descendant.ancestors.should include(global_node)
+            describe "when the principal hasn't 'change_inheritance_blocking'"\
+              do
+                it "fails to unblock" do
+                  node.should_receive(:has_permission?).
+                    with('change_inheritance_blocking').
+                    and_return(false)
+                  node.block = false
+                  lambda do
+                    node.save!
+                  end.should raise_exception(AccessControl::Unauthorized)
+                end
+              end
           end
 
         end

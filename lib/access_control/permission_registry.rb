@@ -44,7 +44,11 @@ module AccessControl
       end
 
       def register_undeclared_permissions
-        register(['grant_roles', 'share_own_roles'])
+        register([
+          'grant_roles',
+          'share_own_roles',
+          'change_inheritance_blocking'
+        ])
       end
 
     end

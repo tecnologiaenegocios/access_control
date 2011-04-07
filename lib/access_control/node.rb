@@ -1,5 +1,6 @@
 require 'access_control/assignment'
 require 'access_control/exceptions'
+require 'access_control/security_manager'
 
 module AccessControl
   class Node < ActiveRecord::Base
@@ -186,6 +187,7 @@ module AccessControl
     end
 
     before_save :validate_parents!
+    before_update :check_blocking_permission
     before_create :verify_global_node
     after_create :make_self_path
     after_create :make_path_from_global
@@ -193,6 +195,13 @@ module AccessControl
     after_save :update_blocking
 
     private
+
+      def check_blocking_permission
+        return unless AccessControl.get_security_manager
+        if changes['block'] && !has_permission?('change_inheritance_blocking')
+          raise Unauthorized
+        end
+      end
 
       def verify_global_node
         raise NoGlobalNode unless self.class.global

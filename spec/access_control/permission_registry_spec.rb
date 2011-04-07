@@ -107,12 +107,22 @@ module AccessControl
 
     describe "undeclared permissions" do
 
-      it "registers 'grant_roles' and 'share_own_roles'" do
+      before do
         PermissionRegistry.stub!(:load_all_controllers)
         PermissionRegistry.stub!(:load_all_models)
-        PermissionRegistry.registered.should == Set.new([
-          'grant_roles', 'share_own_roles'
-        ])
+      end
+
+      it "registers 'grant_roles'" do
+        PermissionRegistry.registered.should include('grant_roles')
+      end
+
+      it "registers 'share_own_roles'" do
+        PermissionRegistry.registered.should include('share_own_roles')
+      end
+
+      it "registers 'change_inheritance_blocking'" do
+        PermissionRegistry.registered.
+          should include('change_inheritance_blocking')
       end
 
     end
