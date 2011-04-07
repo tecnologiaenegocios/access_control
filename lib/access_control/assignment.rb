@@ -42,8 +42,7 @@ module AccessControl
           if assignment = assigns.detect{|a| a.role_id == role.id}
             next assignment
           end
-          Assignment.new(:role_id => role.id, :node_id => node.id,
-                         :principal_id => p_id)
+          new(:role_id => role.id, :node_id => node.id, :principal_id => p_id)
         end
         r
       end

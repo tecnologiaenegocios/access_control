@@ -1,3 +1,4 @@
+require 'access_control/assignment'
 require 'access_control/exceptions'
 
 module AccessControl
@@ -59,7 +60,7 @@ module AccessControl
     reflections[:principal_assignments].instance_eval do
 
       def options
-        principal_ids = ::AccessControl.get_security_manager.principal_ids
+        principal_ids = AccessControl.get_security_manager.principal_ids
         principal_ids = principal_ids.first if principal_ids.size == 1
         @options.merge(:conditions => {:principal_id => principal_ids})
       end
@@ -194,7 +195,7 @@ module AccessControl
     private
 
       def verify_global_node
-        raise AccessControl::NoGlobalNode unless self.class.global
+        raise NoGlobalNode unless self.class.global
       end
 
       def is_valid_parent? parent
@@ -203,7 +204,7 @@ module AccessControl
 
       def validate_parent! parent
         if global? || !is_valid_parent?(parent)
-          raise ::AccessControl::ParentError
+          raise ParentError
         end
       end
 

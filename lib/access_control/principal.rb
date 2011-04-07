@@ -1,3 +1,5 @@
+require 'access_control/assignment'
+
 module AccessControl
 
   class Principal < ActiveRecord::Base

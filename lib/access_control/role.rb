@@ -1,12 +1,15 @@
+require 'access_control/assignment'
+require 'access_control/security_policy_item'
+
 module AccessControl
   class Role < ActiveRecord::Base
     set_table_name :ac_roles
     has_many :security_policy_items,
              :dependent => :destroy,
-             :class_name => 'AccessControl::SecurityPolicyItem'
+             :class_name => SecurityPolicyItem.name
     has_many :assignments,
              :dependent => :destroy,
-             :class_name => 'AccessControl::Assignment'
+             :class_name => Assignment.name
 
     validates_uniqueness_of :name
 
