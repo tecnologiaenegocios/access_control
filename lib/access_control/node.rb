@@ -322,3 +322,13 @@ module AccessControl
 
   end
 end
+
+class AccessControlGlobalRecord
+  include Singleton
+  def ac_node
+    AccessControl::Node.global
+  end
+  def self.find *args
+    instance
+  end
+end

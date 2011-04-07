@@ -403,6 +403,26 @@ module AccessControl
           model_klass.create!(:field => 1)
         end
 
+        it "checks permission in the global node if there's no parents" do
+
+          # If the record has no parents it is a root record.  But at the
+          # creation time, the record has no ancestors (which would be in such
+          # case the node of the record itself and the global node).  So, to
+          # proper verify permissions, the checking must be done agains the
+          # global node.
+
+          model_klass.class_eval do
+            def parents
+              []
+            end
+          end
+
+          manager.should_receive(:verify_access!).
+            with(Node.global, Set.new(['permission']))
+
+          model_klass.create!(:field => 1)
+        end
+
         it "doesn't check permissions if there's no manager" do
           AccessControl.stub!(:get_security_manager => nil)
           manager.should_not_receive(:verify_access!)

@@ -106,6 +106,12 @@ module AccessControl
           end
         end
 
+        def parents_for_creation
+          normal_parents = parents
+          return normal_parents if normal_parents.any?
+          [AccessControlGlobalRecord.instance]
+        end
+
         def verify_methods_on_create!
           manager = AccessControl.get_security_manager
           self.class.permissions_for_methods.keys.each do |m|
@@ -119,7 +125,7 @@ module AccessControl
           return unless manager = AccessControl.get_security_manager
           verify_methods_on_create!
           return unless self.class.permissions_required_to_create.any?
-          parents.each do |parent|
+          parents_for_creation.each do |parent|
             manager.verify_access!(parent.ac_node,
                                    self.class.permissions_required_to_create)
           end
@@ -130,7 +136,7 @@ module AccessControl
           return unless manager = AccessControl.get_security_manager
           return unless self.class.permissions_required_to_update.any?
           manager.verify_access!(self.ac_node,
-                                  self.class.permissions_required_to_update)
+                                 self.class.permissions_required_to_update)
         end
 
     end
