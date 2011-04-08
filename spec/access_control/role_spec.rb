@@ -4,6 +4,10 @@ require 'access_control/role'
 module AccessControl
   describe Role do
 
+    it "validates presence of name" do
+      Role.new.should have(1).error_on(:name)
+    end
+
     it "validates uniqueness of name" do
       Role.create!(:name => 'the role name')
       Role.new(:name => 'the role name').should have(1).error_on(:name)
