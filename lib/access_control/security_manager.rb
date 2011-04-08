@@ -47,7 +47,7 @@ module AccessControl
 
     def verify_access! nodes, permissions
       return if has_access?(nodes, permissions)
-      Util.log_missing_permissions(nodes, permissions)
+      Util.log_missing_permissions(nodes, permissions, caller[1..-1])
       raise Unauthorized
     end
 

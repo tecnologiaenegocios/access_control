@@ -2103,7 +2103,8 @@ module AccessControl
             AccessControl.stub!(:get_security_manager).and_return(manager)
             record1 = model_klass.create!
             Util.should_receive(:log_missing_permissions).
-              with(record1.ac_node, Set.new(['view', 'query']))
+              with(record1.ac_node, Set.new(['view', 'query']),
+                   instance_of(Array))
             lambda {
               model_klass.find(record1.id)
             }.should raise_exception(AccessControl::Unauthorized)

@@ -208,7 +208,9 @@ module AccessControl
           result = find_one_without_unauthorized(id, old_options) rescue nil
           re_enable_query_restriction
           raise e if !result
-          Util.log_missing_permissions(result.ac_node, options[:permissions])
+          Util.log_missing_permissions(result.ac_node,
+                                       options[:permissions],
+                                       caller[1..-1])
           raise Unauthorized
         end
       end

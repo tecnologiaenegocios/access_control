@@ -4,9 +4,9 @@ module AccessControl
 
     class << self
 
-      def log_missing_permissions context, requirements
+      def log_missing_permissions context, requirements, trace
         AccessControl::Logger.log_missing_permissions(
-          context, make_set_from_args(requirements)
+          context, make_set_from_args(requirements), trace
         )
       end
 
@@ -54,14 +54,14 @@ module AccessControl
         "  #{msg}\n"
       end
 
-      def log_missing_permissions context, requirements
+      def log_missing_permissions context, requirements, trace
         missing_permissions = format_permissions(
           requirements -
           AccessControl.get_security_manager.permissions_in_context(context)
         )
         Rails.logger.info(
           format_unauthorized_message(missing_permissions) +
-          format_trace(caller[3..-1])
+          format_trace(trace)
         )
       end
 
