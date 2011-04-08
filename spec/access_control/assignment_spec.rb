@@ -40,13 +40,13 @@ module AccessControl
       it "accepts a role if it is global assignable" do
         Assignment.new(:node => node,
                        :role => stub_model(Role, :global => true)).
-                       should have(:no).errors_on(:role)
+                       should have(:no).errors_on(:role_id)
       end
 
       it "rejects a role if it is not global assignable" do
         Assignment.new(:node => node,
                        :role => stub_model(Role, :global => false)).
-                       should have(1).errors_on(:role)
+                       should have(1).errors_on(:role_id)
       end
 
     end
@@ -58,13 +58,13 @@ module AccessControl
       it "accepts a role if it is local assignable" do
         Assignment.new(:node => node,
                        :role => stub_model(Role, :local => true)).
-                       should have(:no).errors_on(:role)
+                       should have(:no).errors_on(:role_id)
       end
 
       it "rejects a role if it is not local assignable" do
         Assignment.new(:node => node,
                        :role => stub_model(Role, :local => false)).
-                       should have(1).errors_on(:role)
+                       should have(1).errors_on(:role_id)
       end
 
     end

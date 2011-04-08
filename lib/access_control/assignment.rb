@@ -17,9 +17,9 @@ module AccessControl
     def validate_role
       return unless role && node
       if !role.global && node.global?
-        errors.add(:role, :invalid)
+        errors.add(:role_id, :invalid)
       elsif !role.local && !node.global?
-        errors.add(:role, :invalid)
+        errors.add(:role_id, :invalid)
       end
     end
 
