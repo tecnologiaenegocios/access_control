@@ -210,7 +210,7 @@ module AccessControl
           raise e if !result
           Util.log_missing_permissions(result.ac_node,
                                        options[:permissions],
-                                       caller[1..-1])
+                                       caller)
           raise Unauthorized
         end
       end
