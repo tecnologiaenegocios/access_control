@@ -76,6 +76,11 @@ module AccessControl
         other_node.global?.should be_false
       end
 
+      it "has itself as the only ancestor" do
+        Node.create_global_node!
+        Node.global.ancestors.should == [Node.global]
+      end
+
     end
 
     it "complains if the global node doesn't exist" do

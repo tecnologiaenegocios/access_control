@@ -115,6 +115,7 @@ module AccessControl
         INSERT INTO `ac_nodes` (`securable_type`, `securable_id`)
         VALUES ('#{global_securable_type}', #{global_securable_id})
       ")
+      self.global.send(:make_path_from_global)
     end
 
     def self.clear_global_node_cache
