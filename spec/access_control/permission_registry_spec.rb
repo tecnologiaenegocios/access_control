@@ -88,8 +88,24 @@ module AccessControl
         PermissionRegistry.registered
       end
 
+      it "doesn't load controllers if the registry is not cleared" do
+        # The before block clears the registry.
+        PermissionRegistry.registered # makes the loading
+        # Now the registry is not cleared, so should not load controllers.
+        PermissionRegistry.should_not_receive(:load_all_controllers)
+        PermissionRegistry.registered
+      end
+
       it "loads all models when registered permissions are requested" do
         PermissionRegistry.should_receive(:load_all_models)
+        PermissionRegistry.registered
+      end
+
+      it "doesn't load models if the registry is not cleared" do
+        # The before block clears the registry.
+        PermissionRegistry.registered # makes the loading
+        # Now the registry is not cleared, so should not load models.
+        PermissionRegistry.should_not_receive(:load_all_models)
         PermissionRegistry.registered
       end
 
@@ -98,8 +114,24 @@ module AccessControl
         PermissionRegistry.registered_with_options
       end
 
+      it "doesn't load controllers if the registry is not cleared" do
+        # The before block clears the registry.
+        PermissionRegistry.registered_with_options # makes the loading
+        # Now the registry is not cleared, so should not load models.
+        PermissionRegistry.should_not_receive(:load_all_controllers)
+        PermissionRegistry.registered_with_options
+      end
+
       it "loads all models when registered with options are requested" do
         PermissionRegistry.should_receive(:load_all_models)
+        PermissionRegistry.registered_with_options
+      end
+
+      it "doesn't load models if the registry is not cleared" do
+        # The before block clears the registry.
+        PermissionRegistry.registered_with_options # makes the loading
+        # Now the registry is not cleared, so should not load models.
+        PermissionRegistry.should_not_receive(:load_all_models)
         PermissionRegistry.registered_with_options
       end
 

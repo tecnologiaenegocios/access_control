@@ -8,6 +8,7 @@ module AccessControl
       def clear_registry
         @permissions = Set.new
         @permissions_with_options = Set.new
+        @loaded = false
       end
 
       def register *args
@@ -20,16 +21,12 @@ module AccessControl
       end
 
       def registered
-        load_all_controllers
-        load_all_models
-        register_undeclared_permissions
+        load_stuff if load_stuff?
         @permissions || Set.new
       end
 
       def registered_with_options
-        load_all_controllers
-        load_all_models
-        register_undeclared_permissions
+        load_stuff if load_stuff?
         @permissions_with_options || Set.new
       end
 
@@ -43,6 +40,17 @@ module AccessControl
         Dir[Rails.root + 'app/models/**/*.rb'].each do |path|
           load_top_level_constant(path)
         end
+      end
+
+      def load_stuff
+        load_all_controllers
+        load_all_models
+        register_undeclared_permissions
+        @loaded = true
+      end
+
+      def load_stuff?
+        !@loaded
       end
 
       def load_top_level_constant filename
@@ -61,6 +69,10 @@ module AccessControl
           'share_own_roles',
           'change_inheritance_blocking'
         ])
+      end
+
+      def permissions
+        @permissions ||= Set.new
       end
 
     end
