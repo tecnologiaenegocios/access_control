@@ -26,7 +26,7 @@ module AccessControl
 
           raise ::AccessControl::NoSecurityContextError unless context
 
-          manager = AccessControl.get_security_manager
+          manager = AccessControl.security_manager
 
           if options[:when_instantiating]
             model = options[:when_instantiating]

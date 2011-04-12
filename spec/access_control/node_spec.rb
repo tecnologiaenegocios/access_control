@@ -108,7 +108,7 @@ module AccessControl
         assignment3 = Assignment.create!(:role_id => 0,
                                          :principal_id => principal3.id,
                                          :node_id => node.id)
-        AccessControl.stub!(:get_security_manager).and_return(manager)
+        AccessControl.stub!(:security_manager).and_return(manager)
         manager.stub!(:principal_ids).and_return([principal1.id, principal3.id])
         node.reload.principal_assignments.should include(assignment1)
         node.principal_assignments.should include(assignment3)
@@ -118,7 +118,7 @@ module AccessControl
       describe "conditions optimization" do
 
         before do
-          AccessControl.stub!(:get_security_manager).and_return(manager)
+          AccessControl.stub!(:security_manager).and_return(manager)
         end
 
         describe "conditions with single principal" do
@@ -637,7 +637,7 @@ module AccessControl
             let(:manager) { mock('security manager') }
 
             before do
-              AccessControl.stub!(:get_security_manager).and_return(manager)
+              AccessControl.stub!(:security_manager).and_return(manager)
               manager.stub!(:restrict_queries=)
               manager.stub!(:verify_access!).and_return(true)
             end
@@ -724,7 +724,7 @@ module AccessControl
             before do
               node.block = true
               node.save!
-              AccessControl.stub!(:get_security_manager).and_return(manager)
+              AccessControl.stub!(:security_manager).and_return(manager)
               manager.stub!(:restrict_queries=)
               manager.stub!(:verify_access!).and_return(true)
             end

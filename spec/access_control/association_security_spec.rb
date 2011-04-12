@@ -32,7 +32,7 @@ module AccessControl
 
       before do
         Node.create_global_node!
-        AccessControl.stub!(:get_security_manager).and_return(manager)
+        AccessControl.stub!(:security_manager).and_return(manager)
         model_klass.query_requires 'query'
         model_klass.view_requires 'view'
         model_klass.create_requires # Without args unset create requirements.

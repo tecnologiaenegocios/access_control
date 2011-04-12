@@ -114,7 +114,7 @@ module AccessControl
 
         def verify_create_permissions
           return unless self.class.securable?
-          return unless manager = AccessControl.get_security_manager
+          return unless manager = AccessControl.security_manager
           return unless self.class.permissions_required_to_create.any?
           parents_for_creation.each do |parent|
             manager.verify_access!(parent.ac_node,
@@ -124,7 +124,7 @@ module AccessControl
 
         def verify_update_permissions
           return unless self.class.securable?
-          return unless manager = AccessControl.get_security_manager
+          return unless manager = AccessControl.security_manager
           return unless self.class.permissions_required_to_update.any?
           manager.verify_access!(self.ac_node,
                                  self.class.permissions_required_to_update)

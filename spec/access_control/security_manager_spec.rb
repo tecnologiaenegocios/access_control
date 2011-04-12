@@ -16,7 +16,7 @@ describe AccessControl do
     manager = stub('security manager')
     Thread.current.should_receive(:[]).with(instance_of(Symbol)).
       and_return(manager)
-    AccessControl.get_security_manager.should equal(manager)
+    AccessControl.security_manager.should equal(manager)
   end
 
   it "can set no security manager" do

@@ -44,7 +44,7 @@ module AccessControl
       end
 
       def format_unauthorized_message missing_permissions
-        principals = AccessControl.get_security_manager.principal_ids
+        principals = AccessControl.security_manager.principal_ids
         msg = "Access denied for principal(s) #{
           principals.to_sentence(:locale => 'en')
         }: missing #{missing_permissions}"
@@ -57,7 +57,7 @@ module AccessControl
       def log_missing_permissions context, requirements, trace
         missing_permissions = format_permissions(
           requirements -
-          AccessControl.get_security_manager.permissions_in_context(context)
+          AccessControl.security_manager.permissions_in_context(context)
         )
         Rails.logger.info(
           format_unauthorized_message(missing_permissions) +

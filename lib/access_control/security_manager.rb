@@ -8,7 +8,7 @@ module AccessControl
     )
   end
 
-  def self.get_security_manager
+  def self.security_manager
     Thread.current[:__security_manager]
   end
 

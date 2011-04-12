@@ -45,13 +45,13 @@ module AccessControl
 
       it "provides a security manager during action execution" do
         test_controller.send(:run_with_security_manager) do
-          AccessControl.get_security_manager.should == manager
+          AccessControl.security_manager.should == manager
         end
       end
 
       it "unsets security manager after action execution" do
         test_controller.send(:run_with_security_manager) {}
-        AccessControl.get_security_manager.should be_nil
+        AccessControl.security_manager.should be_nil
       end
 
       it "clears the global cache after action execution" do
@@ -119,7 +119,7 @@ module AccessControl
         end
         PermissionRegistry.stub!(:register)
         test_controller.stub!(:current_security_context).and_return(node)
-        AccessControl.stub!(:get_security_manager).and_return(manager)
+        AccessControl.stub!(:security_manager).and_return(manager)
         manager.stub!(:verify_access!)
       end
 

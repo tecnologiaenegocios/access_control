@@ -80,7 +80,7 @@ module AccessControl
                                     :local => true) }
 
       before do
-        AccessControl.stub!(:get_security_manager).and_return(manager)
+        AccessControl.stub!(:security_manager).and_return(manager)
         manager.stub!(:restrict_queries=)
         manager.stub!(:verify_access!).and_return(true)
         node.stub!(:current_roles).and_return(Set.new([role]))

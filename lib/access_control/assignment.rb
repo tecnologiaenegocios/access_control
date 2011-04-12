@@ -24,7 +24,7 @@ module AccessControl
     end
 
     def verify_roles
-      return unless AccessControl.get_security_manager
+      return unless AccessControl.security_manager
       return if node.has_permission?('grant_roles')
       raise Unauthorized unless node.has_permission?('share_own_roles')
       raise Unauthorized unless node.current_roles.map(&:id).include?(role_id)

@@ -61,7 +61,7 @@ module AccessControl
     reflections[:principal_assignments].instance_eval do
 
       def options
-        principal_ids = AccessControl.get_security_manager.principal_ids
+        principal_ids = AccessControl.security_manager.principal_ids
         principal_ids = principal_ids.first if principal_ids.size == 1
         @options.merge(:conditions => {:principal_id => principal_ids})
       end
@@ -198,7 +198,7 @@ module AccessControl
     private
 
       def check_blocking_permission
-        return unless AccessControl.get_security_manager
+        return unless AccessControl.security_manager
         if changes['block'] && !has_permission?('change_inheritance_blocking')
           raise Unauthorized
         end

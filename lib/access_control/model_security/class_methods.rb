@@ -168,7 +168,7 @@ module AccessControl
       def new *args
         object = super
         object.class.check_inheritance! if object.class.securable?
-        return object unless manager = AccessControl.get_security_manager
+        return object unless manager = AccessControl.security_manager
         reqs = Thread.current[:instantiation_requirements] || {}
         if reqs[self]
           context, permissions = reqs[self]
@@ -182,7 +182,7 @@ module AccessControl
       def allocate *args
         object = super
         object.class.check_inheritance! if object.class.securable?
-        return object unless manager = AccessControl.get_security_manager
+        return object unless manager = AccessControl.security_manager
         protect_methods!(object) if object.class.securable?
         object
       end
@@ -232,7 +232,7 @@ module AccessControl
         end
 
         def protect_methods!(instance)
-          manager = AccessControl.get_security_manager
+          manager = AccessControl.security_manager
           permissions_for_methods.keys.each do |m|
             (class << instance; self; end;).class_eval do
               define_method(m) do
@@ -312,7 +312,7 @@ module AccessControl
           c = connection
           t = table_name
           pk = primary_key
-          principal_ids = AccessControl.get_security_manager.principal_ids
+          principal_ids = AccessControl.security_manager.principal_ids
 
           if principal_ids.size == 1
             p_condition = "= #{c.quote(principal_ids.first)}"
@@ -355,18 +355,18 @@ module AccessControl
 
         def restrict_queries?
           return false unless securable?
-          return false unless manager = AccessControl.get_security_manager
+          return false unless manager = AccessControl.security_manager
           manager.restrict_queries?
         end
 
         def disable_query_restriction
-          manager = AccessControl.get_security_manager
+          manager = AccessControl.security_manager
           return unless manager
           manager.restrict_queries = false
         end
 
         def re_enable_query_restriction
-          manager = AccessControl.get_security_manager
+          manager = AccessControl.security_manager
           return unless manager
           manager.restrict_queries = true
         end
