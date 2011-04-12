@@ -49,6 +49,15 @@ module AccessControl
 
       def self.included(base)
         base.extend(AccessControl::ControllerSecurity::ClassMethods)
+        base.class_eval do
+          alias_method_chain :process, :security_manager
+        end
+      end
+
+      def process_with_security_manager(*args)
+        run_with_security_manager do
+          process_without_security_manager(*args)
+        end
       end
 
       private
@@ -81,5 +90,4 @@ end
 
 ActionController::Base.class_eval do
   include AccessControl::ControllerSecurity::InstanceMethods
-  around_filter :run_with_security_manager
 end

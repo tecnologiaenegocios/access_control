@@ -9,8 +9,10 @@ module AccessControl
     end
 
     before do
-      class ::Object::TestController
+      class ActionController::Base
         include ControllerSecurity::InstanceMethods
+      end
+      class ::Object::TestController < ActionController::Base
       end
       ActiveRecord::Base.stub!(:drop_all_temporary_instantiation_requirements!)
     end
@@ -34,41 +36,42 @@ module AccessControl
       end
     end
 
-    describe "around filter for setting security manager" do
+    describe "request wrapping with a security manager available" do
 
       let(:manager) {mock('manager')}
 
       before do
         AccessControl::SecurityManager.stub!(:new).
           with(test_controller).and_return(manager)
-      end
-
-      it "provides a security manager during action execution" do
-        test_controller.send(:run_with_security_manager) do
-          AccessControl.security_manager.should == manager
+        TestController.class_eval do
+          # This method overrides the default implementation of `process` from
+          # Rails, which was aliased.
+          def process_without_security_manager block
+            block.call
+          end
         end
       end
 
+      it "provides a security manager during action execution" do
+        test_controller.process(Proc.new do
+          AccessControl.security_manager.should == manager
+        end)
+      end
+
       it "unsets security manager after action execution" do
-        test_controller.send(:run_with_security_manager) {}
+        test_controller.process(Proc.new{})
         AccessControl.security_manager.should be_nil
       end
 
       it "clears the global cache after action execution" do
         AccessControl::Node.should_receive(:clear_global_node_cache)
-        test_controller.send(:run_with_security_manager) {}
+        test_controller.process(Proc.new{})
       end
 
       it "drops all temp instantiation requirements after action execution" do
         ActiveRecord::Base.
           should_receive(:drop_all_temporary_instantiation_requirements!)
-        test_controller.send(:run_with_security_manager) {}
-      end
-
-      it "is declared private" do
-        test_controller.private_methods.should(
-          include('run_with_security_manager')
-        )
+        test_controller.process(Proc.new{})
       end
 
     end
