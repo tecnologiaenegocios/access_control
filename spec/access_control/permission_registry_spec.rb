@@ -45,6 +45,44 @@ module AccessControl
         PermissionRegistry.registered.size.should == 2
       end
 
+      it "accepts options" do
+        PermissionRegistry.register('some permission', :option => 'Value')
+      end
+
+      it "registers when using options" do
+        PermissionRegistry.register('some permission', :option => 'Value')
+        PermissionRegistry.registered_with_options.should include(
+          ['some permission', {:option => 'Value'}]
+        )
+        PermissionRegistry.registered_with_options.size.should == 1
+      end
+
+      it "registers many permissions using the same options" do
+        PermissionRegistry.register('some permission', 'another permission',
+                                    :option => 'Value')
+        PermissionRegistry.registered_with_options.should include(
+          ['some permission', {:option => 'Value'}]
+        )
+        PermissionRegistry.registered_with_options.should include(
+          ['another permission', {:option => 'Value'}]
+        )
+        PermissionRegistry.registered_with_options.size.should == 2
+      end
+
+      it "registers when using options and permission in #registered" do
+        PermissionRegistry.register('some permission', :option => 'Value')
+        PermissionRegistry.registered.should include('some permission')
+        PermissionRegistry.registered.size.should == 1
+      end
+
+      it "registers an empty hash if no options are passed" do
+        PermissionRegistry.register('some permission')
+        PermissionRegistry.registered_with_options.should include(
+          ['some permission', {}]
+        )
+        PermissionRegistry.registered_with_options.size.should == 1
+      end
+
       it "loads all controllers when registered permissions are requested" do
         PermissionRegistry.should_receive(:load_all_controllers)
         PermissionRegistry.registered
@@ -53,6 +91,16 @@ module AccessControl
       it "loads all models when registered permissions are requested" do
         PermissionRegistry.should_receive(:load_all_models)
         PermissionRegistry.registered
+      end
+
+      it "loads all controllers when registered with options are requested" do
+        PermissionRegistry.should_receive(:load_all_controllers)
+        PermissionRegistry.registered_with_options
+      end
+
+      it "loads all models when registered with options are requested" do
+        PermissionRegistry.should_receive(:load_all_models)
+        PermissionRegistry.registered_with_options
       end
 
     end
@@ -112,17 +160,16 @@ module AccessControl
         PermissionRegistry.stub!(:load_all_models)
       end
 
-      it "registers 'grant_roles'" do
-        PermissionRegistry.registered.should include('grant_roles')
-      end
+      %w(grant_roles share_own_roles change_inheritance_blocking).each do |p|
 
-      it "registers 'share_own_roles'" do
-        PermissionRegistry.registered.should include('share_own_roles')
-      end
+        it "registers '#{p}'" do
+          PermissionRegistry.registered.should include(p)
+        end
 
-      it "registers 'change_inheritance_blocking'" do
-        PermissionRegistry.registered.
-          should include('change_inheritance_blocking')
+        it "registers '#{p}' with empty options" do
+          PermissionRegistry.registered_with_options.should include([p, {}])
+        end
+
       end
 
     end

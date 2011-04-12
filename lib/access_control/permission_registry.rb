@@ -7,11 +7,16 @@ module AccessControl
 
       def clear_registry
         @permissions = Set.new
+        @permissions_with_options = Set.new
       end
 
       def register *args
-        @permissions = (@permissions || Set.new) |
-          Util.make_set_from_args(*args)
+        options = args.extract_options!
+        set = Util.make_set_from_args(*args)
+        set_with_options = Set.new(set.map{|i| [i, options.dup]})
+        @permissions = (@permissions || Set.new) | set
+        @permissions_with_options = (@permissions_with_options || Set.new) |
+          set_with_options
       end
 
       def registered
@@ -19,6 +24,13 @@ module AccessControl
         load_all_models
         register_undeclared_permissions
         @permissions || Set.new
+      end
+
+      def registered_with_options
+        load_all_controllers
+        load_all_models
+        register_undeclared_permissions
+        @permissions_with_options || Set.new
       end
 
       def load_all_controllers
