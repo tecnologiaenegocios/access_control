@@ -100,7 +100,8 @@ module AccessControl
         end
 
         it "register permissions passed" do
-          PermissionRegistry.should_receive(:register).with('some permission')
+          PermissionRegistry.should_receive(:register).
+            with('some permission', :model => 'Record', :method => 'some_method')
           model_klass.protect(:some_method, :with => 'some permission')
         end
 

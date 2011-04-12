@@ -9,7 +9,11 @@ module AccessControl
     module ClassMethods
 
       def protect method_name, options
-        PermissionRegistry.register(permissions = options[:with])
+        PermissionRegistry.register(
+          permissions = options[:with],
+          :model => self.name,
+          :method => method_name.to_s
+        )
         permissions_for_methods[method_name.to_s].merge(permissions)
       end
 

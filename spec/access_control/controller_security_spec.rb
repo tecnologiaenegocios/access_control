@@ -203,9 +203,11 @@ module AccessControl
         }.should raise_exception('the unauthorized exception')
       end
 
-      it "register the permissions passed in :with" do
+      it "registers the permissions passed in :with and additional options" do
         PermissionRegistry.should_receive(:register).
-          with('the content of the :with option')
+          with('the content of the :with option',
+               :controller => 'TestController',
+               :action => 'some_action')
         test_controller.class.class_eval do
           protect :some_action, :with => 'the content of the :with option'
         end
