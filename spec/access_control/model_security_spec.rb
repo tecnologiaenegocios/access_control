@@ -20,6 +20,7 @@ module AccessControl
         config.default_view_permissions = []
         config.default_create_permissions = []
         config.default_update_permissions = []
+        config.default_roles_on_create = nil
       end
     end
 

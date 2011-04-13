@@ -253,7 +253,7 @@ module AccessControl
         node.stub!(:strict_ancestors).and_return([parent])
       end
 
-      describe "#has_permissions?" do
+      describe "#has_permission?" do
         it "returns true when the user has the required permission" do
           node.has_permission?('permission 6').should be_true
         end
@@ -418,6 +418,73 @@ module AccessControl
           child.descendants.should_not include(parent)
         end
 
+        describe "automatic node assignment" do
+
+          let(:role1) { Role.create!(:name => 'owner') }
+          let(:role2) { Role.create!(:name => 'manager') }
+
+          before do
+            manager = AccessControl::SecurityManager.new('a controller')
+            manager.stub!(:principal_ids => [1, 2, 3], :verify_access! => nil)
+            role1; role2;
+            AccessControl.stub!(:security_manager).and_return(manager)
+          end
+
+          describe "when there's one or more default roles" do
+
+            it "assigns the default roles to current principals in the node" do
+              AccessControl.config.stub!(:default_roles_on_create).
+                and_return(Set.new(['owner', 'manager']))
+
+              node = Node.create!(:securable => securable).reload
+
+              assignments = node.assignments.map do |a|
+                { :node_id => a.node_id, :role_id => a.role_id,
+                  :principal_id => a.principal_id}
+              end
+
+              assignments.should include(:node_id => node.id,
+                                         :principal_id => 1,
+                                         :role_id => role1.id)
+              assignments.should include(:node_id => node.id,
+                                         :principal_id => 1,
+                                         :role_id => role2.id)
+              assignments.should include(:node_id => node.id,
+                                         :principal_id => 2,
+                                         :role_id => role1.id)
+              assignments.should include(:node_id => node.id,
+                                         :principal_id => 2,
+                                         :role_id => role2.id)
+              assignments.should include(:node_id => node.id,
+                                         :principal_id => 3,
+                                         :role_id => role1.id)
+              assignments.should include(:node_id => node.id,
+                                         :principal_id => 3,
+                                         :role_id => role2.id)
+            end
+
+          end
+
+          describe "when there's no default roles" do
+            it "doesn't assigns the node to any role" do
+              AccessControl.config.stub!(:default_roles_on_create).
+                and_return(nil)
+              node = Node.create!(:securable => securable).reload
+              node.assignments.should be_empty
+            end
+          end
+
+          describe "when there's no security manager" do
+            it "doesn't assigns the node to any role" do
+              AccessControl.stub!(:security_manager).and_return(nil)
+              AccessControl.config.stub!(:default_roles_on_create).
+                and_return(Set.new(['owner']))
+              node = Node.create!(:securable => securable).reload
+              node.assignments.should be_empty
+            end
+          end
+
+        end
       end
 
       describe "when parent is added" do

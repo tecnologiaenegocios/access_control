@@ -6,6 +6,9 @@ module AccessControl
     attr_reader :default_view_permissions
     attr_reader :default_update_permissions
     attr_reader :default_create_permissions
+
+    attr_reader :default_roles_on_create
+
     attr_accessor :tree_creation
 
     def initialize
@@ -13,14 +16,24 @@ module AccessControl
       @default_view_permissions = Set.new(['view'])
       @default_create_permissions = Set.new(['add'])
       @default_update_permissions = Set.new(['modify'])
+
+      @default_roles_on_create = Set.new(['owner'])
+
       @tree_creation = true
     end
 
-    { :view => 'view', :query => 'query',
-      :create => 'add', :update => 'modify'}.each do |name, permission|
+    %w(view query create update).each do |name|
       define_method(:"default_#{name}_permissions=") do |*args|
         instance_variable_set(:"@default_#{name}_permissions",
                               Util.make_set_from_args(*args))
+      end
+    end
+
+    def default_roles_on_create= *args
+      if args.compact.empty?
+        @default_roles_on_create = nil
+      else
+        @default_roles_on_create = Util.make_set_from_args(*args)
       end
     end
 

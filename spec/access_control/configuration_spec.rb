@@ -63,6 +63,39 @@ module AccessControl
 
     end
 
+    describe "default roles on create" do
+
+      it "is 'owner' by default" do
+        config = Configuration.new
+        config.default_roles_on_create.should == Set.new(['owner'])
+      end
+
+      it "accepts a single string" do
+        config = Configuration.new
+        config.default_roles_on_create = 'other_role'
+        config.default_roles_on_create.should == Set.new(['other_role'])
+      end
+
+      it "accepts a list of strings" do
+        config = Configuration.new
+        config.send(:default_roles_on_create=, 'role1', 'role2')
+        config.default_roles_on_create.should == Set.new(['role1', 'role2'])
+      end
+
+      it "accepts a single enumerable argument" do
+        config = Configuration.new
+        config.default_roles_on_create = ['role1', 'role2']
+        config.default_roles_on_create.should == Set.new(['role1', 'role2'])
+      end
+
+      it "accepts `nil`" do
+        config = Configuration.new
+        config.default_roles_on_create = nil
+        config.default_roles_on_create.should be_nil
+      end
+
+    end
+
   end
 
   describe "configuration API" do

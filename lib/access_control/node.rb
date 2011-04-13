@@ -193,6 +193,7 @@ module AccessControl
     after_create :make_self_path
     after_create :make_path_from_global
     after_create :connect_to_parents
+    after_create :set_default_roles_on_create
     after_save :update_blocking
 
     private
@@ -319,6 +320,21 @@ module AccessControl
             ")",
           "#{self.class.name} Cascade ancestors to descendants"
         )
+      end
+
+      def set_default_roles_on_create
+        return unless AccessControl.security_manager
+        return unless AccessControl.config.default_roles_on_create
+        AccessControl.security_manager.principal_ids.each do |principal_id|
+          AccessControl.config.default_roles_on_create.each do |role|
+            next unless role = Role.find_by_name(role)
+            assignment = assignments.build(
+              :role_id => role.id, :principal_id => principal_id
+            )
+            assignment.skip_role_verification = true
+            assignment.save!
+          end
+        end
       end
 
   end

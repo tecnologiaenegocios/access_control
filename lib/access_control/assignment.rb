@@ -2,10 +2,18 @@ require 'access_control/security_manager'
 
 module AccessControl
   class Assignment < ActiveRecord::Base
+
     set_table_name :ac_assignments
+
     belongs_to :node, :class_name => 'AccessControl::Node'
     belongs_to :principal, :class_name => 'AccessControl::Principal'
     belongs_to :role, :class_name => 'AccessControl::Role'
+
+    # This is a flag that controls the assignment creation.  When the system is
+    # doing an automatic assignment this is set to true.  This is protected to
+    # avoid external data to bypass the role verification.
+    attr_accessor :skip_role_verification
+    attr_protected :skip_role_verification
 
     validates_uniqueness_of :role_id, :scope => [:node_id, :principal_id]
 
@@ -24,6 +32,7 @@ module AccessControl
     end
 
     def verify_roles
+      return if skip_role_verification
       return unless AccessControl.security_manager
       return if node.has_permission?('grant_roles')
       raise Unauthorized unless node.has_permission?('share_own_roles')
