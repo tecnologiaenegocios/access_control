@@ -20,12 +20,12 @@ module AccessControl
           set_with_options
       end
 
-      def registered
+      def all
         load_stuff if load_stuff?
         @permissions || Set.new
       end
 
-      def registered_with_options
+      def all_with_options
         load_stuff if load_stuff?
         @permissions_with_options || Set.new
       end

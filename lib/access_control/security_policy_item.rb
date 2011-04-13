@@ -33,7 +33,7 @@ module AccessControl
         h[k] = v.group_by{|i| i.role_id}
         h
       end
-      (PermissionRegistry.registered | Set.new(_all.map(&:permission_name))).
+      (PermissionRegistry.all | Set.new(_all.map(&:permission_name))).
         inject({}) do |result, permission_name|
           result[permission_name] = roles.map do |role|
             if all_by_permission_and_role[permission_name] &&

@@ -18,31 +18,31 @@ module AccessControl
 
       it "registers permissions through self.register" do
         PermissionRegistry.register('some permission')
-        PermissionRegistry.registered.should include('some permission')
-        PermissionRegistry.registered.size.should == 1
+        PermissionRegistry.all.should include('some permission')
+        PermissionRegistry.all.size.should == 1
       end
 
       it "accepts an argument list of permissions to register" do
         PermissionRegistry.register('some permission', 'another permission')
-        PermissionRegistry.registered.should include('some permission')
-        PermissionRegistry.registered.should include('another permission')
-        PermissionRegistry.registered.size.should == 2
+        PermissionRegistry.all.should include('some permission')
+        PermissionRegistry.all.should include('another permission')
+        PermissionRegistry.all.size.should == 2
       end
 
       it "accepts an array of permissions to register" do
         PermissionRegistry.register(['some permission', 'another permission'])
-        PermissionRegistry.registered.should include('some permission')
-        PermissionRegistry.registered.should include('another permission')
-        PermissionRegistry.registered.size.should == 2
+        PermissionRegistry.all.should include('some permission')
+        PermissionRegistry.all.should include('another permission')
+        PermissionRegistry.all.size.should == 2
       end
 
       it "accepts a set of permissions to register" do
         PermissionRegistry.register(
           Set.new(['some permission', 'another permission'])
         )
-        PermissionRegistry.registered.should include('some permission')
-        PermissionRegistry.registered.should include('another permission')
-        PermissionRegistry.registered.size.should == 2
+        PermissionRegistry.all.should include('some permission')
+        PermissionRegistry.all.should include('another permission')
+        PermissionRegistry.all.size.should == 2
       end
 
       it "accepts options" do
@@ -51,88 +51,88 @@ module AccessControl
 
       it "registers when using options" do
         PermissionRegistry.register('some permission', :option => 'Value')
-        PermissionRegistry.registered_with_options.should include(
+        PermissionRegistry.all_with_options.should include(
           ['some permission', {:option => 'Value'}]
         )
-        PermissionRegistry.registered_with_options.size.should == 1
+        PermissionRegistry.all_with_options.size.should == 1
       end
 
       it "registers many permissions using the same options" do
         PermissionRegistry.register('some permission', 'another permission',
                                     :option => 'Value')
-        PermissionRegistry.registered_with_options.should include(
+        PermissionRegistry.all_with_options.should include(
           ['some permission', {:option => 'Value'}]
         )
-        PermissionRegistry.registered_with_options.should include(
+        PermissionRegistry.all_with_options.should include(
           ['another permission', {:option => 'Value'}]
         )
-        PermissionRegistry.registered_with_options.size.should == 2
+        PermissionRegistry.all_with_options.size.should == 2
       end
 
-      it "registers when using options and permission in #registered" do
+      it "registers when using options and permission in #all" do
         PermissionRegistry.register('some permission', :option => 'Value')
-        PermissionRegistry.registered.should include('some permission')
-        PermissionRegistry.registered.size.should == 1
+        PermissionRegistry.all.should include('some permission')
+        PermissionRegistry.all.size.should == 1
       end
 
       it "registers an empty hash if no options are passed" do
         PermissionRegistry.register('some permission')
-        PermissionRegistry.registered_with_options.should include(
+        PermissionRegistry.all_with_options.should include(
           ['some permission', {}]
         )
-        PermissionRegistry.registered_with_options.size.should == 1
+        PermissionRegistry.all_with_options.size.should == 1
       end
 
       it "loads all controllers when registered permissions are requested" do
         PermissionRegistry.should_receive(:load_all_controllers)
-        PermissionRegistry.registered
+        PermissionRegistry.all
       end
 
       it "doesn't load controllers if the registry is not cleared" do
         # The before block clears the registry.
-        PermissionRegistry.registered # makes the loading
+        PermissionRegistry.all # makes the loading
         # Now the registry is not cleared, so should not load controllers.
         PermissionRegistry.should_not_receive(:load_all_controllers)
-        PermissionRegistry.registered
+        PermissionRegistry.all
       end
 
       it "loads all models when registered permissions are requested" do
         PermissionRegistry.should_receive(:load_all_models)
-        PermissionRegistry.registered
+        PermissionRegistry.all
       end
 
       it "doesn't load models if the registry is not cleared" do
         # The before block clears the registry.
-        PermissionRegistry.registered # makes the loading
+        PermissionRegistry.all # makes the loading
         # Now the registry is not cleared, so should not load models.
         PermissionRegistry.should_not_receive(:load_all_models)
-        PermissionRegistry.registered
+        PermissionRegistry.all
       end
 
       it "loads all controllers when registered with options are requested" do
         PermissionRegistry.should_receive(:load_all_controllers)
-        PermissionRegistry.registered_with_options
+        PermissionRegistry.all_with_options
       end
 
       it "doesn't load controllers if the registry is not cleared" do
         # The before block clears the registry.
-        PermissionRegistry.registered_with_options # makes the loading
+        PermissionRegistry.all_with_options # makes the loading
         # Now the registry is not cleared, so should not load models.
         PermissionRegistry.should_not_receive(:load_all_controllers)
-        PermissionRegistry.registered_with_options
+        PermissionRegistry.all_with_options
       end
 
       it "loads all models when registered with options are requested" do
         PermissionRegistry.should_receive(:load_all_models)
-        PermissionRegistry.registered_with_options
+        PermissionRegistry.all_with_options
       end
 
       it "doesn't load models if the registry is not cleared" do
         # The before block clears the registry.
-        PermissionRegistry.registered_with_options # makes the loading
+        PermissionRegistry.all_with_options # makes the loading
         # Now the registry is not cleared, so should not load models.
         PermissionRegistry.should_not_receive(:load_all_models)
-        PermissionRegistry.registered_with_options
+        PermissionRegistry.all_with_options
       end
 
     end
@@ -195,11 +195,11 @@ module AccessControl
       %w(grant_roles share_own_roles change_inheritance_blocking).each do |p|
 
         it "registers '#{p}'" do
-          PermissionRegistry.registered.should include(p)
+          PermissionRegistry.all.should include(p)
         end
 
         it "registers '#{p}' with empty options" do
-          PermissionRegistry.registered_with_options.should include([p, {}])
+          PermissionRegistry.all_with_options.should include([p, {}])
         end
 
       end
