@@ -5,7 +5,9 @@ module AccessControl
   class Principal < ActiveRecord::Base
     set_table_name :ac_principals
     belongs_to :subject, :polymorphic => true
-    has_many :assignments, :class_name => Assignment.name
+    has_many :assignments,
+             :class_name => Assignment.name,
+             :dependent => :destroy
 
     def self.anonymous
       find_by_subject_type_and_subject_id(

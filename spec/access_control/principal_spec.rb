@@ -24,6 +24,14 @@ module AccessControl
       Principal.securable?.should be_false
     end
 
+    it "destroys assignments when it is destroyed" do
+      r = Principal.create!(:subject => stub_model(SubjectObj))
+      Assignment.create!(:principal_id => r.id,
+                         :node_id => 0, :role_id => 0)
+      r.destroy
+      Assignment.count.should == 0
+    end
+
     describe "anonymous principal" do
 
       let(:anonymous_principal) do
