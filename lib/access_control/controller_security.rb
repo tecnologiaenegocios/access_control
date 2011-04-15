@@ -54,6 +54,11 @@ module AccessControl
         end
       end
 
+      # Convenience method.
+      def security_manager
+        AccessControl.security_manager
+      end
+
       def process_with_security_manager(*args)
         run_with_security_manager do
           process_without_security_manager(*args)

@@ -36,6 +36,16 @@ module AccessControl
       end
     end
 
+    describe "#security_manager" do
+
+      it "returns the current security manager" do
+        manager = stub('manager')
+        AccessControl.should_receive(:security_manager).and_return(manager)
+        test_controller.security_manager.should == manager
+      end
+
+    end
+
     describe "request wrapping with a security manager available" do
 
       let(:manager) {mock('manager')}
