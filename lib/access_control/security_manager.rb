@@ -40,6 +40,10 @@ module AccessControl
       permissions = [permissions] unless permissions.respond_to?(:all?)
       permissions.all? do |permission|
         nodes.any? do |node|
+          if !node.respond_to?(:has_permission?)
+            # Probably a record.
+            node = node.ac_node
+          end
           node.has_permission?(permission)
         end
       end

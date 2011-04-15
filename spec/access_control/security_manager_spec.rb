@@ -143,6 +143,14 @@ module AccessControl
           manager.has_access?([node1, node2], permission).should be_false
         end
 
+        it "accepts records instead of nodes" do
+          node1.stub!(:has_permission? => true)
+          node2.stub!(:has_permission? => false)
+          record1 = stub('record', :ac_node => node1)
+          record2 = stub('record', :ac_node => node2)
+          manager.has_access?([record1, record2], permission).should be_true
+        end
+
       end
 
       describe "with many permissions queried" do
