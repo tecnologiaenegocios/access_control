@@ -43,9 +43,23 @@ module AccessControl
           should == Set.new(['some permission', 'another permission'])
       end
 
-      it "defaults to '#{k}'" do
+      it "defaults to '#{v}'" do
         Configuration.new.send("default_#{k}_permissions").
           should == Set.new([v])
+      end
+
+      describe "when #register_permissions is called" do
+
+        it "registers the #{k} permission" do
+          config = Configuration.new
+          PermissionRegistry.stub!(:register)
+          PermissionRegistry.should_receive(:register).
+            with(Set.new(['some permission', 'another permission']))
+          config.send("default_#{k}_permissions=",
+                      ['some permission', 'another permission'])
+          config.register_permissions
+        end
+
       end
 
     end

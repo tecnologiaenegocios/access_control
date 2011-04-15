@@ -1,4 +1,5 @@
 require 'spec_helper'
+require 'access_control/configuration'
 require 'access_control/permission_registry'
 
 module AccessControl
@@ -129,6 +130,21 @@ module AccessControl
         PermissionRegistry.all
       end
 
+      it "loads all configuration permissions when registered permissions "\
+         "are requested" do
+        AccessControl.config.should_receive(:register_permissions)
+        PermissionRegistry.all
+      end
+
+      it "doesn't load configuration permissions if the registry is not "\
+         "cleared" do
+        # The before block clears the registry.
+        PermissionRegistry.all # makes the loading
+        # Now the registry is not cleared, so should not load controllers.
+        AccessControl.config.should_not_receive(:register_permissions)
+        PermissionRegistry.all
+      end
+
       it "loads all controllers when registered with options are requested" do
         PermissionRegistry.should_receive(:load_all_controllers)
         PermissionRegistry.all_with_options
@@ -152,6 +168,21 @@ module AccessControl
         PermissionRegistry.all_with_options # makes the loading
         # Now the registry is not cleared, so should not load models.
         PermissionRegistry.should_not_receive(:load_all_models)
+        PermissionRegistry.all_with_options
+      end
+
+      it "loads all configuration permissions when registered permissions "\
+         "with options are requested" do
+        AccessControl.config.should_receive(:register_permissions)
+        PermissionRegistry.all_with_options
+      end
+
+      it "doesn't load configuration permissions if the registry is not "\
+         "cleared" do
+        # The before block clears the registry.
+        PermissionRegistry.all_with_options # makes the loading
+        # Now the registry is not cleared, so should not load controllers.
+        AccessControl.config.should_not_receive(:register_permissions)
         PermissionRegistry.all_with_options
       end
 

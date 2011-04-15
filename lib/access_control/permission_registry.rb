@@ -42,9 +42,14 @@ module AccessControl
         end
       end
 
+      def load_all_permissions_from_config
+        AccessControl.config.register_permissions
+      end
+
       def load_stuff
         load_all_controllers
         load_all_models
+        load_all_permissions_from_config
         register_undeclared_permissions
         @loaded = true
       end

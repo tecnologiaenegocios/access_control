@@ -39,6 +39,14 @@ module AccessControl
       end
     end
 
+    def register_permissions
+      PermissionRegistry.register(default_query_permissions)
+      PermissionRegistry.register(default_view_permissions)
+      PermissionRegistry.register(default_create_permissions)
+      PermissionRegistry.register(default_update_permissions)
+      PermissionRegistry.register(default_destroy_permissions)
+    end
+
   end
 
   def self.configure
