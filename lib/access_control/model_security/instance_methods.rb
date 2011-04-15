@@ -15,6 +15,7 @@ module AccessControl
                      :dependent => :destroy
         base.class_eval do
           alias_method_chain :destroy, :referenced_children
+          alias_method_chain :destroy, :authorization
           class << self
             VALID_FIND_OPTIONS.push(:permissions, :load_permissions).uniq!
             alias_method_chain :find_every, :restriction
@@ -44,6 +45,11 @@ module AccessControl
           @old_children = ac_node.children.map(&(:securable.to_proc))
         end
         destroy_without_referenced_children
+      end
+
+      def destroy_with_authorization
+        verify_destroy_permissions
+        destroy_without_authorization
       end
 
       private

@@ -572,6 +572,18 @@ module AccessControl
           object.destroy
         end
 
+        it "performs the checking before the node gets destroyed" do
+          # If the node is destroyed before the checking it will always fail.
+          # Records would never be destroyed.
+          object = model_klass.unrestricted_find(:first)
+          manager.stub!(:verify_access!) do |*args|
+            Node.find_by_securable_type_and_securable_id(
+              model_klass.name, object.id
+            ).should_not be_nil
+          end
+          object.destroy
+        end
+
         it "doesn't check permissions if there's no manager" do
           AccessControl.stub!(:security_manager => nil)
           manager.should_not_receive(:verify_access!)
