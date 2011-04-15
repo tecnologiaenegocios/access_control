@@ -83,7 +83,13 @@ module AccessControl
       end
 
       [:query, :view, :create, :update, :destroy].each do |name|
+
         define_method(:"#{name}_requires") do |*permissions|
+          args_to_register = permissions.dup + [{
+            :action => name.to_s,
+            :model => self.name
+          }]
+          PermissionRegistry.register(*args_to_register)
           instance_variable_set("@added_#{name}_requirements", Set.new)
           instance_variable_set("@declared_#{name}_requirements",
                                 Util.make_set_from_args(*permissions))
@@ -94,6 +100,11 @@ module AccessControl
         end
 
         define_method(:"add_#{name}_requirement") do |*permissions|
+          args_to_register = permissions.dup + [{
+            :action => name.to_s,
+            :model => self.name
+          }]
+          PermissionRegistry.register(*args_to_register)
           current = send("added_#{name}_requirements")
           Util.make_set_from_args(*permissions).each{|e| current.add(e)}
         end
@@ -116,6 +127,7 @@ module AccessControl
           end
           p | added
         end
+
       end
 
       def set_temporary_instantiation_requirement context, permissions

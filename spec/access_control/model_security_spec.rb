@@ -103,7 +103,9 @@ module AccessControl
 
         it "register permissions passed" do
           PermissionRegistry.should_receive(:register).
-            with('some permission', :model => 'Record', :method => 'some_method')
+            with('some permission',
+                 :model => 'Record',
+                 :method => 'some_method')
           model_klass.protect(:some_method, :with => 'some permission')
         end
 
@@ -1620,6 +1622,14 @@ module AccessControl
             should == Set.new(['another permission'])
         end
 
+        it "informs PermissionRegistry about the permissions" do
+          PermissionRegistry.should_receive(:register).
+            with('some permission',
+                 :model => 'Record',
+                 :action => v)
+          model_klass.send("#{v}_requires", 'some permission')
+        end
+
       end
 
       describe "additional #{k}" do
@@ -1690,6 +1700,14 @@ module AccessControl
           subclass.send("add_#{v}_requirement", 'permission two')
           model_klass.send("permissions_required_to_#{v}").
             should == Set.new(['permission one'])
+        end
+
+        it "informs PermissionRegistry about the permissions" do
+          PermissionRegistry.should_receive(:register).
+            with('some permission',
+                 :model => 'Record',
+                 :action => v)
+          model_klass.send("add_#{v}_requirement", 'some permission')
         end
 
       end
