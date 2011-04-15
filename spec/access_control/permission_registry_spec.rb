@@ -69,8 +69,28 @@ module AccessControl
         PermissionRegistry.all_with_options.size.should == 2
       end
 
+      it "registers the same permission with different options" do
+        PermissionRegistry.register('some permission', :option => 'Value1')
+        PermissionRegistry.register('some permission', :option => 'Value2')
+        PermissionRegistry.all_with_options.should include(
+          ['some permission', {:option => 'Value1'}]
+        )
+        PermissionRegistry.all_with_options.should include(
+          ['some permission', {:option => 'Value2'}]
+        )
+        PermissionRegistry.all_with_options.size.should == 2
+      end
+
       it "registers when using options and permission in #all" do
         PermissionRegistry.register('some permission', :option => 'Value')
+        PermissionRegistry.all.should include('some permission')
+        PermissionRegistry.all.size.should == 1
+      end
+
+      it "registers the same permission with different options but #all "\
+         "returns the permission only once" do
+        PermissionRegistry.register('some permission', :option => 'Value1')
+        PermissionRegistry.register('some permission', :option => 'Value2')
         PermissionRegistry.all.should include('some permission')
         PermissionRegistry.all.size.should == 1
       end
