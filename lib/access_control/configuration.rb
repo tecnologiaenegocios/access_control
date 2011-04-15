@@ -4,8 +4,9 @@ module AccessControl
 
     attr_reader :default_query_permissions
     attr_reader :default_view_permissions
-    attr_reader :default_update_permissions
     attr_reader :default_create_permissions
+    attr_reader :default_update_permissions
+    attr_reader :default_destroy_permissions
 
     attr_reader :default_roles_on_create
 
@@ -16,13 +17,14 @@ module AccessControl
       @default_view_permissions = Set.new(['view'])
       @default_create_permissions = Set.new(['add'])
       @default_update_permissions = Set.new(['modify'])
+      @default_destroy_permissions = Set.new(['delete'])
 
       @default_roles_on_create = Set.new(['owner'])
 
       @tree_creation = true
     end
 
-    %w(view query create update).each do |name|
+    %w(view query create update destroy).each do |name|
       define_method(:"default_#{name}_permissions=") do |*args|
         instance_variable_set(:"@default_#{name}_permissions",
                               Util.make_set_from_args(*args))

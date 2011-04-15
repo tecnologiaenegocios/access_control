@@ -82,7 +82,7 @@ module AccessControl
         @propagates_permissions_to ||= []
       end
 
-      [:query, :view, :create, :update].each do |name|
+      [:query, :view, :create, :update, :destroy].each do |name|
         define_method(:"#{name}_requires") do |*permissions|
           instance_variable_set("@added_#{name}_requirements", Set.new)
           instance_variable_set("@declared_#{name}_requirements",

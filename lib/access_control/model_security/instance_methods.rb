@@ -10,9 +10,9 @@ module AccessControl
       def self.included base
         base.extend(ClassMethods)
         base.has_one :ac_node,
-                      :as => :securable,
-                      :class_name => Node.name,
-                      :dependent => :destroy
+                     :as => :securable,
+                     :class_name => Node.name,
+                     :dependent => :destroy
         base.class_eval do
           alias_method_chain :destroy, :referenced_children
           class << self
@@ -112,10 +112,15 @@ module AccessControl
           [AccessControlGlobalRecord.instance]
         end
 
+        def verify_default_permissions?(type)
+          self.class.securable? &&
+            AccessControl.security_manager &&
+            self.class.send(:"permissions_required_to_#{type}").any?
+        end
+
         def verify_create_permissions
-          return unless self.class.securable?
-          return unless manager = AccessControl.security_manager
-          return unless self.class.permissions_required_to_create.any?
+          return unless verify_default_permissions?('create')
+          manager = AccessControl.security_manager
           parents_for_creation.each do |parent|
             manager.verify_access!(parent.ac_node,
                                    self.class.permissions_required_to_create)
@@ -123,11 +128,17 @@ module AccessControl
         end
 
         def verify_update_permissions
-          return unless self.class.securable?
-          return unless manager = AccessControl.security_manager
-          return unless self.class.permissions_required_to_update.any?
-          manager.verify_access!(self.ac_node,
-                                 self.class.permissions_required_to_update)
+          return unless verify_default_permissions?('update')
+          AccessControl.security_manager.verify_access!(
+            self.ac_node, self.class.permissions_required_to_update
+          )
+        end
+
+        def verify_destroy_permissions
+          return unless verify_default_permissions?('destroy')
+          AccessControl.security_manager.verify_access!(
+            self.ac_node, self.class.permissions_required_to_destroy
+          )
         end
 
     end

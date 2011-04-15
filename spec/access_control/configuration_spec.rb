@@ -9,6 +9,7 @@ module AccessControl
       "query" => 'query',
       "create" => 'add',
       "update" => 'modify',
+      "destroy" => 'delete',
     }.each do |k, v|
 
       it "can define default #{k} permissions" do

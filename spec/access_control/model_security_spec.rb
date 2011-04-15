@@ -20,6 +20,7 @@ module AccessControl
         config.default_view_permissions = []
         config.default_create_permissions = []
         config.default_update_permissions = []
+        config.default_destroy_permissions = []
         config.default_roles_on_create = nil
       end
     end
@@ -543,6 +544,72 @@ module AccessControl
               object.save!
             }.should raise_exception(AccessControl::Unauthorized)
             model_klass.unrestricted_find(:first).field.should == 0
+          end
+        end
+
+      end
+
+      describe "destroy protection" do
+
+        let(:manager) do
+          AccessControl::SecurityManager.new('a controller')
+        end
+
+        before do
+          model_klass.stub!(:permissions_required_to_destroy).
+            and_return(Set.new(['permission']))
+          AccessControl.stub!(:security_manager => manager)
+          AccessControl::Node.create_global_node!
+          model_klass.create!(:field => 0)
+        end
+
+        it "checks permissions when the record is destroyed" do
+          object = model_klass.unrestricted_find(:first)
+          manager.should_receive(:verify_access!).
+            with(object.ac_node, Set.new(['permission']))
+          object.destroy
+        end
+
+        it "doesn't check permissions if there's no manager" do
+          AccessControl.stub!(:security_manager => nil)
+          manager.should_not_receive(:verify_access!)
+          object = model_klass.unrestricted_find(:first)
+          object.destroy
+        end
+
+        it "doesn't check permissions if class is not securable" do
+          model_klass.class_eval do
+            def self.securable?
+              false
+            end
+          end
+          manager.should_not_receive(:verify_access!)
+          object = model_klass.unrestricted_find(:first)
+          object.destroy
+        end
+
+        describe "when the user has the required permission(s)" do
+          it "deletes the record" do
+            object = model_klass.unrestricted_find(:first)
+            manager.should_receive(:verify_access!).
+              with(object.ac_node, Set.new(['permission']))
+            object.destroy
+            lambda {
+              model_klass.unrestricted_find(object.id)
+            }.should raise_exception(ActiveRecord::RecordNotFound)
+          end
+        end
+
+        describe "when the user hasn't the required permission(s)" do
+          it "doesn't delete the record" do
+            object = model_klass.unrestricted_find(:first)
+            manager.should_receive(:verify_access!).
+              with(object.ac_node, Set.new(['permission'])).
+              and_raise(AccessControl::Unauthorized)
+            lambda {
+              object.destroy
+            }.should raise_exception(AccessControl::Unauthorized)
+            model_klass.unrestricted_find(object.id).should == object
           end
         end
 
@@ -1478,14 +1545,12 @@ module AccessControl
 
     end
 
-    # These permissions are the permissions applied to restricted queries (see
-    # in query interface).
-
     {
       "view requirement" => 'view',
       "query requirement" => 'query',
       "create requirement" => 'create',
       "update requirement" => 'update',
+      "destroy requirement" => 'destroy',
     }.each do |k, v|
 
       describe k do
