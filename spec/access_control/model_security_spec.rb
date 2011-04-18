@@ -299,6 +299,23 @@ module AccessControl
               lambda { object.save! }.should_not raise_exception
             end 
 
+            it "returns only the global node as a parent for creation" do
+              model_klass.new.parents_for_creation.should == [
+                AccessControlGlobalRecord.instance
+              ]
+            end
+
+            it "returns the parents normally once they're set" do
+              model_klass.class_eval(<<-eos)
+                def parents
+                  self.class.unrestricted_find([#{parent1.id}, #{parent2.id}])
+                end
+              eos
+              parents = model_klass.new.parents
+              parents_for_creation = model_klass.new.parents_for_creation
+              parents_for_creation.should == parents
+            end
+
           end
 
         end

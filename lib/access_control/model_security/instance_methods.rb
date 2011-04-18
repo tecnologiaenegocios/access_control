@@ -35,6 +35,12 @@ module AccessControl
         result
       end
 
+      def parents_for_creation
+        normal_parents = parents
+        return normal_parents if normal_parents.any?
+        [AccessControlGlobalRecord.instance]
+      end
+
       def children
         new_and_old_children.first
       end
@@ -110,12 +116,6 @@ module AccessControl
               child.ac_node.parents << new_parent.ac_node
             end
           end
-        end
-
-        def parents_for_creation
-          normal_parents = parents
-          return normal_parents if normal_parents.any?
-          [AccessControlGlobalRecord.instance]
         end
 
         def verify_default_permissions?(type)
