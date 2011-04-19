@@ -1,5 +1,6 @@
 require 'spec_helper'
 require 'access_control/model_security'
+require 'access_control/association_security'
 
 module AccessControl
   describe ModelSecurity do
@@ -1844,6 +1845,37 @@ module AccessControl
 
           model_klass.class_eval do
             validates_uniqueness_of :field
+          end
+
+          # Create a record on which the user has no permission to access.
+          record1 = model_klass.create!(:field => 1)
+
+          # Create another record with invalid (taken) value for field.
+          record2 = model_klass.new(:field => 1)
+
+          record2.should have(1).error_on(:field)
+        end
+
+        it "really doesn't make permission checking during validation" do
+          # This spec reinforces the above one.  Due to a flaw in our previous
+          # implementation, validations could suffer from permission checking
+          # if, for instance, an association was called during the validation
+          # (associations disable query restriction when called to fetch the
+          # record, and re-enable right after that, which cause validations to
+          # get restricted).
+
+          AccessControl.stub!(:security_manager).and_return(manager)
+
+          model_klass.class_eval do
+            belongs_to :record
+            validate :my_validation_method
+            validates_uniqueness_of :field
+            validate :my_validation_method
+            def my_validation_method
+              # Make the association re-enable query restriction
+              self.record_id = 1
+              record
+            end
           end
 
           # Create a record on which the user has no permission to access.

@@ -91,6 +91,16 @@ module AccessControl
           self.class.send(:re_enable_query_restriction)
         end
 
+        def increment_validation_chain
+          Thread.current[:validation_chain_depth] ||= 0
+          Thread.current[:validation_chain_depth] += 1
+        end
+
+        def decrement_validation_chain
+          Thread.current[:validation_chain_depth] -= 1 if \
+            Thread.current[:validation_chain_depth]
+        end
+
         def new_and_old_children
           return [[], []] if self.class.propagates_permissions_to.empty?
           return [[], []] unless AccessControl.config.tree_creation

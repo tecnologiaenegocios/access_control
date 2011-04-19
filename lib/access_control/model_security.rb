@@ -4,8 +4,8 @@ class ActiveRecord::Base
 
   include AccessControl::ModelSecurity::InstanceMethods
 
-  before_validation :disable_query_restriction
-  after_validation :re_enable_query_restriction
+  before_validation :increment_validation_chain
+  after_validation :decrement_validation_chain
   before_update :verify_update_permissions
   before_create :verify_create_permissions
   after_create :create_nodes

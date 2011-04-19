@@ -74,6 +74,7 @@ module AccessControl
           AccessControl.no_security_manager
           AccessControl::Node.clear_global_node_cache
           ActiveRecord::Base.drop_all_temporary_instantiation_requirements!
+          Thread.current[:validation_chain_depth] = nil
         end
 
         def current_security_context

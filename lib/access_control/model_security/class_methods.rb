@@ -264,6 +264,7 @@ module AccessControl
         def merge_permission_options(options)
           merge_permission_includes(options)
           return unless restrict_queries?
+          return if on_validation?
           if options[:permissions].any?
             merge_permission_joins(options)
           end
@@ -385,6 +386,10 @@ module AccessControl
           manager = AccessControl.security_manager
           return unless manager
           manager.restrict_queries = true
+        end
+
+        def on_validation?
+          (Thread.current[:validation_chain_depth] || 0) > 0
         end
 
     end
