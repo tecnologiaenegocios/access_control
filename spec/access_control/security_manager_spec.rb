@@ -258,21 +258,15 @@ module AccessControl
       let(:manager) { SecurityManager.new(controller) }
 
       it "computes permissions from a single node" do
-        node.stub!(:permission_names).and_return([
-          'permission1', 'permission2'
-        ])
+        node.stub!(:permissions).and_return(['permission1', 'permission2'])
         manager.permissions_in_context(node).should == Set.new([
           'permission1', 'permission2'
         ])
       end
 
       it "computes permissions from multiple nodes" do
-        node1.stub!(:permission_names).and_return([
-          'permission1', 'permission2'
-        ])
-        node2.stub!(:permission_names).and_return([
-          'permission2', 'permission3'
-        ])
+        node1.stub!(:permissions).and_return(['permission1', 'permission2'])
+        node2.stub!(:permissions).and_return(['permission2', 'permission3'])
         manager.permissions_in_context(node1, node2).should == Set.new([
           'permission1', 'permission2', 'permission3'
         ])

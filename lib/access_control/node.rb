@@ -132,20 +132,20 @@ module AccessControl
       ancestors.any? do |node|
         node.principal_assignments.any? do |assignment|
           assignment.role.security_policy_items.any? do |item|
-            item.permission_name == permission
+            item.permission == permission
           end
         end
       end
     end
 
-    def permission_names
+    def permissions
       strict_ancestors.inject(
         principal_assignments.inject(Set.new) do |permissions, assignment|
           permissions | assignment.role.
-            security_policy_items.map(&:permission_name)
+            security_policy_items.map(&:permission)
         end
       ) do |permissions, node|
-        permissions | node.permission_names
+        permissions | node.permissions
       end
     end
 

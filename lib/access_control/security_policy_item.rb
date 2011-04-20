@@ -28,21 +28,21 @@ module AccessControl
     def self.items_for_management roles
       _all = all
       all_by_permission_and_role = _all.group_by do |i|
-        i.permission_name
+        i.permission
       end.inject({}) do |h, (k, v)|
         h[k] = v.group_by{|i| i.role_id}
         h
       end
-      (PermissionRegistry.all | Set.new(_all.map(&:permission_name))).
-        inject({}) do |result, permission_name|
-          result[permission_name] = roles.map do |role|
-            if all_by_permission_and_role[permission_name] &&
-               item = all_by_permission_and_role[permission_name][role.id]
+      (PermissionRegistry.all | Set.new(_all.map(&:permission))).
+        inject({}) do |result, permission|
+          result[permission] = roles.map do |role|
+            if all_by_permission_and_role[permission] &&
+               item = all_by_permission_and_role[permission][role.id]
               # item is an array, so get the first (hopefully the only) member.
               next item.first
             end
             SecurityPolicyItem.new(:role_id => role.id,
-                                   :permission_name => permission_name)
+                                   :permission => permission)
           end
           result
         end

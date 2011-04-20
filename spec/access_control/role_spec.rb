@@ -35,7 +35,7 @@ module AccessControl
     it "destroys security policy items when it is destroyed" do
       role = Role.create!(:name => 'the role name')
       SecurityPolicyItem.create!(:role => role,
-                                 :permission_name => 'some permission')
+                                 :permission => 'some permission')
       role.destroy
       SecurityPolicyItem.count.should == 0
     end

@@ -76,7 +76,7 @@ class CreateAccessControl < ActiveRecord::Migration
                  :options => 'ENGINE=InnoDB DEFAULT CHARSET=utf8' do |t|
       t.string :name, :limit => 40, :null => false
       t.string :title, :limit => 40
-      t.string :description, :limit => 100
+      t.string :description, :limit => 150
       t.boolean :local, :default => true, :null => false
       t.boolean :global, :default => true, :null => false
       t.integer :lock_version, :default => 0
@@ -85,11 +85,11 @@ class CreateAccessControl < ActiveRecord::Migration
 
     create_table :ac_security_policy_items,
                  :options => 'ENGINE=InnoDB DEFAULT CHARSET=utf8' do |t|
-      t.string :permission_name, :limit => 40, :null => false
+      t.string :permission, :limit => 60, :null => false
       t.integer :role_id, :null => false
       t.integer :lock_version, :default => 0
     end
-    add_index :ac_security_policy_items, [:permission_name, :role_id],
+    add_index :ac_security_policy_items, [:permission, :role_id],
               :unique => true
     execute "
       ALTER TABLE `ac_security_policy_items`

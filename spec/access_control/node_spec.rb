@@ -216,24 +216,24 @@ module AccessControl
       let(:node) { stub_model(Node) }
       let(:role1) do
         stub_model(Role, :security_policy_items => [
-          stub(:permission_name => 'permission 1'),
+          stub(:permission => 'permission 1'),
         ])
       end
       let(:role2) do
         stub_model(Role, :security_policy_items => [
-          stub(:permission_name => 'permission 2'),
+          stub(:permission => 'permission 2'),
         ])
       end
       let(:role3) do
         stub_model(Role, :security_policy_items => [
-          stub(:permission_name => 'permission 3'),
-          stub(:permission_name => 'permission 4'),
+          stub(:permission => 'permission 3'),
+          stub(:permission => 'permission 4'),
         ])
       end
       let(:role4) do
         stub_model(Role, :security_policy_items => [
-          stub(:permission_name => 'permission 5'),
-          stub(:permission_name => 'permission 6'),
+          stub(:permission => 'permission 5'),
+          stub(:permission => 'permission 6'),
         ])
       end
 
@@ -263,9 +263,9 @@ module AccessControl
         end
       end
 
-      describe "#permission_names" do
+      describe "#permissions" do
         it "returns the permissions in the node for the current principal" do
-          node.permission_names.should == Set.new([
+          node.permissions.should == Set.new([
             'permission 1',
             'permission 2',
             'permission 3',

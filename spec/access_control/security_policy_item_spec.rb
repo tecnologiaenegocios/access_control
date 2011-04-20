@@ -12,23 +12,23 @@ module AccessControl
 
       let(:item1) do
         SecurityPolicyItem.create!(:role_id => 0,
-                                   :permission_name => 'a permission')
+                                   :permission => 'a permission')
       end
       let(:item2) do
         SecurityPolicyItem.create!(:role_id => 0,
-                                   :permission_name => 'another permission')
+                                   :permission => 'another permission')
       end
       let(:item3) do
         SecurityPolicyItem.create!(:role_id => 1,
-                                   :permission_name => 'a permission')
+                                   :permission => 'a permission')
       end
       let(:item4) do
         SecurityPolicyItem.create!(:role_id => 2,
-                                   :permission_name => 'a permission')
+                                   :permission => 'a permission')
       end
       let(:item5) do
         SecurityPolicyItem.create!(:role_id => 2,
-                                   :permission_name => 'another permission')
+                                   :permission => 'another permission')
       end
 
       it "can mass-update or mass-destroy with a hash of attribute hashes" do
@@ -36,29 +36,28 @@ module AccessControl
           '0' => {:id => item1.to_param, :role_id => '3', :_destroy => '0'},
           '1' => {:id => item2.to_param, :role_id => '3'},
           '2' => {:id => item3.to_param,
-                  :permission_name => 'some other permission'},
+                  :permission => 'some other permission'},
           '3' => {:id => item4.to_param, :_destroy => '1'},
           '4' => {:id => item5.to_param, :_destroy => '1'},
           '5' => {:role_id => '1', :id => '',
-                  :permission_name => 'another permission'},
+                  :permission => 'another permission'},
           '6' => {:role_id => '2',
-                  :permission_name => 'some other permission'}
+                  :permission => 'some other permission'}
         })
         SecurityPolicyItem.find(item1.id).role_id.should == 3
-        SecurityPolicyItem.find(item1.id).
-          permission_name.should == 'a permission'
+        SecurityPolicyItem.find(item1.id).permission.should == 'a permission'
         SecurityPolicyItem.find(item2.id).role_id.should == 3
         SecurityPolicyItem.find(item2.id).
-          permission_name.should == 'another permission'
+          permission.should == 'another permission'
         SecurityPolicyItem.find(item3.id).role_id.should == 1
         SecurityPolicyItem.find(item3.id).
-          permission_name.should == 'some other permission'
+          permission.should == 'some other permission'
         SecurityPolicyItem.find_by_id(item4.id).should be_nil
         SecurityPolicyItem.find_by_id(item5.id).should be_nil
-        SecurityPolicyItem.find_by_role_id_and_permission_name(
+        SecurityPolicyItem.find_by_role_id_and_permission(
           1, 'another permission'
         ).should_not be_nil
-        SecurityPolicyItem.find_by_role_id_and_permission_name(
+        SecurityPolicyItem.find_by_role_id_and_permission(
           2, 'some other permission'
         ).should_not be_nil
       end
@@ -67,28 +66,27 @@ module AccessControl
         SecurityPolicyItem.mass_manage!([
           {:id => item1.to_param, :role_id => '3', :_destroy => '0'},
           {:id => item2.to_param, :role_id => '3'},
-          {:id => item3.to_param, :permission_name => 'some other permission'},
+          {:id => item3.to_param, :permission => 'some other permission'},
           {:id => item4.to_param, :_destroy => '1'},
           {:id => item5.to_param, :_destroy => '1'},
           {:role_id => '1', :id => '',
-           :permission_name => 'another permission'},
-          {:role_id => '2', :permission_name => 'some other permission'}
+           :permission => 'another permission'},
+          {:role_id => '2', :permission => 'some other permission'}
         ])
         SecurityPolicyItem.find(item1.id).role_id.should == 3
-        SecurityPolicyItem.find(item1.id).
-          permission_name.should == 'a permission'
+        SecurityPolicyItem.find(item1.id).permission.should == 'a permission'
         SecurityPolicyItem.find(item2.id).role_id.should == 3
         SecurityPolicyItem.find(item2.id).
-          permission_name.should == 'another permission'
+          permission.should == 'another permission'
         SecurityPolicyItem.find(item3.id).role_id.should == 1
         SecurityPolicyItem.find(item3.id).
-          permission_name.should == 'some other permission'
+          permission.should == 'some other permission'
         SecurityPolicyItem.find_by_id(item4.id).should be_nil
         SecurityPolicyItem.find_by_id(item5.id).should be_nil
-        SecurityPolicyItem.find_by_role_id_and_permission_name(
+        SecurityPolicyItem.find_by_role_id_and_permission(
           1, 'another permission'
         ).should_not be_nil
-        SecurityPolicyItem.find_by_role_id_and_permission_name(
+        SecurityPolicyItem.find_by_role_id_and_permission(
           2, 'some other permission'
         ).should_not be_nil
       end
@@ -129,7 +127,7 @@ module AccessControl
           @role2 = Role.create!(:name => 'role2')
         ]
         @item = SecurityPolicyItem.create!(:role => @role1,
-                                           :permission_name => 'a permission')
+                                           :permission => 'a permission')
         PermissionRegistry.stub!(:all).and_return(Set.new([
           'another permission', 'some other permission'
         ]))
@@ -153,24 +151,24 @@ module AccessControl
       it "returns a new item if there's no security policy items" do
         @items['a permission'].second.should be_new_record
         @items['a permission'].second.role_id.should == @role2.id
-        @items['a permission'].second.permission_name.should == 'a permission'
+        @items['a permission'].second.permission.should == 'a permission'
 
         @items['another permission'].first.should be_new_record
         @items['another permission'].first.role_id.should == @role1.id
-        @items['another permission'].first.permission_name.
+        @items['another permission'].first.permission.
           should == 'another permission'
         @items['another permission'].second.should be_new_record
         @items['another permission'].second.role_id.should == @role2.id
-        @items['another permission'].second.permission_name.
+        @items['another permission'].second.permission.
           should == 'another permission'
 
         @items['some other permission'].first.should be_new_record
         @items['some other permission'].first.role_id.should == @role1.id
-        @items['some other permission'].first.permission_name.
+        @items['some other permission'].first.permission.
           should == 'some other permission'
         @items['some other permission'].second.should be_new_record
         @items['some other permission'].second.role_id.should == @role2.id
-        @items['some other permission'].second.permission_name.
+        @items['some other permission'].second.permission.
           should == 'some other permission'
       end
     end

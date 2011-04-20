@@ -61,7 +61,7 @@ module AccessControl
 
     def permissions_in_context *args
       Util.make_set_from_args(*args).inject(Set.new) do |permissions, node|
-        permissions | node.permission_names
+        permissions | node.permissions
       end
     end
 

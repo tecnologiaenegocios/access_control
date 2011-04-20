@@ -1805,7 +1805,7 @@ module AccessControl
 
       before do
         Node.create_global_node!
-        SecurityPolicyItem.create!(:permission_name => 'query',
+        SecurityPolicyItem.create!(:permission => 'query',
                                    :role_id => querier_role.id)
         manager.stub!(:principal_ids).and_return([principal.id])
         model_klass.query_requires 'query'
@@ -2039,11 +2039,11 @@ module AccessControl
 
           before do
             model_klass.query_requires ['view', 'query']
-            SecurityPolicyItem.create!(:permission_name => 'view',
+            SecurityPolicyItem.create!(:permission => 'view',
                                        :role_id => viewer_role.id)
-            SecurityPolicyItem.create!(:permission_name => 'view',
+            SecurityPolicyItem.create!(:permission => 'view',
                                        :role_id => manager_role.id)
-            SecurityPolicyItem.create!(:permission_name => 'query',
+            SecurityPolicyItem.create!(:permission => 'query',
                                        :role_id => manager_role.id)
             AccessControl.stub!(:security_manager).and_return(nil)
           end
@@ -2148,9 +2148,9 @@ module AccessControl
 
           it "checks explicitly the permissions passed in :permissions" do
             manager_role = Role.create!(:name => 'Manager')
-            SecurityPolicyItem.create!(:permission_name => 'view',
+            SecurityPolicyItem.create!(:permission => 'view',
                                        :role_id => manager_role.id)
-            SecurityPolicyItem.create!(:permission_name => 'query',
+            SecurityPolicyItem.create!(:permission => 'query',
                                        :role_id => manager_role.id)
             record1 = model_klass.create!
             record1.ac_node.assignments.create!(:principal => principal,
@@ -2173,7 +2173,7 @@ module AccessControl
         describe "#find with permission loading" do
 
           it "loads all permissions when :load_permissions is true" do
-            SecurityPolicyItem.create!(:permission_name => 'view',
+            SecurityPolicyItem.create!(:permission => 'view',
                                        :role_id => querier_role.id)
             record1 = model_klass.create!
             record1.ac_node.assignments.create!(:principal => principal,
@@ -2192,7 +2192,7 @@ module AccessControl
               map(&:principal_assignments).flatten.
               map(&:role).
               map(&:security_policy_items).flatten.
-              map(&:permission_name)
+              map(&:permission)
             permissions.size.should == 2
             permissions.should include('view')
             permissions.should include('query')
@@ -2200,7 +2200,7 @@ module AccessControl
 
           it "loads all permissions even if query restriction is disabled" do
             manager.stub!(:restrict_queries?).and_return(false)
-            SecurityPolicyItem.create!(:permission_name => 'view',
+            SecurityPolicyItem.create!(:permission => 'view',
                                        :role_id => querier_role.id)
             record1 = model_klass.create!
             record1.ac_node.assignments.create!(:principal => principal,
@@ -2219,7 +2219,7 @@ module AccessControl
               map(&:principal_assignments).flatten.
               map(&:role).
               map(&:security_policy_items).flatten.
-              map(&:permission_name).uniq
+              map(&:permission).uniq
             permissions.size.should == 2
             permissions.should include('view')
             permissions.should include('query')
@@ -2232,7 +2232,7 @@ module AccessControl
           let(:viewer_role) { Role.create!(:name => 'Viewer') }
 
           before do
-            SecurityPolicyItem.create!(:permission_name => 'view',
+            SecurityPolicyItem.create!(:permission => 'view',
                                        :role_id => viewer_role.id)
           end
 

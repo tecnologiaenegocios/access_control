@@ -44,7 +44,7 @@ access control tree, define the following class method in the model::
       It will consider any inherited role as long the inheritance is not
       blocked.
 
-   .. method:: permission_names
+   .. method:: permissions
 
       Return all permission names in the context of the node for the current
       user.

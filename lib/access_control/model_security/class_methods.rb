@@ -364,7 +364,7 @@ module AccessControl
 
               INNER JOIN `ac_security_policy_items` `policy_item_chk_#{i}`
                 ON `policy_item_chk_#{i}`.`role_id` = `roles_chk_#{i}`.`id`
-                AND `policy_item_chk_#{i}`.`permission_name` = #{c.quote(p)}
+                AND `policy_item_chk_#{i}`.`permission` = #{c.quote(p)}
 
             "
           end.strip.gsub(/\s+/, ' ')
