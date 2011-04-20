@@ -2236,7 +2236,7 @@ module AccessControl
                                        :role_id => viewer_role.id)
           end
 
-          it "requires view permission and query permission" do
+          it "requires view permission instead of query permission" do
             record1 = model_klass.create!
             record2 = model_klass.create!
             record3 = model_klass.create!
@@ -2252,13 +2252,9 @@ module AccessControl
 
             AccessControl.stub!(:security_manager).and_return(manager)
 
-            lambda {
-              model_klass.find(record1.id)
-            }.should raise_exception
+            model_klass.find(record1.id).should == record1
 
-            lambda {
-              model_klass.find(record2.id)
-            }.should raise_exception
+            lambda { model_klass.find(record2.id) }.should raise_exception
 
             model_klass.find(record3.id).should == record3
           end
@@ -2300,8 +2296,7 @@ module AccessControl
             AccessControl.stub!(:security_manager).and_return(manager)
             record1 = model_klass.create!
             Util.should_receive(:log_missing_permissions).
-              with(record1.ac_node, Set.new(['view', 'query']),
-                   instance_of(Array))
+              with(record1.ac_node, Set.new(['view']), instance_of(Array))
             lambda {
               model_klass.find(record1.id)
             }.should raise_exception(AccessControl::Unauthorized)

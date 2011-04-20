@@ -214,9 +214,7 @@ module AccessControl
 
       def find_one_with_unauthorized(id, options)
         old_options = options.clone
-        options[:permissions] ||= (
-          permissions_required_to_view | permissions_required_to_query
-        )
+        options[:permissions] ||= permissions_required_to_view
         begin
           return find_one_without_unauthorized(id, options)
         rescue ActiveRecord::RecordNotFound => e
