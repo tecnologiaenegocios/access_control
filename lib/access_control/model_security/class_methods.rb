@@ -123,8 +123,8 @@ module AccessControl
 
         define_method(:"permissions_required_to_#{name}") do
           added = send("added_#{name}_requirements")
-          declared = send("declared_#{name}_requirements")
-          return declared | added if declared
+          declared = send("declared_#{name}_requirements") || Set.new
+          return declared | added if declared.any?
           if superclass.respond_to?("permissions_required_to_#{name}")
             p = superclass.send("permissions_required_to_#{name}") \
               rescue Set.new
@@ -215,7 +215,11 @@ module AccessControl
       end
 
       def find_every_with_restriction(options)
-        options[:permissions] ||= permissions_required_to_query
+        if restrict_queries?
+          options[:permissions] ||= permissions_required_to_query
+        else
+          options[:permissions] ||= Set.new
+        end
         if !options[:permissions].is_a?(Enumerable)
           raise ArgumentError, ':permissions must be an enumerable'
         end

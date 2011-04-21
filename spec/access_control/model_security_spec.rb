@@ -2321,6 +2321,16 @@ module AccessControl
           model_klass.unrestricted_find(:all).should == [record1]
         end
 
+        it "doesn't raise NoPermissionsDeclared if there's no permissions "\
+           "but queries aren't being restricted" do
+          model_klass.query_requires []
+          r = model_klass.create!
+          AccessControl.stub(:model_security_strict? => true)
+          AccessControl.config.send("default_query_permissions=", [])
+          model_klass.stub(:restrict_queries? => false)
+          model_klass.find(:all).should == [r]
+        end
+
       end
 
       describe "#parents" do
