@@ -1206,10 +1206,13 @@ module AccessControl
           parent_node2 = stub('parent node2')
           parent1 = stub('parent1', :ac_node => parent_node1)
           parent2 = stub('parent2', :ac_node => parent_node2)
+          built_node = mock('built node')
           record = model_klass.new
           record.stub!(:parents).and_return([parent1, parent2])
-          ::AccessControl::Node.should_receive(:create!).
-            with(:securable => record, :parents => [parent_node1, parent_node2])
+          record.should_receive(:build_ac_node).
+            with(:parents => [parent_node1, parent_node2]).
+            and_return(built_node)
+          built_node.should_receive(:save!)
           record.save
         end
 
@@ -1217,18 +1220,19 @@ module AccessControl
           record = model_klass.new
           record.stub!(:parents).and_return([])
           model_klass.stub!(:securable?).and_return(false)
-          ::AccessControl::Node.should_not_receive(:create!)
+          record.should_not_receive(:build_ac_node)
           record.save
         end
 
-        it "creates the node using a saved instance" do
+        it "creates the node using a saved securable instance" do
           # The reason for this is that if the instance is not saved yet,
           # AccessControl::Node will try to save it before being saved itself,
           # which may lead to infinite recursion.
           record = model_klass.new
           record.stub!(:parents).and_return([])
-          ::AccessControl::Node.stub!(:create!) do |hash|
-            hash[:securable].should_not be_new_record
+          record.stub!(:build_ac_node) do |hash|
+            record.instance_eval{self.new_record?.should_not == true}
+            stub('built node', :save! => true)
           end
           record.save
         end
@@ -1285,6 +1289,21 @@ module AccessControl
           let(:child_node2) { child2.ac_node }
           let(:child_node3) { child3.ac_node }
 
+          it "updates parents of the node for :belongs_to" do
+            model_klass.class_eval do
+              inherits_permissions_from :record
+            end
+            record = model_klass.create!(:record => parent1)
+            record.record = parent2
+            record.save!
+            node = record.ac_node
+            node.ancestors.should include(node)
+            node.ancestors.should include(parent_node2)
+            node.ancestors.should include(global_node)
+            parent_node1.descendants.should_not include(node)
+            node.ancestors.size.should == 3
+          end
+
           it "updates parents of the node for :has_many" do
             model_klass.class_eval do
               inherits_permissions_from :records
@@ -1292,7 +1311,6 @@ module AccessControl
             end
             record = model_klass.create!(:records => [parent1, parent2])
             record.records = [parent3, parent4]
-            record.save!
             node = record.ac_node
             node.ancestors.should include(node)
             node.ancestors.should include(parent_node3)
@@ -1310,7 +1328,6 @@ module AccessControl
             end
             record = model_klass.create!(:one_record => parent1)
             record.one_record = parent3
-            record.save!
             node = record.ac_node
             node.ancestors.should include(node)
             node.ancestors.should include(parent_node3)
@@ -1326,7 +1343,6 @@ module AccessControl
             end
             record = model_klass.create!(:records_records => [parent1, parent2])
             record.records_records = [parent3, parent4]
-            record.save!
             node = record.ac_node
             node.ancestors.should include(node)
             node.ancestors.should include(parent_node3)
@@ -1335,6 +1351,23 @@ module AccessControl
             parent_node1.descendants.should_not include(node)
             parent_node2.descendants.should_not include(node)
             node.ancestors.size.should == 4
+          end
+
+          it "doesn't break when association was updated and then the record" do
+            # The reason of this spec is that by updating the has_many
+            # association (it could be a has_one or habtm) we are implicitly
+            # updating the record itself behind the scenes (by making it to
+            # reset its parents to the new ones given), but this should not
+            # stop us to update the record explicitly if we want.  The system
+            # should not complain about duplicated parents when updating the
+            # record.
+            model_klass.class_eval do
+              inherits_permissions_from :records
+              propagates_permissions_to :record
+            end
+            record = model_klass.create!(:records => [parent1, parent2])
+            record.records = [parent3, parent4]
+            record.save!
           end
 
           it "updates child's parents when it is a belongs_to" do
@@ -1347,7 +1380,7 @@ module AccessControl
               :records_records => [child2]
             )
             record.record = child3
-            record.save!
+            record.save! # `record` is a :belongs_to, so we must save explicitly
             node = record.ac_node
             node.descendants.should include(node)
             node.descendants.should_not include(child_node1)
@@ -1366,7 +1399,6 @@ module AccessControl
               :records_records => [child2]
             )
             record.records_records << child3
-            record.save
             node = record.ac_node
             node.descendants.should include(node)
             node.descendants.should include(child_node1)

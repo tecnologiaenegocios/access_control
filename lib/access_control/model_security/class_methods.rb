@@ -38,7 +38,11 @@ module AccessControl
               raise InvalidInheritage,
                     "unexpected #{a} association to have :conditions option"
             end
-            next if reflection.macro == :has_and_belongs_to_many
+            if reflection.macro == :has_and_belongs_to_many
+              set_remove_hook_for_parent_in_habtm(reflection)
+              set_add_hook_for_parent_in_habtm(reflection)
+              next
+            end
             m = nil
             if reflection.options[:through]
               m = "unexpected #{a} association to have :through option"
@@ -66,7 +70,8 @@ module AccessControl
                     "unexpected #{a} association to have :finder_sql option"
             end
             if reflection.macro == :has_and_belongs_to_many
-              set_remove_hook_in_habtm(reflection)
+              set_remove_hook_for_children_in_habtm(reflection)
+              set_add_hook_for_children_in_habtm(reflection)
               next
             end
             if reflection.macro == :belongs_to
@@ -238,9 +243,30 @@ module AccessControl
 
       private
 
-        def set_remove_hook_in_habtm reflection
+        def set_add_hook_for_children_in_habtm reflection
+          reflection.options[:after_add] = Proc.new do |record, added|
+            added.reload.send(:update_parent_nodes)
+          end
+          add_association_callbacks(reflection.name, reflection.options)
+        end
+
+        def set_add_hook_for_parent_in_habtm reflection
+          reflection.options[:after_add] = Proc.new do |record, added|
+            record.send(:update_parent_nodes)
+          end
+          add_association_callbacks(reflection.name, reflection.options)
+        end
+
+        def set_remove_hook_for_children_in_habtm reflection
           reflection.options[:after_remove] = Proc.new do |record, removed|
             removed.reload.send(:update_parent_nodes)
+          end
+          add_association_callbacks(reflection.name, reflection.options)
+        end
+
+        def set_remove_hook_for_parent_in_habtm reflection
+          reflection.options[:after_remove] = Proc.new do |record, removed|
+            record.send(:update_parent_nodes)
           end
           add_association_callbacks(reflection.name, reflection.options)
         end

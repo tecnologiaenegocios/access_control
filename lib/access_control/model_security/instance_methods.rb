@@ -61,13 +61,22 @@ module AccessControl
       private
 
         def create_nodes
-          Node.create!(
-            :securable => self, :parents => parents.map(&:ac_node)
-          ) if self.class.securable?
+          build_ac_node(:parents => parents.map(&:ac_node)).save! \
+            if self.class.securable?
         end
 
         def update_parent_nodes
-          ac_node.parents = parents.map(&:ac_node) if ac_node
+          # Reload to prevent duplicated keys: when we add records that are
+          # already a parent of the node, nothing will happen, and no
+          # duplicated keys will be written.  But this only works if our
+          # `parents` association is surely up-to-date.  Otherwise, if the
+          # association is stale, ActiveRecord will try to add parents that may
+          # already be in the database, which will give an error of duplicated
+          # keys.
+          if ac_node
+            ac_node.parents(true)
+            ac_node.parents = parents.map(&:ac_node)
+          end
         end
 
         def update_child_nodes
