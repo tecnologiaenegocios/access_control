@@ -138,7 +138,7 @@ module AccessControl
           return unless verify_default_permissions?('create')
           manager = AccessControl.security_manager
           parents_for_creation.each do |parent|
-            manager.verify_access!(parent.ac_node || parent.ac_node(true),
+            manager.verify_access!(parent.ac_node,
                                    self.class.permissions_required_to_create)
           end
         end
@@ -146,16 +146,14 @@ module AccessControl
         def verify_update_permissions
           return unless verify_default_permissions?('update')
           AccessControl.security_manager.verify_access!(
-            ac_node || ac_node(true),
-            self.class.permissions_required_to_update
+            self.ac_node, self.class.permissions_required_to_update
           )
         end
 
         def verify_destroy_permissions
           return unless verify_default_permissions?('destroy')
           AccessControl.security_manager.verify_access!(
-            ac_node || ac_node(true),
-            self.class.permissions_required_to_destroy
+            self.ac_node, self.class.permissions_required_to_destroy
           )
         end
 

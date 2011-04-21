@@ -434,24 +434,6 @@ module AccessControl
           model_klass.create!(:field => 1)
         end
 
-        it "reloads each node association if it returns nil" do
-          node1 = parent1.ac_node
-
-          parent1.should_receive(:ac_node).with(no_args).ordered.and_return(nil)
-          parent1.should_receive(:ac_node).with(true).ordered.and_return(node1)
-          parent1.should_receive(:ac_node).with(no_args).ordered.
-            any_number_of_times.and_return(node1)
-
-          manager.should_receive(:verify_access!).
-            with(node1, Set.new(['permission']))
-          manager.should_receive(:verify_access!).
-            with(parent2.ac_node, Set.new(['permission']))
-
-          r = model_klass.new(:field => 1)
-          r.stub!(:parents).and_return([parent1, parent2])
-          r.save!
-        end
-
         it "checks permission in the global node if there's no parents" do
 
           # If the record has no parents it is a root record.  But at the
@@ -560,23 +542,6 @@ module AccessControl
           object.save!
         end
 
-        it "reloads node association if it returns nil while checking" do
-          object = model_klass.unrestricted_find(:first)
-          node = object.ac_node
-
-          object.should_receive(:ac_node).with(no_args).ordered.
-            and_return(nil)
-          object.should_receive(:ac_node).with(true).ordered.and_return(node)
-          object.should_receive(:ac_node).with(no_args).ordered.
-            any_number_of_times.and_return(node)
-
-          manager.should_receive(:verify_access!).
-            with(node, Set.new(['permission']))
-
-          object.field = 1
-          object.save!
-        end
-
         describe "when the user has the required permission(s)" do
           it "saves the record" do
             object = model_klass.unrestricted_find(:first)
@@ -652,22 +617,6 @@ module AccessControl
           end
           manager.should_not_receive(:verify_access!)
           object = model_klass.unrestricted_find(:first)
-          object.destroy
-        end
-
-        it "reloads node association if it returns nil while checking" do
-          object = model_klass.unrestricted_find(:first)
-          node = object.ac_node
-
-          object.should_receive(:ac_node).with(no_args).ordered.
-            and_return(nil)
-          object.should_receive(:ac_node).with(true).ordered.and_return(node)
-          object.should_receive(:ac_node).with(no_args).ordered.
-            any_number_of_times.and_return(node)
-
-          manager.should_receive(:verify_access!).
-            with(node, Set.new(['permission']))
-
           object.destroy
         end
 
