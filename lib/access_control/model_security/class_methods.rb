@@ -126,11 +126,17 @@ module AccessControl
           declared = send("declared_#{name}_requirements")
           return declared | added if declared
           if superclass.respond_to?("permissions_required_to_#{name}")
-            p = superclass.send("permissions_required_to_#{name}")
+            p = superclass.send("permissions_required_to_#{name}") \
+              rescue Set.new
           else
             p = AccessControl.config.send("default_#{name}_permissions")
           end
-          p | added
+          result = p | added
+          raise AccessControl::NoPermissionsDeclared if (
+            result.empty? && securable? &&
+            AccessControl.model_security_strict?
+          )
+          result
         end
 
       end

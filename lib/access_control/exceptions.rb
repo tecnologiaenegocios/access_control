@@ -24,4 +24,7 @@ module AccessControl
   class MissingPropagation < StandardError
   end
 
+  class NoPermissionsDeclared < StandardError
+  end
+
 end

@@ -3,6 +3,13 @@ require 'access_control/model_security'
 require 'access_control/association_security'
 
 module AccessControl
+
+  describe AccessControl do
+    it "is in strict mode by default" do
+      AccessControl.should be_model_security_strict
+    end
+  end
+
   describe ModelSecurity do
 
     let(:model_klass) do
@@ -24,6 +31,7 @@ module AccessControl
         config.default_destroy_permissions = []
         config.default_roles_on_create = nil
       end
+      AccessControl.stub(:model_security_strict? => false)
     end
 
     after do
@@ -1621,6 +1629,14 @@ module AccessControl
 
         it "can be defined in class level" do
           model_klass.send("#{v}_requires", 'some permission')
+        end
+
+        it "requires at least one permission by default" do
+          AccessControl.stub(:model_security_strict? => true)
+          AccessControl.config.send("default_#{v}_permissions=", [])
+          lambda {
+            model_klass.send("permissions_required_to_#{v}")
+          }.should raise_exception(AccessControl::NoPermissionsDeclared)
         end
 
         it "can be queried in class level (returns a set)" do

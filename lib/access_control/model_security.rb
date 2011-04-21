@@ -1,5 +1,13 @@
 require 'access_control/model_security/instance_methods'
 
+module AccessControl
+
+  def self.model_security_strict?
+    true
+  end
+
+end
+
 class ActiveRecord::Base
 
   include AccessControl::ModelSecurity::InstanceMethods
