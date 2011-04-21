@@ -114,9 +114,17 @@ module AccessControl
 
       before do
         test_controller.class.instance_eval do
-          def before_filter options, &block
+          def before_filter *args, &block
+            options = args.extract_options!
+            action = options[:only].to_sym
             @filters ||= {}
-            @filters[options[:only].to_sym] = block
+            @filters[action] ||= []
+            if block_given?
+              @filters[action] << block
+            else
+              method = args.first
+              @filters[action] << Proc.new{|controller| controller.send(method)}
+            end
           end
           def filters
             @filters
@@ -124,7 +132,7 @@ module AccessControl
         end
         test_controller.class.class_eval do
           def call_filters_for_some_action
-            self.class.filters[:some_action].call(self)
+            self.class.filters[:some_action].each{|b| b.call(self)}
           end
           def some_action
             call_filters_for_some_action
@@ -186,6 +194,22 @@ module AccessControl
           protect :some_action,
                   :with => 'some permission',
                   :context => Proc.new{|controller| 'a custom context'}
+        end
+        manager.should_receive(:verify_access!).
+          with('a custom context', Set.new(['some permission']))
+        test_controller.some_action
+      end
+
+      it "accepts a symbol starting with @ to indicate an instance var as "\
+         "the context" do
+        test_controller.class.class_eval do
+          before_filter :load_variable, :only => :some_action
+          protect :some_action,
+                  :with => 'some permission',
+                  :context => :@variable
+          def load_variable
+            @variable = 'a custom context'
+          end
         end
         manager.should_receive(:verify_access!).
           with('a custom context', Set.new(['some permission']))

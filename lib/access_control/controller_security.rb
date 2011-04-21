@@ -21,7 +21,11 @@ module AccessControl
           context = nil
           case options[:context]
           when Symbol, String
-            context = controller.send(options[:context])
+            if options[:context].to_s.starts_with?('@')
+              context = controller.instance_variable_get(options[:context])
+            else
+              context = controller.send(options[:context])
+            end
           when Proc
             context = options[:context].call(controller)
           else
