@@ -2,6 +2,10 @@ require 'access_control/exceptions'
 
 module AccessControl
 
+  def self.controller_security_enabled?
+    true
+  end
+
   module ControllerSecurity
 
     module ClassMethods
@@ -43,7 +47,8 @@ module AccessControl
             next
           end
 
-          manager.verify_access!(context, permissions)
+          manager.verify_access!(context, permissions) \
+            if AccessControl.controller_security_enabled?
         end
       end
 

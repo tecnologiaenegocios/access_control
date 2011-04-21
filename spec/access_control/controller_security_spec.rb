@@ -2,6 +2,13 @@ require 'spec_helper'
 require 'access_control/controller_security'
 
 module AccessControl
+
+  describe AccessControl do
+    it "enables controller security by default" do
+      AccessControl.should be_controller_security_enabled
+    end
+  end
+
   describe ControllerSecurity do
 
     let(:test_controller) do
@@ -238,6 +245,15 @@ module AccessControl
         lambda {
           test_controller.some_action
         }.should raise_exception('the unauthorized exception')
+      end
+
+      it "doesn't raise unauthorized if security is disabled" do
+        test_controller.class.class_eval do
+          protect :some_action, :with => 'some permission'
+        end
+        AccessControl.stub!(:controller_security_enabled?).and_return(false)
+        manager.stub!(:verify_access!).and_raise('the unauthorized exception')
+        test_controller.some_action
       end
 
       it "registers the permissions passed in :with and additional options" do
