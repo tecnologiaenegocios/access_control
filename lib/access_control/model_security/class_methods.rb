@@ -90,6 +90,12 @@ module AccessControl
       [:query, :view, :create, :update, :destroy].each do |name|
 
         define_method(:"#{name}_requires") do |*permissions|
+          if permissions == [:none]
+            permissions = Set.new
+            instance_variable_set("@declared_no_permissions_to_#{name}", true)
+          else
+            instance_variable_set("@declared_no_permissions_to_#{name}", false)
+          end
           args_to_register = permissions.dup + [{
             :action => name.to_s,
             :model => self.name
@@ -122,6 +128,8 @@ module AccessControl
         end
 
         define_method(:"permissions_required_to_#{name}") do
+          return Set.new if \
+            instance_variable_get("@declared_no_permissions_to_#{name}")
           added = send("added_#{name}_requirements")
           declared = send("declared_#{name}_requirements") || Set.new
           return declared | added if declared.any?

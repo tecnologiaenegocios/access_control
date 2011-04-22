@@ -35,7 +35,7 @@ module AccessControl
         AccessControl.stub!(:security_manager).and_return(manager)
         model_klass.query_requires 'query'
         model_klass.view_requires 'view'
-        model_klass.create_requires # Without args unset create requirements.
+        model_klass.create_requires :none
       end
 
       describe "#find_target" do

@@ -20,6 +20,7 @@ module AccessControl
       Node.clear_global_node_cache
       class Object::SecurableObj < ActiveRecord::Base
         include AccessControl::ModelSecurity::InstanceMethods
+        create_requires 'some_permission_to_create'
         set_table_name 'records'
         def create_nodes
           # We disable automatic node creation since it doesn't belong to this

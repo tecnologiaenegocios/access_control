@@ -1639,6 +1639,13 @@ module AccessControl
           }.should raise_exception(AccessControl::NoPermissionsDeclared)
         end
 
+        it "doesn't requires any permission if :none is set" do
+          AccessControl.stub(:model_security_strict? => true)
+          AccessControl.config.send("default_#{v}_permissions=", [])
+          model_klass.send("#{v}_requires", :none)
+          model_klass.send("permissions_required_to_#{v}").should == Set.new
+        end
+
         it "can be queried in class level (returns a set)" do
           model_klass.send("#{v}_requires", 'some permission')
           model_klass.send("permissions_required_to_#{v}").
