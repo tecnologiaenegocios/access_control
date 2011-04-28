@@ -56,6 +56,9 @@ module AccessControl
 
     module InstanceMethods
 
+      RESOURCE_ACTIONS = %w(show destroy edit update)
+      COLLECTION_ACTIONS = %w(index new create)
+
       def self.included(base)
         base.extend(AccessControl::ControllerSecurity::ClassMethods)
         base.class_eval do
@@ -86,11 +89,50 @@ module AccessControl
           Thread.current[:validation_chain_depth] = nil
         end
 
-        def current_security_context
-          if AccessControl::Node.global
-            return AccessControl::Node.global
+        def _resource_action?
+          RESOURCE_ACTIONS.include?(params[:action])
+        end
+
+        def _collection_action?
+          COLLECTION_ACTIONS.include?(params[:action])
+        end
+
+        def _expected_resource_var_name
+          '@' + controller_path.gsub('/', '_').singularize
+        end
+
+        def _expected_parent_var_name
+          return unless route = ActionController::Routing::Routes.routes.select do |r|
+            r.matches_controller_and_action?(controller_path, params[:action]) &&
+              r.defaults[:controller] == controller_path
+          end.first
+          return unless segment = route.segments.reverse.detect do |s|
+            ActionController::Routing::DynamicSegment === s && !s.optional?
           end
-          nil
+          '@' + segment.key.to_s.gsub(/_id$/, '')
+        end
+
+        def _fetch_resource
+          instance_variable_get(_expected_resource_var_name)
+        end
+
+        def _fetch_parent
+          var = _expected_parent_var_name
+          var && instance_variable_get(var)
+        end
+
+        def _fetch_candidate_resource
+          if _resource_action?
+            _fetch_resource
+          elsif _collection_action?
+            _fetch_parent
+          end
+        end
+
+        def current_security_context
+          (resource = _fetch_candidate_resource) ?
+            resource.ac_node :
+            AccessControl::Node.global
         end
 
         def current_groups
