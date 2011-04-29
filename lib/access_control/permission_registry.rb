@@ -6,28 +6,27 @@ module AccessControl
     class << self
 
       def clear_registry
-        @permissions = Set.new
-        @permissions_with_options = Set.new
+        @permissions = nil
+        @permissions_with_options = nil
         @loaded = false
       end
 
       def register *args
         options = args.extract_options!
-        set = Util.make_set_from_args(*args)
-        set_with_options = Set.new(set.map{|i| [i, options.dup]})
-        @permissions = (@permissions || Set.new) | set
-        @permissions_with_options = (@permissions_with_options || Set.new) |
-          set_with_options
+        Util.make_set_from_args(*args).each do |p|
+          permissions << p
+          permissions_with_options[p] << options.dup
+        end
       end
 
       def all
         load_stuff if load_stuff?
-        @permissions || Set.new
+        permissions
       end
 
       def all_with_options
         load_stuff if load_stuff?
-        @permissions_with_options || Set.new
+        permissions_with_options
       end
 
       def load_all_controllers
@@ -63,9 +62,14 @@ module AccessControl
         # the handling of cached classes in Rails, so we deduce their class
         # name from the filename and get the constant (a.k.a. the top level
         # class).  If the class wasn't loaded yet, ActiveSupport::Dependencies
-        # will get it from the file anyway, taking into consideration the
-        # cache_class config option.
-        File.basename(filename, '.rb').camelize.constantize
+        # will get it from the source file based on the its name anyway, taking
+        # into consideration the cache_class config option.
+        filename.
+          gsub(Rails.root + 'app/models/', '').
+          gsub(Rails.root + 'app/controllers/', '').
+          gsub(/\.rb$/, '').
+          camelize.
+          constantize
       end
 
       def register_undeclared_permissions
@@ -78,6 +82,10 @@ module AccessControl
 
       def permissions
         @permissions ||= Set.new
+      end
+
+      def permissions_with_options
+        @permissions_with_options ||= Hash.new{|h, k| h[k.to_s] = Set.new }
       end
 
     end
