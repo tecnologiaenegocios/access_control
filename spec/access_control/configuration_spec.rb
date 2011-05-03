@@ -78,6 +78,20 @@ module AccessControl
 
     end
 
+    describe "restrict belongs_to association" do
+
+      it "is disabled by default" do
+        Configuration.new.restrict_belongs_to_association.should == false
+      end
+
+      it "can be enabled" do
+        config = Configuration.new
+        config.restrict_belongs_to_association = true
+        config.restrict_belongs_to_association.should be_true
+      end
+
+    end
+
     describe "default roles on create" do
 
       it "is 'owner' by default" do

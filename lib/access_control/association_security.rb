@@ -3,6 +3,8 @@ module AccessControl
     module BelongsTo
       private
         def unrestricted_find_target
+          return restricted_find_target if @reflection.active_record.
+            is_association_restricted?(@reflection.name.to_sym)
           @reflection.klass.send(:disable_query_restriction)
           result = restricted_find_target
           @reflection.klass.send(:re_enable_query_restriction)
@@ -12,6 +14,8 @@ module AccessControl
     module BelongsToPolymorphic
       private
         def unrestricted_find_target
+          return restricted_find_target if @reflection.active_record.
+            is_association_restricted?(@reflection.name.to_sym)
           return restricted_find_target if association_class.nil?
           association_class.send(:disable_query_restriction)
           result = restricted_find_target

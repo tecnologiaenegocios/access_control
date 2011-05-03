@@ -41,53 +41,136 @@ module AccessControl
       describe "#find_target" do
 
         describe AssociationSecurity::BelongsTo do
-          it "returns records without restriction" do
+
+          before do
             model_klass.class_eval do
               belongs_to :record
             end
-            first_record = model_klass.create!
-            second_record = model_klass.create!(:record_id => first_record.id)
-            lambda {
-              second_record.record.should == first_record
-            }.should_not raise_exception
+          end
+
+          describe "when the class doesn't restrict for this association" do
+
+            before do
+              model_klass.stub(:is_association_restricted?).and_return(false)
+            end
+
+            it "returns records without restriction" do
+              first_record = model_klass.create!
+              second_record = model_klass.create!(:record_id => first_record.id)
+              lambda {
+                second_record.record.should == first_record
+              }.should_not raise_exception
+            end
+
+          end
+
+          describe "when the class enforces restriction" do
+
+            before do
+              model_klass.stub(:is_association_restricted?).and_return(true)
+            end
+
+            it "verifies the required permissions" do
+              first_record = model_klass.create!
+              second_record = model_klass.create!(:record_id => first_record.id)
+              lambda {
+                second_record.record.should == first_record
+              }.should raise_exception(AccessControl::Unauthorized)
+            end
+
           end
         end
 
         describe AssociationSecurity::BelongsToPolymorphic do
-          it "returns records without restriction" do
+
+          before do
             model_klass.class_eval do
               belongs_to :recordable, :polymorphic => true
-              def [] attr
-                case attr.to_s
-                when 'recordable_type' then 'Record'
-                when 'recordable_id' then record_id
-                else
-                  super
-                end
-              end
             end
-            first_record = model_klass.create!
-            second_record = model_klass.create!(:record_id => first_record.id)
-            lambda {
-              second_record.recordable.should == first_record
-            }.should_not raise_exception
           end
 
-          it "returns nil if there's type column is empty" do
-            model_klass.class_eval do
-              belongs_to :recordable, :polymorphic => true
-              def [] attr
-                case attr.to_s
-                when 'recordable_type' then nil
-                when 'recordable_id' then nil
-                else
-                  super
+          describe "when the class doesn't restrict for this association" do
+
+            before do
+              model_klass.stub(:is_association_restricted?).and_return(false)
+            end
+
+            it "returns records without restriction" do
+              model_klass.class_eval do
+                def [] attr
+                  case attr.to_s
+                  when 'recordable_type' then 'Record'
+                  when 'recordable_id' then record_id
+                  else
+                    super
+                  end
                 end
               end
+              first_record = model_klass.create!
+              second_record = model_klass.create!(:record_id => first_record.id)
+              lambda {
+                second_record.recordable.should == first_record
+              }.should_not raise_exception
             end
-            lambda {
-              model_klass.create!.recordable.should be_nil
-            }.should_not raise_exception
+
+            it "doesn't break if the type can't be determined" do
+              model_klass.class_eval do
+                def [] attr
+                  case attr.to_s
+                  when 'recordable_type' then nil
+                  when 'recordable_id' then nil
+                  else
+                    super
+                  end
+                end
+              end
+              lambda {
+                model_klass.create!.recordable.should be_nil
+              }.should_not raise_exception
+            end
+
+          end
+
+          describe "when the class enforces restriction" do
+
+            before do
+              model_klass.stub(:is_association_restricted?).and_return(true)
+            end
+
+            it "verifies the required permissions" do
+              model_klass.class_eval do
+                def [] attr
+                  case attr.to_s
+                  when 'recordable_type' then 'Record'
+                  when 'recordable_id' then record_id
+                  else
+                    super
+                  end
+                end
+              end
+              first_record = model_klass.create!
+              second_record = model_klass.create!(:record_id => first_record.id)
+              lambda {
+                second_record.recordable.should == first_record
+              }.should raise_exception(AccessControl::Unauthorized)
+            end
+
+            it "still doesn't break if the type can't be determined" do
+              model_klass.class_eval do
+                def [] attr
+                  case attr.to_s
+                  when 'recordable_type' then nil
+                  when 'recordable_id' then nil
+                  else
+                    super
+                  end
+                end
+              end
+              lambda {
+                model_klass.create!.recordable.should be_nil
+              }.should_not raise_exception
+            end
+
           end
         end
 

@@ -2,6 +2,9 @@ require 'access_control/model_security/instance_methods'
 
 module AccessControl
 
+  # This makes models expect permissions for default CRUD operations.  Used in
+  # specs to avoid it (when we don't want to set permissions for these we stub
+  # it to return false).
   def self.model_security_strict?
     true
   end

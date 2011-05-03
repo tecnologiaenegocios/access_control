@@ -80,6 +80,89 @@ module AccessControl
         end
       end
 
+      describe "protection of belongs_to associations" do
+
+        it "restricts the querying of an association" do
+          model_klass.class_eval do
+            belongs_to :record
+            restrict_association :record
+          end
+          model_klass.is_association_restricted?(:record).should be_true
+        end
+
+        it "restricts the querying of an association based on system-wide "\
+           "configuration option" do
+          AccessControl.configure do |config|
+            config.restrict_belongs_to_association = true
+          end
+          model_klass.class_eval do
+            belongs_to :record
+          end
+          model_klass.is_association_restricted?(:record).should be_true
+        end
+
+        it "allows querying if the system-wide config allows and nothing "\
+           "is explicitly defined" do
+          AccessControl.configure do |config|
+            config.restrict_belongs_to_association = false
+          end
+          model_klass.class_eval do
+            belongs_to :record
+          end
+          model_klass.is_association_restricted?(:record).should be_false
+        end
+
+        it "can override the config option to restrict queries" do
+          AccessControl.configure do |config|
+            config.restrict_belongs_to_association = false
+          end
+          model_klass.class_eval do
+            belongs_to :record
+            restrict_association :record
+          end
+          model_klass.is_association_restricted?(:record).should be_true
+        end
+
+        it "can override the config option to allow queries" do
+          AccessControl.configure do |config|
+            config.restrict_belongs_to_association = true
+          end
+          model_klass.class_eval do
+            belongs_to :record
+            unrestrict_association :record
+          end
+          model_klass.is_association_restricted?(:record).should be_false
+        end
+
+        it "can restrict all associations at once" do
+          AccessControl.configure do |config|
+            config.restrict_belongs_to_association = false
+          end
+          model_klass.class_eval do
+            belongs_to :record
+            belongs_to :another_record
+            restrict_all_associations!
+          end
+          model_klass.is_association_restricted?(:record).should be_true
+          model_klass.is_association_restricted?(:another_record).should be_true
+        end
+
+        it "can unrestrict all associations at once" do
+          AccessControl.configure do |config|
+            config.restrict_belongs_to_association = true
+          end
+          model_klass.class_eval do
+            belongs_to :record
+            belongs_to :another_record
+            unrestrict_all_associations!
+          end
+          model_klass.is_association_restricted?(:record).should be_false
+          model_klass.is_association_restricted?(:another_record).
+            should be_false
+        end
+
+      end
+
       describe "protection of methods" do
 
         before do

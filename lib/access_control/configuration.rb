@@ -12,6 +12,13 @@ module AccessControl
 
     attr_accessor :tree_creation
 
+    # By default, belongs_to associations are seen as ordinary attributes of an
+    # instance, that is, they're not restricted by default.  Setting this to
+    # true will subject them to normal `find` restriction rules.
+    #
+    # This can be set per model class or per association, though.
+    attr_accessor :restrict_belongs_to_association
+
     def initialize
       @default_query_permissions = Set.new(['query'])
       @default_view_permissions = Set.new(['view'])
@@ -22,6 +29,8 @@ module AccessControl
       @default_roles_on_create = Set.new(['owner'])
 
       @tree_creation = true
+
+      @restrict_belongs_to_association = false
     end
 
     %w(view query create update destroy).each do |name|
