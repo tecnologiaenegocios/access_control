@@ -10,6 +10,10 @@ module AccessControl
         )
       end
 
+      def log_unregistered_permission permission
+        AccessControl::Logger.log_unregistered_permission(permission)
+      end
+
       def make_set_from_args *args
         if args.size == 1 && args.first.is_a?(Enumerable)
           return Set.new(args.first)
@@ -54,6 +58,14 @@ module AccessControl
         "  #{msg}\n"
       end
 
+      def format_unregistered_permission_message permission
+        base = "Permission \"#{permission}\" is not registered"
+        if ActiveRecord::Base.colorize_logging
+          return "\e[31;1m#{base}\e[0m"
+        end
+        base
+      end
+
       def log_missing_permissions context, requirements, trace
         missing_permissions = format_permissions(
           requirements -
@@ -63,6 +75,10 @@ module AccessControl
           format_unauthorized_message(missing_permissions) +
           format_trace(trace)
         )
+      end
+
+      def log_unregistered_permission permission
+        Rails.logger.info(format_unregistered_permission_message(permission))
       end
 
     end

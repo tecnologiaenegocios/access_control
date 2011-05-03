@@ -44,6 +44,9 @@ module AccessControl
             SecurityPolicyItem.new(:role_id => role.id,
                                    :permission => permission)
           end
+          unless PermissionRegistry.all.include?(permission)
+            Util.log_unregistered_permission(permission)
+          end
           result
         end
     end
