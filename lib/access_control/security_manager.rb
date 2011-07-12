@@ -30,11 +30,7 @@ module AccessControl
       permissions = [permissions] unless permissions.respond_to?(:all?)
       permissions.all? do |permission|
         nodes.any? do |node|
-          if !node.respond_to?(:has_permission?)
-            # Probably a record.
-            node = node.ac_node
-          end
-          node.has_permission?(permission)
+          as_node(node).has_permission?(permission)
         end
       end
     end
@@ -59,13 +55,13 @@ module AccessControl
 
     def permissions_in_context *args
       Util.make_set_from_args(*args).inject(Set.new) do |permissions, node|
-        permissions | node.permissions
+        permissions | as_node(node).permissions
       end
     end
 
     def roles_in_context *args
       Util.make_set_from_args(*args).inject(Set.new) do |roles, node|
-        roles | node.current_roles
+        roles | as_node(node).current_roles
       end
     end
 
@@ -94,6 +90,16 @@ module AccessControl
     end
 
   private
+
+    def as_node record_or_node
+      if record_or_node.respond_to?(:has_permission?) ||
+         record_or_node.respond_to?(:permissions) ||
+         record_or_node.respond_to?(:current_roles)
+        return record_or_node
+      end
+      # Probably a record.
+      record_or_node.ac_node
+    end
 
     def current_user_principal_id
       current_user ? current_user.principal.id : Principal.anonymous_id
