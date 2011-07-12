@@ -14,8 +14,6 @@ module AccessControl
 
   class SecurityManager
 
-    attr_writer :restrict_queries
-
     def initialize
       @restrict_queries = true
     end
@@ -47,8 +45,16 @@ module AccessControl
       raise Unauthorized
     end
 
+    def restrict_queries!
+      @restrict_queries = true
+    end
+
+    def unrestrict_queries!
+      @restrict_queries = false
+    end
+
     def restrict_queries?
-      !!@restrict_queries
+      @restrict_queries
     end
 
     def permissions_in_context *args
@@ -77,6 +83,14 @@ module AccessControl
 
     def current_groups
       @current_groups || []
+    end
+
+    def without_query_restriction
+      old_restriction_value = restrict_queries?
+      unrestrict_queries!
+      result = yield
+      restrict_queries! if old_restriction_value
+      result
     end
 
   private
