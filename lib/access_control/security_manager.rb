@@ -2,37 +2,29 @@ require 'access_control/exceptions'
 
 module AccessControl
 
-  def self.set_security_manager current_controller
-    Thread.current[:__security_manager] = SecurityManager.new(
-      current_controller
-    )
-  end
+  SM_THREAD_KEY = :ac_security_manager
 
   def self.security_manager
-    Thread.current[:__security_manager]
+    Thread.current[SM_THREAD_KEY] ||= SecurityManager.new
   end
 
   def self.no_security_manager
-    Thread.current[:__security_manager] = nil
+    Thread.current[SM_THREAD_KEY] = nil
   end
 
   class SecurityManager
 
     attr_writer :restrict_queries
 
-    def initialize controller
-      @controller = controller
+    def initialize
       @restrict_queries = true
     end
 
     def principal_ids
-      return [Principal.anonymous_id] unless current_user
-      @principal_ids ||= current_groups.inject(
-        [current_user.principal.id]
-      ) do |ids, group|
-        ids << group.principal.id
-        ids
-      end
+      @principal_ids ||= current_groups.
+        map{|group| group.principal.id}.
+        push(current_user_principal_id).
+        uniq
     end
 
     def has_access? nodes, permissions
@@ -71,15 +63,27 @@ module AccessControl
       end
     end
 
-    private
+    def current_user= current_user
+      @current_user = current_user
+    end
 
-      def current_user
-        @current_user ||= @controller.send(:current_user)
-      end
+    def current_user
+      @current_user
+    end
 
-      def current_groups
-        @current_groups ||= @controller.send(:current_groups)
-      end
+    def current_groups= current_groups
+      @current_groups = current_groups
+    end
+
+    def current_groups
+      @current_groups || []
+    end
+
+  private
+
+    def current_user_principal_id
+      current_user ? current_user.principal.id : Principal.anonymous_id
+    end
 
   end
 
