@@ -2281,6 +2281,14 @@ module AccessControl
             }.should raise_exception(ActiveRecord::RecordNotFound)
           end
 
+          it "doesn't raise Unauthorized for unsecurable classes" do
+            record1 = model_klass.create!
+            model_klass.stub(:securable? => false)
+            lambda {
+              model_klass.find(record1.id)
+            }.should_not raise_exception(AccessControl::Unauthorized)
+          end
+
         end
 
       end

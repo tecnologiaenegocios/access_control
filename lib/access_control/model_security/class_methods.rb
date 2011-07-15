@@ -270,7 +270,7 @@ module AccessControl
         permissions = options[:permissions] || permissions_required_to_view
         options[:permissions] = Set.new
         result = find_one_without_unauthorized(id, options)
-        if AccessControl.security_manager.restrict_queries?
+        if securable? && AccessControl.security_manager.restrict_queries?
           AccessControl.security_manager.verify_access!(result, permissions)
         end
         result
