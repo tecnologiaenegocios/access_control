@@ -84,6 +84,10 @@ module AccessControl
       return instance
     end
 
+    def principal
+      Principal.anonymous
+    end
+
     def id
       Principal.anonymous_subject_id
     end
@@ -96,6 +100,10 @@ module AccessControl
 
     def self.find(*args)
       return instance
+    end
+
+    def principal
+      Principal.unrestrictable
     end
 
     def id

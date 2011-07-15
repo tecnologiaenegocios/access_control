@@ -90,6 +90,10 @@ module AccessControl
             should == Principal.anonymous_subject_id
         end
 
+        it "returns the principal" do
+          AnonymousUser.instance.principal.should == Principal.anonymous
+        end
+
       end
 
     end
@@ -149,6 +153,11 @@ module AccessControl
         it "has id == Principal.unrestrictable_subject_id" do
           Principal.unrestrictable.subject.id.
             should == Principal.unrestrictable_subject_id
+        end
+
+        it "returns the principal" do
+          UnrestrictableUser.instance.principal.
+            should == Principal.unrestrictable
         end
 
       end
