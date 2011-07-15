@@ -33,6 +33,7 @@ module AccessControl
         config.default_destroy_permissions = []
         config.default_roles_on_create = nil
       end
+      Principal.create_anonymous_principal!
       AccessControl.stub(:model_security_strict? => false)
       AccessControl.stub(:security_manager => manager)
     end

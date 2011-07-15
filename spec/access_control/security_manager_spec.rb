@@ -229,6 +229,18 @@ module AccessControl
 
       end
 
+      describe "when the UnrestrictableUser exists and is logged in" do
+
+        before do
+          manager.current_user = UnrestrictableUser.instance
+        end
+
+        it "returns true" do
+          manager.has_access?('any nodes', 'any permissions').should be_true
+        end
+
+      end
+
     end
 
     describe "#verify_access!" do

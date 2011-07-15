@@ -65,12 +65,26 @@ module AccessControl
 
   end
 
+  class UnrestrictedPrincipal
+
+    include Singleton
+
+    def id
+      Principal::UNRESTRICTABLE_ID
+    end
+
+  end
+
   class UnrestrictableUser
 
     include Singleton
 
+    def principal
+      UnrestrictedPrincipal.instance
+    end
+
     def principal_id
-      Principal::UNRESTRICTABLE_ID
+      principal.id
     end
 
   end

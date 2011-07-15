@@ -26,6 +26,7 @@ module AccessControl
     end
 
     def has_access? nodes, permissions
+      return true if unrestrictable_user_logged_in?
       nodes = [nodes] unless nodes.respond_to?(:any?)
       permissions = [permissions] unless permissions.respond_to?(:all?)
       permissions.all? do |permission|
@@ -99,6 +100,10 @@ module AccessControl
       end
       # Probably a record.
       record_or_node.ac_node
+    end
+
+    def unrestrictable_user_logged_in?
+      principal_ids.include?(Principal::UNRESTRICTABLE_ID)
     end
 
     def current_user_principal_id
