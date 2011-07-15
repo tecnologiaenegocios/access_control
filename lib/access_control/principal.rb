@@ -9,6 +9,8 @@ module AccessControl
              :class_name => Assignment.name,
              :dependent => :destroy
 
+    UNRESTRICTABLE_ID = Object.new
+
     def self.anonymous
       find_by_subject_type_and_subject_id(
         anonymous_subject_type,
@@ -40,37 +42,6 @@ module AccessControl
       0
     end
 
-    def self.unrestrictable
-      find_by_subject_type_and_subject_id(
-        unrestrictable_subject_type,
-        unrestrictable_subject_id
-      )
-    end
-
-    def self.unrestrictable_id
-      unrestrictable.id
-    end
-
-    def unrestrictable?
-      subject_type == self.class.unrestrictable_subject_type &&
-        subject_id == self.class.unrestrictable_subject_id
-    end
-
-    def self.create_unrestrictable_principal!
-      create!(
-        :subject_type => unrestrictable_subject_type,
-        :subject_id => unrestrictable_subject_id
-      )
-    end
-
-    def self.unrestrictable_subject_type
-      UnrestrictableUser.name
-    end
-
-    def self.unrestrictable_subject_id
-      0
-    end
-
     def self.securable?
       false
     end
@@ -84,8 +55,8 @@ module AccessControl
       return instance
     end
 
-    def principal
-      Principal.anonymous
+    def principal_id
+      Principal.anonymous_id
     end
 
     def id
@@ -98,16 +69,8 @@ module AccessControl
 
     include Singleton
 
-    def self.find(*args)
-      return instance
-    end
-
-    def principal
-      Principal.unrestrictable
-    end
-
-    def id
-      Principal.unrestrictable_subject_id
+    def principal_id
+      Principal::UNRESTRICTABLE_ID
     end
 
   end
