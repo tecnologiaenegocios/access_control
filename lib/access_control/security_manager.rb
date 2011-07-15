@@ -67,6 +67,7 @@ module AccessControl
     end
 
     def current_user= current_user
+      @principal_ids = nil
       @current_user = current_user
     end
 
@@ -75,6 +76,7 @@ module AccessControl
     end
 
     def current_groups= current_groups
+      @principal_ids = nil
       @current_groups = current_groups
     end
 

@@ -124,6 +124,24 @@ module AccessControl
           manager.principal_ids
         end
 
+        it "clears the cache if current_user is set" do
+          manager.principal_ids
+          manager.current_user = user
+          user.should_receive(:principal)
+          group1.should_receive(:principal)
+          group2.should_receive(:principal)
+          manager.principal_ids
+        end
+
+        it "clears the cache if current_groups is set" do
+          manager.principal_ids
+          manager.current_groups = [group1, group2]
+          user.should_receive(:principal)
+          group1.should_receive(:principal)
+          group2.should_receive(:principal)
+          manager.principal_ids
+        end
+
       end
 
     end
