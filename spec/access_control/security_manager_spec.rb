@@ -357,6 +357,18 @@ module AccessControl
         manager.restrict_queries?.should be_true
       end
 
+      describe "when the UnrestrictableUser is logged in" do
+
+        before do
+          manager.current_user = UnrestrictableUser.instance
+        end
+
+        it "returns false" do
+          manager.restrict_queries?.should be_false
+        end
+
+      end
+
     end
 
     describe "#without_query_restriction" do

@@ -51,7 +51,8 @@ module AccessControl
     end
 
     def restrict_queries?
-      @restrict_queries
+      return false if unrestrictable_user_logged_in?
+      really_restrict_queries?
     end
 
     def permissions_in_context *args
@@ -85,7 +86,7 @@ module AccessControl
     end
 
     def without_query_restriction
-      old_restriction_value = restrict_queries?
+      old_restriction_value = really_restrict_queries?
       unrestrict_queries!
       result = yield
       restrict_queries! if old_restriction_value
@@ -110,6 +111,10 @@ module AccessControl
 
     def current_user_principal_id
       current_user ? current_user.principal.id : Principal.anonymous_id
+    end
+
+    def really_restrict_queries?
+      @restrict_queries
     end
 
   end

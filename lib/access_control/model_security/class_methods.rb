@@ -343,9 +343,9 @@ module AccessControl
       private
 
         def merge_permission_options!
-          if AccessControl.security_manager.restrict_queries? &&
-             !on_validation? &&
-             model.securable?
+          if !on_validation? &&
+             model.securable? &&
+             AccessControl.security_manager.restrict_queries?
             add_permissions!
             restrict_ids!
           end
