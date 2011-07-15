@@ -6,9 +6,7 @@ module Introspection
       attribute = true
     end
     it "#{klass.name} has instance method #{method}" do
-      if attribute
-        attribute.should be_true # OK
-      else
+      unless attribute
         klass.instance_methods.should include(method.to_s)
       end
     end
