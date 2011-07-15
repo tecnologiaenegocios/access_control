@@ -65,12 +65,12 @@ module AccessControl
 
         it "returns true if the principal is the anonymous principal" do
           Principal.create_anonymous_principal!
-          Principal.anonymous.anonymous?.should be_true
+          Principal.anonymous.should be_anonymous
         end
 
         it "returns false otherwise" do
           principal = Principal.create!(:subject => stub_model(SubjectObj))
-          principal.anonymous?.should be_false
+          principal.should_not be_anonymous
         end
 
       end
@@ -88,6 +88,67 @@ module AccessControl
         it "has id == Principal.anonymous_subject_id" do
           Principal.anonymous.subject.id.
             should == Principal.anonymous_subject_id
+        end
+
+      end
+
+    end
+
+    describe "unrestrictable principal" do
+
+      let(:unrestrictable_principal) do
+        unrestrictable_subject_type = Principal.unrestrictable_subject_type
+        unrestrictable_subject_id = Principal.unrestrictable_subject_id
+        Principal.find_by_subject_type_and_subject_id(
+          unrestrictable_subject_type, unrestrictable_subject_id
+        )
+      end
+
+      it "creates the unrestrictable principal" do
+        Principal.create_unrestrictable_principal!
+      end
+
+      it "can return the unrestrictable principal object" do
+        Principal.create_unrestrictable_principal!
+        Principal.unrestrictable.should == unrestrictable_principal
+      end
+
+      it "can return the unrestrictable principal id" do
+        Principal.create_unrestrictable_principal!
+        Principal.unrestrictable_id.should == unrestrictable_principal.id
+      end
+
+      it "returns nil if there's no unrestrictable principal" do
+        Principal.unrestrictable.should be_nil
+      end
+
+      describe "predicate method #unrestrictable?" do
+
+        it "returns true if the principal is the unrestrictable principal" do
+          Principal.create_unrestrictable_principal!
+          Principal.unrestrictable.should be_unrestrictable
+        end
+
+        it "returns false otherwise" do
+          principal = Principal.create!(:subject => stub_model(SubjectObj))
+          principal.should_not be_unrestrictable
+        end
+
+      end
+
+      describe "unrestrictable subject" do
+
+        before do
+          Principal.create_unrestrictable_principal!
+        end
+
+        it "returns a valid subject" do
+          Principal.unrestrictable.subject.should_not be_nil
+        end
+
+        it "has id == Principal.unrestrictable_subject_id" do
+          Principal.unrestrictable.subject.id.
+            should == Principal.unrestrictable_subject_id
         end
 
       end

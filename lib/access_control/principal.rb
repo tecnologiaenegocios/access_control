@@ -40,6 +40,37 @@ module AccessControl
       0
     end
 
+    def self.unrestrictable
+      find_by_subject_type_and_subject_id(
+        unrestrictable_subject_type,
+        unrestrictable_subject_id
+      )
+    end
+
+    def self.unrestrictable_id
+      unrestrictable.id
+    end
+
+    def unrestrictable?
+      subject_type == self.class.unrestrictable_subject_type &&
+        subject_id == self.class.unrestrictable_subject_id
+    end
+
+    def self.create_unrestrictable_principal!
+      create!(
+        :subject_type => unrestrictable_subject_type,
+        :subject_id => unrestrictable_subject_id
+      )
+    end
+
+    def self.unrestrictable_subject_type
+      UnrestrictableUser.name
+    end
+
+    def self.unrestrictable_subject_id
+      0
+    end
+
     def self.securable?
       false
     end
@@ -55,6 +86,20 @@ module AccessControl
 
     def id
       Principal.anonymous_subject_id
+    end
+
+  end
+
+  class UnrestrictableUser
+
+    include Singleton
+
+    def self.find(*args)
+      return instance
+    end
+
+    def id
+      Principal.unrestrictable_subject_id
     end
 
   end
