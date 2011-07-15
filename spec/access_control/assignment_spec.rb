@@ -87,7 +87,7 @@ module AccessControl
                                       :local => true) }
 
         before do
-          manager.stub(:verify_access!).and_return(true)
+          manager.stub(:verify_access!)
           node.stub(:current_roles).and_return(Set.new([role]))
         end
 
