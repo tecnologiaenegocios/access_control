@@ -58,7 +58,7 @@ module AccessControl
         end
       end
 
-      describe "allocation of unsecurable class with security manager" do
+      describe "allocation of unsecurable class" do
         before { model_klass.stub!(:securable?).and_return(false) }
         it "performs checking of inheritance with `new`" do
           model_klass.should_not_receive(:check_inheritance!)
