@@ -1,6 +1,8 @@
 require 'spec_helper'
 require 'access_control/assignment'
 require 'access_control/configuration'
+require 'access_control/node'
+require 'access_control/role'
 
 module AccessControl
 
@@ -61,6 +63,14 @@ module AccessControl
 
       describe "for local nodes" do
 
+        describe "Node conformance with expected interface" do
+          it_has_instance_method(Node, :global?)
+        end
+
+        describe "Role conformance with expected interface" do
+          it_has_instance_method(Role, :name)
+        end
+
         let(:node) { stub_model(Node, :global? => false) }
 
         it "accepts a role if it is local assignable" do
@@ -78,6 +88,15 @@ module AccessControl
       end
 
       describe "assignment security" do
+
+        describe "Node conformance with expected interface" do
+          it_has_instance_method(Node, :current_roles)
+          it_has_instance_method(Node, :has_permission?)
+        end
+
+        describe "Role conformance with expected interface" do
+          it_has_instance_method(Role, :local)
+        end
 
         let(:node) do
           Node.create!(:securable_type => 'Foo', :securable_id => 1).reload

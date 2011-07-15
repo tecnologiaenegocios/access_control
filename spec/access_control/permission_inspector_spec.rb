@@ -1,5 +1,8 @@
 require 'spec_helper'
+require 'access_control/assignment'
+require 'access_control/node'
 require 'access_control/permission_inspector'
+require 'access_control/role'
 
 module AccessControl
   module PermissionInspector
