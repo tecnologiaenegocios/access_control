@@ -17,14 +17,15 @@ module AccessControl
       Role.create!(:name => 'the role name')
     end
 
-    it "cannot be wrapped by a security proxy" do
+    it "is not securable" do
       Role.securable?.should be_false
     end
 
     it "destroys assignments when it is destroyed" do
-      role = Role.create!(:name => 'the role name')
       Principal.create_anonymous_principal!
       Node.create_global_node!
+      Assignment.stub(:skip_role_verification? => true)
+      role = Role.create!(:name => 'the role name')
       Assignment.create!(:role => role,
                          :node => Node.global,
                          :principal => Principal.anonymous)
@@ -58,6 +59,17 @@ module AccessControl
         Role.global_assignables.should == [r2]
       end
 
+    end
+
+    describe "#permissions" do
+      it "returns the permissions from its security policy items" do
+        r = Role.new
+        r.security_policy_items = [
+          SecurityPolicyItem.new(:permission => 'some permission'),
+          SecurityPolicyItem.new(:permission => 'other permission')
+        ]
+        r.permissions.should == Set.new(['other permission', 'some permission'])
+      end
     end
 
   end

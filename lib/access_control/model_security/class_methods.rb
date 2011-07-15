@@ -45,7 +45,7 @@ module AccessControl
         restricted_associations.clear
       end
 
-      def is_association_restricted? association_name
+      def association_restricted? association_name
         restricted_associations.include?(association_name)
       end
 
@@ -239,156 +239,159 @@ module AccessControl
 
       def new *args
         object = super
-        object.class.check_inheritance! if object.class.securable?
-        return object unless manager = AccessControl.security_manager
-        reqs = Thread.current[:instantiation_requirements] || {}
-        if reqs[self]
-          context, permissions = reqs[self]
-          reqs.delete self
-          manager.verify_access!(context, permissions)
+        if object.class.securable?
+          object.class.check_inheritance!
+          reqs = Thread.current[:instantiation_requirements] || {}
+          if reqs[self]
+            context, permissions = reqs[self]
+            reqs.delete self
+            AccessControl.security_manager.verify_access!(context, permissions)
+          end
+          protect_methods!(object)
         end
-        protect_methods!(object)
         object
       end
 
       def allocate *args
         object = super
-        object.class.check_inheritance! if object.class.securable?
-        return object unless manager = AccessControl.security_manager
-        protect_methods!(object) if object.class.securable?
+        if object.class.securable?
+          object.class.check_inheritance!
+          protect_methods!(object)
+        end
         object
       end
 
       def find_every_with_restriction(options)
-        if restrict_queries?
-          options[:permissions] ||= permissions_required_to_query
-        else
-          options[:permissions] ||= Set.new
-        end
-        if !options[:permissions].is_a?(Enumerable)
-          raise ArgumentError, ':permissions must be an enumerable'
-        end
-        merge_permission_options(options)
-        find_every_without_restriction(options)
+        find_every_without_restriction(Restricter.new(self, options).
+                                       restricted_options)
       end
 
       def find_one_with_unauthorized(id, options)
-        old_options = options.clone
-        options[:permissions] ||= permissions_required_to_view
-        begin
-          return find_one_without_unauthorized(id, options)
-        rescue ActiveRecord::RecordNotFound => e
-          disable_query_restriction
-          result = find_one_without_unauthorized(id, old_options) rescue nil
-          re_enable_query_restriction
-          raise e if !result
-          Util.log_missing_permissions(result.ac_node,
-                                       options[:permissions],
-                                       caller)
-          raise Unauthorized
+        permissions = options[:permissions] || permissions_required_to_view
+        options[:permissions] = Set.new
+        result = find_one_without_unauthorized(id, options)
+        if AccessControl.security_manager.restrict_queries?
+          AccessControl.security_manager.verify_access!(result, permissions)
         end
-      end
-
-      def unrestricted_find(*args)
-        disable_query_restriction
-        result = find(*args)
-        re_enable_query_restriction
         result
       end
 
-      private
+      def unrestricted_find(*args)
+        options = args.extract_options!
+        options[:permissions] = Set.new
+        find(*(args.push(options)))
+      end
 
-        def set_add_hook_for_children_in_habtm reflection
-          reflection.options[:after_add] = Proc.new do |record, added|
-            added.reload.send(:update_parent_nodes)
-          end
-          add_association_callbacks(reflection.name, reflection.options)
+    private
+
+      def set_add_hook_for_children_in_habtm reflection
+        reflection.options[:after_add] = Proc.new do |record, added|
+          added.reload.send(:update_parent_nodes)
         end
+        add_association_callbacks(reflection.name, reflection.options)
+      end
 
-        def set_add_hook_for_parent_in_habtm reflection
-          reflection.options[:after_add] = Proc.new do |record, added|
-            record.send(:update_parent_nodes)
-          end
-          add_association_callbacks(reflection.name, reflection.options)
+      def set_add_hook_for_parent_in_habtm reflection
+        reflection.options[:after_add] = Proc.new do |record, added|
+          record.send(:update_parent_nodes)
         end
+        add_association_callbacks(reflection.name, reflection.options)
+      end
 
-        def set_remove_hook_for_children_in_habtm reflection
-          reflection.options[:after_remove] = Proc.new do |record, removed|
-            removed.reload.send(:update_parent_nodes)
-          end
-          add_association_callbacks(reflection.name, reflection.options)
+      def set_remove_hook_for_children_in_habtm reflection
+        reflection.options[:after_remove] = Proc.new do |record, removed|
+          removed.reload.send(:update_parent_nodes)
         end
+        add_association_callbacks(reflection.name, reflection.options)
+      end
 
-        def set_remove_hook_for_parent_in_habtm reflection
-          reflection.options[:after_remove] = Proc.new do |record, removed|
-            record.send(:update_parent_nodes)
-          end
-          add_association_callbacks(reflection.name, reflection.options)
+      def set_remove_hook_for_parent_in_habtm reflection
+        reflection.options[:after_remove] = Proc.new do |record, removed|
+          record.send(:update_parent_nodes)
         end
+        add_association_callbacks(reflection.name, reflection.options)
+      end
 
-        def protect_methods!(instance)
-          manager = AccessControl.security_manager
-          permissions_for_methods.keys.each do |m|
-            (class << instance; self; end;).class_eval do
-              define_method(m) do
-                nodes = ac_node || parents_for_creation.map(&:ac_node)
-                manager.verify_access!(nodes,
-                                       self.class.permissions_for(__method__))
-                super
-              end
+      def protect_methods!(instance)
+        manager = AccessControl.security_manager
+        permissions_for_methods.keys.each do |m|
+          (class << instance; self; end;).class_eval do
+            define_method(m) do
+              nodes = ac_node || parents_for_creation.map(&:ac_node)
+              manager.verify_access!(nodes,
+                                     self.class.permissions_for(__method__))
+              super
             end
           end
         end
+      end
 
-        def merge_permission_options(options)
-          merge_permission_includes(options)
-          return unless restrict_queries?
-          return if on_validation?
-          if options[:permissions].any?
-            merge_permission_joins(options)
+      class Restricter
+
+        attr_reader :model, :options
+
+        def initialize(model, options)
+          @model = model
+          @options = options
+        end
+
+        def restricted_options
+          merge_permission_options!
+          options
+        end
+
+      private
+
+        def merge_permission_options!
+          if AccessControl.security_manager.restrict_queries? &&
+             !on_validation? &&
+             model.securable?
+            add_permissions!
+            restrict_ids!
+          end
+          merge_permission_includes!
+        end
+
+        def add_permissions!
+          options[:permissions] ||= model.permissions_required_to_query
+          if !options[:permissions].is_a?(Enumerable)
+            raise ArgumentError, ':permissions must be an enumerable'
           end
         end
 
-        def merge_permission_includes(options)
-          options[:include] = merge_includes(
-            options[:include],
-            includes_for_permissions(options)
-          ) if options[:load_permissions]
+        def restrict_ids!
+          return unless options[:permissions].any?
+          ids_options = options.dup
+          merge_permission_joins(ids_options)
+          ids_options[:select] = "#{model.quoted_table_name}."\
+                                 "`#{model.primary_key}`"
+          ids = model.send(:find_every_without_restriction,
+                           ids_options).map(&:id)
+          if options[:conditions]
+            options[:conditions] = model.send(:merge_conditions,
+              options[:conditions], {:id => ids}
+            )
+          else
+            options[:conditions] = {:id => ids}
+          end
         end
 
         def merge_permission_joins(options)
           if options[:joins]
-            options[:joins] = merge_joins(
+            options[:joins] = model.send(:merge_joins,
               options[:joins],
               joins_for_permissions(options)
             )
           else
             options[:joins] = joins_for_permissions(options)
           end
-          fix_select_clause_for_permission_joins(options)
         end
 
-        def fix_select_clause_for_permission_joins(options)
-          options[:select] = \
-            prefix_with_distinct_and_table_name(options[:select] || '*')
-        end
-
-        def prefix_with_distinct_and_table_name(select_clause)
-          references = []
-          select_clause.strip!
-          if !(select_clause =~ /^distinct\s+/i)
-            references << "#{quoted_table_name}.`#{primary_key}`"
-          end
-          select_clause.gsub(/^distinct\s+/i, '').split(',').each do |token|
-            t = token.strip.gsub('`', '')
-            next references << "#{quoted_table_name}.*" if t == '*'
-            if columns_hash.keys.include?(t)
-              next references << "#{quoted_table_name}.`#{t}`"
-            end
-            # Functions or other references are not prefixed.
-            references << token
-          end
-          "DISTINCT #{references.join(', ')}"
+        def merge_permission_includes!
+          options[:include] = model.send(:merge_includes,
+            options[:include],
+            includes_for_permissions(options)
+          ) if options[:load_permissions]
         end
 
         def includes_for_permissions(options)
@@ -405,9 +408,9 @@ module AccessControl
 
         def joins_for_permissions(options)
 
-          c = connection
-          t = table_name
-          pk = primary_key
+          c = model.connection
+          t = model.table_name
+          pk = model.primary_key
           principal_ids = AccessControl.security_manager.principal_ids
 
           if principal_ids.size == 1
@@ -426,7 +429,7 @@ module AccessControl
 
               INNER JOIN `ac_nodes` `nodes_chk_#{i}`
               ON `nodes_chk_#{i}`.`securable_id` = `#{t}`.`#{pk}`
-              AND `nodes_chk_#{i}`.`securable_type` = #{c.quote(name)}
+              AND `nodes_chk_#{i}`.`securable_type` = #{c.quote(model.name)}
 
               INNER JOIN `ac_paths` `paths_chk_#{i}`
               ON `paths_chk_#{i}`.`descendant_id` = `nodes_chk_#{i}`.`id`
@@ -449,27 +452,11 @@ module AccessControl
           end.strip.gsub(/\s+/, ' ')
         end
 
-        def restrict_queries?
-          return false unless securable?
-          return false unless manager = AccessControl.security_manager
-          manager.restrict_queries?
-        end
-
-        def disable_query_restriction
-          manager = AccessControl.security_manager
-          return unless manager
-          manager.restrict_queries = false
-        end
-
-        def re_enable_query_restriction
-          manager = AccessControl.security_manager
-          return unless manager
-          manager.restrict_queries = true
-        end
-
         def on_validation?
           (Thread.current[:validation_chain_depth] || 0) > 0
         end
+
+      end
 
     end
   end

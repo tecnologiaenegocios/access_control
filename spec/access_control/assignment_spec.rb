@@ -1,15 +1,20 @@
 require 'spec_helper'
 require 'access_control/assignment'
+require 'access_control/configuration'
 
 module AccessControl
 
   describe Assignment do
 
+    let(:manager) { SecurityManager.new }
+
     before do
-      AccessControl.config.stub!(:default_roles_on_create).and_return(nil)
+      AccessControl.config.stub(:default_roles_on_create).and_return(nil)
+      AccessControl.stub(:security_manager).and_return(manager)
     end
 
     it "can be created with valid attributes" do
+      Assignment.stub(:skip_role_verification? => true)
       Assignment.create!(
         :node => stub_model(AccessControl::Node),
         :principal => stub_model(AccessControl::Principal),
@@ -22,6 +27,7 @@ module AccessControl
     end
 
     it "validates uniqueness of role_id, principal_id and node_id" do
+      Assignment.stub(:skip_role_verification? => true)
       Assignment.create!(:node_id => 0, :principal_id => 0, :role_id => 0)
       Assignment.new(:node_id => 0, :principal_id => 0, :role_id => 0).
         should have(1).error_on(:role_id)
@@ -41,14 +47,14 @@ module AccessControl
 
         it "accepts a role if it is global assignable" do
           Assignment.new(:node => node,
-                        :role => stub_model(Role, :global => true)).
-                        should have(:no).errors_on(:role_id)
+                         :role => stub_model(Role, :global => true)).
+                         should have(:no).errors_on(:role_id)
         end
 
         it "rejects a role if it is not global assignable" do
           Assignment.new(:node => node,
-                        :role => stub_model(Role, :global => false)).
-                        should have(1).errors_on(:role_id)
+                         :role => stub_model(Role, :global => false)).
+                         should have(1).errors_on(:role_id)
         end
 
       end
@@ -59,21 +65,20 @@ module AccessControl
 
         it "accepts a role if it is local assignable" do
           Assignment.new(:node => node,
-                        :role => stub_model(Role, :local => true)).
-                        should have(:no).errors_on(:role_id)
+                         :role => stub_model(Role, :local => true)).
+                         should have(:no).errors_on(:role_id)
         end
 
         it "rejects a role if it is not local assignable" do
           Assignment.new(:node => node,
-                        :role => stub_model(Role, :local => false)).
-                        should have(1).errors_on(:role_id)
+                         :role => stub_model(Role, :local => false)).
+                         should have(1).errors_on(:role_id)
         end
 
       end
 
-      describe "when there's a security manager" do
+      describe "assignment security" do
 
-        let(:manager) { mock('security manager') }
         let(:node) do
           Node.create!(:securable_type => 'Foo', :securable_id => 1).reload
         end
@@ -82,10 +87,8 @@ module AccessControl
                                       :local => true) }
 
         before do
-          AccessControl.stub!(:security_manager).and_return(manager)
-          manager.stub!(:restrict_queries=)
-          manager.stub!(:verify_access!).and_return(true)
-          node.stub!(:current_roles).and_return(Set.new([role]))
+          manager.stub(:verify_access!).and_return(true)
+          node.stub(:current_roles).and_return(Set.new([role]))
         end
 
         describe "when the principal has 'share_own_roles'" do
@@ -106,7 +109,7 @@ module AccessControl
           end
 
           it "raises Unauthorized if a role that doesn't belong to the "\
-            "principal is assigned" do
+             "principal is assigned" do
             assignment = Assignment.new(:node => node, :role => other_role,
                                         :principal_id => 1)
             lambda { assignment.save! }.should raise_exception(Unauthorized)
@@ -121,7 +124,7 @@ module AccessControl
             end
 
             it "raises Unauthorized if has a role that doesn't belong to the "\
-              "principal" do
+               "principal" do
               node.stub!(:current_roles).and_return(Set.new([other_role]))
               assignment = Assignment.create!(:node => node,
                                               :role => other_role,
@@ -144,7 +147,7 @@ module AccessControl
 
           it "saves fine even if the role doesn't belongs to the principal" do
             Assignment.create!(:node => node, :role => other_role,
-                              :principal_id => 1)
+                               :principal_id => 1)
           end
 
           it "destroys even if the role doesn't belongs to the principal" do
@@ -156,7 +159,7 @@ module AccessControl
         end
 
         describe "when the principal hasn't 'grant_roles' neither "\
-                "'share_own_roles'" do
+                 "'share_own_roles'" do
 
           it "raises Unauthorized when saving" do
             node.should_receive(:has_permission?).
@@ -192,10 +195,21 @@ module AccessControl
 
     end
 
+    describe ".with_roles" do
+      it "filters out assignments which haven't one of the roles" do
+        role1 = stub('role', :id => "role1's id")
+        role2 = stub('role', :id => "role2's id")
+        Assignment.with_roles([role1, role2]).proxy_options.should == {
+          :conditions => { :role_id => ["role1's id", "role2's id"] }
+        }
+      end
+    end
+
     describe "assignments for management" do
 
       before do
         Node.create_global_node!
+        Assignment.stub(:skip_role_verification? => true)
         roles = [
           @role1 = Role.create!(:name => 'role1'),
           @role2 = Role.create!(:name => 'role2'),

@@ -1,9 +1,12 @@
 require 'access_control/assignment'
 require 'access_control/exceptions'
+require 'access_control/permission_inspector'
 require 'access_control/security_manager'
 
 module AccessControl
   class Node < ActiveRecord::Base
+
+    include PermissionInspector::Behavior
 
     set_table_name :ac_nodes
 
@@ -89,6 +92,12 @@ module AccessControl
 
     accepts_nested_attributes_for :assignments, :allow_destroy => true
 
+    has_many(
+      :principal_roles,
+      :through => :principal_assignments,
+      :source => :role
+    )
+
     def self.global
       Thread.current[:global_node_cache] ||= \
         find_by_securable_type_and_securable_id(
@@ -128,52 +137,8 @@ module AccessControl
       end
     end
 
-    def has_permission? permission
-      ancestors.any? do |node|
-        node.principal_assignments.any? do |assignment|
-          assignment.role.security_policy_items.any? do |item|
-            item.permission == permission
-          end
-        end
-      end
-    end
-
-    def permissions
-      strict_ancestors.inject(
-        principal_assignments.inject(Set.new) do |permissions, assignment|
-          permissions | assignment.role.
-            security_policy_items.map(&:permission)
-        end
-      ) do |permissions, node|
-        permissions | node.permissions
-      end
-    end
-
-    def current_roles
-      strict_ancestors.inject(
-        principal_assignments.inject(Set.new) do |roles, assignment|
-          roles.add(assignment.role)
-        end
-      ) do |roles, node|
-        roles | node.current_roles
-      end
-    end
-
-    def inherited_roles_for_all_principals(filter_roles)
-      role_ids = filter_roles.map(&:id)
-      strict_unblocked_ancestors.inject({}) do |results, node|
-        node.assignments.find(:all,
-                              :conditions => {:role_id => role_ids}).each do |a|
-          results[a.principal_id] ||= {}
-          results[a.principal_id][a.role_id] ||= Set.new
-          if node.global?
-            results[a.principal_id][a.role_id].add('global')
-          else
-            results[a.principal_id][a.role_id].add('inherited')
-          end
-        end
-        results
-      end
+    def assignments_with_roles(filter_roles)
+      assignments.with_roles(filter_roles)
     end
 
     def global?
@@ -199,7 +164,6 @@ module AccessControl
     private
 
       def check_blocking_permission
-        return unless AccessControl.security_manager
         if changes['block'] && !has_permission?('change_inheritance_blocking')
           raise Unauthorized
         end
@@ -323,7 +287,6 @@ module AccessControl
       end
 
       def set_default_roles_on_create
-        return unless AccessControl.security_manager
         return unless AccessControl.config.default_roles_on_create
         AccessControl.security_manager.principal_ids.each do |principal_id|
           AccessControl.config.default_roles_on_create.each do |role|
@@ -331,7 +294,7 @@ module AccessControl
             assignment = assignments.build(
               :role_id => role.id, :principal_id => principal_id
             )
-            assignment.skip_role_verification = true
+            assignment.skip_role_verification!
             assignment.save!
           end
         end

@@ -56,9 +56,6 @@ module AccessControl
 
     module InstanceMethods
 
-      RESOURCE_ACTIONS = %w(show destroy edit update)
-      COLLECTION_ACTIONS = %w(index new create)
-
       def self.included(base)
         base.extend(AccessControl::ControllerSecurity::ClassMethods)
         base.class_eval do
@@ -77,31 +74,82 @@ module AccessControl
         end
       end
 
-      private
+    private
 
-        def run_with_security_manager
-          AccessControl.set_security_manager(self)
-          yield
-        ensure
-          AccessControl.no_security_manager
-          AccessControl::Node.clear_global_node_cache
-          ActiveRecord::Base.drop_all_temporary_instantiation_requirements!
-          Thread.current[:validation_chain_depth] = nil
+      def current_security_context
+        Contextualizer.new(self).context
+      end
+
+      def current_groups
+        []
+      end
+
+      def run_with_security_manager
+        AccessControl.security_manager.current_user = current_user
+        AccessControl.security_manager.current_groups = current_groups
+        yield
+      ensure
+        AccessControl.no_security_manager
+        AccessControl::Node.clear_global_node_cache
+        ActiveRecord::Base.drop_all_temporary_instantiation_requirements!
+        Thread.current[:validation_chain_depth] = nil
+      end
+
+      class Contextualizer
+
+        RESOURCE_ACTIONS = %w(show destroy edit update)
+        COLLECTION_ACTIONS = %w(index new create)
+
+        attr_reader :controller
+
+        def initialize controller
+          @controller = controller
         end
 
-        def _resource_action?
+        def context
+          fetch_candidate_resource.try(:ac_node) || AccessControl::Node.global
+        end
+
+      private
+
+        def fetch_candidate_resource
+          if resource_action?
+            fetch_resource
+          elsif collection_action?
+            fetch_parent
+          end
+        end
+
+        def resource_action?
           RESOURCE_ACTIONS.include?(params[:action])
         end
 
-        def _collection_action?
-          COLLECTION_ACTIONS.include?(params[:action])
+        def params
+          controller.send(:params)
         end
 
-        def _expected_resource_var_name
+        def fetch_resource
+          controller.instance_variable_get(expected_resource_var_name)
+        end
+
+        def expected_resource_var_name
           '@' + controller_path.gsub('/', '_').singularize
         end
 
-        def _expected_parent_var_name
+        def controller_path
+          controller.send(:controller_path)
+        end
+
+        def collection_action?
+          COLLECTION_ACTIONS.include?(params[:action])
+        end
+
+        def fetch_parent
+          var = expected_parent_var_name
+          var && controller.instance_variable_get(var)
+        end
+
+        def expected_parent_var_name
           return unless route = ActionController::Routing::Routes.routes.select do |r|
             r.matches_controller_and_action?(controller_path, params[:action]) &&
               r.defaults[:controller] == controller_path
@@ -112,32 +160,7 @@ module AccessControl
           '@' + segment.key.to_s.gsub(/_id$/, '')
         end
 
-        def _fetch_resource
-          instance_variable_get(_expected_resource_var_name)
-        end
-
-        def _fetch_parent
-          var = _expected_parent_var_name
-          var && instance_variable_get(var)
-        end
-
-        def _fetch_candidate_resource
-          if _resource_action?
-            _fetch_resource
-          elsif _collection_action?
-            _fetch_parent
-          end
-        end
-
-        def current_security_context
-          (resource = _fetch_candidate_resource) ?
-            resource.ac_node :
-            AccessControl::Node.global
-        end
-
-        def current_groups
-          []
-        end
+      end
 
     end
 

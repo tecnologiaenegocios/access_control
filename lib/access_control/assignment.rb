@@ -9,18 +9,30 @@ module AccessControl
     belongs_to :principal, :class_name => 'AccessControl::Principal'
     belongs_to :role, :class_name => 'AccessControl::Role'
 
-    # This is a flag that controls the assignment creation.  When the system is
-    # doing an automatic assignment this is set to true.  This is protected to
-    # avoid external data to bypass the role verification.
-    attr_accessor :skip_role_verification
-    attr_protected :skip_role_verification
+    has_many :security_policy_items, :through => :role
 
     validates_uniqueness_of :role_id, :scope => [:node_id, :principal_id]
 
     validate :validate_role
 
-    before_save :verify_roles
-    before_destroy :verify_roles
+    before_save :verify_roles!
+    before_destroy :verify_roles!
+
+    named_scope :with_roles, lambda{|roles|
+      { :conditions => { :role_id => roles.map(&:id) } }
+    }
+
+    # This is a flag that controls the assignment creation.  When the system is
+    # doing an automatic assignment this flag is set (this method is called).
+    def skip_role_verification!
+      @skip_role_verification = true
+    end
+
+    # Returns the state of the flag, taking into consideration the flag in the
+    # class.
+    def skip_role_verification?
+      self.class.skip_role_verification? || @skip_role_verification
+    end
 
     def validate_role
       return unless role && node
@@ -31,9 +43,8 @@ module AccessControl
       end
     end
 
-    def verify_roles
-      return if skip_role_verification
-      return unless AccessControl.security_manager
+    def verify_roles!
+      return if skip_role_verification?
       return if node.has_permission?('grant_roles')
       raise Unauthorized unless node.has_permission?('share_own_roles')
       raise Unauthorized unless node.current_roles.map(&:id).include?(role_id)
@@ -55,6 +66,11 @@ module AccessControl
         end
         r
       end
+    end
+
+    # This flag is used in tests.
+    def self.skip_role_verification?
+      false
     end
 
   end

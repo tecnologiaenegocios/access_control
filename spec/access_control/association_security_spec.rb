@@ -22,17 +22,12 @@ module AccessControl
 
     describe "unrestricted query" do
 
-      let(:principal) { Principal.create!(:subject_type => 'User',
-                                          :subject_id => 1) }
-      let(:user) { stub('user', :principal => principal) }
-      let(:controller) { stub('controller',
-                              :current_user => user,
-                              :current_groups => []) }
-      let(:manager) { SecurityManager.new(controller) }
+      let(:manager) { SecurityManager.new }
 
       before do
+        AccessControl.stub(:security_manager).and_return(manager)
         Node.create_global_node!
-        AccessControl.stub!(:security_manager).and_return(manager)
+        Principal.create_anonymous_principal!
         model_klass.query_requires 'query'
         model_klass.view_requires 'view'
         model_klass.create_requires :none
@@ -51,7 +46,7 @@ module AccessControl
           describe "when the class doesn't restrict for this association" do
 
             before do
-              model_klass.stub(:is_association_restricted?).and_return(false)
+              model_klass.stub(:association_restricted?).and_return(false)
             end
 
             it "returns records without restriction" do
@@ -67,14 +62,14 @@ module AccessControl
           describe "when the class enforces restriction" do
 
             before do
-              model_klass.stub(:is_association_restricted?).and_return(true)
+              model_klass.stub(:association_restricted?).and_return(true)
             end
 
             it "verifies the required permissions" do
               first_record = model_klass.create!
               second_record = model_klass.create!(:record_id => first_record.id)
               lambda {
-                second_record.record.should == first_record
+                second_record.record
               }.should raise_exception(AccessControl::Unauthorized)
             end
 
@@ -92,7 +87,7 @@ module AccessControl
           describe "when the class doesn't restrict for this association" do
 
             before do
-              model_klass.stub(:is_association_restricted?).and_return(false)
+              model_klass.stub(:association_restricted?).and_return(false)
             end
 
             it "returns records without restriction" do
@@ -134,7 +129,7 @@ module AccessControl
           describe "when the class enforces restriction" do
 
             before do
-              model_klass.stub(:is_association_restricted?).and_return(true)
+              model_klass.stub(:association_restricted?).and_return(true)
             end
 
             it "verifies the required permissions" do

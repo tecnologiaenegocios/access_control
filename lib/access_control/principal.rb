@@ -53,12 +53,6 @@ module AccessControl
       return instance
     end
 
-    def self.disable_query_restriction
-    end
-
-    def self.re_enable_query_restriction
-    end
-
     def id
       Principal.anonymous_subject_id
     end

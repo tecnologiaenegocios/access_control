@@ -22,6 +22,8 @@ module AccessControl
       Object::Record
     end
 
+    let(:manager) { SecurityManager.new }
+
     before do
       AccessControl.configure do |config|
         config.default_query_permissions = []
@@ -32,6 +34,7 @@ module AccessControl
         config.default_roles_on_create = nil
       end
       AccessControl.stub(:model_security_strict? => false)
+      AccessControl.stub(:security_manager => manager)
     end
 
     after do
@@ -43,16 +46,10 @@ module AccessControl
 
       describe "allocation of securable class with security manager" do
         it "performs checking of inheritance with `new`" do
-          AccessControl.stub!(:security_manager).and_return(
-            AccessControl::SecurityManager.new('a controller')
-          )
           model_klass.should_receive(:check_inheritance!)
           model_klass.new
         end
         it "performs checking of inheritance with `find`" do
-          AccessControl.stub!(:security_manager).and_return(
-            AccessControl::SecurityManager.new('a controller')
-          )
           AccessControl::Node.create_global_node!
           model_klass.create!
           model_klass.should_receive(:check_inheritance!)
@@ -63,16 +60,10 @@ module AccessControl
       describe "allocation of unsecurable class with security manager" do
         before { model_klass.stub!(:securable?).and_return(false) }
         it "performs checking of inheritance with `new`" do
-          AccessControl.stub!(:security_manager).and_return(
-            AccessControl::SecurityManager.new('a controller')
-          )
           model_klass.should_not_receive(:check_inheritance!)
           model_klass.new
         end
         it "performs checking of inheritance with `find`" do
-          AccessControl.stub!(:security_manager).and_return(
-            AccessControl::SecurityManager.new('a controller')
-          )
           AccessControl::Node.create_global_node!
           model_klass.create!
           model_klass.should_not_receive(:check_inheritance!)
@@ -87,7 +78,7 @@ module AccessControl
             belongs_to :record
             restrict_association :record
           end
-          model_klass.is_association_restricted?(:record).should be_true
+          model_klass.association_restricted?(:record).should be_true
         end
 
         it "restricts the querying of an association based on system-wide "\
@@ -98,7 +89,7 @@ module AccessControl
           model_klass.class_eval do
             belongs_to :record
           end
-          model_klass.is_association_restricted?(:record).should be_true
+          model_klass.association_restricted?(:record).should be_true
         end
 
         it "allows querying if the system-wide config allows and nothing "\
@@ -109,7 +100,7 @@ module AccessControl
           model_klass.class_eval do
             belongs_to :record
           end
-          model_klass.is_association_restricted?(:record).should be_false
+          model_klass.association_restricted?(:record).should be_false
         end
 
         it "can override the config option to restrict queries" do
@@ -120,7 +111,7 @@ module AccessControl
             belongs_to :record
             restrict_association :record
           end
-          model_klass.is_association_restricted?(:record).should be_true
+          model_klass.association_restricted?(:record).should be_true
         end
 
         it "can override the config option to allow queries" do
@@ -131,7 +122,7 @@ module AccessControl
             belongs_to :record
             unrestrict_association :record
           end
-          model_klass.is_association_restricted?(:record).should be_false
+          model_klass.association_restricted?(:record).should be_false
         end
 
         it "can restrict all associations at once" do
@@ -143,8 +134,8 @@ module AccessControl
             belongs_to :another_record
             restrict_all_associations!
           end
-          model_klass.is_association_restricted?(:record).should be_true
-          model_klass.is_association_restricted?(:another_record).should be_true
+          model_klass.association_restricted?(:record).should be_true
+          model_klass.association_restricted?(:another_record).should be_true
         end
 
         it "can unrestrict all associations at once" do
@@ -156,8 +147,8 @@ module AccessControl
             belongs_to :another_record
             unrestrict_all_associations!
           end
-          model_klass.is_association_restricted?(:record).should be_false
-          model_klass.is_association_restricted?(:another_record).
+          model_klass.association_restricted?(:record).should be_false
+          model_klass.association_restricted?(:another_record).
             should be_false
         end
 
@@ -203,26 +194,8 @@ module AccessControl
 
         describe "on instances" do
 
-          let(:manager) do
-            AccessControl::SecurityManager.new('a controller')
-          end
-
           before do
             AccessControl::Node.create_global_node!
-          end
-
-          describe "when there's no manager set" do
-            it "doesn't check permissions" do
-              model_klass.class_eval do
-                protect :foo, :with => 'permission'
-                def foo
-                  'foo'
-                end
-              end
-              manager.should_not_receive(:verify_access!)
-              model_klass.create!
-              model_klass.unrestricted_find(:first).foo.should == 'foo'
-            end
           end
 
           describe "that are not from securable classes" do
@@ -236,8 +209,6 @@ module AccessControl
                   'foo'
                 end
               end
-              AccessControl.stub!(:security_manager => manager)
-              manager.should_not_receive(:verify_access!)
               model_klass.create!
               model_klass.unrestricted_find(:first).foo.should == 'foo'
             end
@@ -257,7 +228,6 @@ module AccessControl
                 end
               end
               model_klass.create!
-              AccessControl.stub!(:security_manager => manager)
             end
 
             it "protects a method when it is called" do
@@ -288,7 +258,6 @@ module AccessControl
                 protect :field, :with => 'permission'
               end
               model_klass.create!(:field => 15)
-              AccessControl.stub!(:security_manager => manager)
             end
 
             it "protects a method when it is called" do
@@ -322,7 +291,6 @@ module AccessControl
                 end
               end
               model_klass.create!(:field => 15)
-              AccessControl.stub!(:security_manager => manager)
             end
 
             it "protects a method when it is called" do
@@ -351,8 +319,7 @@ module AccessControl
               model_klass.class_eval do
                 protect :field, :with => 'permission'
               end
-              parent1; parent2; # Create stuff before we setup the manager.
-              AccessControl.stub!(:security_manager => manager)
+              parent1; parent2;
             end
 
             it "verifies permissions using the global node" do
@@ -384,13 +351,6 @@ module AccessControl
               lambda { object.save! }.should_not raise_exception
             end
 
-            it "skips verification if there's no manager" do
-              AccessControl.stub!(:security_manager => nil)
-              manager.should_not_receive(:verify_access!)
-              object = model_klass.new(:field => 15)
-              lambda { object.save! }.should_not raise_exception
-            end 
-
             it "returns only the global node as a parent for creation" do
               model_klass.new.parents_for_creation.should == [
                 AccessControlGlobalRecord.instance
@@ -416,12 +376,7 @@ module AccessControl
 
       describe "instantiation protection" do
 
-        let(:manager) do
-          AccessControl::SecurityManager.new('a controller')
-        end
-
         before do
-          AccessControl.stub!(:security_manager => manager)
           model_klass.set_temporary_instantiation_requirement(
             'some context',
             'some permission'
@@ -431,12 +386,6 @@ module AccessControl
         it "checks permissions when a record is instantiated" do
           manager.should_receive(:verify_access!).
             with('some context', 'some permission')
-          lambda { model_klass.new }.should_not raise_exception
-        end
-
-        it "doesn't check permissions if there's no manager" do
-          AccessControl.stub!(:security_manager => nil)
-          manager.should_not_receive(:verify_access!)
           lambda { model_klass.new }.should_not raise_exception
         end
 
@@ -482,10 +431,6 @@ module AccessControl
 
       describe "create protection" do
 
-        let(:manager) do
-          AccessControl::SecurityManager.new('a controller')
-        end
-
         let(:parent1) do
           model_klass.create!
         end
@@ -495,7 +440,6 @@ module AccessControl
         end
 
         before do
-          AccessControl.stub!(:security_manager => manager)
           AccessControl::Node.create_global_node!
           parent1; parent2 # Create the nodes before setting protection
           model_klass.stub!(:permissions_required_to_create).
@@ -530,7 +474,7 @@ module AccessControl
           # If the record has no parents it is a root record.  But at the
           # creation time, the record has no ancestors (which would be in such
           # case the node of the record itself and the global node).  So, to
-          # proper verify permissions, the checking must be done agains the
+          # proper verify permissions, the checking must be done against the
           # global node.
 
           model_klass.class_eval do
@@ -542,12 +486,6 @@ module AccessControl
           manager.should_receive(:verify_access!).
             with(Node.global, Set.new(['permission']))
 
-          model_klass.create!(:field => 1)
-        end
-
-        it "doesn't check permissions if there's no manager" do
-          AccessControl.stub!(:security_manager => nil)
-          manager.should_not_receive(:verify_access!)
           model_klass.create!(:field => 1)
         end
 
@@ -593,14 +531,9 @@ module AccessControl
 
       describe "update protection" do
 
-        let(:manager) do
-          AccessControl::SecurityManager.new('a controller')
-        end
-
         before do
           model_klass.stub!(:permissions_required_to_update).
             and_return(Set.new(['permission']))
-          AccessControl.stub!(:security_manager => manager)
           AccessControl::Node.create_global_node!
           model_klass.create!(:field => 0)
         end
@@ -609,14 +542,6 @@ module AccessControl
           object = model_klass.unrestricted_find(:first)
           manager.should_receive(:verify_access!).
             with(object.ac_node, Set.new(['permission']))
-          object.field = 1
-          object.save!
-        end
-
-        it "doesn't check permissions if there's no manager" do
-          AccessControl.stub!(:security_manager => nil)
-          manager.should_not_receive(:verify_access!)
-          object = model_klass.unrestricted_find(:first)
           object.field = 1
           object.save!
         end
@@ -662,20 +587,17 @@ module AccessControl
 
       describe "destroy protection" do
 
-        let(:manager) do
-          AccessControl::SecurityManager.new('a controller')
-        end
+        let(:object) { model_klass.create!(:field => 0) }
 
         before do
           model_klass.stub!(:permissions_required_to_destroy).
             and_return(Set.new(['permission']))
-          AccessControl.stub!(:security_manager => manager)
           AccessControl::Node.create_global_node!
-          model_klass.create!(:field => 0)
+          # Create the object and cache it before any expectation.
+          object
         end
 
         it "checks permissions when the record is destroyed" do
-          object = model_klass.unrestricted_find(:first)
           manager.should_receive(:verify_access!).
             with(object.ac_node, Set.new(['permission']))
           object.destroy
@@ -684,19 +606,11 @@ module AccessControl
         it "performs the checking before the node gets destroyed" do
           # If the node is destroyed before the checking it will always fail.
           # Records would never be destroyed.
-          object = model_klass.unrestricted_find(:first)
           manager.stub!(:verify_access!) do |*args|
             Node.find_by_securable_type_and_securable_id(
               model_klass.name, object.id
             ).should_not be_nil
           end
-          object.destroy
-        end
-
-        it "doesn't check permissions if there's no manager" do
-          AccessControl.stub!(:security_manager => nil)
-          manager.should_not_receive(:verify_access!)
-          object = model_klass.unrestricted_find(:first)
           object.destroy
         end
 
@@ -707,13 +621,11 @@ module AccessControl
             end
           end
           manager.should_not_receive(:verify_access!)
-          object = model_klass.unrestricted_find(:first)
           object.destroy
         end
 
         describe "when the user has the required permission(s)" do
           it "deletes the record" do
-            object = model_klass.unrestricted_find(:first)
             manager.should_receive(:verify_access!).
               with(object.ac_node, Set.new(['permission']))
             object.destroy
@@ -724,14 +636,16 @@ module AccessControl
         end
 
         describe "when the user hasn't the required permission(s)" do
-          it "doesn't delete the record" do
-            object = model_klass.unrestricted_find(:first)
+          it "raises Unauthorized when calling #destroy" do
             manager.should_receive(:verify_access!).
               with(object.ac_node, Set.new(['permission'])).
               and_raise(AccessControl::Unauthorized)
             lambda {
               object.destroy
             }.should raise_exception(AccessControl::Unauthorized)
+          end
+          specify "the record is kept" do
+            object.destroy rescue nil
             model_klass.unrestricted_find(object.id).should == object
           end
         end
@@ -1888,7 +1802,6 @@ module AccessControl
                                           :subject_id => 1) }
       let(:querier_role) { Role.create!(:name => 'Querier') }
       let(:simple_role) { Role.create!(:name => 'Simple') }
-      let(:manager) { SecurityManager.new('a controller') }
 
       before do
         Node.create_global_node!
@@ -1897,6 +1810,7 @@ module AccessControl
         manager.stub!(:principal_ids).and_return([principal.id])
         model_klass.query_requires 'query'
         model_klass.view_requires 'view'
+        Assignment.stub(:skip_role_verification? => true)
       end
 
       describe "#find" do
@@ -1911,7 +1825,6 @@ module AccessControl
           record2.ac_node.assignments.create!(:principal => principal,
                                               :role => simple_role)
 
-          AccessControl.stub!(:security_manager).and_return(manager)
           result = model_klass.find(:all)
           result.should include(record1)
           result.should_not include(record2)
@@ -1919,7 +1832,7 @@ module AccessControl
         end
 
         it "checks query permission only when the manager allows" do
-          manager.stub!(:restrict_queries?).and_return(false)
+          manager.stub(:restrict_queries?).and_return(false)
           record1 = model_klass.create!
           record2 = model_klass.create!
           record3 = model_klass.create!
@@ -1929,7 +1842,17 @@ module AccessControl
           record2.ac_node.assignments.create!(:principal => principal,
                                               :role => simple_role)
 
-          AccessControl.stub!(:security_manager).and_return(manager)
+          result = model_klass.find(:all)
+          result.should include(record1)
+          result.should include(record2)
+          result.should include(record3)
+        end
+
+        it "checks permissions only if the class is securable" do
+          model_klass.stub(:securable?).and_return(false)
+          record1 = model_klass.create!
+          record2 = model_klass.create!
+          record3 = model_klass.create!
           result = model_klass.find(:all)
           result.should include(record1)
           result.should include(record2)
@@ -1947,7 +1870,6 @@ module AccessControl
                                               :role => simple_role)
           record3 = model_klass.create!
 
-          AccessControl.stub!(:security_manager).and_return(manager)
           result = model_klass.find(:all, :conditions => 'field = 1')
           result.should == [record1]
         end
@@ -1963,8 +1885,6 @@ module AccessControl
                                               :role => simple_role)
           record3 = model_klass.create!
 
-          AccessControl.stub!(:security_manager).and_return(manager)
-
           # We join more records asking for records that has a complementary
           # record in the same table but with opposite signal, which will
           # result in no records.
@@ -1979,7 +1899,6 @@ module AccessControl
         end
 
         it "doesn't make permission checking during validation" do
-          AccessControl.stub!(:security_manager).and_return(manager)
 
           model_klass.class_eval do
             validates_uniqueness_of :field
@@ -2001,8 +1920,6 @@ module AccessControl
           # (associations disable query restriction when called to fetch the
           # record, and re-enable right after that, which cause validations to
           # get restricted).
-
-          AccessControl.stub!(:security_manager).and_return(manager)
 
           model_klass.class_eval do
             belongs_to :record
@@ -2030,7 +1947,6 @@ module AccessControl
           record1.ac_node.assignments.create!(:principal => principal,
                                               :role => querier_role)
 
-          AccessControl.stub!(:security_manager).and_return(manager)
           model_klass.find(:all).first.readonly?.should be_false
         end
 
@@ -2039,7 +1955,6 @@ module AccessControl
           record1.ac_node.assignments.create!(:principal => principal,
                                               :role => querier_role)
 
-          AccessControl.stub!(:security_manager).and_return(manager)
           model_klass.find(:all, :readonly => true).first.readonly?.
             should be_true
         end
@@ -2052,7 +1967,6 @@ module AccessControl
                                                 :role => querier_role)
             record2 = model_klass.create!
 
-            AccessControl.stub!(:security_manager).and_return(manager)
             model_klass.find(:all, :select => '*').first.id.should == record1.id
             model_klass.find(:all, :select => '*').first.name.should == \
               record1.name
@@ -2066,7 +1980,6 @@ module AccessControl
             record2.ac_node.assignments.create!(:principal => principal,
                                                 :role => querier_role)
 
-            AccessControl.stub!(:security_manager).and_return(manager)
             result = model_klass.find(:all, :select => 'DISTINCT *')
             result.size.should == 2
             result.first.name.should == 'same name'
@@ -2086,7 +1999,6 @@ module AccessControl
             record3.ac_node.assignments.create!(:principal => principal,
                                                 :role => querier_role)
 
-            AccessControl.stub!(:security_manager).and_return(manager)
             result = model_klass.find(:all, :select => 'field')
             result.size.should == 3
             result.map(&:field).sort.should == [1, 2, 2]
@@ -2100,7 +2012,6 @@ module AccessControl
             record2.ac_node.assignments.create!(:principal => principal,
                                                 :role => querier_role)
 
-            AccessControl.stub!(:security_manager).and_return(manager)
             result = model_klass.find(:all, :select => 'DISTINCT name, field')
             result.size.should == 1
             result.first.name.should == 'same name'
@@ -2113,7 +2024,6 @@ module AccessControl
             record1 = model_klass.create!(:name => 'any name')
             record1.ac_node.assignments.create!(:principal => principal,
                                                 :role => querier_role)
-            AccessControl.stub!(:security_manager).and_return(manager)
             model_klass.find(:all).size.should == 1
           end
 
@@ -2132,7 +2042,6 @@ module AccessControl
                                        :role_id => manager_role.id)
             SecurityPolicyItem.create!(:permission => 'query',
                                        :role_id => manager_role.id)
-            AccessControl.stub!(:security_manager).and_return(nil)
           end
 
           it "checks multiple permissions in the same role" do
@@ -2147,7 +2056,6 @@ module AccessControl
             record3.ac_node.assignments.create!(:principal => principal,
                                                 :role => viewer_role)
 
-            AccessControl.stub!(:security_manager).and_return(manager)
             model_klass.find(:all).should == [record1]
           end
 
@@ -2165,7 +2073,6 @@ module AccessControl
             record3.ac_node.assignments.create!(:principal => principal,
                                                 :role => querier_role)
 
-            AccessControl.stub!(:security_manager).and_return(manager)
             model_klass.find(:all).should == [record1]
           end
 
@@ -2179,7 +2086,6 @@ module AccessControl
             record1.ac_node.assignments.create!(:principal => principal,
                                                 :role => querier_role)
 
-            AccessControl.stub!(:security_manager).and_return(manager)
             model_klass.find(:all).should == [record1]
           end
 
@@ -2199,7 +2105,6 @@ module AccessControl
 
             manager.stub!(:principal_ids).and_return([principal.id,
                                                       other_principal.id])
-            AccessControl.stub!(:security_manager).and_return(manager)
             model_klass.find(:all).should == [record1]
           end
 
@@ -2219,7 +2124,6 @@ module AccessControl
 
             manager.stub!(:principal_ids).and_return([principal.id,
                                                       other_principal.id])
-            AccessControl.stub!(:security_manager).and_return(manager)
             model_klass.find(:all).should == [record1]
           end
 
@@ -2250,7 +2154,6 @@ module AccessControl
                                                 :role => manager_role)
             record4 = model_klass.create!
 
-            AccessControl.stub!(:security_manager).and_return(manager)
             model_klass.find(:all, :permissions => ['view', 'query']).
               should == [record3]
           end
@@ -2265,8 +2168,6 @@ module AccessControl
             record1 = model_klass.create!
             record1.ac_node.assignments.create!(:principal => principal,
                                                 :role => querier_role)
-
-            AccessControl.stub!(:security_manager).and_return(manager)
 
             found = model_klass.find(:first, :load_permissions => true)
             model_klass.should_not_receive(:find) # Do not hit the database
@@ -2292,8 +2193,6 @@ module AccessControl
             record1 = model_klass.create!
             record1.ac_node.assignments.create!(:principal => principal,
                                                 :role => querier_role)
-
-            AccessControl.stub!(:security_manager).and_return(manager)
 
             found = model_klass.find(:first, :load_permissions => true)
             model_klass.should_not_receive(:find) # Do not hit the database
@@ -2337,8 +2236,6 @@ module AccessControl
             record3.ac_node.assignments.create!(:principal => principal,
                                                 :role_id => querier_role.id)
 
-            AccessControl.stub!(:security_manager).and_return(manager)
-
             model_klass.find(record1.id).should == record1
 
             lambda { model_klass.find(record2.id) }.should raise_exception
@@ -2360,8 +2257,6 @@ module AccessControl
             record3.ac_node.assignments.create!(:principal => principal,
                                                 :role_id => querier_role.id)
 
-            AccessControl.stub!(:security_manager).and_return(manager)
-
             model_klass.find(record1.id,
                              :permissions => ['view']).should == record1
             model_klass.find(record2.id,
@@ -2371,26 +2266,13 @@ module AccessControl
 
           it "raises Unauthorized if the record exists but the user has no "\
              "permission" do
-            AccessControl.stub!(:security_manager).and_return(manager)
             record1 = model_klass.create!
-            lambda {
-              model_klass.find(record1.id)
-            }.should raise_exception(AccessControl::Unauthorized)
-          end
-
-          it "logs the exception if the record exists but the user has no "\
-             "permission" do
-            AccessControl.stub!(:security_manager).and_return(manager)
-            record1 = model_klass.create!
-            Util.should_receive(:log_missing_permissions).
-              with(record1.ac_node, Set.new(['view']), instance_of(Array))
             lambda {
               model_klass.find(record1.id)
             }.should raise_exception(AccessControl::Unauthorized)
           end
 
           it "raises RecordNotFound if the record doesn't exists" do
-            AccessControl.stub!(:security_manager).and_return(manager)
             record1 = model_klass.create!
             id = record1.id
             record1.destroy
@@ -2406,7 +2288,6 @@ module AccessControl
       describe "#unrestricted_find" do
 
         it "doesn't make permission checking" do
-          AccessControl.stub!(:security_manager).and_return(manager)
           record1 = model_klass.create!(:field => 1)
           model_klass.unrestricted_find(:all).should == [record1]
         end
@@ -2417,7 +2298,7 @@ module AccessControl
           r = model_klass.create!
           AccessControl.stub(:model_security_strict? => true)
           AccessControl.config.send("default_query_permissions=", [])
-          model_klass.stub(:restrict_queries? => false)
+          manager.stub(:restrict_queries? => false)
           model_klass.find(:all).should == [r]
         end
 
@@ -2425,7 +2306,6 @@ module AccessControl
 
       describe "#parents" do
         before do
-          AccessControl.stub!(:security_manager).and_return(manager)
           model_klass.class_eval do
             belongs_to :record
             inherits_permissions_from :record
@@ -2455,7 +2335,6 @@ module AccessControl
 
       describe "#children" do
         before do
-          AccessControl.stub!(:security_manager).and_return(manager)
           model_klass.class_eval do
             has_many :records
             belongs_to :record

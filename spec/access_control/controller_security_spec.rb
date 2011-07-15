@@ -25,6 +25,7 @@ module AccessControl
       end
       ActiveRecord::Base.stub!(:drop_all_temporary_instantiation_requirements!)
       records_controller.stub!(:params).and_return(params)
+      records_controller.stub(:current_user)
     end
 
     after do
@@ -58,11 +59,10 @@ module AccessControl
 
     describe "request wrapping with a security manager available" do
 
-      let(:manager) {mock('manager')}
+      let(:manager) { SecurityManager.new }
 
       before do
-        AccessControl::SecurityManager.stub!(:new).
-          with(records_controller).and_return(manager)
+        AccessControl.stub(:security_manager).and_return(manager)
         RecordsController.class_eval do
           # This method overrides the default implementation of `process` from
           # Rails, which was aliased.
@@ -72,26 +72,53 @@ module AccessControl
         end
       end
 
-      it "provides a security manager during action execution" do
-        records_controller.process(Proc.new do
-          AccessControl.security_manager.should == manager
-        end)
+      describe "before action is executed" do
+
+        it "feeds the security manager with the current user" do
+          records_controller.should_receive(:current_user).
+            and_return('the current user')
+          manager.should_receive(:current_user=).with('the current user')
+          records_controller.process(Proc.new{})
+        end
+
+        it "feeds the security manager with the current groups" do
+          records_controller.should_receive(:current_groups).
+            and_return('the current groups')
+          manager.should_receive(:current_groups=).with('the current groups')
+          records_controller.process(Proc.new{})
+        end
+
+        it "executes the action afterwards" do
+          user = stub('user')
+          groups = stub('groups')
+          records_controller.stub(:current_user => user)
+          records_controller.stub(:current_groups => groups)
+          records_controller.process(lambda {
+            AccessControl.security_manager.current_user.should == user
+            AccessControl.security_manager.current_groups.should == groups
+          })
+        end
+
       end
 
-      it "unsets security manager after action execution" do
-        records_controller.process(Proc.new{})
-        AccessControl.security_manager.should be_nil
-      end
+      describe "after action is executed" do
 
-      it "clears the global cache after action execution" do
-        AccessControl::Node.should_receive(:clear_global_node_cache)
-        records_controller.process(Proc.new{})
-      end
+        it "unsets security manager after action execution" do
+          AccessControl.should_receive(:no_security_manager)
+          records_controller.process(Proc.new{})
+        end
 
-      it "drops all temp instantiation requirements after action execution" do
-        ActiveRecord::Base.
-          should_receive(:drop_all_temporary_instantiation_requirements!)
-        records_controller.process(Proc.new{})
+        it "clears the global node cache after action execution" do
+          AccessControl::Node.should_receive(:clear_global_node_cache)
+          records_controller.process(Proc.new{})
+        end
+
+        it "drops all temp instantiation requirements after action execution" do
+          ActiveRecord::Base.
+            should_receive(:drop_all_temporary_instantiation_requirements!)
+          records_controller.process(Proc.new{})
+        end
+
       end
 
     end
@@ -341,10 +368,10 @@ module AccessControl
             call_filters_for_some_action
           end
         end
-        PermissionRegistry.stub!(:register)
-        records_controller.stub!(:current_security_context).and_return(node)
-        AccessControl.stub!(:security_manager).and_return(manager)
-        manager.stub!(:verify_access!)
+        PermissionRegistry.stub(:register)
+        records_controller.stub(:current_security_context).and_return(node)
+        AccessControl.stub(:security_manager).and_return(manager)
+        manager.stub(:verify_access!)
       end
 
       it "raises an error when there's no security context" do

@@ -27,12 +27,11 @@ module AccessControl
       def parents
         return [] if self.class.inherits_permissions_from.empty?
         return [] unless AccessControl.config.tree_creation
-        disable_query_restriction
-        result = self.class.inherits_permissions_from.inject([]) do |r, a|
-          r << send(a)
-        end.flatten.compact.uniq
-        re_enable_query_restriction
-        result
+        AccessControl.security_manager.without_query_restriction do
+          self.class.inherits_permissions_from.inject([]) do |r, a|
+            r << send(a)
+          end.flatten.compact.uniq
+        end
       end
 
       def parents_for_creation
@@ -89,17 +88,6 @@ module AccessControl
           end
         end
 
-        def disable_query_restriction
-          self.class.send(:disable_query_restriction)
-          # This must return true or else validation stops and the record ends
-          # being considered invalid.
-          true
-        end
-
-        def re_enable_query_restriction
-          self.class.send(:re_enable_query_restriction)
-        end
-
         def increment_validation_chain
           Thread.current[:validation_chain_depth] ||= 0
           Thread.current[:validation_chain_depth] += 1
@@ -113,17 +101,18 @@ module AccessControl
         def new_and_old_children
           return [[], []] if self.class.propagates_permissions_to.empty?
           return [[], []] unless AccessControl.config.tree_creation
-          disable_query_restriction
           old_children = []
-          new_children = self.class.propagates_permissions_to.inject([]){|r, a|
-            reflection = self.class.reflections[a.to_sym]
-            if reflection.macro == :belongs_to
-              old, new = changes[reflection.primary_key_name.to_s]
-              old_children << reflection.klass.find(old) if old
+          new_children =
+            AccessControl.security_manager.without_query_restriction do
+              self.class.propagates_permissions_to.inject([]){|r, a|
+                reflection = self.class.reflections[a.to_sym]
+                if reflection.macro == :belongs_to
+                  old, new = changes[reflection.primary_key_name.to_s]
+                  old_children << reflection.klass.find(old) if old
+                end
+                r << send(a)
+              }.flatten.compact.uniq
             end
-            r << send(a)
-          }.flatten.compact.uniq
-          re_enable_query_restriction
           [new_children, old_children]
         end
 
@@ -139,7 +128,6 @@ module AccessControl
 
         def verify_default_permissions?(type)
           self.class.securable? &&
-            AccessControl.security_manager &&
             self.class.send(:"permissions_required_to_#{type}").any?
         end
 

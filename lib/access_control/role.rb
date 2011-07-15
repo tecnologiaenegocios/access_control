@@ -21,6 +21,10 @@ module AccessControl
     named_scope :global_assignables,
                 :conditions => {:global => true}
 
+    def permissions
+      Set.new(security_policy_items.map(&:permission))
+    end
+
     def self.securable?
       false
     end

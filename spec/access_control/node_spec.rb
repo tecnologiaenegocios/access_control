@@ -1,4 +1,5 @@
 require 'spec_helper'
+require 'access_control/configuration'
 require 'access_control/node'
 
 module AccessControl
@@ -12,20 +13,19 @@ module AccessControl
       )
     end
 
+    let(:manager) { SecurityManager.new }
+
     def securable
-      SecurableObj.create!
+      stub_model(SecurableObj)
     end
 
     before do
       Node.clear_global_node_cache
+      Assignment.stub(:skip_role_verification? => true)
+      AccessControl.stub(:security_manager).and_return(manager)
+      Principal.create_anonymous_principal!
       class Object::SecurableObj < ActiveRecord::Base
-        include AccessControl::ModelSecurity::InstanceMethods
-        create_requires 'some_permission_to_create'
         set_table_name 'records'
-        def create_nodes
-          # We disable automatic node creation since it doesn't belong to this
-          # spec.
-        end
       end
     end
 
@@ -90,101 +90,22 @@ module AccessControl
       }.should raise_exception(::AccessControl::NoGlobalNode)
     end
 
-    describe "#principal_assignments" do
-
-      let(:manager) { ::AccessControl::SecurityManager.new('a controller') }
-
-      it "returns only the assignments belonging to the current principals" do
-        Node.create_global_node!
-        node = Node.create!(:securable_type => 'Foo', :securable_id => 1)
-        principal1 = Principal.create!(:subject_type => 'User', :subject_id => 1)
-        principal2 = Principal.create!(:subject_type => 'User', :subject_id => 2)
-        principal3 = Principal.create!(:subject_type => 'User', :subject_id => 3)
-        assignment1 = Assignment.create!(:role_id => 0,
-                                         :principal_id => principal1.id,
-                                         :node_id => node.id)
-        assignment2 = Assignment.create!(:role_id => 0,
-                                         :principal_id => principal2.id,
-                                         :node_id => node.id)
-        assignment3 = Assignment.create!(:role_id => 0,
-                                         :principal_id => principal3.id,
-                                         :node_id => node.id)
-        AccessControl.stub!(:security_manager).and_return(manager)
-        manager.stub!(:principal_ids).and_return([principal1.id, principal3.id])
-        node.reload.principal_assignments.should include(assignment1)
-        node.principal_assignments.should include(assignment3)
-        node.principal_assignments.should_not include(assignment2)
-      end
-
-      describe "conditions optimization" do
-
-        before do
-          AccessControl.stub!(:security_manager).and_return(manager)
-        end
-
-        describe "conditions with single principal" do
-          it "uses the single element of the `principal_ids` from manager" do
-            manager.should_receive(:principal_ids).and_return(['principal id'])
-            Node.reflections[:principal_assignments].
-              options[:conditions].should == {
-                :principal_id => 'principal id'
-              }
-          end
-        end
-
-        describe "conditions with multiple principals" do
-          it "passes along all principal ids from manager in an array" do
-            manager.should_receive(:principal_ids).
-              and_return(['principal id1', 'principal id2'])
-            Node.reflections[:principal_assignments].
-              options[:conditions].should == {
-                :principal_id => ['principal id1', 'principal id2']
-              }
-          end
-        end
-      end
-
-    end
-
     describe "#assignments" do
 
       before do
         Node.create_global_node!
       end
 
-      it "returns all assignments, regardless the principals" do
-        node = Node.create!(:securable_type => 'Foo', :securable_id => 1)
-        principal1 = Principal.create!(:subject_type => 'User',
-                                       :subject_id => 1)
-        principal2 = Principal.create!(:subject_type => 'User',
-                                       :subject_id => 2)
-        principal3 = Principal.create!(:subject_type => 'User',
-                                       :subject_id => 3)
-        assignment1 = Assignment.create!(:role_id => 0,
-                                         :principal_id => principal1.id,
-                                         :node_id => node.id)
-        assignment2 = Assignment.create!(:role_id => 0,
-                                         :principal_id => principal2.id,
-                                         :node_id => node.id)
-        assignment3 = Assignment.create!(:role_id => 0,
-                                         :principal_id => principal3.id,
-                                         :node_id => node.id)
-        node.reload.assignments.should include(assignment1)
-        node.assignments.should include(assignment3)
-        node.assignments.should include(assignment2)
-      end
-
       it "destroys the dependant assignments when the node is destroyed" do
-        node = Node.create!(:securable_type => 'Foo', :securable_id => 1)
-        assignment = Assignment.create!(:role_id => 0,
-                                        :principal_id => 0,
-                                        :node_id => node.id)
+        node = Node.new(:securable_type => 'Foo', :securable_id => 1)
+        assignment = stub_model(Assignment, :[]= => true, :save => true)
+        node.assignments << assignment
+        assignment.should_receive(:destroy)
         node.destroy
-        Assignment.count.should == 0
       end
 
       it "accepts nested attributes" do
-        node = Node.create!(
+        node = Node.new(
           :securable_type => 'Foo',
           :securable_id => 1,
           :assignments_attributes => {
@@ -197,160 +118,96 @@ module AccessControl
       end
 
       it "allows destruction of assignments" do
-        node = Node.create!(:securable_type => 'Foo', :securable_id => 1)
-        assignment = Assignment.create!(:role_id => 0,
-                                        :principal_id => 0,
-                                        :node_id => node.id)
-        node.reload.update_attributes(
-          :assignments_attributes => {
-            '0' => {:id => assignment.to_param, :_destroy => '1'}
-          }
-        )
-        node.reload.assignments.should be_empty
+        node = Node.new(:securable_type => 'Foo', :securable_id => 1)
+        assignment = stub_model(Assignment, :[]= => true, :save => true)
+        node.assignments << assignment
+        # A little explanation of the "twice" bit: Rails adds two callbacks for
+        # an autosave association, one for the has_many declaration and
+        # another for the accepts_nested_attributes_for declaration.  This
+        # makes the destroy method being called twice.  If the association
+        # hasn't the accepts_nested_attributes_for stuff, only one callback
+        # would exist and be called, but the method destroy would not if the
+        # association were not autosave.
+        assignment.should_receive(:destroy).twice
+        node.update_attributes(:assignments_attributes => {
+          '0' => {:id => assignment.to_param, :_destroy => '1'}
+        })
       end
 
     end
 
+    describe "#principal_roles" do
+
+      it "returns only the roles belonging to the current principals" do
+        Node.create_global_node!
+        node = Node.create!(:securable_type => 'Foo', :securable_id => 1)
+        principal1 = Principal.create!(:subject_type => 'User', :subject_id => 1)
+        principal2 = Principal.create!(:subject_type => 'User', :subject_id => 2)
+        principal3 = Principal.create!(:subject_type => 'User', :subject_id => 3)
+        role1 = Role.create!(:name => 'Role 1')
+        role2 = Role.create!(:name => 'Role 2')
+        role3 = Role.create!(:name => 'Role 3')
+        assignment1 = Assignment.create!(:role_id => role1.id,
+                                         :principal_id => principal1.id,
+                                         :node_id => node.id)
+        assignment2 = Assignment.create!(:role_id => role2.id,
+                                         :principal_id => principal2.id,
+                                         :node_id => node.id)
+        assignment3 = Assignment.create!(:role_id => role3.id,
+                                         :principal_id => principal3.id,
+                                         :node_id => node.id)
+        manager.stub!(:principal_ids).and_return([principal1.id, principal3.id])
+        node.reload.principal_roles.should include(role1)
+        node.principal_roles.should include(role3)
+        node.principal_roles.should_not include(role2)
+      end
+
+      describe "conditions optimization" do
+
+        describe "conditions with single principal" do
+          it "uses the single element of the `principal_ids` from manager" do
+            manager.should_receive(:principal_ids).and_return(['principal id'])
+            Node.reflections[:principal_roles].
+              through_reflection.options[:conditions].should == {
+                :principal_id => 'principal id'
+              }
+          end
+        end
+
+        describe "conditions with multiple principals" do
+          it "passes along all principal ids from manager in an array" do
+            manager.should_receive(:principal_ids).
+              and_return(['principal id1', 'principal id2'])
+            Node.reflections[:principal_roles].
+              through_reflection.options[:conditions].should == {
+                :principal_id => ['principal id1', 'principal id2']
+              }
+          end
+        end
+      end
+
+    end
+
+    describe "#assignments_with_roles" do
+      describe "Assignment conformance with expected interface" do
+        it_has_class_method(Assignment, :with_roles)
+      end
+      it "calls .with_roles named scope on assignments association" do
+        node = Node.new
+        roles = 'some roles to filter'
+        node.stub(:assignments => mock('assignments'))
+        node.assignments.should_receive(:with_roles).with(roles).
+          and_return('the filtered assignments')
+        node.assignments_with_roles(roles).should == 'the filtered assignments'
+      end
+    end
+
     describe "permissions API" do
-
-      let(:parent) { stub_model(Node) }
-      let(:node) { stub_model(Node) }
-      let(:role1) do
-        stub_model(Role, :security_policy_items => [
-          stub(:permission => 'permission 1'),
-        ])
-      end
-      let(:role2) do
-        stub_model(Role, :security_policy_items => [
-          stub(:permission => 'permission 2'),
-        ])
-      end
-      let(:role3) do
-        stub_model(Role, :security_policy_items => [
-          stub(:permission => 'permission 3'),
-          stub(:permission => 'permission 4'),
-        ])
-      end
-      let(:role4) do
-        stub_model(Role, :security_policy_items => [
-          stub(:permission => 'permission 5'),
-          stub(:permission => 'permission 6'),
-        ])
-      end
-
-      before do
-        node.stub!(:principal_assignments => [
-          stub('an assignment', :role => role1),
-          stub('another assignment', :role => role2)
-        ])
-        parent.stub!(
-          :principal_assignments => [
-            stub('an assignment', :role => role3),
-            stub('another assignment', :role => role4)
-          ],
-          :strict_ancestors => []
-        )
-        node.stub!(:ancestors).and_return([parent, node])
-        node.stub!(:strict_ancestors).and_return([parent])
-      end
-
-      describe "#has_permission?" do
-        it "returns true when the user has the required permission" do
-          node.has_permission?('permission 6').should be_true
-        end
-
-        it "returns false when the user has not the permission" do
-          node.has_permission?('permission 7001').should be_false
+      it "includes PermissionInspector::Behavior" do
+        PermissionInspector::Behavior.instance_methods.each do |m|
+          Node.method_defined?(m).should be_true
         end
       end
-
-      describe "#permissions" do
-        it "returns the permissions in the node for the current principal" do
-          node.permissions.should == Set.new([
-            'permission 1',
-            'permission 2',
-            'permission 3',
-            'permission 4',
-            'permission 5',
-            'permission 6',
-          ])
-        end
-      end
-
-      describe "#current_roles" do
-        it "returns the roles that are assigned to the current principal" do
-          node.current_roles.should == Set.new([role1, role2, role3, role4])
-          parent.current_roles.should == Set.new([role3, role4])
-        end
-      end
-
-      describe "#inherited_roles_for_all_principals(filter_roles)" do
-
-        let(:principal1) { stub_model(Principal) }
-        let(:principal2) { stub_model(Principal) }
-        let(:roles) { [role1, role2, role3, role4] }
-        let(:role_ids) { roles.map(&:id) }
-        let(:ancestor) { stub_model(Node) }
-        let(:global) { stub_model(Node, :global? => true) }
-        let(:parent_assignments) { mock('assignments association') }
-        let(:ancestor_assignments) { mock('assignments association') }
-        let(:global_assignments) { mock('assignments association') }
-
-        before do
-          parent.should_receive(:assignments).and_return(parent_assignments)
-          ancestor.should_receive(:assignments).and_return(ancestor_assignments)
-          global.should_receive(:assignments).and_return(global_assignments)
-
-          node.stub!(:strict_unblocked_ancestors).
-            and_return([parent, ancestor, global])
-
-          parent_assignments.should_receive(:find).with(
-            :all,
-            :conditions => {:role_id => role_ids}
-          ).and_return([])
-          ancestor_assignments.should_receive(:find).with(
-            :all,
-            :conditions => {:role_id => role_ids}
-          ).and_return([
-            stub(:role_id => role1.id, :principal_id => principal1.id),
-            stub(:role_id => role1.id, :principal_id => principal2.id),
-            stub(:role_id => role3.id, :principal_id => principal1.id),
-          ])
-          global_assignments.should_receive(:find).with(
-            :all,
-            :conditions => {:role_id => role_ids}
-          ).and_return([
-            stub(:role_id => role2.id, :principal_id => principal1.id),
-            stub(:role_id => role3.id, :principal_id => principal1.id),
-          ])
-
-          @items = node.inherited_roles_for_all_principals(roles)
-        end
-
-        it "returns as many items as principals with assignments" do
-          @items.size.should == 2
-        end
-
-        it "returns a hash keyed by principal ids" do
-          @items.keys.sort.should == [principal1.id, principal2.id].sort
-        end
-
-        it "returns values as hashes keyed by role ids, only requested ones" do
-          Set.new(@items.map{|k, v| v.keys}.flatten).
-            should be_subset(Set.new(role_ids))
-        end
-
-        it "returns a set of 'global' and 'inherited' strings or nil" do
-          @items[principal1.id][role1.id].should == Set.new(['inherited'])
-          @items[principal1.id][role2.id].should == Set.new(['global'])
-          @items[principal1.id][role3.id].should == Set.new(['inherited',
-                                                             'global'])
-          @items[principal2.id][role2.id].should be_nil
-          @items[principal2.id][role1.id].should == Set.new(['inherited'])
-          @items[principal2.id][role3.id].should be_nil
-        end
-      end
-
     end
 
     describe "tree management" do
@@ -425,10 +282,8 @@ module AccessControl
           let(:role2) { Role.create!(:name => 'manager') }
 
           before do
-            manager = AccessControl::SecurityManager.new('a controller')
             manager.stub!(:principal_ids => [1, 2, 3], :verify_access! => nil)
             role1; role2;
-            AccessControl.stub!(:security_manager).and_return(manager)
           end
 
           describe "when there's one or more default roles" do
@@ -470,16 +325,6 @@ module AccessControl
             it "doesn't assigns the node to any role" do
               AccessControl.config.stub!(:default_roles_on_create).
                 and_return(nil)
-              node = Node.create!(:securable => securable).reload
-              node.assignments.should be_empty
-            end
-          end
-
-          describe "when there's no security manager" do
-            it "doesn't assigns the node to any role" do
-              AccessControl.stub!(:security_manager).and_return(nil)
-              AccessControl.config.stub!(:default_roles_on_create).
-                and_return(Set.new(['owner']))
               node = Node.create!(:securable => securable).reload
               node.assignments.should be_empty
             end
@@ -651,9 +496,10 @@ module AccessControl
 
         describe "when blocking" do
 
-          describe "when there's no security manager" do
+          describe "when the principal has 'change_inheritance_blocking'" do
 
             before do
+              node.stub(:has_permission?).and_return(true)
               node.block = true
               node.save!
             end
@@ -700,52 +546,31 @@ module AccessControl
 
           end
 
-          describe "when there's a security manager" do
-
-            let(:manager) { mock('security manager') }
-
-            before do
-              AccessControl.stub!(:security_manager).and_return(manager)
-              manager.stub!(:restrict_queries=)
-              manager.stub!(:verify_access!).and_return(true)
+          describe "when the principal hasn't 'change_inheritance_blocking'" do
+            it "fails to block" do
+              node.should_receive(:has_permission?).
+                with('change_inheritance_blocking').
+                and_return(false)
+              node.block = true
+              lambda do
+                node.save!
+              end.should raise_exception(AccessControl::Unauthorized)
             end
-
-            describe "when the principal has 'change_inheritance_blocking'" do
-
-              it "blocks fine" do
-                node.should_receive(:has_permission?).
-                  with('change_inheritance_blocking').
-                  and_return(true)
-                node.block = true
-                lambda { node.save! }.should_not raise_exception
-              end
-
-            end
-
-            describe "when the principal hasn't 'change_inheritance_blocking'"\
-              do
-                it "fails to block" do
-                  node.should_receive(:has_permission?).
-                    with('change_inheritance_blocking').
-                    and_return(false)
-                  node.block = true
-                  lambda do
-                    node.save!
-                  end.should raise_exception(AccessControl::Unauthorized)
-                end
-              end
-
           end
 
         end
 
         describe "when unblocking" do
 
-          describe "when there's no security manager" do
+          before do
+            node.stub(:has_permission?).and_return(true)
+            node.block = true
+            node.save!
+          end
+
+          describe "when the principal has 'change_inheritance_blocking'" do
 
             before do
-              node.block = true
-              node.save!
               node.block = false
               node.save!
             end
@@ -785,40 +610,16 @@ module AccessControl
 
           end
 
-          describe "when there's a security manager" do
-
-            let(:manager) { mock('security manager') }
-
-            before do
-              node.block = true
-              node.save!
-              AccessControl.stub!(:security_manager).and_return(manager)
-              manager.stub!(:restrict_queries=)
-              manager.stub!(:verify_access!).and_return(true)
+          describe "when the principal hasn't 'change_inheritance_blocking'" do
+            it "fails to unblock" do
+              node.should_receive(:has_permission?).
+                with('change_inheritance_blocking').
+                and_return(false)
+              node.block = false
+              lambda do
+                node.save!
+              end.should raise_exception(AccessControl::Unauthorized)
             end
-
-            describe "when the principal has 'change_inheritance_blocking'" do
-              it "unblocks fine" do
-                node.should_receive(:has_permission?).
-                  with('change_inheritance_blocking').
-                  and_return(true)
-                node.block = false
-                lambda { node.save! }.should_not raise_exception
-              end
-            end
-
-            describe "when the principal hasn't 'change_inheritance_blocking'"\
-              do
-                it "fails to unblock" do
-                  node.should_receive(:has_permission?).
-                    with('change_inheritance_blocking').
-                    and_return(false)
-                  node.block = false
-                  lambda do
-                    node.save!
-                  end.should raise_exception(AccessControl::Unauthorized)
-                end
-              end
           end
 
         end
