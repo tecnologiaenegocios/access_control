@@ -253,7 +253,8 @@ module AccessControl
           manager.current_user = UnrestrictableUser.instance
         end
 
-        it "returns true" do
+        it "returns true without any further verification on nodes or "\
+           "permissions" do
           manager.has_access?('any nodes', 'any permissions').should be_true
         end
 
