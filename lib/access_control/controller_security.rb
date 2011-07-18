@@ -69,7 +69,7 @@ module AccessControl
       end
 
       def process_with_security_manager(*args)
-        run_with_security_manager do
+        clear_security_manager_in_the_end do
           process_without_security_manager(*args)
         end
       end
@@ -84,9 +84,7 @@ module AccessControl
         []
       end
 
-      def run_with_security_manager
-        AccessControl.security_manager.current_user = current_user
-        AccessControl.security_manager.current_groups = current_groups
+      def clear_security_manager_in_the_end
         yield
       ensure
         AccessControl.no_security_manager

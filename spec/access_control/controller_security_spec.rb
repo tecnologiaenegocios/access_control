@@ -57,7 +57,7 @@ module AccessControl
 
     end
 
-    describe "request wrapping with a security manager available" do
+    describe "request wrapping" do
 
       let(:manager) { SecurityManager.new }
 
@@ -70,35 +70,6 @@ module AccessControl
             block.call
           end
         end
-      end
-
-      describe "before action is executed" do
-
-        it "feeds the security manager with the current user" do
-          records_controller.should_receive(:current_user).
-            and_return('the current user')
-          manager.should_receive(:current_user=).with('the current user')
-          records_controller.process(Proc.new{})
-        end
-
-        it "feeds the security manager with the current groups" do
-          records_controller.should_receive(:current_groups).
-            and_return('the current groups')
-          manager.should_receive(:current_groups=).with('the current groups')
-          records_controller.process(Proc.new{})
-        end
-
-        it "executes the action afterwards" do
-          user = stub('user')
-          groups = stub('groups')
-          records_controller.stub(:current_user => user)
-          records_controller.stub(:current_groups => groups)
-          records_controller.process(lambda {
-            AccessControl.security_manager.current_user.should == user
-            AccessControl.security_manager.current_groups.should == groups
-          })
-        end
-
       end
 
       describe "after action is executed" do
