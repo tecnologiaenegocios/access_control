@@ -111,7 +111,7 @@ module AccessControl
     end
 
     def self.global_securable_type
-      'AccessControlGlobalRecord'
+      'AccessControl::GlobalRecord'
     end
 
     def self.global_securable_id
@@ -301,14 +301,14 @@ module AccessControl
       end
 
   end
-end
 
-class AccessControlGlobalRecord
-  include Singleton
-  def ac_node
-    AccessControl::Node.global
-  end
-  def self.find *args
-    instance
+  class GlobalRecord
+    include Singleton
+    def ac_node
+      AccessControl::Node.global
+    end
+    def self.find *args
+      instance
+    end
   end
 end

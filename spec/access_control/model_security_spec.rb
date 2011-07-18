@@ -325,7 +325,7 @@ module AccessControl
 
             it "verifies permissions using the global node" do
               manager.should_receive(:verify_access!).
-                with([AccessControlGlobalRecord.instance],
+                with([AccessControl::GlobalRecord.instance],
                      Set.new(['permission']))
               model_klass.new(:field => 15).field.should == 15
             end
@@ -357,7 +357,7 @@ module AccessControl
 
             it "returns only the global node as a parent for creation" do
               model_klass.new.parents_for_creation.should == [
-                AccessControlGlobalRecord.instance
+                AccessControl::GlobalRecord.instance
               ]
             end
 

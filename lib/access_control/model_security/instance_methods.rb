@@ -37,7 +37,7 @@ module AccessControl
       def parents_for_creation
         normal_parents = parents
         return normal_parents if normal_parents.any?
-        [AccessControlGlobalRecord.instance]
+        [AccessControl::GlobalRecord.instance]
       end
 
       def children
