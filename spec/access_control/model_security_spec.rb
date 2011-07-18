@@ -278,7 +278,7 @@ module AccessControl
 
           end
 
-          describe "in column attributes methods that are overwritten" do
+          describe "in column attribute methods that are overridden" do
 
             let(:node) do
               model_klass.unrestricted_find(:first).ac_node
@@ -325,19 +325,22 @@ module AccessControl
 
             it "verifies permissions using the global node" do
               manager.should_receive(:verify_access!).
-                with([Node.global], Set.new(['permission']))
+                with([AccessControlGlobalRecord.instance],
+                     Set.new(['permission']))
               model_klass.new(:field => 15).field.should == 15
             end
 
             it "verifies permissions using parents if this isn't empty" do
+              # Note: the parent records are passed, not their nodes.  This
+              # allows test code in the application to not worry about nodes
+              # when mocking/stubbing models.
               model_klass.class_eval(<<-eos)
                 def parents
                   self.class.unrestricted_find([#{parent1.id}, #{parent2.id}])
                 end
               eos
               manager.should_receive(:verify_access!).
-                with([parent1.ac_node, parent2.ac_node],
-                     Set.new(['permission']))
+                with([parent1, parent2], Set.new(['permission']))
               model_klass.new(:field => 15).field.should == 15
             end
 
