@@ -1814,7 +1814,7 @@ module AccessControl
         manager.stub!(:principal_ids).and_return([principal.id])
         model_klass.query_requires 'query'
         model_klass.view_requires 'view'
-        Assignment.stub(:skip_role_verification? => true)
+        Assignment.stub(:skip_assignment_verification? => true)
       end
 
       describe "#find" do

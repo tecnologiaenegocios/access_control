@@ -24,7 +24,7 @@ module AccessControl
     it "destroys assignments when it is destroyed" do
       Principal.create_anonymous_principal!
       Node.create_global_node!
-      Assignment.stub(:skip_role_verification? => true)
+      Assignment.stub(:skip_assignment_verification? => true)
       role = Role.create!(:name => 'the role name')
       Assignment.create!(:role => role,
                          :node => Node.global,

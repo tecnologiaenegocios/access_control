@@ -291,11 +291,10 @@ module AccessControl
         AccessControl.security_manager.principal_ids.each do |principal_id|
           AccessControl.config.default_roles_on_create.each do |role|
             next unless role = Role.find_by_name(role)
-            assignment = assignments.build(
-              :role_id => role.id, :principal_id => principal_id
-            )
-            assignment.skip_role_verification!
-            assignment.save!
+            r = assignments.build(:role_id => role.id,
+                                  :principal_id => principal_id)
+            r.skip_assignment_verification!
+            r.save!
           end
         end
       end

@@ -21,7 +21,7 @@ module AccessControl
 
     before do
       Node.clear_global_node_cache
-      Assignment.stub(:skip_role_verification? => true)
+      Assignment.stub(:skip_assignment_verification? => true)
       AccessControl.stub(:security_manager).and_return(manager)
       Principal.create_anonymous_principal!
       class Object::SecurableObj < ActiveRecord::Base

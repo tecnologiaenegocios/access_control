@@ -11,30 +11,22 @@ module AccessControl
 
     has_many :security_policy_items, :through => :role
 
+    validates_presence_of :node_id
+    validates_presence_of :role_id
+    validates_presence_of :principal_id
+
     validates_uniqueness_of :role_id, :scope => [:node_id, :principal_id]
 
-    validate :validate_role
+    validate :validate_role_locality
+    validate :validate_assignment_security
 
-    before_save :verify_roles!
-    before_destroy :verify_roles!
+    before_destroy :verify_security_restrictions!
 
     named_scope :with_roles, lambda{|roles|
       { :conditions => { :role_id => roles.map(&:id) } }
     }
 
-    # This is a flag that controls the assignment creation.  When the system is
-    # doing an automatic assignment this flag is set (this method is called).
-    def skip_role_verification!
-      @skip_role_verification = true
-    end
-
-    # Returns the state of the flag, taking into consideration the flag in the
-    # class.
-    def skip_role_verification?
-      self.class.skip_role_verification? || @skip_role_verification
-    end
-
-    def validate_role
+    def validate_role_locality
       return unless role && node
       if !role.global && node.global?
         errors.add(:role_id, :invalid)
@@ -43,11 +35,9 @@ module AccessControl
       end
     end
 
-    def verify_roles!
-      return if skip_role_verification?
-      return if node.has_permission?('grant_roles')
-      raise Unauthorized unless node.has_permission?('share_own_roles')
-      raise Unauthorized unless node.current_roles.map(&:id).include?(role_id)
+    def validate_assignment_security
+      return unless role && node
+      errors.add(:role_id, :unassignable) unless can_assign_or_unassign?
     end
 
     def self.securable?
@@ -68,9 +58,32 @@ module AccessControl
       end
     end
 
+    def skip_assignment_verification!
+      @skip_assignment_verification = true
+    end
+
+    def skip_assignment_verification?
+      self.class.skip_assignment_verification? || !!@skip_assignment_verification
+    end
+
+  private
+
     # This flag is used in tests.
-    def self.skip_role_verification?
+    def self.skip_assignment_verification?
       false
+    end
+
+    def can_assign_or_unassign?
+      return true if skip_assignment_verification?
+      return true if AccessControl.security_manager.
+        has_access?(node, 'grant_roles')
+      manager = AccessControl.security_manager
+      manager.has_access?(node, 'share_own_roles') &&
+        manager.roles_in_context(node).map(&:id).include?(role_id)
+    end
+
+    def verify_security_restrictions!
+      raise Unauthorized unless can_assign_or_unassign?
     end
 
   end

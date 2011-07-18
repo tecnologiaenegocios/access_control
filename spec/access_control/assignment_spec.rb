@@ -13,10 +13,10 @@ module AccessControl
     before do
       AccessControl.config.stub(:default_roles_on_create).and_return(nil)
       AccessControl.stub(:security_manager).and_return(manager)
+      manager.stub(:has_access?).and_return(true)
     end
 
     it "can be created with valid attributes" do
-      Assignment.stub(:skip_role_verification? => true)
       Assignment.create!(
         :node => stub_model(AccessControl::Node),
         :principal => stub_model(AccessControl::Principal),
@@ -28,8 +28,19 @@ module AccessControl
       Assignment.securable?.should be_false
     end
 
+    it "validates presence of node_id" do
+      Assignment.new.should have(1).error_on :node_id
+    end
+
+    it "validates presence of role_id" do
+      Assignment.new.should have(1).error_on :role_id
+    end
+
+    it "validates presence of principal_id" do
+      Assignment.new.should have(1).error_on :principal_id
+    end
+
     it "validates uniqueness of role_id, principal_id and node_id" do
-      Assignment.stub(:skip_role_verification? => true)
       Assignment.create!(:node_id => 0, :principal_id => 0, :role_id => 0)
       Assignment.new(:node_id => 0, :principal_id => 0, :role_id => 0).
         should have(1).error_on(:role_id)
@@ -41,7 +52,15 @@ module AccessControl
         should have(:no).errors_on(:role_id)
     end
 
-    describe "validation" do
+    describe "role validation" do
+
+      describe "Node conformance with expected interface" do
+        it_has_instance_method(Node, :global?)
+      end
+
+      describe "Role conformance with expected interface" do
+        it_has_instance_method(Role, :local)
+      end
 
       describe "for global node" do
 
@@ -63,14 +82,6 @@ module AccessControl
 
       describe "for local nodes" do
 
-        describe "Node conformance with expected interface" do
-          it_has_instance_method(Node, :global?)
-        end
-
-        describe "Role conformance with expected interface" do
-          it_has_instance_method(Role, :name)
-        end
-
         let(:node) { stub_model(Node, :global? => false) }
 
         it "accepts a role if it is local assignable" do
@@ -89,123 +100,219 @@ module AccessControl
 
       describe "assignment security" do
 
-        describe "Node conformance with expected interface" do
-          it_has_instance_method(Node, :current_roles)
-          it_has_instance_method(Node, :has_permission?)
+        # In general: an assignment can be created/updated if the user
+        #
+        # - Has `grant_roles`.  This permission allows the user to grant roles
+        # (that is, make assignments) anywhere, for any other principal)
+        #
+        # - Has `share_own_roles`.  This perission allows the user to grand
+        # only its roles to someone else.
+
+        describe "SecurityManager conformance with expected interface" do
+          it_has_instance_method(SecurityManager, :has_access?)
+          it_has_instance_method(SecurityManager, :verify_access!)
+          it_has_instance_method(SecurityManager, :roles_in_context)
         end
 
-        describe "Role conformance with expected interface" do
-          it_has_instance_method(Role, :local)
-        end
-
-        let(:node) do
-          Node.create!(:securable_type => 'Foo', :securable_id => 1).reload
-        end
+        let(:node) { stub_model(Node) }
         let(:role) { stub_model(Role, :name => 'some_role', :local => true) }
         let(:other_role) { stub_model(Role, :name => 'other_role',
                                       :local => true) }
 
         before do
-          manager.stub(:verify_access!)
-          node.stub(:current_roles).and_return(Set.new([role]))
+          manager.stub(:roles_in_context).with(node).and_return(Set.new([role]))
         end
 
-        describe "when the principal has 'share_own_roles'" do
+        describe "if the current user has 'grant_roles'" do
+          it "validates fine" do
+            manager.should_receive(:has_access?).
+              with(node, 'grant_roles').and_return(true)
+            Assignment.new(:node => node, :role => role, :principal_id => 1).
+              should have(:no).error_on(:role_id)
+          end
+        end
+
+        describe "if the current user has not 'grant_roles'" do
 
           before do
-            node.should_receive(:has_permission?).
-              with('share_own_roles').any_number_of_times.
-              and_return(true)
-            node.should_receive(:has_permission?).
-              with('grant_roles').any_number_of_times.
+            manager.stub(:has_access?).with(node, 'grant_roles').
               and_return(false)
           end
 
-          it "saves fine if the role belongs to the principal" do
-            assignment = Assignment.new(:node => node, :role => role,
-                                        :principal_id => 1)
-            lambda { assignment.save! }.should_not raise_exception
+          describe "but verification is skipped" do
+            it "validates fine" do
+              r = Assignment.new(:node => node, :role => role,
+                                 :principal_id => 1)
+              r.skip_assignment_verification!
+              r.should have(:no).error_on(:role_id)
+            end
           end
 
-          it "raises Unauthorized if a role that doesn't belong to the "\
-             "principal is assigned" do
-            assignment = Assignment.new(:node => node, :role => other_role,
-                                        :principal_id => 1)
-            lambda { assignment.save! }.should raise_exception(Unauthorized)
-          end
+          describe "but has 'share_own_roles'" do
 
-          describe "when destroying" do
-
-            it "destroys fine if the role belongs to the principal" do
-              assignment = Assignment.create!(:node => node, :role => role,
-                                              :principal_id => 1)
-              lambda { assignment.destroy }.should_not raise_exception
+            before do
+              manager.stub(:has_access?).with(node, 'share_own_roles').
+                and_return(true)
             end
 
-            it "raises Unauthorized if has a role that doesn't belong to the "\
-               "principal" do
-              node.stub!(:current_roles).and_return(Set.new([other_role]))
-              assignment = Assignment.create!(:node => node,
-                                              :role => other_role,
-                                              :principal_id => 1)
-              node.stub!(:current_roles).and_return(Set.new([role]))
-              lambda { assignment.destroy }.should raise_exception(Unauthorized)
+            describe "and has the role being assigned" do
+
+              it "validates fine" do
+                Assignment.new(:node => node, :role => role,
+                               :principal_id => 1).
+                  should have(:no).error_on(:role_id)
+              end
+
+            end
+
+            describe "but hasn't the role being assigned" do
+
+              before do
+                manager.stub(:roles_in_context).with(node).
+                  and_return(Set.new([other_role]))
+              end
+
+              it "sets an :unassignable error on role_id" do
+                assignment = Assignment.new(:node => node, :role => role,
+                                            :principal_id => 1)
+                assignment.should have(1).error_on(:role_id)
+                assignment.errors['role_id'].should == ActiveRecord::Error.new(
+                  assignment, :role_id, :unassignable
+                ).to_s
+              end
+
+              describe "but verification is skipped" do
+                it "validates fine" do
+                  r = Assignment.new(:node => node, :role => role,
+                                    :principal_id => 1)
+                  r.skip_assignment_verification!
+                  r.should have(:no).error_on(:role_id)
+                end
+              end
+
+            end
+
+          end
+
+          describe "and hasn't 'share_own_roles'" do
+
+            it "sets an :unassignable error on role_id" do
+              manager.should_receive(:has_access?).
+                with(node, 'share_own_roles').and_return(false)
+              assignment = Assignment.new(:node => node, :role => role,
+                                          :principal_id => 1)
+              assignment.should have(1).error_on(:role_id)
+              assignment.errors['role_id'].should == ActiveRecord::Error.new(
+                assignment, :role_id, :unassignable
+              ).to_s
+            end
+
+            describe "but verification is skipped" do
+              it "validates fine" do
+                r = Assignment.new(:node => node, :role => role,
+                                  :principal_id => 1)
+                r.skip_assignment_verification!
+                r.should have(:no).error_on(:role_id)
+              end
             end
 
           end
 
         end
 
-        describe "when the principal has 'grant_roles'" do
+        describe "on destroy" do
+
+          let(:assignment) do
+            Assignment.new(:node => node, :role => role, :principal_id => 1)
+          end
 
           before do
-            node.should_receive(:has_permission?).
-              with('grant_roles').any_number_of_times.
-              and_return(true)
+            assignment.save!
           end
 
-          it "saves fine even if the role doesn't belongs to the principal" do
-            Assignment.create!(:node => node, :role => other_role,
-                               :principal_id => 1)
+          describe "if the current user has 'grant_roles'" do
+            it "destroys fine" do
+              manager.should_receive(:has_access?).
+                with(node, 'grant_roles').and_return(true)
+              lambda { assignment.destroy }.
+                should change(Assignment, :count).by(-1)
+            end
           end
 
-          it "destroys even if the role doesn't belongs to the principal" do
-            assignment = Assignment.create!(:node => node, :role => other_role,
-                                            :principal_id => 1)
-            lambda { assignment.destroy }.should_not raise_exception
-          end
+          describe "if the current user has not 'grant_roles'" do
 
-        end
+            before do
+              manager.stub(:has_access?).with(node, 'grant_roles').
+                and_return(false)
+            end
 
-        describe "when the principal hasn't 'grant_roles' neither "\
-                 "'share_own_roles'" do
+            describe "but verification is skipped" do
+              it "destroys fine" do
+                assignment.skip_assignment_verification!
+                lambda { assignment.destroy }.
+                  should change(Assignment, :count).by(-1)
+              end
+            end
 
-          it "raises Unauthorized when saving" do
-            node.should_receive(:has_permission?).
-              with('grant_roles').
-              and_return(false)
-            node.should_receive(:has_permission?).
-              with('share_own_roles').
-              and_return(false)
-            lambda {
-              Assignment.create!(:node => node, :role => other_role,
-                                :principal_id => 1)
-            }.should raise_exception(Unauthorized)
-          end
+            describe "but has 'share_own_roles'" do
 
-          it "raises Unauthorized when destroying" do
-            node.should_receive(:has_permission?).
-              with('grant_roles').
-              and_return(true)
-            assignment = Assignment.create!(:node => node, :role => other_role,
-                                            :principal_id => 1)
-            node.should_receive(:has_permission?).
-              with('grant_roles').
-              and_return(false)
-            node.should_receive(:has_permission?).
-              with('share_own_roles').
-              and_return(false)
-            lambda { assignment.destroy }.should raise_exception(Unauthorized)
+              before do
+                manager.stub(:has_access?).with(node, 'share_own_roles').
+                  and_return(true)
+              end
+
+              describe "and has the role being assigned" do
+
+                it "destroys fine" do
+                  lambda { assignment.destroy }.
+                    should change(Assignment, :count).by(-1)
+                end
+
+              end
+
+              describe "but hasn't the role being assigned" do
+
+                before do
+                  manager.stub(:roles_in_context).with(node).
+                    and_return(Set.new([other_role]))
+                end
+
+                it "raises Unauthorized" do
+                  lambda { assignment.destroy }.
+                    should raise_exception(Unauthorized)
+                end
+
+                describe "but verification is skipped" do
+                  it "destroys fine" do
+                    assignment.skip_assignment_verification!
+                    lambda { assignment.destroy }.
+                      should change(Assignment, :count).by(-1)
+                  end
+                end
+
+              end
+
+            end
+
+            describe "but hasn't 'share_own_roles'" do
+
+              it "raises Unauthorized" do
+                manager.should_receive(:has_access?).
+                  with(node, 'share_own_roles').and_return(false)
+                lambda { assignment.destroy }.
+                  should raise_exception(Unauthorized)
+              end
+
+              describe "but verification is skipped" do
+                it "destroys fine" do
+                  assignment.skip_assignment_verification!
+                  lambda { assignment.destroy }.
+                    should change(Assignment, :count).by(-1)
+                end
+              end
+
+            end
+
           end
 
         end
@@ -228,7 +335,6 @@ module AccessControl
 
       before do
         Node.create_global_node!
-        Assignment.stub(:skip_role_verification? => true)
         roles = [
           @role1 = Role.create!(:name => 'role1'),
           @role2 = Role.create!(:name => 'role2'),

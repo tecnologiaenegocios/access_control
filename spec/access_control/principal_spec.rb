@@ -26,7 +26,7 @@ module AccessControl
 
     it "destroys assignments when it is destroyed" do
       r = Principal.create!(:subject => stub_model(SubjectObj))
-      Assignment.stub(:skip_role_verification?).and_return(true)
+      Assignment.stub(:skip_assignment_verification? => true)
       Assignment.create!(:principal_id => r.id,
                          :node_id => 0, :role_id => 0)
       r.destroy
