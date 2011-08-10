@@ -7,3 +7,4 @@ spec/app/log/
 .bundle
 *.gem
 *.swp
+Session.vim
