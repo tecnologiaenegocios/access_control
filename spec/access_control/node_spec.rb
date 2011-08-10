@@ -21,8 +21,8 @@ module AccessControl
 
     before do
       Node.clear_global_node_cache
-      Assignment.stub(:skip_assignment_verification? => true)
       AccessControl.stub(:security_manager).and_return(manager)
+      manager.stub(:can_assign_or_unassign?).and_return(true)
       Principal.create_anonymous_principal!
       class Object::SecurableObj < ActiveRecord::Base
         set_table_name 'records'
@@ -199,14 +199,6 @@ module AccessControl
         node.assignments.should_receive(:with_roles).with(roles).
           and_return('the filtered assignments')
         node.assignments_with_roles(roles).should == 'the filtered assignments'
-      end
-    end
-
-    describe "permissions API" do
-      it "includes PermissionInspector::Behavior" do
-        PermissionInspector::Behavior.instance_methods.each do |m|
-          Node.method_defined?(m).should be_true
-        end
       end
     end
 
@@ -496,10 +488,17 @@ module AccessControl
 
         describe "when blocking" do
 
+          it "checks if the user has 'change_inheritance_blocking'" do
+            manager.should_receive(:verify_access!).
+              with(node, 'change_inheritance_blocking')
+            node.block = true
+            node.save!
+          end
+
           describe "when the principal has 'change_inheritance_blocking'" do
 
             before do
-              node.stub(:has_permission?).and_return(true)
+              manager.stub(:verify_access!)
               node.block = true
               node.save!
             end
@@ -546,25 +545,20 @@ module AccessControl
 
           end
 
-          describe "when the principal hasn't 'change_inheritance_blocking'" do
-            it "fails to block" do
-              node.should_receive(:has_permission?).
-                with('change_inheritance_blocking').
-                and_return(false)
-              node.block = true
-              lambda do
-                node.save!
-              end.should raise_exception(AccessControl::Unauthorized)
-            end
-          end
-
         end
 
         describe "when unblocking" do
 
           before do
-            node.stub(:has_permission?).and_return(true)
+            manager.stub(:verify_access!)
             node.block = true
+            node.save!
+          end
+
+          it "checks if the user has 'change_inheritance_blocking'" do
+            manager.should_receive(:verify_access!).
+              with(node, 'change_inheritance_blocking')
+            node.block = false
             node.save!
           end
 
@@ -608,18 +602,6 @@ module AccessControl
               descendant.ancestors.should include(global_node)
             end
 
-          end
-
-          describe "when the principal hasn't 'change_inheritance_blocking'" do
-            it "fails to unblock" do
-              node.should_receive(:has_permission?).
-                with('change_inheritance_blocking').
-                and_return(false)
-              node.block = false
-              lambda do
-                node.save!
-              end.should raise_exception(AccessControl::Unauthorized)
-            end
           end
 
         end

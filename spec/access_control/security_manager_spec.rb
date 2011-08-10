@@ -148,40 +148,53 @@ module AccessControl
 
     describe "#has_access?" do
 
-      let(:node1) { stub('node', :has_permission? => nil) }
-      let(:node2) { stub('node', :has_permission? => nil) }
+      let(:node1) { stub('node') }
+      let(:node2) { stub('node') }
+      let(:inspector1) { mock('inspector', :has_permission? => nil) }
+      let(:inspector2) { mock('inspector', :has_permission? => nil) }
+
+      before do
+        PermissionInspector.stub(:new).with(node1).and_return(inspector1)
+        PermissionInspector.stub(:new).with(node2).and_return(inspector2)
+      end
+
+      it "creates a inspector from the node given" do
+        PermissionInspector.should_receive(:new).with(node1).
+          and_return(inspector1)
+        manager.has_access?(node1, "a permission that doesn't matter")
+      end
 
       describe "with a single permission queried" do
 
         let(:permission) { 'a permission' }
 
         it "returns true if the user has the permission" do
-          node1.should_receive(:has_permission?).with(permission).
+          inspector1.should_receive(:has_permission?).with(permission).
             and_return(true)
           manager.has_access?(node1, permission).should be_true
         end
 
         it "returns false if the user hasn't the permission" do
-          node1.should_receive(:has_permission?).with(permission).
+          inspector1.should_receive(:has_permission?).with(permission).
             and_return(false)
           manager.has_access?(node1, permission).should be_false
         end
 
         it "returns true if the user has the permission in any of the nodes" do
-          node1.stub!(:has_permission? => true)
-          node2.stub!(:has_permission? => false)
+          inspector1.stub!(:has_permission? => true)
+          inspector2.stub!(:has_permission? => false)
           manager.has_access?([node1, node2], permission).should be_true
         end
 
         it "returns false if the user hasn't the permission in all nodes" do
-          node1.stub!(:has_permission? => false)
-          node2.stub!(:has_permission? => false)
+          inspector1.stub!(:has_permission? => false)
+          inspector2.stub!(:has_permission? => false)
           manager.has_access?([node1, node2], permission).should be_false
         end
 
         it "accepts records instead of nodes" do
-          node1.stub!(:has_permission? => true)
-          node2.stub!(:has_permission? => false)
+          inspector1.stub!(:has_permission? => true)
+          inspector2.stub!(:has_permission? => false)
           record1 = stub('record', :ac_node => node1)
           record2 = stub('record', :ac_node => node2)
           manager.has_access?([record1, record2], permission).should be_true
@@ -195,36 +208,36 @@ module AccessControl
         let(:permission2) { 'other permission' }
 
         it "returns true if the user has all permissions queried" do
-          node1.should_receive(:has_permission?).
+          inspector1.should_receive(:has_permission?).
             with(permission1).and_return(true)
-          node1.should_receive(:has_permission?).
+          inspector1.should_receive(:has_permission?).
             with(permission2).and_return(true)
           manager.has_access?(node1, [permission1, permission2]).
             should be_true
         end
 
         it "returns false if the user has not all permissions queried" do
-          node1.should_receive(:has_permission?).
+          inspector1.should_receive(:has_permission?).
             with(permission1).and_return(true)
-          node1.should_receive(:has_permission?).
+          inspector1.should_receive(:has_permission?).
             with(permission2).and_return(false)
           manager.has_access?(node1, [permission1, permission2]).
             should be_false
         end
 
         it "returns true if the user has all permissions in one node" do
-          node1.stub!(:has_permission? => true)
-          node2.stub!(:has_permission? => false)
+          inspector1.stub!(:has_permission? => true)
+          inspector2.stub!(:has_permission? => false)
           manager.has_access?([node1, node2], [permission1, permission2]).
             should be_true
         end
 
         it "returns true if the user has all permissions combining nodes" do
-          node1.stub!(:has_permission?) do |permission|
+          inspector1.stub(:has_permission?) do |permission|
             next true if permission == permission1
             false
           end
-          node2.stub!(:has_permission?) do |permission|
+          inspector2.stub(:has_permission?) do |permission|
             next true if permission == permission2
             false
           end
@@ -233,11 +246,11 @@ module AccessControl
         end
 
         it "returns false if user hasn't all permissions combining nodes" do
-          node1.stub!(:has_permission?) do |permission|
+          inspector1.stub(:has_permission?) do |permission|
             next true if permission == permission1
             false
           end
-          node2.stub!(:has_permission?) do |permission|
+          inspector2.stub(:has_permission?) do |permission|
             next true if permission == permission1
             false
           end
@@ -264,6 +277,13 @@ module AccessControl
 
     describe "#verify_access!" do
 
+      let(:inspector) { mock('inspector') }
+
+      before do
+        inspector.stub(:permissions).and_return(Set.new)
+        PermissionInspector.stub(:new).and_return(inspector)
+      end
+
       it "passes unmodified the paramenters to `has_access?`" do
         manager.should_receive(:has_access?).
           with('some context', 'some permissions').
@@ -288,8 +308,10 @@ module AccessControl
 
       it "logs the exception when the user has no permissions" do
         manager.stub!(:has_access?).and_return(false)
+        inspector.should_receive(:permissions).
+          and_return(Set.new(['permissions']))
         AccessControl::Util.should_receive(:log_missing_permissions).
-          with('some context', 'some permissions', instance_of(Array))
+          with('some permissions', Set.new(['permissions']), instance_of(Array))
         lambda {
           manager.verify_access!('some context', 'some permissions')
         }.should raise_exception(::AccessControl::Unauthorized)
@@ -297,46 +319,98 @@ module AccessControl
 
     end
 
-    describe "#permissions_in_context" do
+    describe "#can_assign_or_unassign?" do
 
-      let(:node) { mock('node') }
-      let(:node1) { mock('node') }
-      let(:node2) { mock('node') }
+      # In general: an assignment can be created/updated if the user
+      #
+      # - Has `grant_roles`.  This permission allows the user to grant roles
+      # (that is, make assignments) anywhere, for any other principal)
+      #
+      # - Has `share_own_roles`.  This perission allows the user to grant only
+      # its roles to someone else.
 
-      it "computes permissions from a single node" do
-        node.stub!(:permissions).and_return(['permission1', 'permission2'])
-        manager.permissions_in_context(node).should == Set.new([
-          'permission1', 'permission2'
-        ])
+      let(:node) { stub('node') }
+      let(:role) { stub('role') }
+      let(:inspector) { mock('inspector') }
+
+      before do
+        PermissionInspector.stub(:new).with(node).and_return(inspector)
       end
 
-      it "computes permissions from multiple nodes" do
-        node1.stub!(:permissions).and_return(['permission1', 'permission2'])
-        node2.stub!(:permissions).and_return(['permission2', 'permission3'])
-        manager.permissions_in_context(node1, node2).should == Set.new([
-          'permission1', 'permission2', 'permission3'
-        ])
+      it "returns true if has user has 'grant_roles'" do
+        inspector.should_receive(:has_permission?).
+          with('grant_roles').and_return(true)
+        manager.can_assign_or_unassign?(node, 'a role').should be_true
+      end
+
+      context "when the user has 'share_own_roles'" do
+
+        before do
+          inspector.stub(:has_permission?).with('grant_roles').
+            and_return(false)
+          inspector.stub(:has_permission?).with('share_own_roles').
+            and_return(true)
+        end
+
+        it "returns true if the user has the role being assigned" do
+          inspector.should_receive(:current_roles).and_return(Set.new([role]))
+          manager.can_assign_or_unassign?(node, role).should be_true
+        end
+
+        it "returns false if the user hasn't the role being assigned" do
+          inspector.should_receive(:current_roles).and_return(Set.new())
+          manager.can_assign_or_unassign?(node, role).should be_false
+        end
+
+      end
+
+      context "when the user hasn't 'share_own_roles'" do
+
+        before do
+          inspector.stub(:has_permission?).with('grant_roles').
+            and_return(false)
+          inspector.stub(:has_permission?).with('share_own_roles').
+            and_return(false)
+        end
+
+        it "returns false" do
+          manager.can_assign_or_unassign?(node, role).should be_false
+        end
+
+      end
+
+      describe "when the UnrestrictableUser exists and is logged in" do
+
+        before do
+          manager.current_user = UnrestrictableUser.instance
+        end
+
+        it "returns true without any further verification on node or "\
+           "role" do
+          manager.can_assign_or_unassign?('any node', 'any role').should be_true
+        end
+
       end
 
     end
 
-    describe "#roles_in_context" do
+    describe "#verify_assignment!" do
 
-      let(:node) { mock('node') }
-      let(:node1) { mock('node') }
-      let(:node2) { mock('node') }
+      let(:node) { stub('node') }
+      let(:role) { stub('role') }
 
-      it "computes roles from a single node" do
-        node.stub!(:current_roles).and_return(['role1', 'role2'])
-        manager.roles_in_context(node).should == Set.new(['role1', 'role2'])
+      it "passes unmodified the parameters to `can_assign_or_unassign?`" do
+        manager.should_receive(:can_assign_or_unassign?).with(node, role).
+          and_return(true)
+        manager.verify_assignment!(node, role)
       end
 
-      it "computes roles from multiple nodes" do
-        node1.stub!(:current_roles).and_return(['role1', 'role2'])
-        node2.stub!(:current_roles).and_return(['role2', 'role3'])
-        manager.roles_in_context(node1, node2).should == Set.new([
-          'role1', 'role2', 'role3'
-        ])
+      it "raises Unauthorized when `can_assign_or_unassign?` returns false" do
+        manager.should_receive(:can_assign_or_unassign?).with(node, role).
+          and_return(false)
+        lambda {
+          manager.verify_assignment!(node, role)
+        }.should raise_exception(Unauthorized)
       end
 
     end

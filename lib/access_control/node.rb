@@ -1,12 +1,9 @@
 require 'access_control/assignment'
 require 'access_control/exceptions'
-require 'access_control/permission_inspector'
 require 'access_control/security_manager'
 
 module AccessControl
   class Node < ActiveRecord::Base
-
-    include PermissionInspector::Behavior
 
     set_table_name :ac_nodes
 
@@ -164,9 +161,8 @@ module AccessControl
     private
 
       def check_blocking_permission
-        if changes['block'] && !has_permission?('change_inheritance_blocking')
-          raise Unauthorized
-        end
+        AccessControl.security_manager.
+          verify_access!(self, 'change_inheritance_blocking') if changes['block']
       end
 
       def verify_global_node

@@ -37,6 +37,7 @@ module AccessControl
 
     def validate_assignment_security
       return unless role && node
+      return if skip_assignment_verification?
       errors.add(:role_id, :unassignable) unless can_assign_or_unassign?
     end
 
@@ -63,27 +64,17 @@ module AccessControl
     end
 
     def skip_assignment_verification?
-      self.class.skip_assignment_verification? || !!@skip_assignment_verification
+      !!@skip_assignment_verification
     end
 
   private
 
-    # This flag is used in tests.
-    def self.skip_assignment_verification?
-      false
-    end
-
     def can_assign_or_unassign?
-      return true if skip_assignment_verification?
-      return true if AccessControl.security_manager.
-        has_access?(node, 'grant_roles')
-      manager = AccessControl.security_manager
-      manager.has_access?(node, 'share_own_roles') &&
-        manager.roles_in_context(node).map(&:id).include?(role_id)
+      AccessControl.security_manager.can_assign_or_unassign?(node, role)
     end
 
     def verify_security_restrictions!
-      raise Unauthorized unless can_assign_or_unassign?
+      AccessControl.security_manager.verify_assignment!(node, role)
     end
 
   end

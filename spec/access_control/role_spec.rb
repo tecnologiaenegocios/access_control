@@ -4,6 +4,12 @@ require 'access_control/role'
 module AccessControl
   describe Role do
 
+    let(:manager) { SecurityManager.new }
+
+    before do
+      AccessControl.stub(:security_manager).and_return(manager)
+    end
+
     it "validates presence of name" do
       Role.new.should have(1).error_on(:name)
     end
@@ -24,7 +30,7 @@ module AccessControl
     it "destroys assignments when it is destroyed" do
       Principal.create_anonymous_principal!
       Node.create_global_node!
-      Assignment.stub(:skip_assignment_verification? => true)
+      manager.stub(:can_assign_or_unassign?).and_return(true)
       role = Role.create!(:name => 'the role name')
       Assignment.create!(:role => role,
                          :node => Node.global,

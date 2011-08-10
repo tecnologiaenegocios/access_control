@@ -1812,9 +1812,9 @@ module AccessControl
         SecurityPolicyItem.create!(:permission => 'query',
                                    :role_id => querier_role.id)
         manager.stub!(:principal_ids).and_return([principal.id])
+        manager.stub!(:can_assign_or_unassign?).and_return(true)
         model_klass.query_requires 'query'
         model_klass.view_requires 'view'
-        Assignment.stub(:skip_assignment_verification? => true)
       end
 
       describe "#find" do

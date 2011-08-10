@@ -4,12 +4,15 @@ require 'access_control/principal'
 module AccessControl
   describe Principal do
 
+    let(:manager) { SecurityManager.new }
+
     before do
       class Object::SubjectObj < ActiveRecord::Base
         def self.columns
           []
         end
       end
+      AccessControl.stub(:security_manager).and_return(manager)
     end
 
     after do
@@ -26,7 +29,7 @@ module AccessControl
 
     it "destroys assignments when it is destroyed" do
       r = Principal.create!(:subject => stub_model(SubjectObj))
-      Assignment.stub(:skip_assignment_verification? => true)
+      manager.stub(:can_assign_or_unassign?).and_return(true)
       Assignment.create!(:principal_id => r.id,
                          :node_id => 0, :role_id => 0)
       r.destroy

@@ -14,6 +14,7 @@ module AccessControl
       AccessControl.config.stub(:default_roles_on_create).and_return(nil)
       AccessControl.stub(:security_manager).and_return(manager)
       manager.stub(:has_access?).and_return(true)
+      manager.stub(:can_assign_or_unassign?).and_return(true)
     end
 
     it "can be created with valid attributes" do
@@ -100,219 +101,59 @@ module AccessControl
 
       describe "assignment security" do
 
-        # In general: an assignment can be created/updated if the user
-        #
-        # - Has `grant_roles`.  This permission allows the user to grant roles
-        # (that is, make assignments) anywhere, for any other principal)
-        #
-        # - Has `share_own_roles`.  This perission allows the user to grand
-        # only its roles to someone else.
-
         describe "SecurityManager conformance with expected interface" do
-          it_has_instance_method(SecurityManager, :has_access?)
-          it_has_instance_method(SecurityManager, :verify_access!)
-          it_has_instance_method(SecurityManager, :roles_in_context)
+          it_has_instance_method(SecurityManager, :can_assign_or_unassign?)
+          it_has_instance_method(SecurityManager, :verify_assignment!)
         end
 
         let(:node) { stub_model(Node) }
         let(:role) { stub_model(Role, :name => 'some_role', :local => true) }
-        let(:other_role) { stub_model(Role, :name => 'other_role',
-                                      :local => true) }
 
-        before do
-          manager.stub(:roles_in_context).with(node).and_return(Set.new([role]))
+        it "doesn't break the validation when there's no node or role" do
+          # The validation process should not call this method when there's no
+          # role or node.
+          manager.should_not_receive(:can_assign_or_unassign?).
+            with(nil, nil)
         end
 
-        describe "if the current user has 'grant_roles'" do
-          it "validates fine" do
-            manager.should_receive(:has_access?).
-              with(node, 'grant_roles').and_return(true)
-            Assignment.new(:node => node, :role => role, :principal_id => 1).
-              should have(:no).error_on(:role_id)
-          end
+        it "validates fine if the user can assign" do
+          manager.should_receive(:can_assign_or_unassign?).
+            with(node, role).and_return(true)
+          Assignment.new(:node => node, :role => role).
+            should have(:no).error_on(:role_id)
         end
 
-        describe "if the current user has not 'grant_roles'" do
+        it "gets an error if the user cannot assign" do
+          manager.should_receive(:can_assign_or_unassign?).
+            with(node, role).and_return(false)
+          Assignment.new(:node => node, :role => role).
+            should have(1).error_on(:role_id)
+        end
 
-          before do
-            manager.stub(:has_access?).with(node, 'grant_roles').
-              and_return(false)
-          end
-
-          describe "but verification is skipped" do
-            it "validates fine" do
-              r = Assignment.new(:node => node, :role => role,
-                                 :principal_id => 1)
-              r.skip_assignment_verification!
-              r.should have(:no).error_on(:role_id)
-            end
-          end
-
-          describe "but has 'share_own_roles'" do
-
-            before do
-              manager.stub(:has_access?).with(node, 'share_own_roles').
-                and_return(true)
-            end
-
-            describe "and has the role being assigned" do
-
-              it "validates fine" do
-                Assignment.new(:node => node, :role => role,
-                               :principal_id => 1).
-                  should have(:no).error_on(:role_id)
-              end
-
-            end
-
-            describe "but hasn't the role being assigned" do
-
-              before do
-                manager.stub(:roles_in_context).with(node).
-                  and_return(Set.new([other_role]))
-              end
-
-              it "sets an :unassignable error on role_id" do
-                assignment = Assignment.new(:node => node, :role => role,
-                                            :principal_id => 1)
-                assignment.should have(1).error_on(:role_id)
-                assignment.errors['role_id'].should == ActiveRecord::Error.new(
-                  assignment, :role_id, :unassignable
-                ).to_s
-              end
-
-              describe "but verification is skipped" do
-                it "validates fine" do
-                  r = Assignment.new(:node => node, :role => role,
-                                    :principal_id => 1)
-                  r.skip_assignment_verification!
-                  r.should have(:no).error_on(:role_id)
-                end
-              end
-
-            end
-
-          end
-
-          describe "and hasn't 'share_own_roles'" do
-
-            it "sets an :unassignable error on role_id" do
-              manager.should_receive(:has_access?).
-                with(node, 'share_own_roles').and_return(false)
-              assignment = Assignment.new(:node => node, :role => role,
-                                          :principal_id => 1)
-              assignment.should have(1).error_on(:role_id)
-              assignment.errors['role_id'].should == ActiveRecord::Error.new(
-                assignment, :role_id, :unassignable
-              ).to_s
-            end
-
-            describe "but verification is skipped" do
-              it "validates fine" do
-                r = Assignment.new(:node => node, :role => role,
-                                  :principal_id => 1)
-                r.skip_assignment_verification!
-                r.should have(:no).error_on(:role_id)
-              end
-            end
-
-          end
-
+        it "validates fine if user cannot assign but the verification is "\
+           "skipped" do
+          assignment = Assignment.new(:node => node, :role => role)
+          assignment.skip_assignment_verification!
+          manager.should_not_receive(:can_assign_or_unassign?)
+          assignment.should have(:no).error_on(:role_id)
         end
 
         describe "on destroy" do
 
-          let(:assignment) do
-            Assignment.new(:node => node, :role => role, :principal_id => 1)
+          let(:assignment) { stub_model(Assignment,
+                                        :node => node,
+                                        :role => role,
+                                        :destroy_without_callbacks => nil) }
+
+          it "destroys fine if the user can unassign" do
+            manager.should_receive(:verify_assignment!).with(node, role)
+            assignment.destroy
           end
 
-          before do
-            assignment.save!
-          end
-
-          describe "if the current user has 'grant_roles'" do
-            it "destroys fine" do
-              manager.should_receive(:has_access?).
-                with(node, 'grant_roles').and_return(true)
-              lambda { assignment.destroy }.
-                should change(Assignment, :count).by(-1)
-            end
-          end
-
-          describe "if the current user has not 'grant_roles'" do
-
-            before do
-              manager.stub(:has_access?).with(node, 'grant_roles').
-                and_return(false)
-            end
-
-            describe "but verification is skipped" do
-              it "destroys fine" do
-                assignment.skip_assignment_verification!
-                lambda { assignment.destroy }.
-                  should change(Assignment, :count).by(-1)
-              end
-            end
-
-            describe "but has 'share_own_roles'" do
-
-              before do
-                manager.stub(:has_access?).with(node, 'share_own_roles').
-                  and_return(true)
-              end
-
-              describe "and has the role being assigned" do
-
-                it "destroys fine" do
-                  lambda { assignment.destroy }.
-                    should change(Assignment, :count).by(-1)
-                end
-
-              end
-
-              describe "but hasn't the role being assigned" do
-
-                before do
-                  manager.stub(:roles_in_context).with(node).
-                    and_return(Set.new([other_role]))
-                end
-
-                it "raises Unauthorized" do
-                  lambda { assignment.destroy }.
-                    should raise_exception(Unauthorized)
-                end
-
-                describe "but verification is skipped" do
-                  it "destroys fine" do
-                    assignment.skip_assignment_verification!
-                    lambda { assignment.destroy }.
-                      should change(Assignment, :count).by(-1)
-                  end
-                end
-
-              end
-
-            end
-
-            describe "but hasn't 'share_own_roles'" do
-
-              it "raises Unauthorized" do
-                manager.should_receive(:has_access?).
-                  with(node, 'share_own_roles').and_return(false)
-                lambda { assignment.destroy }.
-                  should raise_exception(Unauthorized)
-              end
-
-              describe "but verification is skipped" do
-                it "destroys fine" do
-                  assignment.skip_assignment_verification!
-                  lambda { assignment.destroy }.
-                    should change(Assignment, :count).by(-1)
-                end
-              end
-
-            end
-
+          it "calls manager.verify_assignment! (which raises Unauthorized)" do
+            manager.should_receive(:verify_assignment!).with(node, role).
+              and_raise(Unauthorized)
+            lambda { assignment.destroy }.should raise_exception(Unauthorized)
           end
 
         end

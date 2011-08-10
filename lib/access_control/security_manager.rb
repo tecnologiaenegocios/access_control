@@ -1,4 +1,5 @@
 require 'access_control/exceptions'
+require 'access_control/permission_inspector'
 
 module AccessControl
 
@@ -31,15 +32,28 @@ module AccessControl
       permissions = [permissions] unless permissions.respond_to?(:all?)
       permissions.all? do |permission|
         nodes.any? do |node|
-          as_node(node).has_permission?(permission)
+          inspector(node).has_permission?(permission)
         end
       end
     end
 
     def verify_access! nodes, permissions
       return if has_access?(nodes, permissions)
-      Util.log_missing_permissions(nodes, permissions, caller)
+      Util.log_missing_permissions(permissions,
+                                   permissions_in_context(nodes),
+                                   caller)
       raise Unauthorized
+    end
+
+    def can_assign_or_unassign? node, role
+      return true if unrestrictable_user_logged_in?
+      return true if inspector(node).has_permission?('grant_roles')
+      return false unless inspector(node).has_permission?('share_own_roles')
+      inspector(node).current_roles.include?(role)
+    end
+
+    def verify_assignment! node, role
+      raise Unauthorized unless can_assign_or_unassign?(node, role)
     end
 
     def restrict_queries!
@@ -53,18 +67,6 @@ module AccessControl
     def restrict_queries?
       return false if unrestrictable_user_logged_in?
       really_restrict_queries?
-    end
-
-    def permissions_in_context *args
-      Util.make_set_from_args(*args).inject(Set.new) do |permissions, node|
-        permissions | as_node(node).permissions
-      end
-    end
-
-    def roles_in_context *args
-      Util.make_set_from_args(*args).inject(Set.new) do |roles, node|
-        roles | as_node(node).current_roles
-      end
     end
 
     def current_user= current_user
@@ -88,21 +90,25 @@ module AccessControl
     def without_query_restriction
       old_restriction_value = really_restrict_queries?
       unrestrict_queries!
-      result = yield
+      yield
+    ensure
       restrict_queries! if old_restriction_value
-      result
     end
 
   private
 
-    def as_node record_or_node
-      if record_or_node.respond_to?(:has_permission?) ||
-         record_or_node.respond_to?(:permissions) ||
-         record_or_node.respond_to?(:current_roles)
-        return record_or_node
+    def permissions_in_context *args
+      Util.make_set_from_args(*args).inject(Set.new) do |permissions, node|
+        permissions | inspector(node).permissions
       end
-      # Probably a record.
-      record_or_node.ac_node
+    end
+
+    def inspector record_or_node
+      node = record_or_node
+      if record_or_node.respond_to?(:ac_node)
+        node = record_or_node.ac_node
+      end
+      PermissionInspector.new(node)
     end
 
     def unrestrictable_user_logged_in?
