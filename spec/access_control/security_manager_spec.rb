@@ -152,16 +152,26 @@ module AccessControl
       let(:node2) { stub('node') }
       let(:inspector1) { mock('inspector', :has_permission? => nil) }
       let(:inspector2) { mock('inspector', :has_permission? => nil) }
+      let(:security_context) { mock('security context', :nodes => Set.new()) }
 
       before do
         PermissionInspector.stub(:new).with(node1).and_return(inspector1)
         PermissionInspector.stub(:new).with(node2).and_return(inspector2)
+        SecurityContext.stub(:new).with('nodes').and_return(security_context)
+        security_context.stub(:nodes).and_return(Set.new([node1]))
       end
 
       it "creates a inspector from the node given" do
         PermissionInspector.should_receive(:new).with(node1).
           and_return(inspector1)
-        manager.has_access?(node1, "a permission that doesn't matter")
+        manager.has_access?('nodes', "a permission that doesn't matter")
+      end
+
+      it "uses SecurityContext to get the actual nodes" do
+        SecurityContext.should_receive(:new).with('nodes').
+          and_return(security_context)
+        security_context.should_receive(:nodes).and_return(Set.new([node1]))
+        manager.has_access?('nodes', "a permission that doesn't matter")
       end
 
       describe "with a single permission queried" do
@@ -171,33 +181,29 @@ module AccessControl
         it "returns true if the user has the permission" do
           inspector1.should_receive(:has_permission?).with(permission).
             and_return(true)
-          manager.has_access?(node1, permission).should be_true
+          manager.has_access?('nodes', permission).should be_true
         end
 
         it "returns false if the user hasn't the permission" do
           inspector1.should_receive(:has_permission?).with(permission).
             and_return(false)
-          manager.has_access?(node1, permission).should be_false
+          manager.has_access?('nodes', permission).should be_false
         end
 
         it "returns true if the user has the permission in any of the nodes" do
-          inspector1.stub!(:has_permission? => true)
-          inspector2.stub!(:has_permission? => false)
-          manager.has_access?([node1, node2], permission).should be_true
+          security_context.should_receive(:nodes).
+            and_return(Set.new([node1, node2]))
+          inspector1.stub(:has_permission? => true)
+          inspector2.stub(:has_permission? => false)
+          manager.has_access?('nodes', permission).should be_true
         end
 
         it "returns false if the user hasn't the permission in all nodes" do
-          inspector1.stub!(:has_permission? => false)
-          inspector2.stub!(:has_permission? => false)
-          manager.has_access?([node1, node2], permission).should be_false
-        end
-
-        it "accepts records instead of nodes" do
-          inspector1.stub!(:has_permission? => true)
-          inspector2.stub!(:has_permission? => false)
-          record1 = stub('record', :ac_node => node1)
-          record2 = stub('record', :ac_node => node2)
-          manager.has_access?([record1, record2], permission).should be_true
+          security_context.should_receive(:nodes).
+            and_return(Set.new([node1, node2]))
+          inspector1.stub(:has_permission? => false)
+          inspector2.stub(:has_permission? => false)
+          manager.has_access?('nodes', permission).should be_false
         end
 
       end
@@ -212,7 +218,7 @@ module AccessControl
             with(permission1).and_return(true)
           inspector1.should_receive(:has_permission?).
             with(permission2).and_return(true)
-          manager.has_access?(node1, [permission1, permission2]).
+          manager.has_access?('nodes', [permission1, permission2]).
             should be_true
         end
 
@@ -221,14 +227,16 @@ module AccessControl
             with(permission1).and_return(true)
           inspector1.should_receive(:has_permission?).
             with(permission2).and_return(false)
-          manager.has_access?(node1, [permission1, permission2]).
+          manager.has_access?('nodes', [permission1, permission2]).
             should be_false
         end
 
         it "returns true if the user has all permissions in one node" do
-          inspector1.stub!(:has_permission? => true)
-          inspector2.stub!(:has_permission? => false)
-          manager.has_access?([node1, node2], [permission1, permission2]).
+          inspector1.stub(:has_permission? => true)
+          inspector2.stub(:has_permission? => false)
+          security_context.should_receive(:nodes).
+            and_return(Set.new([node1, node2]))
+          manager.has_access?('nodes', [permission1, permission2]).
             should be_true
         end
 
@@ -241,7 +249,9 @@ module AccessControl
             next true if permission == permission2
             false
           end
-          manager.has_access?([node1, node2], [permission1, permission2]).
+          security_context.should_receive(:nodes).
+            and_return(Set.new([node1, node2]))
+          manager.has_access?('nodes', [permission1, permission2]).
             should be_true
         end
 
@@ -254,7 +264,9 @@ module AccessControl
             next true if permission == permission1
             false
           end
-          manager.has_access?([node1, node2], [permission1, permission2]).
+          security_context.should_receive(:nodes).
+            and_return(Set.new([node1, node2]))
+          manager.has_access?('nodes', [permission1, permission2]).
             should be_false
         end
 
@@ -277,11 +289,17 @@ module AccessControl
 
     describe "#verify_access!" do
 
+      let(:node) { stub('node') }
+      let(:security_context) do
+        mock('security context', :nodes => Set.new([node]))
+      end
       let(:inspector) { mock('inspector') }
 
       before do
         inspector.stub(:permissions).and_return(Set.new)
         PermissionInspector.stub(:new).and_return(inspector)
+        SecurityContext.stub(:new).and_return(security_context)
+        AccessControl::Util.stub(:log_missing_permissions)
       end
 
       it "passes unmodified the paramenters to `has_access?`" do
@@ -292,22 +310,21 @@ module AccessControl
       end
 
       it "doesn't raise Unauthorized when the user has the permissions" do
-        manager.stub!(:has_access?).and_return(true)
+        manager.stub(:has_access?).and_return(true)
         lambda {
           manager.verify_access!('some context', 'some permissions')
         }.should_not raise_exception(::AccessControl::Unauthorized)
       end
 
       it "raises Unauthorized when the user has no permissions" do
-        manager.stub!(:has_access?).and_return(false)
-        AccessControl::Util.stub!(:log_missing_permissions)
+        manager.stub(:has_access?).and_return(false)
         lambda {
           manager.verify_access!('some context', 'some permissions')
         }.should raise_exception(::AccessControl::Unauthorized)
       end
 
       it "logs the exception when the user has no permissions" do
-        manager.stub!(:has_access?).and_return(false)
+        manager.stub(:has_access?).and_return(false)
         inspector.should_receive(:permissions).
           and_return(Set.new(['permissions']))
         AccessControl::Util.should_receive(:log_missing_permissions).

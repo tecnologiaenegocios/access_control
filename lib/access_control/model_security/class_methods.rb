@@ -8,23 +8,6 @@ module AccessControl
   module ModelSecurity
     module ClassMethods
 
-      def protect method_name, options
-        PermissionRegistry.register(
-          permissions = options[:with],
-          :model => self.name,
-          :method => method_name.to_s
-        )
-        permissions_for_methods[method_name.to_s].merge(permissions)
-      end
-
-      def permissions_for method_name
-        permissions_for_methods[method_name.to_s]
-      end
-
-      def permissions_for_methods
-        @ac_permissions_for_methods ||= Hash.new{|h, k| h[k] = Set.new}
-      end
-
       def restrict_association association_name
         restricted_associations.add(association_name)
       end
@@ -247,17 +230,13 @@ module AccessControl
             reqs.delete self
             AccessControl.security_manager.verify_access!(context, permissions)
           end
-          protect_methods!(object)
         end
         object
       end
 
       def allocate *args
         object = super
-        if object.class.securable?
-          object.class.check_inheritance!
-          protect_methods!(object)
-        end
+        object.class.check_inheritance!  if object.class.securable?
         object
       end
 
@@ -310,21 +289,6 @@ module AccessControl
           record.send(:update_parent_nodes)
         end
         add_association_callbacks(reflection.name, reflection.options)
-      end
-
-      def protect_methods!(instance)
-        manager = AccessControl.security_manager
-        permissions_for_methods.keys.each do |m|
-          (class << instance; self; end;).class_eval do
-            define_method(m) do
-              manager.verify_access!(
-                ac_node || parents_for_creation,
-                self.class.permissions_for(__method__)
-              )
-              super
-            end
-          end
-        end
       end
 
       class Restricter

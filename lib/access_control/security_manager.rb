@@ -28,11 +28,11 @@ module AccessControl
 
     def has_access? nodes, permissions
       return true if unrestrictable_user_logged_in?
-      nodes = [nodes] unless nodes.respond_to?(:any?)
+      nodes = SecurityContext.new(nodes).nodes
       permissions = [permissions] unless permissions.respond_to?(:all?)
       permissions.all? do |permission|
         nodes.any? do |node|
-          inspector(node).has_permission?(permission)
+          PermissionInspector.new(node).has_permission?(permission)
         end
       end
     end
@@ -47,9 +47,10 @@ module AccessControl
 
     def can_assign_or_unassign? node, role
       return true if unrestrictable_user_logged_in?
-      return true if inspector(node).has_permission?('grant_roles')
-      return false unless inspector(node).has_permission?('share_own_roles')
-      inspector(node).current_roles.include?(role)
+      inspector = PermissionInspector.new(node)
+      return true if inspector.has_permission?('grant_roles')
+      return false unless inspector.has_permission?('share_own_roles')
+      inspector.current_roles.include?(role)
     end
 
     def verify_assignment! node, role
@@ -98,17 +99,9 @@ module AccessControl
   private
 
     def permissions_in_context *args
-      Util.make_set_from_args(*args).inject(Set.new) do |permissions, node|
-        permissions | inspector(node).permissions
+      SecurityContext.new(args).nodes.inject(Set.new) do |permissions, node|
+        permissions | PermissionInspector.new(node).permissions
       end
-    end
-
-    def inspector record_or_node
-      node = record_or_node
-      if record_or_node.respond_to?(:ac_node)
-        node = record_or_node.ac_node
-      end
-      PermissionInspector.new(node)
     end
 
     def unrestrictable_user_logged_in?

@@ -155,225 +155,29 @@ module AccessControl
 
       end
 
-      describe "protection of methods" do
+      describe "#parents_for_creation" do
+
+        let(:parent1) { model_klass.create! }
+        let(:parent2) { model_klass.create! }
 
         before do
-          model_klass.permissions_for_methods.delete(:some_method)
-          PermissionRegistry.stub!(:register)
+          AccessControl::Node.create_global_node!
         end
 
-        it "is managed through #protect" do
-          model_klass.protect(:some_method, :with => 'some permission')
-          model_klass.permissions_for(:some_method).should == Set.new([
-            'some permission'
-          ])
+        it "returns the global record instance if #parents is empty" do
+          instance = model_klass.new
+          instance.stub(:parents).and_return([])
+          instance.parents_for_creation.
+            should == [AccessControl::GlobalRecord.instance]
         end
 
-        it "always combines permissions" do
-          model_klass.protect(:some_method, :with => 'some permission')
-          model_klass.protect(:some_method, :with => 'some other permission')
-          model_klass.permissions_for(:some_method).should == Set.new([
-            'some permission', 'some other permission'
-          ])
-        end
-
-        it "accepts an array of permissions" do
-          model_klass.protect(:some_method,
-                              :with => ['some permission', 'some other'])
-          model_klass.permissions_for(:some_method).should == Set.new([
-            'some permission', 'some other'
-          ])
-        end
-
-        it "register permissions passed" do
-          PermissionRegistry.should_receive(:register).
-            with('some permission',
-                 :model => 'Record',
-                 :method => 'some_method')
-          model_klass.protect(:some_method, :with => 'some permission')
-        end
-
-        describe "on instances" do
-
-          before do
-            AccessControl::Node.create_global_node!
-          end
-
-          describe "that are not from securable classes" do
-            it "doesn't check permissions" do
-              model_klass.class_eval do
-                def self.securable?
-                  false
-                end
-                protect :foo, :with => 'permission'
-                def foo
-                  'foo'
-                end
-              end
-              model_klass.create!
-              model_klass.unrestricted_find(:first).foo.should == 'foo'
+        it "verifies permissions using parents if this isn't empty" do
+          model_klass.class_eval(<<-eos)
+            def parents
+              self.class.unrestricted_find([#{parent1.id}, #{parent2.id}])
             end
-          end
-
-          describe "in normal methods" do
-
-            let(:node) do
-              model_klass.unrestricted_find(:first).ac_node
-            end
-
-            before do
-              model_klass.class_eval do
-                protect :foo, :with => 'permission'
-                def foo
-                  'foo'
-                end
-              end
-              model_klass.create!
-            end
-
-            it "protects a method when it is called" do
-              manager.should_receive(:verify_access!).
-                with(node, Set.new(['permission']))
-              model_klass.unrestricted_find(:first).foo.should == 'foo'
-            end
-
-            it "raises unauthorized if the access is not allowed" do
-              manager.should_receive(:verify_access!).
-                with(node, Set.new(['permission'])).
-                and_raise(AccessControl::Unauthorized)
-              lambda {
-                model_klass.unrestricted_find(:first).foo
-              }.should raise_exception(AccessControl::Unauthorized)
-            end
-
-          end
-
-          describe "in column attributes methods" do
-
-            let(:node) do
-              model_klass.unrestricted_find(:first).ac_node
-            end
-
-            before do
-              model_klass.class_eval do
-                protect :field, :with => 'permission'
-              end
-              model_klass.create!(:field => 15)
-            end
-
-            it "protects a method when it is called" do
-              manager.should_receive(:verify_access!).
-                with(node, Set.new(['permission']))
-              model_klass.unrestricted_find(:first).field.should == 15
-            end
-
-            it "raises unauthorized if the access is not allowed" do
-              manager.should_receive(:verify_access!).
-                with(node, Set.new(['permission'])).
-                and_raise(AccessControl::Unauthorized)
-              lambda {
-                model_klass.unrestricted_find(:first).field
-              }.should raise_exception(AccessControl::Unauthorized)
-            end
-
-          end
-
-          describe "in column attribute methods that are overridden" do
-
-            let(:node) do
-              model_klass.unrestricted_find(:first).ac_node
-            end
-
-            before do
-              model_klass.class_eval do
-                protect :field, :with => 'permission'
-                def field
-                  self[:field] + 20
-                end
-              end
-              model_klass.create!(:field => 15)
-            end
-
-            it "protects a method when it is called" do
-              manager.should_receive(:verify_access!).
-                with(node, Set.new(['permission']))
-              model_klass.unrestricted_find(:first).field.should == 35
-            end
-
-            it "raises unauthorized if the access is not allowed" do
-              manager.should_receive(:verify_access!).
-                with(node, Set.new(['permission'])).
-                and_raise(AccessControl::Unauthorized)
-              lambda {
-                model_klass.unrestricted_find(:first).field
-              }.should raise_exception(AccessControl::Unauthorized)
-            end
-
-          end
-
-          describe "when the record is new" do
-
-            let(:parent1) { model_klass.create! }
-            let(:parent2) { model_klass.create! }
-
-            before do
-              model_klass.class_eval do
-                protect :field, :with => 'permission'
-              end
-              parent1; parent2;
-            end
-
-            it "verifies permissions using the global node" do
-              manager.should_receive(:verify_access!).
-                with([AccessControl::GlobalRecord.instance],
-                     Set.new(['permission']))
-              model_klass.new(:field => 15).field.should == 15
-            end
-
-            it "verifies permissions using parents if this isn't empty" do
-              # Note: the parent records are passed, not their nodes.  This
-              # allows test code in the application to not worry about nodes
-              # when mocking/stubbing models.
-              model_klass.class_eval(<<-eos)
-                def parents
-                  self.class.unrestricted_find([#{parent1.id}, #{parent2.id}])
-                end
-              eos
-              manager.should_receive(:verify_access!).
-                with([parent1, parent2], Set.new(['permission']))
-              model_klass.new(:field => 15).field.should == 15
-            end
-
-            it "skips verification if class is not securable" do
-              model_klass.class_eval do
-                def self.securable?
-                  false
-                end
-              end
-              manager.should_not_receive(:verify_access!)
-              object = model_klass.new(:field => 15)
-              lambda { object.save! }.should_not raise_exception
-            end
-
-            it "returns only the global node as a parent for creation" do
-              model_klass.new.parents_for_creation.should == [
-                AccessControl::GlobalRecord.instance
-              ]
-            end
-
-            it "returns the parents normally once they're set" do
-              model_klass.class_eval(<<-eos)
-                def parents
-                  self.class.unrestricted_find([#{parent1.id}, #{parent2.id}])
-                end
-              eos
-              parents = model_klass.new.parents
-              parents_for_creation = model_klass.new.parents_for_creation
-              parents_for_creation.should == parents
-            end
-
-          end
-
+          eos
+          model_klass.new.parents_for_creation.should == [parent1, parent2]
         end
 
       end
