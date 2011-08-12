@@ -10,13 +10,17 @@ module AccessControl
     end
 
     def permissions
-      @permissions ||= current_roles.inject(Set.new) do |permissions, role|
-        permissions | role.permissions
+      memoize('permissions') do
+        current_roles.inject(Set.new) do |permissions, role|
+          permissions | role.permissions
+        end
       end
     end
 
     def current_roles
-      ancestors.inject(Set.new){|roles, node| roles | node.principal_roles}
+      memoize('roles') do
+        ancestors.inject(Set.new){|roles, node| roles | node.principal_roles}
+      end
     end
 
     def inherited_roles_for_all_principals(filter_roles)
@@ -31,6 +35,12 @@ module AccessControl
     end
 
   private
+
+    def memoize var_name
+      var_name = "@__ac_#{var_name}__"
+      return memoized if memoized = @node.instance_variable_get(var_name)
+      @node.instance_variable_set(var_name, yield)
+    end
 
     def ancestors
       @node.ancestors
