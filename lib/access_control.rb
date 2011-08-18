@@ -17,6 +17,7 @@ require 'access_control/controller_security'
 require 'access_control/model_security'
 require 'access_control/association_security'
 require 'access_control/security_manager'
+require 'access_control/security_context'
 require 'access_control/permission_registry'
 
 module AccessControl
