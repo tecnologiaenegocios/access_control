@@ -38,7 +38,9 @@ module AccessControl
 
     def memoize var_name
       var_name = "@__ac_#{var_name}__"
-      return memoized if memoized = @node.instance_variable_get(var_name)
+      if memoized = @node.instance_variable_get(var_name)
+        return memoized
+      end
       @node.instance_variable_set(var_name, yield)
     end
 
