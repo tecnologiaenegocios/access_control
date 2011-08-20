@@ -23,6 +23,10 @@ module AccessControl
         Set.new(args)
       end
 
+      def prettify_sql(sql)
+        sql.gsub(/^\s*/, '').gsub(/\n\s*/, '')
+      end
+
     end
 
   end

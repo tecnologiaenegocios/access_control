@@ -27,4 +27,7 @@ module AccessControl
   class NoPermissionsDeclared < StandardError
   end
 
+  class CannotRestrict < StandardError
+  end
+
 end
