@@ -128,6 +128,25 @@ module AccessControl
       Thread.current[:global_node_cache] = nil
     end
 
+    def self.granted_for(securable_type, principal_ids, permissions,
+                         conditions={})
+      principal_ids = principal_ids.first if principal_ids.size == 1
+      permissions = permissions.first if permissions.size == 1
+      find(
+        :all,
+        :joins => { :assignments => { :roles => :security_policy_items } },
+        :conditions => {
+          :securable_type => securable_type,
+          :'ac_assignments.principal_id' => principal_ids,
+          :'ac_security_policy_items.permission' => permissions,
+        }.merge(conditions)
+      )
+    end
+
+    def self.blocked_for(securable_type)
+      find_all_by_securable_type_and_block(securable_type, true)
+    end
+
     def strict_unblocked_ancestors
       parents.inject(Set.new([self.class.global])) do |ancs, parent|
         ancs.add(parent) | parent.strict_unblocked_ancestors

@@ -202,6 +202,95 @@ module AccessControl
       end
     end
 
+    describe ".granted_for" do
+
+      # Gets nodes for a securable type and principal ids with the requested
+      # permissions"
+
+      let(:results)       { stub('results') }
+      let(:principal_ids) { ['principal id 1', 'principal id 2'] }
+      let(:permissions)   { ['permission 1', 'permission 2'] }
+
+      def call_method(conditions={})
+        Node.granted_for('SecurableType',
+                         principal_ids,
+                         permissions,
+                         conditions)
+      end
+
+      before do
+        Node.stub(:find).and_return(results)
+      end
+
+      it "does the job for a type and principal ids with permissions" do
+        Node.should_receive(:find).with(
+          :all,
+          :joins => { :assignments => { :roles => :security_policy_items } },
+          :conditions => {
+            :securable_type => 'SecurableType',
+            :'ac_assignments.principal_id' => principal_ids,
+            :'ac_security_policy_items.permission' => permissions,
+          }
+        ).and_return(results)
+        call_method
+      end
+
+      it "merges conditions passed" do
+        Node.should_receive(:find).with(:all, hash_including(
+          :conditions => hash_including(
+            :custom_condition => 'custom condition'
+          )
+        )).and_return(results)
+        call_method(:custom_condition => 'custom condition')
+      end
+
+      it "return the results of the find call" do
+        call_method.should == results
+      end
+
+      describe "with a single principal id" do
+        let(:principal_ids) { ['principal id'] }
+        it "extracts the principal id" do
+          Node.should_receive(:find).with(:all, hash_including(
+            :conditions => hash_including(
+              :'ac_assignments.principal_id' => 'principal id'
+            )
+          )).and_return(results)
+          call_method
+        end
+      end
+
+      describe "with a single permission" do
+        let(:permissions) { ['permission'] }
+        it "extracts the permission" do
+          Node.should_receive(:find).with(:all, hash_including(
+            :conditions => hash_including(
+              :'ac_security_policy_items.permission' => 'permission'
+            )
+          )).and_return(results)
+          call_method
+        end
+      end
+
+    end
+
+    describe ".blocked_for" do
+
+      # Gets all nodes with block = 1 or true for the securable type.
+
+      it "gets blocked nodes for a securable type" do
+        Node.create_global_node!
+        node1 = Node.create!(:securable_type => 'SecurableType 1',
+                             :securable_id => 1)
+        node2 = Node.create!(:securable_type => 'SecurableType 1',
+                             :securable_id => 2, :block => 1)
+        node3 = Node.create!(:securable_type => 'SecurableType 2',
+                             :securable_id => 1)
+        Node.blocked_for('SecurableType 1').should == [node2]
+      end
+
+    end
+
     describe "tree management" do
 
       let(:ancestor) do
