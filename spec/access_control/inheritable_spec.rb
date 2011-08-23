@@ -106,7 +106,7 @@ module AccessControl
             model.stub(:find).
               with(:all, :joins => :parent2, :conditions => find_conditions2).
               and_return([another_record, some_other_record])
-            Set.new(inheritable.ids_with('permissions inherited')).should == \
+            inheritable.ids_with('permissions inherited').should == \
               Set.new(['an id', 'another id', 'some other id'])
           end
 

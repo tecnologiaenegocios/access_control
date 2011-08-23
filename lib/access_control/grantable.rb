@@ -17,7 +17,7 @@ module AccessControl
       else
         nodes = Node.granted_for(model.name, principal_ids, permissions)
       end
-      nodes.map(&:securable_id) - [0]
+      Set.new(nodes.map(&:securable_id) - [0])
     end
   end
 end

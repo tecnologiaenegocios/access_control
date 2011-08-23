@@ -8,7 +8,7 @@ module AccessControl
     end
 
     def ids
-      Node.blocked_for(model.name).map(&:securable_id) - [0]
+      Set.new(Node.blocked_for(model.name).map(&:securable_id) - [0])
     end
 
   end

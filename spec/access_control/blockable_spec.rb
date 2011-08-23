@@ -35,6 +35,13 @@ module AccessControl
         blockable.ids.size.should == 1
       end
 
+      it "returns a Set" do
+        # This makes sense since order doesn't matter.  Also, we can't mix
+        # arrays with sets in many operations, so when sensible (the order
+        # doesn't matter) return a set.
+        blockable.ids.should be_a(Set)
+      end
+
     end
 
   end
