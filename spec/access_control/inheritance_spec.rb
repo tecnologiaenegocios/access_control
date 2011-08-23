@@ -111,22 +111,9 @@ module AccessControl
             returned.second.should == :parent
           end
 
-          describe "hash of find options as third element" do
-
-            it "returns a hash containing a :select and a :conditions keys" do
-              returned.third.keys.should include(:select)
-              returned.third.keys.should include(:conditions)
-              returned.third.keys.size.should == 2
-            end
-
-            it "selects only the primary key" do
-              returned.third[:select].should == 'pk'
-            end
-
-            it "returns the primary keys in the conditions" do
-              returned.third[:conditions].should == {'pk' => ['id 1', 'id 2']}
-            end
-
+          it "returns a set of reflected primary key values as the third "\
+             "element" do
+            returned.third.should == Set.new(['id 1', 'id 2'])
           end
 
         end

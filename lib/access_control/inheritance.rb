@@ -31,7 +31,7 @@ module AccessControl
             select = "DISTINCT #{model.quoted_table_name}.#{pk}"
             ids = find(:all, :select => select, :joins => assoc).
               map(&(pk.to_sym.to_proc))
-            items << [model, assoc, {:select => pk, :conditions => {pk => ids}}]
+            items << [model, assoc, Set.new(ids)]
           end
         end
       end
