@@ -225,7 +225,7 @@ module AccessControl
       it "does the job for a type and principal ids with permissions" do
         Node.should_receive(:find).with(
           :all,
-          :joins => { :assignments => { :roles => :security_policy_items } },
+          :joins => { :assignments => { :role => :security_policy_items } },
           :conditions => {
             :securable_type => 'SecurableType',
             :'ac_assignments.principal_id' => principal_ids,

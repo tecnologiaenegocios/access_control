@@ -134,7 +134,7 @@ module AccessControl
       permissions = permissions.first if permissions.size == 1
       find(
         :all,
-        :joins => { :assignments => { :roles => :security_policy_items } },
+        :joins => { :assignments => { :role => :security_policy_items } },
         :conditions => {
           :securable_type => securable_type,
           :'ac_assignments.principal_id' => principal_ids,
