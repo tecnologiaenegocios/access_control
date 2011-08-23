@@ -45,6 +45,15 @@ module AccessControl
         grantable.ids_with(permissions, ['id1', 'id2'])
       end
 
+      it "converts the filter to array explicitly" do
+        # ActiveRecord doesn't encloses the ids in () if a set is passed.
+        Node.should_receive(:granted_for).
+          with('Record', principal_ids, permissions,
+               {:securable_id => ['id1', 'id2']}).
+          and_return([node1, node2])
+        grantable.ids_with(permissions, Set.new(['id1', 'id2']))
+      end
+
       it "returns the securable ids of the nodes" do
         grantable.ids_with(permissions).should include(13238)
       end

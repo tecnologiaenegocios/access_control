@@ -13,7 +13,7 @@ module AccessControl
         nodes = Node.granted_for(model.name,
                                  principal_ids,
                                  permissions,
-                                 :securable_id => filter)
+                                 :securable_id => filter.to_a)
       else
         nodes = Node.granted_for(model.name, principal_ids, permissions)
       end
