@@ -1,10 +1,7 @@
-require 'access_control/inheritance'
 require 'access_control/restricter'
 
 module AccessControl
   module Restriction
-
-    include Inheritance
 
     def self.included(base)
       base.extend(ClassMethods)
