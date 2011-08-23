@@ -6,7 +6,7 @@ module AccessControl
     attr_reader :model
 
     def initialize(model)
-      raise CannotRestrict unless model.include?(Restriction)
+      raise InvalidInheritage unless model.include?(Inheritance)
       @model = model
     end
 
