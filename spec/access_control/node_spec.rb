@@ -209,7 +209,7 @@ module AccessControl
 
       let(:results)       { stub('results') }
       let(:principal_ids) { ['principal id 1', 'principal id 2'] }
-      let(:permissions)   { ['permission 1', 'permission 2'] }
+      let(:permissions)   { Set.new(['permission 1', 'permission 2']) }
 
       def call_method(conditions={})
         Node.granted_for('SecurableType',
@@ -229,7 +229,7 @@ module AccessControl
           :conditions => {
             :securable_type => 'SecurableType',
             :'ac_assignments.principal_id' => principal_ids,
-            :'ac_security_policy_items.permission' => permissions,
+            :'ac_security_policy_items.permission' => permissions.to_a,
           }
         ).and_return(results)
         call_method
@@ -261,7 +261,7 @@ module AccessControl
       end
 
       describe "with a single permission" do
-        let(:permissions) { ['permission'] }
+        let(:permissions) { Set.new(['permission']) }
         it "extracts the permission" do
           Node.should_receive(:find).with(:all, hash_including(
             :conditions => hash_including(

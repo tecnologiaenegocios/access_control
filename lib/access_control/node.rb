@@ -131,6 +131,7 @@ module AccessControl
     def self.granted_for(securable_type, principal_ids, permissions,
                          conditions={})
       principal_ids = principal_ids.first if principal_ids.size == 1
+      permissions = permissions.to_a
       permissions = permissions.first if permissions.size == 1
       find(
         :all,
