@@ -22,6 +22,7 @@ module AccessControl
 
     before do
       model.send(:include, Restriction)
+      AccessControl.stub(:security_manager).and_return(manager)
     end
 
     describe ".find" do
@@ -29,7 +30,6 @@ module AccessControl
       before do
         model.stub(:permissions_required_to_query)
         model.stub(:permissions_required_to_view)
-        AccessControl.stub(:security_manager).and_return(manager)
         manager.stub(:restrict_queries?).and_return(true)
         manager.stub(:verify_access!)
       end
@@ -180,6 +180,42 @@ module AccessControl
 
         end
 
+      end
+
+    end
+
+    describe ".unrestricted_find" do
+
+      before do
+        manager.instance_eval do
+          def without_query_restriction
+            result = yield
+            yielded(result)
+            result
+          end
+          def yielded(result); end
+        end
+        model.stub(:find).and_return('find results')
+      end
+
+      it "opens a .without_query_restriction block" do
+        manager.should_receive(:without_query_restriction)
+        model.unrestricted_find
+      end
+
+      it "calls .find with the arguments provided" do
+        model.should_receive(:find).with('the arguments')
+        model.unrestricted_find('the arguments')
+      end
+
+      it "returns whatever find has returned" do
+        model.stub(:find).and_return('find results')
+        model.unrestricted_find.should == 'find results'
+      end
+
+      it "calls .find from within the block" do
+        manager.should_receive(:yielded).with('find results')
+        model.unrestricted_find.should == 'find results'
       end
 
     end

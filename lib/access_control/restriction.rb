@@ -31,6 +31,12 @@ module AccessControl
         end
       end
 
+      def unrestricted_find(*args)
+        AccessControl.security_manager.without_query_restriction do
+          find(*args)
+        end
+      end
+
     end
 
   end
