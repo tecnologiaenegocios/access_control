@@ -69,7 +69,7 @@ module AccessControl
 
       it "finds nodes grantable for the current principals for securable 0" do
         Node.should_receive(:granted_for).
-          with('Record', principal_ids, permissions, {:securable_id => [0]}).
+          with('Record', principal_ids, permissions, {:securable_id => 0}).
           and_return([node1])
         grantable.from_class?(permissions)
       end

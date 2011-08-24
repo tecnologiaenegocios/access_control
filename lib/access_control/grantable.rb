@@ -17,7 +17,7 @@ module AccessControl
 
     def from_class?(permissions)
       Node.granted_for(model.name, principal_ids, permissions,
-                       :securable_id => [0]).any?
+                       :securable_id => 0).any?
     end
 
   private
