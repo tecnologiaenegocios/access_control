@@ -23,9 +23,9 @@ module AccessControl
 
       # Returns an options hash for scoping with a :conditions option.
 
-      let(:inheritable) { mock('inheritable', :ids_with => ['inheritable id']) }
-      let(:grantable)   { mock('grantable',   :ids_with => ['granted id']) }
-      let(:blockable)   { mock('blockable',   :ids => ['blocked id']) }
+      let(:inheritable) { mock(:ids_with => Set.new([1,2,3,  5,6,7    ])) }
+      let(:blockable)   { mock(:ids      => Set.new([      4,5,6      ])) }
+      let(:grantable)   { mock(:ids_with => Set.new([  2,  4,  6,  8,9])) }
 
       def restricter_options(filter=nil)
         restricter.options('some permissions', filter)
@@ -53,59 +53,41 @@ module AccessControl
       end
 
       it "gets inheritable ids" do
+        ids = inheritable.ids_with
         inheritable.should_receive(:ids_with).with('some permissions').
-          and_return(['inheritable id'])
+          and_return(ids)
         restricter_options
       end
 
       it "gets grantable ids without a filter if none is provided" do
+        ids = grantable.ids_with
         grantable.should_receive(:ids_with).with('some permissions', nil).
-          and_return(['granted id'])
+          and_return(ids)
         restricter_options
       end
 
       it "gets grantable ids with the filter if one is provided" do
         filter = stub('filter')
+        ids = grantable.ids_with
         grantable.should_receive(:ids_with).with('some permissions', filter).
-          and_return(['granted id'])
+          and_return(ids)
         restricter_options(filter)
       end
 
       it "gets blocked ids" do
-        blockable.should_receive(:ids).and_return(['blocked id'])
+        ids = blockable.ids
+        blockable.should_receive(:ids).and_return(ids)
         restricter_options
       end
 
       it "builds a condition expression for the primary key" do
-        restricter_options[:conditions].should == [
-          "`table_name`.pk IN (?) OR (`table_name`.pk IN (?) AND `table_name`.pk NOT IN (?))",
-          ['granted id'], ['inheritable id'], ['blocked id']
-        ]
+        # We should get all inheritable ids minus those that are blocked,
+        # united with all grantable ids.
+        valid_ids = (inheritable.ids_with - blockable.ids) | grantable.ids_with
+        restricter_options[:conditions].should == ["`table_name`.pk IN (?)",
+                                                   valid_ids.to_a]
       end
 
-      describe "with empty blocked ids" do
-
-        # The specific feature below is needed because of two things:
-        # - NOT IN expressions with an empty set are bad, at least with the
-        #   default behaviour in Rails and MySQL.  Those are turned into NOT
-        #   IN (NULL) by Rails, which yields false always, no matter what is
-        #   being tested for not being in the set.  But this should yield
-        #   true in all cases because everything is not in an empty set.
-        # - We end up without the OR expression (which can't use indices),
-        #   and with just a simple IN expression, which is better for
-        #   performance.  Stripping out the NOT IN condition, the resulting
-        #   expression is an OR expression testing the same id in two sets.
-        #   Then we can merge both sets into one and use a single IN
-        #   expression, stripping out the OR.
-
-        it "simplifies the condition to a single IN expression" do
-          blockable.stub(:ids).and_return([])
-          restricter_options[:conditions].should == [
-            "`table_name`.pk IN (?)", ['granted id', 'inheritable id']
-          ]
-        end
-
-      end
     end
   end
 end
