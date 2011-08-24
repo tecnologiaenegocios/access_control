@@ -64,8 +64,8 @@ module AccessControl
           # :all, :first and :last options triggers this behavior: using the
           # query permissions to filter records.
 
-          let(:restricter)   { mock('restricter', :options => find_options) }
-          let(:find_options) { stub('find options') }
+          let(:restricter)   { mock('restricter', :sql_condition => sql_condition) }
+          let(:sql_condition) { stub('sql condition') }
 
           before do
             model.stub(:permissions_required_to_query).
@@ -81,14 +81,15 @@ module AccessControl
             end
 
             it "gets the find options from the restricter" do
-              restricter.should_receive(:options).
+              restricter.should_receive(:sql_condition).
                 with('the query permissions').
-                and_return(find_options)
+                and_return(sql_condition)
               model.find(option, 'find arguments')
             end
 
             it "runs a .with_scope with the find options from the restricter" do
-              model.should_receive(:with_scope).with(:find => find_options)
+              model.should_receive(:with_scope).
+                with(:find => {:conditions => sql_condition})
               model.find(option, 'find arguments')
             end
 

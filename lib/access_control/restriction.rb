@@ -22,7 +22,9 @@ module AccessControl
         case args.first
         when :all, :last, :first
           permissions = permissions_required_to_query
-          with_scope(:find => Restricter.new(self).options(permissions)) do
+          with_scope(:find => {
+            :conditions => Restricter.new(self).sql_condition(permissions)
+          }) do
             super(*args)
           end
         else

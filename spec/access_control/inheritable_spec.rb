@@ -50,10 +50,10 @@ module AccessControl
 
       describe "#ids_with" do
 
-        let(:results)         { [a_record, another_record, some_other_record] }
-        let(:find_conditions) { stub('conditions') }
-        let(:find_options)    { {:conditions => find_conditions} }
-        let(:restricter)      { mock('restricter', :options => find_options) }
+        let(:results)       { [a_record, another_record, some_other_record] }
+        let(:sql_condition) { stub('sql condition') }
+        let(:restricter)    { mock('restricter',
+                                   :sql_condition => sql_condition) }
 
         before do
           model.stub(:unrestricted_find).and_return(results)
@@ -76,17 +76,17 @@ module AccessControl
             inheritable.ids_with('permissions inherited')
           end
 
-          it "gets its options with the permissions and ids provided" do
-            restricter.should_receive(:options).
+          it "gets its condition with the permissions and ids provided" do
+            restricter.should_receive(:sql_condition).
               with('permissions inherited', 'filter').
-              and_return(find_options)
+              and_return(sql_condition)
             inheritable.ids_with('permissions inherited')
           end
 
           it "gets model ids joining reflected model and filtering ids" do
             # This uses .unrestricted_find to avoid infinite recursion.
             model.should_receive(:unrestricted_find).
-              with(:all, :joins => :parent, :conditions => find_conditions).
+              with(:all, :joins => :parent, :conditions => sql_condition).
               and_return(results)
             inheritable.ids_with('permissions inherited')
           end
@@ -95,26 +95,25 @@ module AccessControl
 
         describe "with all ids returned from partial findings" do
 
-          let(:find_conditions1) { stub('conditions') }
-          let(:find_options1)    { {:conditions => find_conditions1} }
-
-          let(:find_conditions2) { stub('conditions') }
-          let(:find_options2)    { {:conditions => find_conditions2} }
+          let(:sql_condition1) { stub('sql condition 1') }
+          let(:sql_condition2) { stub('sql condition 1') }
 
           it "accumulates them and returns it" do
-            restricter.stub(:options).with('permissions inherited',
-                                           'filter1').and_return(find_options1)
-            restricter.stub(:options).with('permissions inherited',
-                                           'filter2').and_return(find_options2)
+            restricter.stub(:sql_condition).
+              with('permissions inherited', 'filter1').
+              and_return(sql_condition1)
+            restricter.stub(:sql_condition).
+              with('permissions inherited', 'filter2').
+              and_return(sql_condition2)
             model.stub(:parent_models_and_options).and_return([
               [reflected_model, :parent1, 'filter1'],
               [reflected_model, :parent2, 'filter2']
             ])
             model.stub(:unrestricted_find).
-              with(:all, :joins => :parent1, :conditions => find_conditions1).
+              with(:all, :joins => :parent1, :conditions => sql_condition1).
               and_return([a_record, another_record])
             model.stub(:unrestricted_find).
-              with(:all, :joins => :parent2, :conditions => find_conditions2).
+              with(:all, :joins => :parent2, :conditions => sql_condition2).
               and_return([another_record, some_other_record])
             inheritable.ids_with('permissions inherited').should == \
               Set.new(['an id', 'another id', 'some other id'])

@@ -13,19 +13,19 @@ module AccessControl
       @model = model
     end
 
-    def options(permissions, filter=nil)
+    def sql_condition(permissions, filter=nil)
       if !grantable.from_class?(permissions)
         granted_ids = grantable.ids_with(permissions)
         inherited_ids = Inheritable.new(model).ids_with(permissions)
         ids = (inherited_ids - blocked_ids) | granted_ids
         ids = (Set.new(filter) & ids) if filter
-        { :conditions => ["#{table_id} IN (?)", ids.to_a] }
+        ["#{table_id} IN (?)", ids.to_a]
       else
         if blocked_ids.any?
           ids = (blocked_ids - grantable.ids_with(permissions)).to_a
-          { :conditions => ["#{table_id} NOT IN (?)", ids] }
+          ["#{table_id} NOT IN (?)", ids]
         else
-          filter ? { :conditions => ["#{table_id} IN (?)", filter] } : {}
+          filter ? ["#{table_id} IN (?)", filter] : '1'
         end
       end
     end
