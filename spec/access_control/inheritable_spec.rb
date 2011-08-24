@@ -47,7 +47,7 @@ module AccessControl
         let(:restricter)      { mock('restricter', :options => find_options) }
 
         before do
-          model.stub(:find).and_return(results)
+          model.stub(:unrestricted_find).and_return(results)
           model.stub(:parent_models_and_options).
             and_return([[reflected_model, :parent, 'filter']])
           Restricter.stub(:new).and_return(restricter)
@@ -75,7 +75,8 @@ module AccessControl
           end
 
           it "gets model ids joining reflected model and filtering ids" do
-            model.should_receive(:find).
+            # This uses .unrestricted_find to avoid infinite recursion.
+            model.should_receive(:unrestricted_find).
               with(:all, :joins => :parent, :conditions => find_conditions).
               and_return(results)
             inheritable.ids_with('permissions inherited')
@@ -100,10 +101,10 @@ module AccessControl
               [reflected_model, :parent1, 'filter1'],
               [reflected_model, :parent2, 'filter2']
             ])
-            model.stub(:find).
+            model.stub(:unrestricted_find).
               with(:all, :joins => :parent1, :conditions => find_conditions1).
               and_return([a_record, another_record])
-            model.stub(:find).
+            model.stub(:unrestricted_find).
               with(:all, :joins => :parent2, :conditions => find_conditions2).
               and_return([another_record, some_other_record])
             inheritable.ids_with('permissions inherited').should == \
