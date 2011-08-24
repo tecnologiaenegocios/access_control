@@ -14,13 +14,34 @@ module AccessControl
     end
 
     def options(permissions, filter=nil)
-      pk = model.primary_key
-      inherited_ids = Inheritable.new(model).ids_with(permissions)
-      granted_ids = Grantable.new(model).ids_with(permissions, filter)
-      blocked_ids = Blockable.new(model).ids
-      ids = ((inherited_ids - blocked_ids) | granted_ids).to_a
-      table_id = "#{model.quoted_table_name}.#{pk}"
-      { :conditions => ["#{table_id} IN (?)", ids] }
+      if !grantable.from_class?(permissions)
+        granted_ids = grantable.ids_with(permissions)
+        inherited_ids = Inheritable.new(model).ids_with(permissions)
+        ids = (inherited_ids - blocked_ids) | granted_ids
+        ids = (Set.new(filter) & ids) if filter
+        { :conditions => ["#{table_id} IN (?)", ids.to_a] }
+      else
+        if blocked_ids.any?
+          ids = (blocked_ids - grantable.ids_with(permissions)).to_a
+          { :conditions => ["#{table_id} NOT IN (?)", ids] }
+        else
+          filter ? { :conditions => ["#{table_id} IN (?)", filter] } : {}
+        end
+      end
+    end
+
+  private
+
+    def grantable
+      @grantable ||= Grantable.new(model)
+    end
+
+    def blocked_ids
+      @blocked_ids ||= Blockable.new(model).ids
+    end
+
+    def table_id
+      @table_id ||= "#{model.quoted_table_name}.#{model.primary_key}"
     end
 
   end
