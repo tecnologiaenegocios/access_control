@@ -208,14 +208,60 @@ module AccessControl
         model.unrestricted_find('the arguments')
       end
 
+      it "calls .find from within the block" do
+        manager.should_receive(:yielded).with('find results')
+        model.unrestricted_find
+      end
+
       it "returns whatever find has returned" do
         model.stub(:find).and_return('find results')
         model.unrestricted_find.should == 'find results'
       end
 
-      it "calls .find from within the block" do
-        manager.should_receive(:yielded).with('find results')
-        model.unrestricted_find.should == 'find results'
+    end
+
+    describe "#valid?" do
+
+      # Validation should happen without query restriction.
+
+      let(:base) do
+        Class.new do
+          def valid?
+            called_from_base
+          end
+        end
+      end
+      let(:instance) { model.new }
+
+      before do
+        instance.stub(:called_from_base).and_return('validation result')
+        manager.instance_eval do
+          def without_query_restriction
+            result = yield
+            yielded(result)
+            result
+          end
+          def yielded(result); end
+        end
+      end
+
+      it "opens a .without_query_restriction block" do
+        manager.should_receive(:without_query_restriction)
+        instance.valid?
+      end
+
+      it "calls #valid? of the base class" do
+        instance.should_receive(:called_from_base)
+        instance.valid?
+      end
+
+      it "calls #valid? from within the block" do
+        manager.should_receive(:yielded).with('validation result')
+        instance.valid?
+      end
+
+      it "returns whatever base#valid? has returned" do
+        instance.valid?.should == 'validation result'
       end
 
     end

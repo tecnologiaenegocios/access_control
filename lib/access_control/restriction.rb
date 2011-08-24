@@ -7,6 +7,12 @@ module AccessControl
       base.extend(ClassMethods)
     end
 
+    def valid?
+      AccessControl.security_manager.without_query_restriction do
+        super
+      end
+    end
+
     module ClassMethods
 
       def find(*args)
