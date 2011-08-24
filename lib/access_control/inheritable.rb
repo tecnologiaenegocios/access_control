@@ -7,6 +7,7 @@ module AccessControl
 
     def initialize(model)
       raise InvalidInheritage unless model.include?(Inheritance)
+      raise CannotRestrict unless model.include?(Restriction)
       @model = model
     end
 

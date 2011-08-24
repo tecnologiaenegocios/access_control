@@ -1,6 +1,7 @@
 require 'spec_helper'
 require 'access_control/inheritable'
 require 'access_control/inheritance'
+require 'access_control/restriction'
 
 module AccessControl
   describe Inheritable do
@@ -21,11 +22,18 @@ module AccessControl
 
     describe "initialization" do
       it "complains if the model hasn't included Inheritance" do
+        # Restriction is needed for .parent_models_and_options.
+        model.send(:include, Restriction)
         lambda { Inheritable.new(model) }.should raise_error(InvalidInheritage)
+      end
+      it "complains if the model hasn't included Restriction" do
+        # Restriction is needed for .unrestricted_find.
+        model.send(:include, Inheritance)
+        lambda { Inheritable.new(model) }.should raise_error(CannotRestrict)
       end
     end
 
-    describe "with Restriction-aware classes" do
+    describe "with Restriction-aware Inheritance-aware classes" do
 
       let(:inheritable)       { Inheritable.new(model) }
       let(:a_record)          { mock('a record',       :pk => 'an id') }
@@ -35,6 +43,7 @@ module AccessControl
 
       before do
         model.send(:include, Inheritance)
+        model.send(:include, Restriction)
         model.stub(:parent_models_and_options).
           and_return([[reflected_model, :parent, 'find options']])
       end
