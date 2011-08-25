@@ -24,7 +24,7 @@ module AccessControl
     end
 
     def inherited_roles_for_all_principals(filter_roles)
-      strict_unblocked_ancestors.inject({}) do |results, node|
+      strict_ancestors.inject({}) do |results, node|
         node.assignments_with_roles(filter_roles).each do |a|
           results[a.principal_id] ||= {}
           (results[a.principal_id][a.role_id] ||= Set.new).
@@ -45,11 +45,11 @@ module AccessControl
     end
 
     def ancestors
-      @node.ancestors
+      @node.unblocked_ancestors
     end
 
-    def strict_unblocked_ancestors
-      @node.strict_unblocked_ancestors
+    def strict_ancestors
+      @node.strict_ancestors
     end
 
   end

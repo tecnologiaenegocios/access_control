@@ -13,7 +13,7 @@ module AccessControl
 
     describe "Node conformance with expected interface" do
       it_has_instance_method(Node, :principal_roles)
-      it_has_instance_method(Node, :ancestors)
+      it_has_instance_method(Node, :unblocked_ancestors)
     end
 
     let(:parent) { mock('node') }
@@ -32,11 +32,11 @@ module AccessControl
     before do
       node.stub(
         :principal_roles => [role1, role2],
-        :ancestors => [parent, node]
+        :unblocked_ancestors => [parent, node]
       )
       parent.stub(
         :principal_roles => [role3, role4],
-        :ancestors => [parent]
+        :unblocked_ancestors => [parent]
       )
     end
 
@@ -75,7 +75,7 @@ module AccessControl
 
       describe "Node conformance with expected interface" do
         it_has_instance_method(Node, :global?)
-        it_has_instance_method(Node, :strict_unblocked_ancestors)
+        it_has_instance_method(Node, :strict_ancestors)
         it_has_instance_method(Node, :assignments_with_roles, 1)
       end
 
@@ -96,7 +96,7 @@ module AccessControl
       let(:items) { inspector.inherited_roles_for_all_principals(roles) }
 
       before do
-        node.stub(:strict_unblocked_ancestors).
+        node.stub(:strict_ancestors).
           and_return([parent, ancestor, global])
         parent.stub(:assignments_with_roles).and_return([])
         ancestor.stub(:assignments_with_roles).and_return([
