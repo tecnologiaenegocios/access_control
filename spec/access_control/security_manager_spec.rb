@@ -1,144 +1,83 @@
 require 'spec_helper'
 require 'access_control/security_manager'
 
-describe AccessControl do
-
-  it "has a security manager" do
-    AccessControl.security_manager.should be_a(AccessControl::SecurityManager)
-  end
-
-  it "instantiates the security manager only once" do
-    first = AccessControl.security_manager
-    second = AccessControl.security_manager
-    first.should equal(second)
-  end
-
-  it "stores the security manager in the current thread" do
-    current_security_manager = AccessControl.security_manager
-    thr_security_manager = nil
-    Thread.new { thr_security_manager = AccessControl.security_manager }
-    current_security_manager.should_not equal(thr_security_manager)
-  end
-
-  after do
-    # Clear the instantiated security manager.
-    AccessControl.no_security_manager
-  end
-
-end
-
 module AccessControl
   describe SecurityManager do
 
-    let(:user_principal) { stub('principal', :id => "user principal's id") }
-    let(:group1_principal) { stub('principal', :id => "group1 principal's id") }
-    let(:group2_principal) { stub('principal', :id => "group2 principal's id") }
-    let(:user) { stub('user', :principal => user_principal) }
-    let(:group1) { stub('group1', :principal => group1_principal) }
-    let(:group2) { stub('group2', :principal => group2_principal) }
-    let(:manager) { SecurityManager.new }
+    let(:principal) { stub('principal', :id => "user principal's id") }
+    let(:subject) { mock('subject', :ac_principal => principal) }
+    let(:manager) { SecurityManager.bootstrap!; SecurityManager.new }
 
     before do
-      Principal.create_anonymous_principal!
-      manager.current_user = user
+      Principal.stub(:anonymous_id).and_return("the anonymous' id")
+    end
+
+    describe "#current_subjects=" do
+
+      # Setter for telling the security manager what are the current
+      # principals.
+
+      it "accepts an array of instances" do
+        manager.current_subjects = [subject]
+      end
+
+      it "accepts a set of instances" do
+        manager.current_subjects = Set.new([subject])
+      end
+
+      it "complains if the instance doesn't provide an #ac_principal method" do
+        lambda {
+          manager.current_subjects = [mock('subject')]
+        }.should raise_exception(InvalidSubject)
+      end
+
+      it "gets the ac_principal from each instance" do
+        subject.should_receive(:ac_principal).and_return(principal)
+        manager.current_subjects = [subject]
+      end
+
+      it "makes the subject's principals available in current_principals" do
+        manager.current_subjects = [subject]
+        manager.current_principals.should == Set.new([principal])
+      end
+
     end
 
     describe "#principal_ids" do
 
-      describe "when there's no user nor group set" do
-        before do
-          manager.current_user = nil
-          manager.current_groups = []
-        end
-
-        it "returns the anonymous principal" do
+      describe "when there's no subject set" do
+        it "returns the anonymous principal id" do
           Principal.should_receive(:anonymous_id).and_return("the anonymous' id")
           manager.principal_ids.should == ["the anonymous' id"]
         end
       end
 
-      describe "when there's a user set but no groups" do
+      describe "when there's a subject set" do
+        before { manager.current_subjects = [subject] }
         it "gets the principal from the user" do
-          user.should_receive(:principal).and_return(user_principal)
-          manager.principal_ids.should include(user_principal.id)
+          manager.principal_ids.should include(principal.id)
         end
-      end
-
-      describe "when there's user and groups set" do
-
-        before do
-          manager.current_user = user
-          manager.current_groups = [group1, group2]
-        end
-
-        it "gets the principal from the user" do
-          user.should_receive(:principal).and_return(user_principal)
-          manager.principal_ids.should include(user_principal.id)
-        end
-
-        it "gets the principals from the groups" do
-          group1.should_receive(:principal).and_return(group1_principal)
-          group2.should_receive(:principal).and_return(group2_principal)
-          manager.principal_ids.should include(group1_principal.id)
-          manager.principal_ids.should include(group2_principal.id)
-        end
-
-        it "combines the principals from the user and the groups" do
-          manager.principal_ids.size.should == 3
-        end
-
-      end
-
-      describe "when there's just groups set" do
-
-        before do
-          manager.current_user = nil
-          manager.current_groups = [group1, group2]
-        end
-
-        it "gets the principals from the groups" do
-          group1.should_receive(:principal).and_return(group1_principal)
-          group2.should_receive(:principal).and_return(group2_principal)
-          manager.principal_ids.should include(group1_principal.id)
-          manager.principal_ids.should include(group2_principal.id)
-        end
-
-        it "returns the anonymous principal" do
-          Principal.should_receive(:anonymous_id).and_return("the anonymous' id")
-          manager.principal_ids.should include("the anonymous' id")
+        it "doesn't include the anonymous principal id" do
+          manager.principal_ids.size.should == 1
         end
       end
 
       describe "caching" do
 
         before do
-          manager.current_user = user
-          manager.current_groups = [group1, group2]
+          manager.current_subjects = [subject]
         end
 
         it "smartly caches stuff" do
           manager.principal_ids
-          user.should_not_receive(:principal)
-          group1.should_not_receive(:principal)
-          group2.should_not_receive(:principal)
+          subject.should_not_receive(:ac_principal)
           manager.principal_ids
         end
 
-        it "clears the cache if current_user is set" do
+        it "clears the cache if current_subjects is set" do
           manager.principal_ids
-          manager.current_user = user
-          user.should_receive(:principal)
-          group1.should_receive(:principal)
-          group2.should_receive(:principal)
-          manager.principal_ids
-        end
-
-        it "clears the cache if current_groups is set" do
-          manager.principal_ids
-          manager.current_groups = [group1, group2]
-          user.should_receive(:principal)
-          group1.should_receive(:principal)
-          group2.should_receive(:principal)
+          subject.should_receive(:ac_principal)
+          manager.current_subjects = [subject]
           manager.principal_ids
         end
 
@@ -152,7 +91,7 @@ module AccessControl
       let(:node2) { stub('node') }
       let(:inspector1) { mock('inspector', :has_permission? => nil) }
       let(:inspector2) { mock('inspector', :has_permission? => nil) }
-      let(:security_context) { mock('security context', :nodes => Set.new()) }
+      let(:security_context) { mock('security context', :nodes => Set.new) }
 
       before do
         PermissionInspector.stub(:new).with(node1).and_return(inspector1)
@@ -275,7 +214,7 @@ module AccessControl
       describe "when the UnrestrictableUser exists and is logged in" do
 
         before do
-          manager.current_user = UnrestrictableUser.instance
+          manager.current_subjects = [UnrestrictableUser.instance]
         end
 
         it "returns true without any further verification on nodes or "\
@@ -399,7 +338,7 @@ module AccessControl
       describe "when the UnrestrictableUser exists and is logged in" do
 
         before do
-          manager.current_user = UnrestrictableUser.instance
+          manager.current_subjects = [UnrestrictableUser.instance]
         end
 
         it "returns true without any further verification on node or "\
@@ -452,7 +391,7 @@ module AccessControl
       describe "when the UnrestrictableUser is logged in" do
 
         before do
-          manager.current_user = UnrestrictableUser.instance
+          manager.current_subjects = [UnrestrictableUser.instance]
         end
 
         it "returns false" do

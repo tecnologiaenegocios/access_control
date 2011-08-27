@@ -1,17 +1,8 @@
 require 'access_control/exceptions'
+require 'access_control/principal'
 require 'access_control/permission_inspector'
 
 module AccessControl
-
-  SM_THREAD_KEY = :ac_security_manager
-
-  def self.security_manager
-    Thread.current[SM_THREAD_KEY] ||= SecurityManager.new
-  end
-
-  def self.no_security_manager
-    Thread.current[SM_THREAD_KEY] = nil
-  end
 
   class SecurityManager
 
@@ -19,11 +10,20 @@ module AccessControl
       @restrict_queries = true
     end
 
+    def current_subjects= subjects
+      @current_principals = subjects.inject(Set.new) do |principals, subject|
+        raise InvalidSubject unless subject.respond_to?(:ac_principal)
+        principals << subject.ac_principal
+      end
+    end
+
+    def current_principals
+      @current_principals ||= Set.new
+    end
+
     def principal_ids
-      @principal_ids ||= current_groups.
-        map{|group| group.principal.id}.
-        push(current_user_principal_id).
-        uniq
+      return [Principal.anonymous_id] if current_principals.empty?
+      current_principals.map(&:id)
     end
 
     def has_access? nodes, permissions
@@ -70,24 +70,6 @@ module AccessControl
       really_restrict_queries?
     end
 
-    def current_user= current_user
-      @principal_ids = nil
-      @current_user = current_user
-    end
-
-    def current_user
-      @current_user
-    end
-
-    def current_groups= current_groups
-      @principal_ids = nil
-      @current_groups = current_groups
-    end
-
-    def current_groups
-      @current_groups || []
-    end
-
     def without_query_restriction
       old_restriction_value = really_restrict_queries?
       unrestrict_queries!
@@ -114,7 +96,7 @@ module AccessControl
 
     def unrestrictable_user_logged_in?
       return true if !bootstrapped?
-      principal_ids.include?(Principal::UNRESTRICTABLE_ID)
+      principal_ids.include?(UnrestrictedPrincipal::ID)
     end
 
     def current_user_principal_id

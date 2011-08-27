@@ -23,10 +23,6 @@ module AccessControl
       Principal.create!(:subject => stub_model(SubjectObj))
     end
 
-    it "cannot be wrapped by a security proxy" do
-      Principal.securable?.should be_false
-    end
-
     it "destroys assignments when it is destroyed" do
       r = Principal.create!(:subject => stub_model(SubjectObj))
       manager.stub(:can_assign_or_unassign?).and_return(true)
@@ -93,8 +89,8 @@ module AccessControl
             should == Principal.anonymous_subject_id
         end
 
-        it "returns the principal id" do
-          AnonymousUser.instance.principal_id.should == Principal.anonymous_id
+        it "returns the principal" do
+          AnonymousUser.instance.ac_principal.should == Principal.anonymous
         end
 
       end
@@ -103,9 +99,9 @@ module AccessControl
 
     describe "unrestrictable subject" do
 
-      it "returns the principal id" do
-        UnrestrictableUser.instance.principal_id.
-          should == Principal::UNRESTRICTABLE_ID
+      it "returns the principal" do
+        UnrestrictableUser.instance.ac_principal.
+          should == UnrestrictedPrincipal.instance
       end
 
     end
