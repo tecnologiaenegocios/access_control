@@ -30,4 +30,7 @@ module AccessControl
   class CannotRestrict < StandardError
   end
 
+  class InvalidSubject < StandardError
+  end
+
 end

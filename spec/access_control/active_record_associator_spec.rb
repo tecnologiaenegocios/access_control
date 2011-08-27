@@ -53,8 +53,7 @@ module AccessControl
           ac_class.stub(:create!)
           Object.send(:const_set, 'ACClass', ac_class)
           model.stub(:has_one)
-          model.associate_with_access_control(:ac_class,
-                                              'ACClass',
+          model.associate_with_access_control(:ac_class, 'ACClass',
                                               :ac_class_able)
         end
 
