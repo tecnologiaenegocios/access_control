@@ -3,9 +3,6 @@ module AccessControl
 
     def self.included(base)
       base.extend(ClassMethods)
-      base.class_eval do
-        after_create :create_access_control_objects
-      end
     end
 
     module ClassMethods
@@ -17,6 +14,13 @@ module AccessControl
                                                        polymorphic_name]
       end
 
+    end
+
+  private
+
+    def create_without_callbacks
+      super
+      create_access_control_objects
     end
 
     def create_access_control_objects

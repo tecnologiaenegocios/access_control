@@ -8,23 +8,17 @@ module AccessControl
 
     let(:base) do
       Class.new do
-        include ActiveSupport::Callbacks
-        define_callbacks :after_create
-        after_create :after_create_callback
-        def create
-          do_create
-          # Borrowed from ActiveSupport docs, but I think that there's an error
-          # there... The block returns true if it want to stop the chain.
-          run_callbacks(:after_create) { |result, object| result == false }
-        end
-        def after_create_callback; end
-        def do_create; end
-        def id
-          "model's id"
-        end
         def self.name
           'Model'
         end
+      private
+        def create
+          create_without_callbacks
+          run_after_create_callbacks
+        end
+        def create_without_callbacks; do_create; end
+        def run_after_create_callbacks; end
+        def do_create; end
       end
     end
 
@@ -65,24 +59,25 @@ module AccessControl
 
           it "creates an access control object" do
             ac_class.should_receive(:create!).with(:ac_class_able => instance)
-            instance.create
+            instance.send(:create)
           end
 
-          it "does it after creating the object" do
+          it "does it right after creating the object" do
             ac_class.stub(:create!) do |params|
-              params[:ac_class_able].id
+              params[:ac_class_able].created
             end
             instance.should_receive(:do_create).ordered
-            instance.should_receive(:id).ordered
-            instance.create
+            instance.should_receive(:created).ordered
+            instance.send(:create)
           end
 
-          it "skips the creation if a callback returns false" do
-            # The callback chain is stopped, so a rollback is made, and no
-            # principal is created because our callback is not called at all.
-            instance.stub(:after_create_callback).and_return(false)
-            ac_class.should_not_receive(:create!)
-            instance.create
+          it "does it right before any after callback is called" do
+            ac_class.stub(:create!) do |params|
+              params[:ac_class_able].created
+            end
+            instance.should_receive(:created).ordered
+            instance.should_receive(:run_after_create_callbacks).ordered
+            instance.send(:create)
           end
 
         end
