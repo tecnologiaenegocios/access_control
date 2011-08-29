@@ -4,11 +4,11 @@ require 'access_control/method_protection'
 module AccessControl
   describe MethodProtection do
 
-    let(:manager) { mock('security manager') }
+    let(:manager) { mock('manager') }
     let(:klass) { Class.new { include MethodProtection } }
 
     before do
-      AccessControl.stub(:security_manager).and_return(manager)
+      AccessControl.stub(:manager).and_return(manager)
       PermissionRegistry.stub!(:register)
       manager.stub(:verify_access!)
       klass.stub(:name).and_return('TheClassName')

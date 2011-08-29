@@ -36,21 +36,21 @@ module AccessControl
 
     def verify_create_permissions
       return unless verify_default_permissions?('create')
-      AccessControl.security_manager.verify_access!(
+      AccessControl.manager.verify_access!(
         self, self.class.permissions_required_to_create
       )
     end
 
     def verify_update_permissions
       return unless verify_default_permissions?('update')
-      AccessControl.security_manager.verify_access!(
+      AccessControl.manager.verify_access!(
         self, self.class.permissions_required_to_update
       )
     end
 
     def verify_destroy_permissions
       return unless verify_default_permissions?('destroy')
-      AccessControl.security_manager.verify_access!(
+      AccessControl.manager.verify_access!(
         self, self.class.permissions_required_to_destroy
       )
     end

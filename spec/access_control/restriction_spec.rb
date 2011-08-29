@@ -22,7 +22,7 @@ module AccessControl
 
     before do
       model.send(:include, Restriction)
-      AccessControl.stub(:security_manager).and_return(manager)
+      AccessControl.stub(:manager).and_return(manager)
     end
 
     describe ".find" do

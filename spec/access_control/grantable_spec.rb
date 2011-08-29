@@ -14,7 +14,7 @@ module AccessControl
 
     before do
       model.stub(:name).and_return('Record')
-      AccessControl.stub(:security_manager).and_return(manager)
+      AccessControl.stub(:manager).and_return(manager)
     end
 
     it "can be created with a model" do

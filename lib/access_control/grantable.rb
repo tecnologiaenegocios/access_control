@@ -1,4 +1,4 @@
-require 'access_control/security_manager'
+require 'access_control/manager'
 require 'access_control/node'
 
 module AccessControl
@@ -23,7 +23,7 @@ module AccessControl
   private
 
     def principal_ids
-      AccessControl.security_manager.principal_ids
+      AccessControl.manager.principal_ids
     end
 
   end

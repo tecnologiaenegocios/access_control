@@ -74,7 +74,7 @@ module AccessControl
         permissions_for_methods.keys.each do |m|
           (class << instance; self; end;).class_eval do
             define_method(m) do
-              AccessControl.security_manager.verify_access!(
+              AccessControl.manager.verify_access!(
                 self,
                 self.class.permissions_for(__method__)
               )

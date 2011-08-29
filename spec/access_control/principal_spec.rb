@@ -4,7 +4,7 @@ require 'access_control/principal'
 module AccessControl
   describe Principal do
 
-    let(:manager) { SecurityManager.new }
+    let(:manager) { Manager.new }
 
     before do
       class Object::SubjectObj < ActiveRecord::Base
@@ -12,7 +12,7 @@ module AccessControl
           []
         end
       end
-      AccessControl.stub(:security_manager).and_return(manager)
+      AccessControl.stub(:manager).and_return(manager)
     end
 
     after do

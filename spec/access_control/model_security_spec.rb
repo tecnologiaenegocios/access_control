@@ -17,7 +17,7 @@ module AccessControl
       Object::Record
     end
 
-    let(:manager) { SecurityManager.new }
+    let(:manager) { Manager.new }
 
     before do
       AccessControl.configure do |config|
@@ -28,7 +28,7 @@ module AccessControl
         config.default_destroy_permissions = []
         config.default_roles_on_create = nil
       end
-      AccessControl.stub(:security_manager => manager)
+      AccessControl.stub(:manager => manager)
       AccessControl.stub(:model_security_strict? => false)
       Principal.create_anonymous_principal!
     end

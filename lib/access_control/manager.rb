@@ -4,7 +4,7 @@ require 'access_control/permission_inspector'
 
 module AccessControl
 
-  class SecurityManager
+  class Manager
 
     def initialize
       @restrict_queries = true

@@ -8,11 +8,11 @@ module AccessControl
 
   describe Assignment do
 
-    let(:manager) { SecurityManager.new }
+    let(:manager) { Manager.new }
 
     before do
       AccessControl.config.stub(:default_roles_on_create).and_return(nil)
-      AccessControl.stub(:security_manager).and_return(manager)
+      AccessControl.stub(:manager).and_return(manager)
       manager.stub(:can_assign_or_unassign?).and_return(true)
     end
 
@@ -96,9 +96,9 @@ module AccessControl
 
       describe "assignment security" do
 
-        describe "SecurityManager conformance with expected interface" do
-          it_has_instance_method(SecurityManager, :can_assign_or_unassign?)
-          it_has_instance_method(SecurityManager, :verify_assignment!)
+        describe "Manager conformance with expected interface" do
+          it_has_instance_method(Manager, :can_assign_or_unassign?)
+          it_has_instance_method(Manager, :verify_assignment!)
         end
 
         let(:node) { stub_model(Node) }

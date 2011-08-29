@@ -1,4 +1,4 @@
-require 'access_control/security_manager'
+require 'access_control/manager'
 
 module AccessControl
   module AssociationSecurity
@@ -14,7 +14,7 @@ module AccessControl
         @reflection.active_record.respond_to?(:association_restricted?)
       return restricted_find_target if @reflection.active_record.
         association_restricted?(@reflection.name.to_sym)
-      AccessControl.security_manager.without_query_restriction do
+      AccessControl.manager.without_query_restriction do
         restricted_find_target
       end
     end

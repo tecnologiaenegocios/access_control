@@ -1,12 +1,10 @@
-require 'access_control/assignment'
-
 module AccessControl
 
   class Principal < ActiveRecord::Base
     set_table_name :ac_principals
     belongs_to :subject, :polymorphic => true
     has_many :assignments,
-             :class_name => Assignment.name,
+             :class_name => 'AccessControl::Assignment',
              :dependent => :destroy
 
     def self.anonymous

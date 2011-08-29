@@ -38,7 +38,7 @@ module AccessControl
 
           raise ::AccessControl::NoSecurityContextError unless context
 
-          manager = AccessControl.security_manager
+          manager = AccessControl.manager
 
           manager.verify_access!(context, permissions) \
             if AccessControl.controller_security_enabled?
@@ -52,18 +52,13 @@ module AccessControl
       def self.included(base)
         base.extend(AccessControl::ControllerSecurity::ClassMethods)
         base.class_eval do
-          alias_method_chain :process, :security_manager
+          alias_method_chain :process, :manager
         end
       end
 
-      # Convenience method.
-      def security_manager
-        AccessControl.security_manager
-      end
-
-      def process_with_security_manager(*args)
+      def process_with_manager(*args)
         with_security do
-          process_without_security_manager(*args)
+          process_without_manager(*args)
         end
       end
 
@@ -78,10 +73,10 @@ module AccessControl
       end
 
       def with_security
-        security_manager.use_anonymous!
+        AccessControl.manager.use_anonymous!
         yield
       ensure
-        AccessControl.no_security_manager
+        AccessControl.no_manager
         AccessControl::Node.clear_global_node_cache
       end
 

@@ -54,7 +54,7 @@ module AccessControl
       end
 
       def format_unauthorized_message missing_permissions
-        principals = AccessControl.security_manager.principal_ids
+        principals = AccessControl.manager.principal_ids
         msg = "Access denied for principal(s) #{
           principals.to_sentence(:locale => 'en')
         }: missing #{missing_permissions}"

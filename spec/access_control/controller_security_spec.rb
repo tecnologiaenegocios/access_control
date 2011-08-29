@@ -47,28 +47,18 @@ module AccessControl
       end
     end
 
-    describe "#security_manager" do
-
-      it "returns the current security manager" do
-        manager = stub('manager')
-        AccessControl.should_receive(:security_manager).and_return(manager)
-        records_controller.security_manager.should == manager
-      end
-
-    end
-
     describe "request wrapping" do
 
       let(:manager) { mock('manager') }
 
       before do
-        AccessControl.stub(:security_manager).and_return(manager)
-        AccessControl.stub(:no_security_manager)
+        AccessControl.stub(:manager).and_return(manager)
+        AccessControl.stub(:no_manager)
         manager.stub(:use_anonymous!)
         RecordsController.class_eval do
           # This method overrides the default implementation of `process` from
           # Rails, which was aliased.
-          def process_without_security_manager block
+          def process_without_manager block
             block.call
           end
         end
@@ -86,9 +76,9 @@ module AccessControl
 
       describe "after action is executed" do
 
-        it "unsets security manager after action execution" do
+        it "unsets manager after action execution" do
           AccessControl.should_receive(:block_called).ordered
-          AccessControl.should_receive(:no_security_manager).ordered
+          AccessControl.should_receive(:no_manager).ordered
           records_controller.process(Proc.new{ AccessControl.block_called })
         end
 
@@ -345,7 +335,7 @@ module AccessControl
         end
         PermissionRegistry.stub(:register)
         records_controller.stub(:current_security_context).and_return(node)
-        AccessControl.stub(:security_manager).and_return(manager)
+        AccessControl.stub(:manager).and_return(manager)
         manager.stub(:verify_access!)
       end
 

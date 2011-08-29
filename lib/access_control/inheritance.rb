@@ -1,4 +1,5 @@
 require 'access_control/exceptions'
+require 'access_control/manager'
 
 module AccessControl
   module Inheritance
@@ -24,7 +25,7 @@ module AccessControl
       end
 
       def parent_models_and_options
-        AccessControl.security_manager.without_query_restriction do
+        AccessControl.manager.without_query_restriction do
           inherits_permissions_from.inject([]) do |items, assoc|
             model = reflections[assoc].klass
             pk = model.primary_key

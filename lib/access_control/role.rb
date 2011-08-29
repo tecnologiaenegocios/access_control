@@ -1,16 +1,12 @@
-require 'access_control/assignment'
-require 'access_control/security_policy_item'
-require 'access_control/security_manager'
-
 module AccessControl
   class Role < ActiveRecord::Base
     set_table_name :ac_roles
     has_many :security_policy_items,
              :dependent => :destroy,
-             :class_name => SecurityPolicyItem.name
+             :class_name => 'AccessControl::SecurityPolicyItem'
     has_many :assignments,
              :dependent => :destroy,
-             :class_name => Assignment.name
+             :class_name => 'AccessControl::Assignment'
 
     validates_presence_of :name
     validates_uniqueness_of :name
@@ -23,10 +19,6 @@ module AccessControl
 
     def permissions
       Set.new(security_policy_items.map(&:permission))
-    end
-
-    def self.securable?
-      false
     end
   end
 end

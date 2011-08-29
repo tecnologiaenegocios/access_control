@@ -1,12 +1,12 @@
 require 'spec_helper'
-require 'access_control/security_manager'
+require 'access_control/manager'
 
 module AccessControl
-  describe SecurityManager do
+  describe Manager do
 
     let(:principal) { stub('principal', :id => "user principal's id") }
     let(:subject) { mock('subject', :ac_principal => principal) }
-    let(:manager) { SecurityManager.new }
+    let(:manager) { Manager.new }
 
     before do
       Principal.stub(:anonymous_id).and_return("the anonymous' id")
@@ -38,8 +38,7 @@ module AccessControl
 
     describe "#current_subjects=" do
 
-      # Setter for telling the security manager what are the current
-      # principals.
+      # Setter for telling the manager what are the current principals.
 
       it "accepts an array of instances" do
         manager.current_subjects = [subject]

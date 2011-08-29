@@ -1,7 +1,5 @@
-require 'access_control/assignment'
 require 'access_control/exceptions'
 require 'access_control/inheritance'
-require 'access_control/security_manager'
 
 module AccessControl
   class Node < ActiveRecord::Base
@@ -19,7 +17,7 @@ module AccessControl
     reflections[:principal_assignments].instance_eval do
 
       def options
-        principal_ids = AccessControl.security_manager.principal_ids
+        principal_ids = AccessControl.manager.principal_ids
         principal_ids = principal_ids.first if principal_ids.size == 1
         @options.merge(:conditions => {:principal_id => principal_ids})
       end
@@ -54,8 +52,7 @@ module AccessControl
     )
 
     def block= value
-      AccessControl.security_manager.
-        verify_access!(self, 'change_inheritance_blocking')
+      AccessControl.manager.verify_access!(self, 'change_inheritance_blocking')
       self[:block] = value
     end
 
@@ -122,10 +119,6 @@ module AccessControl
       ]
     end
 
-    def self.securable?
-      false
-    end
-
     def unblocked_ancestors
       Set.new([self]) | strict_unblocked_ancestors
     end
@@ -153,7 +146,7 @@ module AccessControl
 
     def set_default_roles
       return unless AccessControl.config.default_roles_on_create
-      AccessControl.security_manager.principal_ids.each do |principal_id|
+      AccessControl.manager.principal_ids.each do |principal_id|
         AccessControl.config.default_roles_on_create.each do |role|
           next unless role = Role.find_by_name(role)
           r = assignments.build(:role_id => role.id,

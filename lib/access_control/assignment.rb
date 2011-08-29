@@ -1,4 +1,4 @@
-require 'access_control/security_manager'
+require 'access_control/manager'
 
 module AccessControl
   class Assignment < ActiveRecord::Base
@@ -66,11 +66,11 @@ module AccessControl
   private
 
     def can_assign_or_unassign?
-      AccessControl.security_manager.can_assign_or_unassign?(node, role)
+      AccessControl.manager.can_assign_or_unassign?(node, role)
     end
 
     def verify_security_restrictions!
-      AccessControl.security_manager.verify_assignment!(node, role)
+      AccessControl.manager.verify_assignment!(node, role)
     end
 
   end

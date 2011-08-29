@@ -11,7 +11,7 @@ module AccessControl
     let(:reflection) { mock('reflection', :klass => reflected_model) }
 
     before do
-      AccessControl.stub(:security_manager).and_return(manager)
+      AccessControl.stub(:manager).and_return(manager)
       model.send(:include, Inheritance)
       model.stub(:find)
       model.stub(:reflections => { :parent => reflection })

@@ -4,10 +4,10 @@ require 'access_control/role'
 module AccessControl
   describe Role do
 
-    let(:manager) { SecurityManager.new }
+    let(:manager) { Manager.new }
 
     before do
-      AccessControl.stub(:security_manager).and_return(manager)
+      AccessControl.stub(:manager).and_return(manager)
     end
 
     it "validates presence of name" do
@@ -21,10 +21,6 @@ module AccessControl
 
     it "can be created with valid attributes" do
       Role.create!(:name => 'the role name')
-    end
-
-    it "is not securable" do
-      Role.securable?.should be_false
     end
 
     it "destroys assignments when it is destroyed" do

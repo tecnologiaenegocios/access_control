@@ -34,7 +34,7 @@ module AccessControl
     describe "#find_target" do
 
       before do
-        AccessControl.stub(:security_manager).and_return(manager)
+        AccessControl.stub(:manager).and_return(manager)
         association_proxy_class.class_eval do
           include AccessControl::AssociationSecurity
         end

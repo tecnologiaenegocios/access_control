@@ -8,15 +8,13 @@ module AccessControl
     end
 
     def valid?
-      AccessControl.security_manager.without_query_restriction do
-        super
-      end
+      AccessControl.manager.without_query_restriction { super }
     end
 
     module ClassMethods
 
       def find(*args)
-        unless AccessControl.security_manager.restrict_queries?
+        unless AccessControl.manager.restrict_queries?
           return super(*args)
         end
         case args.first
@@ -33,16 +31,14 @@ module AccessControl
           test_results = results
           test_results = [results] if !test_results.is_a?(Array)
           test_results.each do |result|
-            AccessControl.security_manager.verify_access!(result, permissions)
+            AccessControl.manager.verify_access!(result, permissions)
           end
           results
         end
       end
 
       def unrestricted_find(*args)
-        AccessControl.security_manager.without_query_restriction do
-          find(*args)
-        end
+        AccessControl.manager.without_query_restriction { find(*args) }
       end
 
     end

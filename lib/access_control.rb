@@ -15,20 +15,20 @@ require 'access_control/version'
 require 'access_control/exceptions'
 require 'access_control/controller_security'
 require 'access_control/association_security'
-require 'access_control/security_manager'
+require 'access_control/manager'
 require 'access_control/security_context'
 require 'access_control/permission_registry'
 
 module AccessControl
 
-  SM_THREAD_KEY = :ac_security_manager
+  MANAGER_THREAD_KEY = :ac_manager
 
-  def self.security_manager
-    Thread.current[SM_THREAD_KEY] ||= SecurityManager.new
+  def self.manager
+    Thread.current[MANAGER_THREAD_KEY] ||= Manager.new
   end
 
-  def self.no_security_manager
-    Thread.current[SM_THREAD_KEY] = nil
+  def self.no_manager
+    Thread.current[MANAGER_THREAD_KEY] = nil
   end
 
   LIB_PATH = File.dirname(__FILE__)

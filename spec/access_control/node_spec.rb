@@ -13,7 +13,7 @@ module AccessControl
       )
     end
 
-    let(:manager) { SecurityManager.new }
+    let(:manager) { Manager.new }
 
     def securable
       stub_model(SecurableObj)
@@ -21,7 +21,7 @@ module AccessControl
 
     before do
       Node.clear_global_node_cache
-      AccessControl.stub(:security_manager).and_return(manager)
+      AccessControl.stub(:manager).and_return(manager)
       manager.stub(:can_assign_or_unassign?).and_return(true)
       Principal.create_anonymous_principal!
       class Object::SecurableObj < ActiveRecord::Base
@@ -31,10 +31,6 @@ module AccessControl
 
     after do
       Object.send(:remove_const, 'SecurableObj')
-    end
-
-    it "is not securable" do
-      Node.securable?.should be_false
     end
 
     describe "global node" do

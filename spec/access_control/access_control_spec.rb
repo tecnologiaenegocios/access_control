@@ -3,26 +3,26 @@ require 'access_control'
 
 describe AccessControl do
 
-  it "has a security manager" do
-    AccessControl.security_manager.should be_a(AccessControl::SecurityManager)
+  it "has a manager" do
+    AccessControl.manager.should be_a(AccessControl::Manager)
   end
 
-  it "instantiates the security manager only once" do
-    first = AccessControl.security_manager
-    second = AccessControl.security_manager
+  it "instantiates the manager only once" do
+    first = AccessControl.manager
+    second = AccessControl.manager
     first.should equal(second)
   end
 
-  it "stores the security manager in the current thread" do
-    current_security_manager = AccessControl.security_manager
-    thr_security_manager = nil
-    Thread.new { thr_security_manager = AccessControl.security_manager }
-    current_security_manager.should_not equal(thr_security_manager)
+  it "stores the manager in the current thread" do
+    current_manager = AccessControl.manager
+    thr_manager = nil
+    Thread.new { thr_manager = AccessControl.manager }
+    current_manager.should_not equal(thr_manager)
   end
 
   after do
-    # Clear the instantiated security manager.
-    AccessControl.no_security_manager
+    # Clear the instantiated manager.
+    AccessControl.no_manager
   end
 
 end
