@@ -62,7 +62,7 @@ module AccessControl
       end
 
       def process_with_security_manager(*args)
-        clear_security_manager_in_the_end do
+        with_security do
           process_without_security_manager(*args)
         end
       end
@@ -77,13 +77,12 @@ module AccessControl
         []
       end
 
-      def clear_security_manager_in_the_end
+      def with_security
+        security_manager.use_anonymous!
         yield
       ensure
         AccessControl.no_security_manager
         AccessControl::Node.clear_global_node_cache
-        ActiveRecord::Base.drop_all_temporary_instantiation_requirements!
-        Thread.current[:validation_chain_depth] = nil
       end
 
       class Contextualizer
@@ -98,7 +97,7 @@ module AccessControl
         end
 
         def context
-          fetch_candidate_resource.try(:ac_node) || AccessControl::Node.global
+          fetch_candidate_resource || AccessControl::Node.global
         end
 
       private

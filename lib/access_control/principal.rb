@@ -59,7 +59,7 @@ module AccessControl
 
   end
 
-  class UnrestrictedPrincipal
+  class UnrestrictablePrincipal
 
     include Singleton
 
@@ -76,7 +76,7 @@ module AccessControl
     include Singleton
 
     def ac_principal
-      UnrestrictedPrincipal.instance
+      UnrestrictablePrincipal.instance
     end
 
   end

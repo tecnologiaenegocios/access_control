@@ -59,10 +59,12 @@ module AccessControl
 
     describe "request wrapping" do
 
-      let(:manager) { SecurityManager.new }
+      let(:manager) { mock('manager') }
 
       before do
         AccessControl.stub(:security_manager).and_return(manager)
+        AccessControl.stub(:no_security_manager)
+        manager.stub(:use_anonymous!)
         RecordsController.class_eval do
           # This method overrides the default implementation of `process` from
           # Rails, which was aliased.
@@ -72,26 +74,30 @@ module AccessControl
         end
       end
 
-      describe "after action is executed" do
+      describe "before action is executed" do
 
-        before do
-          AccessControl.stub(:no_security_manager)
+        it "makes the manager to use anonymous user by default" do
+          manager.should_receive(:use_anonymous!).ordered
+          manager.should_receive(:block_called).ordered
+          records_controller.process(Proc.new{ manager.block_called })
         end
 
+      end
+
+      describe "after action is executed" do
+
         it "unsets security manager after action execution" do
-          AccessControl.should_receive(:no_security_manager)
-          records_controller.process(Proc.new{})
+          AccessControl.should_receive(:block_called).ordered
+          AccessControl.should_receive(:no_security_manager).ordered
+          records_controller.process(Proc.new{ AccessControl.block_called })
         end
 
         it "clears the global node cache after action execution" do
-          AccessControl::Node.should_receive(:clear_global_node_cache)
-          records_controller.process(Proc.new{})
-        end
-
-        it "drops all temp instantiation requirements after action execution" do
-          ActiveRecord::Base.
-            should_receive(:drop_all_temporary_instantiation_requirements!)
-          records_controller.process(Proc.new{})
+          AccessControl::Node.should_receive(:block_called).ordered
+          AccessControl::Node.should_receive(:clear_global_node_cache).ordered
+          records_controller.process(
+            Proc.new{ AccessControl::Node.block_called }
+          )
         end
 
       end
@@ -124,11 +130,9 @@ module AccessControl
             end
 
             describe "when there's no global node" do
-              it "returns the var's ac_node" do
-                record.should_receive(:ac_node).
-                  and_return('the ac_node of record')
-                records_controller.send(:current_security_context).
-                  should == 'the ac_node of record'
+              it "returns the var" do
+                records_controller.
+                  send(:current_security_context).should == record
               end
             end
 
@@ -136,11 +140,9 @@ module AccessControl
               before do
                 AccessControl::Node.stub(:global).and_return('the global node')
               end
-              it "doesn't matter, returns the var's ac_node" do
-                record.should_receive(:ac_node).
-                  and_return('the ac_node of record')
-                records_controller.send(:current_security_context).
-                  should == 'the ac_node of record'
+              it "doesn't matter, returns the var" do
+                records_controller.
+                  send(:current_security_context).should == record
               end
             end
 
@@ -202,11 +204,9 @@ module AccessControl
               end
 
               describe "and there's no global node" do
-                it "returns the var's ac_node" do
-                  some_resource.should_receive(:ac_node).
-                    and_return("the parent's ac_node")
-                  records_controller.send(:current_security_context).
-                    should == "the parent's ac_node"
+                it "returns the var" do
+                  records_controller.
+                    send(:current_security_context).should == some_resource
                 end
               end
 
@@ -215,11 +215,9 @@ module AccessControl
                   AccessControl::Node.stub(:global).
                     and_return('the global node')
                 end
-                it "doesn't matter, returns the var's ac_node" do
-                  some_resource.should_receive(:ac_node).
-                    and_return("the parent's ac_node")
-                  records_controller.send(:current_security_context).
-                    should == "the parent's ac_node"
+                it "doesn't matter, returns the var" do
+                  records_controller.
+                    send(:current_security_context).should == some_resource
                 end
               end
 

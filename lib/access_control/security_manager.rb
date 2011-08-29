@@ -8,6 +8,19 @@ module AccessControl
 
     def initialize
       @restrict_queries = true
+      @use_anonymous = false
+    end
+
+    def use_anonymous!
+      @use_anonymous = true
+    end
+
+    def do_not_use_anonymous!
+      @use_anonymous = false
+    end
+
+    def use_anonymous?
+      !!@use_anonymous
     end
 
     def current_subjects= subjects
@@ -22,7 +35,7 @@ module AccessControl
     end
 
     def principal_ids
-      return [Principal.anonymous_id] if current_principals.empty?
+      return [default_principal_id] if current_principals.empty?
       current_principals.map(&:id)
     end
 
@@ -80,6 +93,10 @@ module AccessControl
 
   private
 
+    def default_principal_id
+      use_anonymous? ? Principal.anonymous_id : UnrestrictablePrincipal::ID
+    end
+
     def permissions_in_context *args
       SecurityContext.new(args).nodes.inject(Set.new) do |permissions, node|
         permissions | PermissionInspector.new(node).permissions
@@ -87,7 +104,7 @@ module AccessControl
     end
 
     def unrestrictable_user_logged_in?
-      principal_ids.include?(UnrestrictedPrincipal::ID)
+      principal_ids.include?(UnrestrictablePrincipal::ID)
     end
 
     def current_user_principal_id

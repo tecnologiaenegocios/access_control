@@ -101,7 +101,7 @@ module AccessControl
 
       it "returns the principal" do
         UnrestrictableUser.instance.ac_principal.
-          should == UnrestrictedPrincipal.instance
+          should == UnrestrictablePrincipal.instance
       end
 
     end

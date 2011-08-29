@@ -12,6 +12,30 @@ module AccessControl
       Principal.stub(:anonymous_id).and_return("the anonymous' id")
     end
 
+    describe "#use_anonymous!, #use_anonymous? and #do_not_use_anonymous!" do
+
+      # These method makes an unlogged user to be iterpreted as the anonymous
+      # user or the urestrictable user.  The default behavior in web requests
+      # is to use anonymous, whilst outside requests is to use the
+      # unrestrictable user (use_anonymous? => false).
+
+      it "doesn't use anonymous by default" do
+        manager.use_anonymous?.should be_false
+      end
+
+      it "can be instructed to use anonymous" do
+        manager.use_anonymous!
+        manager.use_anonymous?.should be_true
+      end
+
+      it "can be instructed to not use anonymous" do
+        manager.use_anonymous!
+        manager.do_not_use_anonymous!
+        manager.use_anonymous?.should be_false
+      end
+
+    end
+
     describe "#current_subjects=" do
 
       # Setter for telling the security manager what are the current
@@ -46,9 +70,23 @@ module AccessControl
     describe "#principal_ids" do
 
       describe "when there's no subject set" do
-        it "returns the anonymous principal id" do
-          Principal.should_receive(:anonymous_id).and_return("the anonymous' id")
-          manager.principal_ids.should == ["the anonymous' id"]
+        describe "in web requests" do
+          before do
+            manager.use_anonymous!
+          end
+          it "returns the anonymous principal id" do
+            Principal.should_receive(:anonymous_id).
+              and_return("the anonymous' id")
+            manager.principal_ids.should == ["the anonymous' id"]
+          end
+        end
+        describe "outside web requests" do
+          before do
+            manager.do_not_use_anonymous!
+          end
+          it "returns the unrestricted principal id" do
+            manager.principal_ids.should == [UnrestrictablePrincipal::ID]
+          end
         end
       end
 
@@ -98,6 +136,7 @@ module AccessControl
         PermissionInspector.stub(:new).with(node2).and_return(inspector2)
         SecurityContext.stub(:new).with('nodes').and_return(security_context)
         security_context.stub(:nodes).and_return(Set.new([node1]))
+        manager.use_anonymous! # Simulate a web request
       end
 
       it "creates a inspector from the node given" do
@@ -239,6 +278,7 @@ module AccessControl
         PermissionInspector.stub(:new).and_return(inspector)
         SecurityContext.stub(:new).and_return(security_context)
         AccessControl::Util.stub(:log_missing_permissions)
+        manager.use_anonymous! # Simulate a web request
       end
 
       it "passes unmodified the paramenters to `has_access?`" do
@@ -291,6 +331,7 @@ module AccessControl
 
       before do
         PermissionInspector.stub(:new).with(node).and_return(inspector)
+        manager.use_anonymous! # Simulate a web request
       end
 
       it "returns true if has user has 'grant_roles'" do
@@ -355,6 +396,10 @@ module AccessControl
       let(:node) { stub('node') }
       let(:role) { stub('role') }
 
+      before do
+        manager.use_anonymous! # Simulate a web request
+      end
+
       it "passes unmodified the parameters to `can_assign_or_unassign?`" do
         manager.should_receive(:can_assign_or_unassign?).with(node, role).
           and_return(true)
@@ -372,6 +417,10 @@ module AccessControl
     end
 
     describe "restriction in queries" do
+
+      before do
+        manager.use_anonymous! # Simulate a web request
+      end
 
       it "is true by default" do
         manager.restrict_queries?.should be_true
@@ -403,6 +452,10 @@ module AccessControl
     end
 
     describe "#without_query_restriction" do
+
+      before do
+        manager.use_anonymous! # Simulate a web request
+      end
 
       it "executes a block without query restriction" do
         manager.restrict_queries!
