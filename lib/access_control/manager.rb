@@ -39,7 +39,7 @@ module AccessControl
       current_principals.map(&:id)
     end
 
-    def has_access? nodes, permissions
+    def can? permissions, nodes
       return true if unrestrictable_user_logged_in?
       nodes = SecurityContext.new(nodes).nodes
       permissions = [permissions] unless permissions.respond_to?(:all?)
@@ -51,7 +51,7 @@ module AccessControl
     end
 
     def verify_access! nodes, permissions
-      return if has_access?(nodes, permissions)
+      return if can?(permissions, nodes)
       Util.log_missing_permissions(permissions,
                                    permissions_in_context(nodes),
                                    caller)
