@@ -1,176 +1,115 @@
 require 'spec_helper'
 require 'access_control/association_security'
-require 'access_control/model_security'
 
 module AccessControl
   describe AssociationSecurity do
 
-    let(:model_klass) do
-      class Object::Record < ActiveRecord::Base
-        set_table_name 'records'
-        def self.name
-          'Record'
+    let(:model) { mock('model') }
+    let(:reflection) { mock('reflection', :name => 'reflection_name',
+                            :active_record => model) }
+    let(:association_proxy_class) do
+      Class.new do
+      private
+        def find_target(*args)
+          do_find
+        end
+        def do_find; end
+      end
+    end
+    let(:association_proxy) do
+      r = association_proxy_class.new
+      r.instance_variable_set(:@reflection, reflection)
+      r
+    end
+    let(:manager) do
+      r = Class.new.new
+      r.class.class_eval do
+        def without_query_restriction
+          yield
         end
       end
-      Object::Record
+      r
     end
 
-    after do
-      model_klass
-      Object.send(:remove_const, 'Record')
-    end
-
-    describe "unrestricted query" do
-
-      let(:manager) { SecurityManager.new }
+    describe "#find_target" do
 
       before do
         AccessControl.stub(:security_manager).and_return(manager)
-        Node.create_global_node!
-        Principal.create_anonymous_principal!
-        model_klass.query_requires 'query'
-        model_klass.view_requires 'view'
-        model_klass.create_requires :none
+        association_proxy_class.class_eval do
+          include AccessControl::AssociationSecurity
+        end
       end
 
-      describe "#find_target" do
+      it "is kept private" do
+        association_proxy.private_methods.should include('find_target')
+      end
 
-        describe AssociationSecurity::BelongsTo do
+      it "verifies if the model restricts the association" do
+        model.should_receive(:association_restricted?).
+          with(reflection.name.to_sym).
+          and_return(false)
+        association_proxy.send(:find_target)
+      end
 
-          before do
-            model_klass.class_eval do
-              belongs_to :record
-            end
-          end
-
-          describe "when the class doesn't restrict for this association" do
-
-            before do
-              model_klass.stub(:association_restricted?).and_return(false)
-            end
-
-            it "returns records without restriction" do
-              first_record = model_klass.create!
-              second_record = model_klass.create!(:record_id => first_record.id)
-              lambda {
-                second_record.record.should == first_record
-              }.should_not raise_exception
-            end
-
-          end
-
-          describe "when the class enforces restriction" do
-
-            before do
-              model_klass.stub(:association_restricted?).and_return(true)
-            end
-
-            it "verifies the required permissions" do
-              first_record = model_klass.create!
-              second_record = model_klass.create!(:record_id => first_record.id)
-              lambda {
-                second_record.record
-              }.should raise_exception(AccessControl::Unauthorized)
-            end
-
-          end
+      describe "when the owner class doesn't include ModelSecurity" do
+        it "delegates to superclass method" do
+          manager.should_not_receive(:without_query_restriction)
+          association_proxy.should_receive(:do_find)
+          association_proxy.send(:find_target)
         end
-
-        describe AssociationSecurity::BelongsToPolymorphic do
-
-          before do
-            model_klass.class_eval do
-              belongs_to :recordable, :polymorphic => true
-            end
-          end
-
-          describe "when the class doesn't restrict for this association" do
-
-            before do
-              model_klass.stub(:association_restricted?).and_return(false)
-            end
-
-            it "returns records without restriction" do
-              model_klass.class_eval do
-                def [] attr
-                  case attr.to_s
-                  when 'recordable_type' then 'Record'
-                  when 'recordable_id' then record_id
-                  else
-                    super
-                  end
-                end
-              end
-              first_record = model_klass.create!
-              second_record = model_klass.create!(:record_id => first_record.id)
-              lambda {
-                second_record.recordable.should == first_record
-              }.should_not raise_exception
-            end
-
-            it "doesn't break if the type can't be determined" do
-              model_klass.class_eval do
-                def [] attr
-                  case attr.to_s
-                  when 'recordable_type' then nil
-                  when 'recordable_id' then nil
-                  else
-                    super
-                  end
-                end
-              end
-              lambda {
-                model_klass.create!.recordable.should be_nil
-              }.should_not raise_exception
-            end
-
-          end
-
-          describe "when the class enforces restriction" do
-
-            before do
-              model_klass.stub(:association_restricted?).and_return(true)
-            end
-
-            it "verifies the required permissions" do
-              model_klass.class_eval do
-                def [] attr
-                  case attr.to_s
-                  when 'recordable_type' then 'Record'
-                  when 'recordable_id' then record_id
-                  else
-                    super
-                  end
-                end
-              end
-              first_record = model_klass.create!
-              second_record = model_klass.create!(:record_id => first_record.id)
-              lambda {
-                second_record.recordable.should == first_record
-              }.should raise_exception(AccessControl::Unauthorized)
-            end
-
-            it "still doesn't break if the type can't be determined" do
-              model_klass.class_eval do
-                def [] attr
-                  case attr.to_s
-                  when 'recordable_type' then nil
-                  when 'recordable_id' then nil
-                  else
-                    super
-                  end
-                end
-              end
-              lambda {
-                model_klass.create!.recordable.should be_nil
-              }.should_not raise_exception
-            end
-
-          end
+        it "returns whatever it returned" do
+          association_proxy.stub(:do_find).and_return('results')
+          association_proxy.send(:find_target).should == 'results'
         end
+      end
 
+      describe "when the class doesn't restrict for this association" do
+        before do
+          model.stub(:association_restricted?).and_return(false)
+        end
+        it "opens a .without_query_restriction block" do
+          manager.should_receive(:without_query_restriction)
+          association_proxy.send(:find_target)
+        end
+        it "calls the superclass implementation" do
+          association_proxy.should_receive(:do_find)
+          association_proxy.send(:find_target)
+        end
+        it "calls the implementation from within the block" do
+          manager.instance_eval do
+            def without_query_restriction
+              result = yield
+              yielded(result)
+              result
+            end
+            def yielded(result); end
+          end
+          association_proxy.should_receive(:do_find).and_return('results')
+          manager.should_receive(:yielded).with('results')
+          association_proxy.send(:find_target)
+        end
+        it "returns whatever it returned" do
+          association_proxy.stub(:do_find).and_return('results')
+          association_proxy.send(:find_target).should == 'results'
+        end
+      end
+
+      describe "when the class enforces restriction" do
+        before do
+          model.stub(:association_restricted?).and_return(true)
+        end
+        it "delegates to superclass method" do
+          manager.should_not_receive(:without_query_restriction)
+          association_proxy.should_receive(:do_find)
+          association_proxy.send(:find_target)
+        end
+        it "returns whatever it returned" do
+          association_proxy.stub(:do_find).and_return('results')
+          association_proxy.send(:find_target).should == 'results'
+        end
       end
 
     end
+
   end
 end

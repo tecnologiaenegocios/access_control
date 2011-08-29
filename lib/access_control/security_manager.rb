@@ -78,14 +78,6 @@ module AccessControl
       restrict_queries! if old_restriction_value
     end
 
-    def self.bootstrap!
-      @bootstrapped = true
-    end
-
-    def self.bootstrapped?
-      !!@bootstrapped
-    end
-
   private
 
     def permissions_in_context *args
@@ -95,7 +87,6 @@ module AccessControl
     end
 
     def unrestrictable_user_logged_in?
-      return true if !bootstrapped?
       principal_ids.include?(UnrestrictedPrincipal::ID)
     end
 
@@ -105,10 +96,6 @@ module AccessControl
 
     def really_restrict_queries?
       @restrict_queries
-    end
-
-    def bootstrapped?
-      self.class.bootstrapped?
     end
 
   end

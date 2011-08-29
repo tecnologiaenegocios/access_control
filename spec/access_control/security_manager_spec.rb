@@ -6,7 +6,7 @@ module AccessControl
 
     let(:principal) { stub('principal', :id => "user principal's id") }
     let(:subject) { mock('subject', :ac_principal => principal) }
-    let(:manager) { SecurityManager.bootstrap!; SecurityManager.new }
+    let(:manager) { SecurityManager.new }
 
     before do
       Principal.stub(:anonymous_id).and_return("the anonymous' id")

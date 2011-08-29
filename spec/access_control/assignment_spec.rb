@@ -13,7 +13,6 @@ module AccessControl
     before do
       AccessControl.config.stub(:default_roles_on_create).and_return(nil)
       AccessControl.stub(:security_manager).and_return(manager)
-      manager.stub(:has_access?).and_return(true)
       manager.stub(:can_assign_or_unassign?).and_return(true)
     end
 
@@ -23,10 +22,6 @@ module AccessControl
         :principal => stub_model(AccessControl::Principal),
         :role => stub_model(AccessControl::Role)
       )
-    end
-
-    it "is not securable" do
-      Assignment.securable?.should be_false
     end
 
     it "validates presence of node_id" do

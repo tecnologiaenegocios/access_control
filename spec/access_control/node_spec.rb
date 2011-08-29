@@ -479,6 +479,7 @@ module AccessControl
 
       it "gets blocked nodes for a securable type" do
         Node.create_global_node!
+        manager.stub(:verify_access!)
         node1 = Node.create!(:securable_type => 'SecurableType 1',
                              :securable_id => 1)
         node2 = Node.create!(:securable_type => 'SecurableType 1',

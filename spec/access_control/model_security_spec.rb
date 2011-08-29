@@ -4,12 +4,6 @@ require 'access_control/association_security'
 
 module AccessControl
 
-  describe AccessControl do
-    it "is in strict mode by default" do
-      AccessControl.should be_model_security_strict
-    end
-  end
-
   describe ModelSecurity do
 
     let(:model_klass) do

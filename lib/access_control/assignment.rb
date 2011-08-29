@@ -41,10 +41,6 @@ module AccessControl
       errors.add(:role_id, :unassignable) unless can_assign_or_unassign?
     end
 
-    def self.securable?
-      false
-    end
-
     def self.items_for_management(node, roles)
       all(
         :conditions => {:node_id => node.id, :role_id => roles.map(&:id)}

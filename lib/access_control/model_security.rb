@@ -1,15 +1,8 @@
 require 'access_control/configuration'
 
 module AccessControl
-
-  # This makes models expect permissions for default CRUD operations.  Used in
-  # specs to avoid it (when we don't want to set permissions for these we stub
-  # it to return false).
-  def self.model_security_strict?
-    true
-  end
-
   module ModelSecurity
+
     def self.included(base)
       base.extend(ClassMethods)
     end
@@ -54,6 +47,6 @@ module AccessControl
       end
 
     end
-  end
 
+  end
 end
