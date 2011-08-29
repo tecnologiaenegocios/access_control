@@ -10,7 +10,7 @@ module AccessControl
     before do
       AccessControl.stub(:manager).and_return(manager)
       PermissionRegistry.stub!(:register)
-      manager.stub(:verify_access!)
+      manager.stub(:can!)
       klass.stub(:name).and_return('TheClassName')
     end
 
@@ -62,13 +62,13 @@ module AccessControl
           it "checks permissions when the method is called "\
              "(using #{creation_method})" do
             instance = klass.send(creation_method)
-            manager.should_receive(:verify_access!).
-              with(instance, Set.new(['some permission']))
+            manager.should_receive(:can!).
+              with(Set.new(['some permission']), instance)
             instance.some_method
           end
 
           it "returns what the method returns if allowed" do
-            manager.stub(:verify_access!)
+            manager.stub(:can!)
             klass.send(creation_method).some_method.should == 'result'
           end
         end
@@ -93,13 +93,13 @@ module AccessControl
           it "checks permissions when the method is called "\
              "(using #{creation_method})" do
             instance = klass.send(creation_method)
-            manager.should_receive(:verify_access!).
-              with(instance, Set.new(['some permission']))
+            manager.should_receive(:can!).
+              with(Set.new(['some permission']), instance)
             instance.some_method
           end
 
           it "returns what the method returns if allowed" do
-            manager.stub(:verify_access!)
+            manager.stub(:can!)
             klass.send(creation_method).some_method.should == 'result'
           end
         end

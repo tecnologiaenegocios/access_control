@@ -475,7 +475,7 @@ module AccessControl
 
       it "gets blocked nodes for a securable type" do
         Node.create_global_node!
-        manager.stub(:verify_access!)
+        manager.stub(:can!)
         node1 = Node.create!(:securable_type => 'SecurableType 1',
                              :securable_id => 1)
         node2 = Node.create!(:securable_type => 'SecurableType 1',
@@ -493,7 +493,7 @@ module AccessControl
       let(:role2) { Role.create!(:name => 'manager') }
 
       before do
-        manager.stub!(:principal_ids => [1, 2, 3], :verify_access! => nil)
+        manager.stub!(:principal_ids => [1, 2, 3], :can! => nil)
         role1; role2;
       end
 
@@ -554,8 +554,8 @@ module AccessControl
       describe "when blocking" do
 
         it "checks if the user has 'change_inheritance_blocking'" do
-          manager.should_receive(:verify_access!).
-            with(node, 'change_inheritance_blocking')
+          manager.should_receive(:can!).
+            with('change_inheritance_blocking', node)
           node.block = true
         end
 
@@ -564,13 +564,13 @@ module AccessControl
       describe "when unblocking" do
 
         before do
-          manager.stub(:verify_access!)
+          manager.stub(:can!)
           node.block = true
         end
 
         it "checks if the user has 'change_inheritance_blocking'" do
-          manager.should_receive(:verify_access!).
-            with(node, 'change_inheritance_blocking')
+          manager.should_receive(:can!).
+            with('change_inheritance_blocking', node)
           node.block = false
         end
 

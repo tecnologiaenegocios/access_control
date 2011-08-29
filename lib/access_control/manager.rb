@@ -50,7 +50,7 @@ module AccessControl
       end
     end
 
-    def verify_access! nodes, permissions
+    def can! permissions, nodes
       return if can?(permissions, nodes)
       Util.log_missing_permissions(permissions,
                                    permissions_in_context(nodes),

@@ -52,7 +52,7 @@ module AccessControl
     )
 
     def block= value
-      AccessControl.manager.verify_access!(self, 'change_inheritance_blocking')
+      AccessControl.manager.can!('change_inheritance_blocking', self)
       self[:block] = value
     end
 

@@ -336,7 +336,7 @@ module AccessControl
         PermissionRegistry.stub(:register)
         records_controller.stub(:current_security_context).and_return(node)
         AccessControl.stub(:manager).and_return(manager)
-        manager.stub(:verify_access!)
+        manager.stub(:can!)
       end
 
       it "raises an error when there's no security context" do
@@ -379,8 +379,8 @@ module AccessControl
             'a custom context'
           end
         end
-        manager.should_receive(:verify_access!).
-          with('a custom context', Set.new(['some permission']))
+        manager.should_receive(:can!).
+          with(Set.new(['some permission']), 'a custom context')
         records_controller.some_action
       end
 
@@ -390,8 +390,8 @@ module AccessControl
                   :with => 'some permission',
                   :context => Proc.new{|controller| 'a custom context'}
         end
-        manager.should_receive(:verify_access!).
-          with('a custom context', Set.new(['some permission']))
+        manager.should_receive(:can!).
+          with(Set.new(['some permission']), 'a custom context')
         records_controller.some_action
       end
 
@@ -406,8 +406,8 @@ module AccessControl
             @variable = 'a custom context'
           end
         end
-        manager.should_receive(:verify_access!).
-          with('a custom context', Set.new(['some permission']))
+        manager.should_receive(:can!).
+          with(Set.new(['some permission']), 'a custom context')
         records_controller.some_action
       end
 
@@ -420,8 +420,8 @@ module AccessControl
             'a custom context'
           end
         end
-        manager.should_receive(:verify_access!).
-          with('a custom context', Set.new(['some permission']))
+        manager.should_receive(:can!).
+          with(Set.new(['some permission']), 'a custom context')
         records_controller.some_action
       end
 
@@ -429,7 +429,7 @@ module AccessControl
         records_controller.class.class_eval do
           protect :some_action, :with => 'some permission'
         end
-        manager.stub!(:verify_access!).and_raise('the unauthorized exception')
+        manager.stub!(:can!).and_raise('the unauthorized exception')
         lambda {
           records_controller.some_action
         }.should raise_exception('the unauthorized exception')
@@ -440,7 +440,7 @@ module AccessControl
           protect :some_action, :with => 'some permission'
         end
         AccessControl.stub!(:controller_security_enabled?).and_return(false)
-        manager.stub!(:verify_access!).and_raise('the unauthorized exception')
+        manager.stub!(:can!).and_raise('the unauthorized exception')
         records_controller.some_action
       end
 
@@ -456,8 +456,8 @@ module AccessControl
 
       describe "with string permission" do
         it "protects an action with permissions provided" do
-          manager.should_receive(:verify_access!).
-            with(node, Set.new(['some permission']))
+          manager.should_receive(:can!).
+            with(Set.new(['some permission']), node)
           records_controller.class.class_eval do
             protect :some_action, :with => 'some permission'
           end
@@ -467,8 +467,8 @@ module AccessControl
 
       describe "with array of permissions" do
         it "protects an action with permissions provided" do
-          manager.should_receive(:verify_access!).
-            with(node, Set.new(['some permission']))
+          manager.should_receive(:can!).
+            with(Set.new(['some permission']), node)
           records_controller.class.class_eval do
             protect :some_action, :with => ['some permission']
           end
@@ -478,8 +478,8 @@ module AccessControl
 
       describe "with set of permissions" do
         it "protects an action with permissions provided" do
-          manager.should_receive(:verify_access!).
-            with(node, Set.new(['some permission']))
+          manager.should_receive(:can!).
+            with(Set.new(['some permission']), node)
           records_controller.class.class_eval do
             protect :some_action, :with => Set.new(['some permission'])
           end

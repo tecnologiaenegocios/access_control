@@ -264,7 +264,7 @@ module AccessControl
 
     end
 
-    describe "#verify_access!" do
+    describe "#can!" do
 
       let(:node) { stub('node') }
       let(:security_context) do
@@ -284,20 +284,20 @@ module AccessControl
         manager.should_receive(:can?).
           with('some permissions', 'some context').
           and_return(true)
-        manager.verify_access!('some context', 'some permissions')
+        manager.can!('some permissions', 'some context')
       end
 
       it "doesn't raise Unauthorized when the user has the permissions" do
         manager.stub(:can?).and_return(true)
         lambda {
-          manager.verify_access!('some context', 'some permissions')
+          manager.can!('some permissions', 'some context')
         }.should_not raise_exception(::AccessControl::Unauthorized)
       end
 
       it "raises Unauthorized when the user has no permissions" do
         manager.stub(:can?).and_return(false)
         lambda {
-          manager.verify_access!('some context', 'some permissions')
+          manager.can!('some permissions', 'some context')
         }.should raise_exception(::AccessControl::Unauthorized)
       end
 
@@ -308,7 +308,7 @@ module AccessControl
         AccessControl::Util.should_receive(:log_missing_permissions).
           with('some permissions', Set.new(['permissions']), instance_of(Array))
         lambda {
-          manager.verify_access!('some context', 'some permissions')
+          manager.can!('some permissions', 'some context')
         }.should raise_exception(::AccessControl::Unauthorized)
       end
 

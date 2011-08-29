@@ -31,7 +31,7 @@ module AccessControl
           test_results = results
           test_results = [results] if !test_results.is_a?(Array)
           test_results.each do |result|
-            AccessControl.manager.verify_access!(result, permissions)
+            AccessControl.manager.can!(permissions, result)
           end
           results
         end

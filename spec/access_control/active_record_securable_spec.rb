@@ -50,7 +50,7 @@ module AccessControl
 
     describe "persistency protection" do
 
-      let(:manager) { mock('manager', :verify_access! => nil) }
+      let(:manager) { mock('manager', :can! => nil) }
       let(:instance) { model.new }
 
       before do
@@ -69,12 +69,12 @@ module AccessControl
         it "verifies the create permission" do
           model.stub(:permissions_required_to_create).
             and_return(Set.new(['some permissions']))
-          manager.should_receive(:verify_access!).
-            with(instance, Set.new(['some permissions']))
+          manager.should_receive(:can!).
+            with(Set.new(['some permissions']), instance)
           instance.send(:create)
         end
         it "does it right after the record is created" do
-          manager.stub(:verify_access!) do |instance, permissions|
+          manager.stub(:can!) do |permissions, instance|
             instance.verified
           end
           instance.should_receive(:do_action).ordered
@@ -82,7 +82,7 @@ module AccessControl
           instance.send(:create)
         end
         it "does it right before any after callback is called" do
-          manager.stub(:verify_access!) do |instance, permissions|
+          manager.stub(:can!) do |permissions, instance|
             instance.verified
           end
           instance.should_receive(:verified).ordered
@@ -95,13 +95,13 @@ module AccessControl
         it "verifies the update permission" do
           model.stub(:permissions_required_to_update).
             and_return(Set.new(['some permissions']))
-          manager.should_receive(:verify_access!).
-            with(instance, Set.new(['some permissions']))
+          manager.should_receive(:can!).
+            with(Set.new(['some permissions']), instance)
           instance.send(:update, 'some', 'arguments')
         end
         it "does it before doing the real update" do
           exception = Class.new(StandardError)
-          manager.stub(:verify_access!).and_raise(exception)
+          manager.stub(:can!).and_raise(exception)
           model.should_not_receive(:do_action)
           begin
             instance.send(:update, 'some', 'arguments')
@@ -119,13 +119,13 @@ module AccessControl
         it "verifies the destroy permission" do
           model.stub(:permissions_required_to_destroy).
             and_return(Set.new(['some permissions']))
-          manager.should_receive(:verify_access!).
-            with(instance, Set.new(['some permissions']))
+          manager.should_receive(:can!).
+            with(Set.new(['some permissions']), instance)
           instance.send(:destroy)
         end
         it "does it before doing the real update" do
           exception = Class.new(StandardError)
-          manager.stub(:verify_access!).and_raise(exception)
+          manager.stub(:can!).and_raise(exception)
           model.should_not_receive(:do_action)
           begin
             instance.send(:destroy)

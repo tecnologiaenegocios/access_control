@@ -40,7 +40,7 @@ module AccessControl
 
           manager = AccessControl.manager
 
-          manager.verify_access!(context, permissions) \
+          manager.can!(permissions, context) \
             if AccessControl.controller_security_enabled?
         end
       end

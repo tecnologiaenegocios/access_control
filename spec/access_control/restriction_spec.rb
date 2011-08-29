@@ -31,7 +31,7 @@ module AccessControl
         model.stub(:permissions_required_to_query)
         model.stub(:permissions_required_to_view)
         manager.stub(:restrict_queries?).and_return(true)
-        manager.stub(:verify_access!)
+        manager.stub(:can!)
       end
 
       describe "without query restriction" do
@@ -50,8 +50,8 @@ module AccessControl
           model.find.should == results
         end
 
-        it "never calls verify_access! on manager" do
-          manager.should_not_receive(:verify_access!)
+        it "never calls can! on manager" do
+          manager.should_not_receive(:can!)
           model.find
         end
 
@@ -132,8 +132,8 @@ module AccessControl
           end
 
           it "test the record returned with the manager" do
-            manager.should_receive(:verify_access!).
-              with('some result', 'the view permissions')
+            manager.should_receive(:can!).
+              with('the view permissions', 'some result')
             model.find(23, 'options')
           end
 
@@ -166,10 +166,10 @@ module AccessControl
             end
 
             it "test each record returned with the manager" do
-              manager.should_receive(:verify_access!).
-                with('result 1', 'the view permissions')
-              manager.should_receive(:verify_access!).
-                with('result 2', 'the view permissions')
+              manager.should_receive(:can!).
+                with('the view permissions', 'result 1')
+              manager.should_receive(:can!).
+                with('the view permissions', 'result 2')
               model.find(parameters)
             end
 
