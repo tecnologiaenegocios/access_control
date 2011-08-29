@@ -94,7 +94,7 @@ module AccessControl
 
     end
 
-    describe "#current_security_context" do
+    describe "#current_context" do
 
       # This method should return one node for permission checking.  The
       # default behaviour can vary if the user is accessing a single resource
@@ -122,7 +122,7 @@ module AccessControl
             describe "when there's no global node" do
               it "returns the var" do
                 records_controller.
-                  send(:current_security_context).should == record
+                  send(:current_context).should == record
               end
             end
 
@@ -132,7 +132,7 @@ module AccessControl
               end
               it "doesn't matter, returns the var" do
                 records_controller.
-                  send(:current_security_context).should == record
+                  send(:current_context).should == record
               end
             end
 
@@ -145,7 +145,7 @@ module AccessControl
                 AccessControl::Node.stub(:global).and_return('the global node')
               end
               it "returns it" do
-                records_controller.send(:current_security_context).
+                records_controller.send(:current_context).
                   should == 'the global node'
               end
             end
@@ -155,7 +155,7 @@ module AccessControl
                 AccessControl::Node.stub(:global).and_return(nil)
               end
               it "returns nil, and probably will break some code" do
-                records_controller.send(:current_security_context).should be_nil
+                records_controller.send(:current_context).should be_nil
               end
             end
 
@@ -196,7 +196,7 @@ module AccessControl
               describe "and there's no global node" do
                 it "returns the var" do
                   records_controller.
-                    send(:current_security_context).should == some_resource
+                    send(:current_context).should == some_resource
                 end
               end
 
@@ -207,7 +207,7 @@ module AccessControl
                 end
                 it "doesn't matter, returns the var" do
                   records_controller.
-                    send(:current_security_context).should == some_resource
+                    send(:current_context).should == some_resource
                 end
               end
 
@@ -221,7 +221,7 @@ module AccessControl
                     and_return('the global node')
                 end
                 it "returns it" do
-                  records_controller.send(:current_security_context).
+                  records_controller.send(:current_context).
                     should == 'the global node'
                 end
               end
@@ -231,7 +231,7 @@ module AccessControl
                   AccessControl::Node.stub(:global).and_return(nil)
                 end
                 it "returns nil, and probably will break some code" do
-                  records_controller.send(:current_security_context).should be_nil
+                  records_controller.send(:current_context).should be_nil
                 end
               end
 
@@ -246,7 +246,7 @@ module AccessControl
                 AccessControl::Node.stub(:global).and_return('the global node')
               end
               it "returns it" do
-                records_controller.send(:current_security_context).
+                records_controller.send(:current_context).
                   should == 'the global node'
               end
             end
@@ -256,7 +256,7 @@ module AccessControl
                 AccessControl::Node.stub(:global).and_return(nil)
               end
               it "returns nil, and probably will break some code" do
-                records_controller.send(:current_security_context).should be_nil
+                records_controller.send(:current_context).should be_nil
               end
             end
 
@@ -277,7 +277,7 @@ module AccessControl
             AccessControl::Node.stub(:global).and_return('the global node')
           end
           it "falls back into the global node" do
-            records_controller.send(:current_security_context).should == \
+            records_controller.send(:current_context).should == \
               'the global node'
           end
         end
@@ -287,7 +287,7 @@ module AccessControl
             AccessControl::Node.stub(:global).and_return(nil)
           end
           it "returns nil, and probably will break some code" do
-            records_controller.send(:current_security_context).should be_nil
+            records_controller.send(:current_context).should be_nil
           end
         end
 
@@ -296,7 +296,7 @@ module AccessControl
       it "is declared private" do
         # This should not be public since it is not an action.
         records_controller.private_methods.should(
-          include('current_security_context')
+          include('current_context')
         )
       end
 
@@ -334,25 +334,25 @@ module AccessControl
           end
         end
         PermissionRegistry.stub(:register)
-        records_controller.stub(:current_security_context).and_return(node)
+        records_controller.stub(:current_context).and_return(node)
         AccessControl.stub(:manager).and_return(manager)
         manager.stub(:can!)
       end
 
-      it "raises an error when there's no security context" do
-        records_controller.should_receive(:current_security_context).
+      it "raises an error when there's no context" do
+        records_controller.should_receive(:current_context).
           and_return(nil)
         records_controller.class.class_eval do
           protect :some_action, :with => 'some permission'
         end
         lambda {
           records_controller.some_action
-        }.should raise_exception(::AccessControl::NoSecurityContextError)
+        }.should raise_exception(::AccessControl::NoContextError)
       end
 
-      it "works when `current_security_context` is protected" do
+      it "works when `current_context` is protected" do
         records_controller.class.class_eval do
-          protected :current_security_context
+          protected :current_context
           protect :some_action, :with => 'some permission'
         end
         lambda {
@@ -360,9 +360,9 @@ module AccessControl
         }.should_not raise_exception
       end
 
-      it "works when `current_security_context` is private" do
+      it "works when `current_context` is private" do
         records_controller.class.class_eval do
-          private :current_security_context
+          private :current_context
           protect :some_action, :with => 'some permission'
         end
         lambda {

@@ -206,8 +206,8 @@ module AccessControl
         node.stub(:securable => record)
         record.stub(:parent1).and_return(assoc_proxy1)
         record.stub(:parent2).and_return(assoc_proxy2)
-        SecurityContext.stub(:new).with(assoc_proxy1).and_return(context1)
-        SecurityContext.stub(:new).with(assoc_proxy2).and_return(context2)
+        Context.stub(:new).with(assoc_proxy1).and_return(context1)
+        Context.stub(:new).with(assoc_proxy2).and_return(context2)
         Node.stub(:global).and_return(global)
       end
 
@@ -254,10 +254,10 @@ module AccessControl
               get_nodes
             end
 
-            it "gets their nodes using a security context" do
-              SecurityContext.should_receive(:new).with(assoc_proxy1).
+            it "gets their nodes using a context" do
+              Context.should_receive(:new).with(assoc_proxy1).
                 and_return(context1)
-              SecurityContext.should_receive(:new).with(assoc_proxy2).
+              Context.should_receive(:new).with(assoc_proxy2).
                 and_return(context2)
               context1.should_receive(:nodes).
                 and_return(Set.new([parent_node1]))
@@ -339,10 +339,10 @@ module AccessControl
             get_nodes
           end
 
-          it "gets their nodes using a security context" do
-            SecurityContext.should_receive(:new).with(assoc_proxy1).
+          it "gets their nodes using a context" do
+            Context.should_receive(:new).with(assoc_proxy1).
               and_return(context1)
-            SecurityContext.should_receive(:new).with(assoc_proxy2).
+            Context.should_receive(:new).with(assoc_proxy2).
               and_return(context2)
             context1.should_receive(:nodes).
               and_return(Set.new([parent_node1]))

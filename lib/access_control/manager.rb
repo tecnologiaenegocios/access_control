@@ -41,7 +41,7 @@ module AccessControl
 
     def can? permissions, nodes
       return true if unrestrictable_user_logged_in?
-      nodes = SecurityContext.new(nodes).nodes
+      nodes = Context.new(nodes).nodes
       permissions = [permissions] unless permissions.respond_to?(:all?)
       permissions.all? do |permission|
         nodes.any? do |node|
@@ -98,7 +98,7 @@ module AccessControl
     end
 
     def permissions_in_context *args
-      SecurityContext.new(args).nodes.inject(Set.new) do |permissions, node|
+      Context.new(args).nodes.inject(Set.new) do |permissions, node|
         permissions | PermissionInspector.new(node).permissions
       end
     end

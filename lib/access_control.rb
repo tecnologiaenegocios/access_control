@@ -16,7 +16,7 @@ require 'access_control/exceptions'
 require 'access_control/controller_security'
 require 'access_control/association_security'
 require 'access_control/manager'
-require 'access_control/security_context'
+require 'access_control/context'
 require 'access_control/permission_registry'
 
 module AccessControl

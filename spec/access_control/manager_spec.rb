@@ -128,13 +128,13 @@ module AccessControl
       let(:node2) { stub('node') }
       let(:inspector1) { mock('inspector', :has_permission? => nil) }
       let(:inspector2) { mock('inspector', :has_permission? => nil) }
-      let(:security_context) { mock('security context', :nodes => Set.new) }
+      let(:context) { mock('context', :nodes => Set.new) }
 
       before do
         PermissionInspector.stub(:new).with(node1).and_return(inspector1)
         PermissionInspector.stub(:new).with(node2).and_return(inspector2)
-        SecurityContext.stub(:new).with('nodes').and_return(security_context)
-        security_context.stub(:nodes).and_return(Set.new([node1]))
+        Context.stub(:new).with('nodes').and_return(context)
+        context.stub(:nodes).and_return(Set.new([node1]))
         manager.use_anonymous! # Simulate a web request
       end
 
@@ -144,10 +144,10 @@ module AccessControl
         manager.can?("a permission that doesn't matter", 'nodes')
       end
 
-      it "uses SecurityContext to get the actual nodes" do
-        SecurityContext.should_receive(:new).with('nodes').
-          and_return(security_context)
-        security_context.should_receive(:nodes).and_return(Set.new([node1]))
+      it "uses Context to get the actual nodes" do
+        Context.should_receive(:new).with('nodes').
+          and_return(context)
+        context.should_receive(:nodes).and_return(Set.new([node1]))
         manager.can?("a permission that doesn't matter", 'nodes')
       end
 
@@ -168,7 +168,7 @@ module AccessControl
         end
 
         it "returns true if the user has the permission in any of the nodes" do
-          security_context.should_receive(:nodes).
+          context.should_receive(:nodes).
             and_return(Set.new([node1, node2]))
           inspector1.stub(:has_permission? => true)
           inspector2.stub(:has_permission? => false)
@@ -176,7 +176,7 @@ module AccessControl
         end
 
         it "returns false if the user hasn't the permission in all nodes" do
-          security_context.should_receive(:nodes).
+          context.should_receive(:nodes).
             and_return(Set.new([node1, node2]))
           inspector1.stub(:has_permission? => false)
           inspector2.stub(:has_permission? => false)
@@ -211,7 +211,7 @@ module AccessControl
         it "returns true if the user has all permissions in one node" do
           inspector1.stub(:has_permission? => true)
           inspector2.stub(:has_permission? => false)
-          security_context.should_receive(:nodes).
+          context.should_receive(:nodes).
             and_return(Set.new([node1, node2]))
           manager.can?([permission1, permission2], 'nodes').
             should be_true
@@ -226,7 +226,7 @@ module AccessControl
             next true if permission == permission2
             false
           end
-          security_context.should_receive(:nodes).
+          context.should_receive(:nodes).
             and_return(Set.new([node1, node2]))
           manager.can?([permission1, permission2], 'nodes').
             should be_true
@@ -241,7 +241,7 @@ module AccessControl
             next true if permission == permission1
             false
           end
-          security_context.should_receive(:nodes).
+          context.should_receive(:nodes).
             and_return(Set.new([node1, node2]))
           manager.can?([permission1, permission2], 'nodes').
             should be_false
@@ -267,15 +267,13 @@ module AccessControl
     describe "#can!" do
 
       let(:node) { stub('node') }
-      let(:security_context) do
-        mock('security context', :nodes => Set.new([node]))
-      end
+      let(:context) { mock('context', :nodes => Set.new([node])) }
       let(:inspector) { mock('inspector') }
 
       before do
         inspector.stub(:permissions).and_return(Set.new)
         PermissionInspector.stub(:new).and_return(inspector)
-        SecurityContext.stub(:new).and_return(security_context)
+        Context.stub(:new).and_return(context)
         AccessControl::Util.stub(:log_missing_permissions)
         manager.use_anonymous! # Simulate a web request
       end

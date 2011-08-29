@@ -1,7 +1,7 @@
 require 'access_control/util'
 
 module AccessControl
-  class SecurityContext
+  class Context
 
     def initialize(item_or_collection)
       @collection = Util.make_set_from_args(item_or_collection)

@@ -12,7 +12,7 @@ module AccessControl
   class CannotWrapUnsecurableObject < StandardError
   end
 
-  class NoSecurityContextError < StandardError
+  class NoContextError < StandardError
   end
 
   class InvalidInheritage < StandardError

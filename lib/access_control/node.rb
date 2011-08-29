@@ -160,7 +160,7 @@ module AccessControl
     def parents
       if can_inherit?
         securable.inherits_permissions_from.inject(Set.new) do |parents, assoc|
-          parents | SecurityContext.new(securable.send(assoc)).nodes
+          parents | Context.new(securable.send(assoc)).nodes
         end
       else
         Set.new

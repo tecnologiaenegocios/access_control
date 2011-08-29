@@ -33,10 +33,10 @@ module AccessControl
           when Proc
             context = options[:context].call(controller)
           else
-            context = controller.send(:current_security_context)
+            context = controller.send(:current_context)
           end
 
-          raise ::AccessControl::NoSecurityContextError unless context
+          raise ::AccessControl::NoContextError unless context
 
           manager = AccessControl.manager
 
@@ -64,7 +64,7 @@ module AccessControl
 
     private
 
-      def current_security_context
+      def current_context
         Contextualizer.new(self).context
       end
 
