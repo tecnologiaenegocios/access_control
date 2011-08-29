@@ -1,4 +1,4 @@
-require 'access_control/model_security/instance_methods'
+require 'access_control/configuration'
 
 module AccessControl
 
@@ -9,19 +9,51 @@ module AccessControl
     true
   end
 
-end
+  module ModelSecurity
+    def self.included(base)
+      base.extend(ClassMethods)
+    end
 
-class ActiveRecord::Base
+    module ClassMethods
 
-  include AccessControl::ModelSecurity::InstanceMethods
+      def restrict_association association_name
+        restricted_associations.add(association_name)
+      end
 
-  before_validation :increment_validation_chain
-  after_validation :decrement_validation_chain
-  before_update :verify_update_permissions
-  before_create :verify_create_permissions
-  after_create :create_nodes
-  after_update :update_parent_nodes
-  after_save :update_child_nodes
-  after_destroy :reparent_saved_referenced_children
+      def restrict_all_associations!
+        reflections.each do |name, reflection|
+          if reflection.macro == :belongs_to
+            restricted_associations.add(name.to_sym)
+          end
+        end
+      end
+
+      def unrestrict_association association_name
+        restricted_associations.delete(association_name)
+      end
+
+      def unrestrict_all_associations!
+        restricted_associations.clear
+      end
+
+      def association_restricted? association_name
+        restricted_associations.include?(association_name)
+      end
+
+      def restricted_associations
+        return @ac_restricted_associations if @ac_restricted_associations
+        restricted_associations = Set.new
+        if AccessControl.config.restrict_belongs_to_association
+          reflections.each do |name, reflection|
+            if reflection.macro == :belongs_to
+              restricted_associations.add(name.to_sym)
+            end
+          end
+        end
+        @ac_restricted_associations = restricted_associations
+      end
+
+    end
+  end
 
 end
