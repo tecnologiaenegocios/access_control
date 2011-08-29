@@ -54,6 +54,7 @@ module AccessControl
       let(:instance) { model.new }
 
       before do
+        Node.stub(:create!)
         AccessControl.stub(:security_manager).and_return(manager)
         model.send(:include, ActiveRecordSecurable)
         model.stub(:permissions_required_to_create).
