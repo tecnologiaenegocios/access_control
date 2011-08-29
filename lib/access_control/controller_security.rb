@@ -40,13 +40,6 @@ module AccessControl
 
           manager = AccessControl.security_manager
 
-          if options[:when_instantiating]
-            model = options[:when_instantiating]
-            model = model.to_s.constantize if !model.is_a?(Class)
-            model.set_temporary_instantiation_requirement(context, permissions)
-            next
-          end
-
           manager.verify_access!(context, permissions) \
             if AccessControl.controller_security_enabled?
         end

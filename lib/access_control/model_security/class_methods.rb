@@ -45,33 +45,6 @@ module AccessControl
         @ac_restricted_associations = restricted_associations
       end
 
-      def set_temporary_instantiation_requirement context, permissions
-        reqs = (Thread.current[:instantiation_requirements] ||= {})
-        reqs[self] = [context, permissions]
-      end
-
-      def drop_all_temporary_instantiation_requirements!
-        Thread.current[:instantiation_requirements] = {}
-      end
-
-      def new *args
-        object = super
-        if object.class.securable?
-          reqs = Thread.current[:instantiation_requirements] || {}
-          if reqs[self]
-            context, permissions = reqs[self]
-            reqs.delete self
-            AccessControl.security_manager.verify_access!(context, permissions)
-          end
-        end
-        object
-      end
-
-      def allocate *args
-        object = super
-        object
-      end
-
     end
   end
 end

@@ -74,6 +74,10 @@ module AccessControl
 
       describe "after action is executed" do
 
+        before do
+          AccessControl.stub(:no_security_manager)
+        end
+
         it "unsets security manager after action execution" do
           AccessControl.should_receive(:no_security_manager)
           records_controller.process(Proc.new{})
@@ -285,6 +289,8 @@ module AccessControl
             AccessControl::Node.stub(:global).and_return('the global node')
           end
           it "falls back into the global node" do
+            records_controller.send(:current_security_context).should == \
+              'the global node'
           end
         end
 
@@ -491,39 +497,6 @@ module AccessControl
           end
           records_controller.some_action
         end
-      end
-
-      describe "instantiation protection" do
-
-        before do
-          class Object::Record < ActiveRecord::Base
-          end
-        end
-
-        after do
-          Object.send(:remove_const, 'Record')
-        end
-
-        it "protects a model from being instantiated" do
-          records_controller.class.class_eval do
-            protect :some_action,
-                    :with => 'some permission',
-                    :when_instantiating => 'Record',
-                    :context => :context_method
-            def some_action
-              call_filters_for_some_action
-              Record.new('the args for a new test model')
-            end
-            def context_method
-              'some context'
-            end
-          end
-          Record.should_receive(:set_temporary_instantiation_requirement).
-            with('some context', Set.new(['some permission']))
-          Record.should_receive(:new).with('the args for a new test model')
-          records_controller.some_action
-        end
-
       end
 
     end
