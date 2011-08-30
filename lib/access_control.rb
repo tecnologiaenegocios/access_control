@@ -19,6 +19,7 @@ require 'access_control/manager'
 require 'access_control/context'
 require 'access_control/permission_registry'
 require 'access_control/securable'
+require 'access_control/active_record_subject'
 
 module AccessControl
 
