@@ -13,12 +13,7 @@ module AccessControl
       def inherits_permissions_from *args
         @__inheritance__ =
           if args.any?
-            args.flatten.inject([]) do |items, assoc|
-              assoc = assoc.to_sym
-              klass = reflections[assoc].klass
-              raise InvalidInheritage unless klass.include?(Restriction)
-              items << assoc
-            end
+            args.flatten.inject([]) { |items, assoc| items << assoc.to_sym }
           else
             @__inheritance__ || []
           end
@@ -28,6 +23,7 @@ module AccessControl
         AccessControl.manager.without_query_restriction do
           inherits_permissions_from.inject([]) do |items, assoc|
             model = reflections[assoc].klass
+            raise InvalidInheritage unless model.include?(Restriction)
             pk = model.primary_key
             select = "DISTINCT #{model.quoted_table_name}.#{pk}"
             ids = find(:all, :select => select, :joins => assoc).
