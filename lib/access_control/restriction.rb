@@ -14,16 +14,15 @@ module AccessControl
     module ClassMethods
 
       def find(*args)
-        unless AccessControl.manager.restrict_queries?
-          return super(*args)
-        end
+        return super unless AccessControl.manager.restrict_queries?
         case args.first
         when :all, :last, :first
           permissions = permissions_required_to_query
+          return super if AccessControl.manager.can?(permissions, Node.global)
           with_scope(:find => {
             :conditions => Restricter.new(self).sql_condition(permissions)
           }) do
-            super(*args)
+            super
           end
         else
           permissions = permissions_required_to_view

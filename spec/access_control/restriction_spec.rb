@@ -44,7 +44,7 @@ module AccessControl
           model.find(arguments)
         end
 
-        it "returns whatever is returned by find_without_permissions" do
+        it "returns whatever is returned by the superclass method" do
           results = stub('results')
           base.stub(:find).and_return(results)
           model.find.should == results
@@ -64,8 +64,10 @@ module AccessControl
           # :all, :first and :last options triggers this behavior: using the
           # query permissions to filter records.
 
-          let(:restricter)   { mock('restricter', :sql_condition => sql_condition) }
+          let(:restricter)    { mock('restricter',
+                                     :sql_condition => sql_condition) }
           let(:sql_condition) { stub('sql condition') }
+          let(:global_node)   { stub('global node') }
 
           before do
             model.stub(:permissions_required_to_query).
@@ -75,41 +77,84 @@ module AccessControl
 
           [:all, :first, :last].each do |option|
 
-            it "builds a restricter from the model" do
-              Restricter.should_receive(:new).and_return(restricter)
-              model.find(option, 'find arguments')
+            describe "with permissions in the global node" do
+
+              before do
+                Node.stub(:global).and_return(global_node)
+                manager.stub(:can?).with('the query permissions', global_node).
+                  and_return(true)
+              end
+
+              it "calls .can? to verify permissions in the global node" do
+                manager.should_receive(:can?).
+                  with('the query permissions', global_node).and_return(true)
+                model.find(option, 'find arguments')
+              end
+
+              it "calls the base class's find" do
+                arguments = stub('arguments')
+                base.should_receive(:find).with(option, arguments)
+                model.find(option, arguments)
+              end
+
+              it "returns whatever is returned by the superclass method" do
+                results = stub('results')
+                base.stub(:find).and_return(results)
+                model.find.should == results
+              end
+
             end
 
-            it "gets the find options from the restricter" do
-              restricter.should_receive(:sql_condition).
-                with('the query permissions').
-                and_return(sql_condition)
-              model.find(option, 'find arguments')
-            end
+            describe "without permissions in the global node" do
 
-            it "runs a .with_scope with the find options from the restricter" do
-              model.should_receive(:with_scope).
-                with(:find => {:conditions => sql_condition})
-              model.find(option, 'find arguments')
-            end
+              before do
+                Node.stub(:global).and_return(global_node)
+                manager.stub(:can?).with('the query permissions', global_node).
+                  and_return(false)
+              end
 
-            it "forwards all parameters to base's find" do
-              base.should_receive(:find).with(option, 'find arguments')
-              model.find(option, 'find arguments')
-            end
+              it "calls .can? to verify permissions in the global node" do
+                manager.should_receive(:can?).
+                  with('the query permissions', global_node).and_return(false)
+                model.find(option, 'find arguments')
+              end
 
-            it "returns the results of calling base's find" do
-              base.stub(:find).and_return('results')
-              model.find(option, 'find arguments').should == 'results'
-            end
+              it "builds a restricter from the model" do
+                Restricter.should_receive(:new).and_return(restricter)
+                model.find(option, 'find arguments')
+              end
 
-            it "runs the query entirely within the scope" do
-              base.should_receive(:before_yield).ordered
-              base.should_receive(:find).ordered.and_return('results')
-              base.should_receive(:after_yield).ordered
-              model.find(option, 'find arguments').should == 'results'
-            end
+              it "gets the find options from the restricter" do
+                restricter.should_receive(:sql_condition).
+                  with('the query permissions').
+                  and_return(sql_condition)
+                model.find(option, 'find arguments')
+              end
 
+              it "runs a .with_scope with the find options from the restricter" do
+                model.should_receive(:with_scope).
+                  with(:find => {:conditions => sql_condition})
+                model.find(option, 'find arguments')
+              end
+
+              it "forwards all parameters to base's find" do
+                base.should_receive(:find).with(option, 'find arguments')
+                model.find(option, 'find arguments')
+              end
+
+              it "returns the results of calling base's find" do
+                base.stub(:find).and_return('results')
+                model.find(option, 'find arguments').should == 'results'
+              end
+
+              it "runs the query entirely within the scope" do
+                base.should_receive(:before_yield).ordered
+                base.should_receive(:find).ordered.and_return('results')
+                base.should_receive(:after_yield).ordered
+                model.find(option, 'find arguments').should == 'results'
+              end
+
+            end
           end
 
         end
