@@ -26,7 +26,12 @@ module AccessControl
     def create_access_control_objects
       assocs = self.class.instance_variable_get('@access_control_associations')
       assocs.each do |name, (class_name, polymorphic_name)|
-        class_name.constantize.create!(polymorphic_name.to_sym => self)
+        ac_model = class_name.constantize
+        id = :"#{polymorphic_name}_id"
+        type = :"#{polymorphic_name}_type"
+        id_value = self.send(self.class.primary_key)
+        type_value = self.class.name
+        ac_model.create!(id => id_value, type => type_value)
       end
     end
 

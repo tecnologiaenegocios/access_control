@@ -8,6 +8,12 @@ module AccessControl
 
     let(:base) do
       Class.new do
+        def pk
+          1000
+        end
+        def self.primary_key
+          'pk'
+        end
         def self.name
           'Model'
         end
@@ -58,13 +64,15 @@ module AccessControl
         describe "when application instance is created" do
 
           it "creates an access control object" do
-            ac_class.should_receive(:create!).with(:ac_class_able => instance)
+            ac_class.should_receive(:create!).
+              with(:ac_class_able_id => instance.pk,
+                   :ac_class_able_type => instance.class.name)
             instance.send(:create)
           end
 
           it "does it right after creating the object" do
             ac_class.stub(:create!) do |params|
-              params[:ac_class_able].created
+              instance.created
             end
             instance.should_receive(:do_create).ordered
             instance.should_receive(:created).ordered
@@ -73,7 +81,7 @@ module AccessControl
 
           it "does it right before any after callback is called" do
             ac_class.stub(:create!) do |params|
-              params[:ac_class_able].created
+              instance.created
             end
             instance.should_receive(:created).ordered
             instance.should_receive(:run_after_create_callbacks).ordered
