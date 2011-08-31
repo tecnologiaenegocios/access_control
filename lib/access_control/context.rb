@@ -17,7 +17,7 @@ module AccessControl
 
     def self.extract_nodes item
       unless item.is_a?(Node)
-        args = item.ac_node || item.parents_for_creation.map(&:ac_node)
+        args = item.ac_node || Parenter.new(item).get.map(&:ac_node)
       else
         args = item
       end

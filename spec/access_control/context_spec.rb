@@ -35,16 +35,18 @@ module AccessControl
 
       describe "if the object hasn't a node" do
 
-        let(:node3) { stub_model(Node) }
-        let(:record3) { stub(:ac_node => node3) }
-        let(:record4) { stub(:ac_node => nil,
-                             :parents_for_creation => [record1, record3]) }
-        let(:record5) { stub(:ac_node => nil,
-                             :parents_for_creation => [record1, record2]) }
+        let(:record1) { stub(:ac_node => nil) }
+        let(:record2) { stub(:ac_node => nil) }
+        let(:parent1) { Set.new([stub('parent 1', :ac_node => node1)]) }
+        let(:parent2) { Set.new([stub('parent 2', :ac_node => node2)]) }
+        let(:parenter1) { stub(:get => parent1) }
+        let(:parenter2) { stub(:get => parent2) }
 
-        it "uses parents for creation (assumes that the object is a baby)" do
-          Context.new([record4, record5]).nodes.
-            should == Set.new([node1, node2, node3])
+        it "uses its parents (assumes that the object is a baby)" do
+          Parenter.should_receive(:new).with(record1).and_return(parenter1)
+          Parenter.should_receive(:new).with(record2).and_return(parenter2)
+          Context.new([record1, record2]).nodes.
+            should == Set.new([node1, node2])
         end
 
       end
