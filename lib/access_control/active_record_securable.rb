@@ -13,6 +13,11 @@ module AccessControl
       end
     end
 
+    def destroy
+      verify_destroy_permissions
+      super
+    end
+
   private
 
     def create_without_callbacks
@@ -22,11 +27,6 @@ module AccessControl
 
     def update(*args)
       verify_update_permissions
-      super
-    end
-
-    def destroy
-      verify_destroy_permissions
       super
     end
 
