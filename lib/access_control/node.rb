@@ -6,8 +6,6 @@ module AccessControl
 
     set_table_name :ac_nodes
 
-    belongs_to :securable, :polymorphic => true
-
     has_many(
       :principal_assignments,
       :foreign_key => :node_id,
@@ -159,8 +157,8 @@ module AccessControl
 
     def parents
       if can_inherit?
-        securable.inherits_permissions_from.inject(Set.new) do |parents, assoc|
-          parents | Context.new(securable.send(assoc)).nodes
+        securable_class.inherits_permissions_from.inject(Set.new) do |p, assoc|
+          p | Context.new(securable.send(assoc)).nodes
         end
       else
         Set.new
@@ -172,7 +170,15 @@ module AccessControl
     end
 
     def can_inherit?
-      securable.class.include?(Inheritance)
+      securable_class.include?(Inheritance)
+    end
+
+    def securable_class
+      securable_type.constantize
+    end
+
+    def securable
+      securable_class.find(securable_id)
     end
 
   end

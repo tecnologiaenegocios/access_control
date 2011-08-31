@@ -60,7 +60,8 @@ module AccessControl
 
       it "returns false in #global? if the node is not the global one" do
         Node.create_global_node!
-        other_node = Node.create!(:securable => securable)
+        other_node = Node.create!(:securable_id => securable.id,
+                                  :securable_type => securable.class.name)
         other_node.global?.should be_false
       end
 
@@ -184,7 +185,7 @@ module AccessControl
 
     describe "getting ancestors" do
 
-      let(:securable_class) { Class.new }
+      let(:securable_class) { Class.new { def id; 1000; end; } }
 
       def securable; securable_class.new; end
 
@@ -201,14 +202,20 @@ module AccessControl
       let(:context2)       { mock('context2',
                                   :nodes => Set.new([parent_node2])) }
       let(:global)         { mock('the global node') }
+      let(:type) do
+        t = 'SecurableType'
+        t.stub(:constantize).and_return(record.class)
+        t
+      end
 
       before do
-        node.stub(:securable => record)
+        node.stub(:securable_id => record.id, :securable_type => type)
         record.stub(:parent1).and_return(assoc_proxy1)
         record.stub(:parent2).and_return(assoc_proxy2)
         Context.stub(:new).with(assoc_proxy1).and_return(context1)
         Context.stub(:new).with(assoc_proxy2).and_return(context2)
         Node.stub(:global).and_return(global)
+        securable_class.stub(:find).and_return(record)
       end
 
       describe "#strict_unblocked_ancestors" do
@@ -224,8 +231,9 @@ module AccessControl
             stub(:unblocked_ancestors => Set.new([ancestor_node2]))
         end
 
-        it "gets the node's securable" do
-          node.should_receive(:securable).and_return(record)
+        it "gets the node's securable's class" do
+          node.should_receive(:securable_type).and_return(type)
+          type.should_receive(:constantize).and_return(record.class)
           get_nodes
         end
 
@@ -233,12 +241,12 @@ module AccessControl
 
           before do
             record.class.send(:include, Inheritance)
-            record.stub(:inherits_permissions_from).
+            record.class.stub(:inherits_permissions_from).
               and_return([:parent1, :parent2])
           end
 
           it "returns only the global node when no inheritance" do
-            record.stub(:inherits_permissions_from).and_return([])
+            record.class.stub(:inherits_permissions_from).and_return([])
             get_nodes.should == Set.new([global])
           end
 
@@ -246,8 +254,14 @@ module AccessControl
 
             before { node.stub(:block).and_return(false) }
 
+            it "gets the securable object" do
+              record.class.should_receive(:find).with(record.id).
+                and_return(record)
+              get_nodes
+            end
+
             it "gets the securable's associated parent records" do
-              record.should_receive(:inherits_permissions_from).
+              record.class.should_receive(:inherits_permissions_from).
                 and_return([:parent1, :parent2])
               record.should_receive(:parent1).and_return(assoc_proxy1)
               record.should_receive(:parent2).and_return(assoc_proxy2)
@@ -312,8 +326,9 @@ module AccessControl
           parent_node2.stub(:ancestors => Set.new([ancestor_node2]))
         end
 
-        it "gets the node's securable" do
-          node.should_receive(:securable).and_return(record)
+        it "gets the node's securable's class" do
+          node.should_receive(:securable_type).and_return(type)
+          type.should_receive(:constantize).and_return(record.class)
           get_nodes
         end
 
@@ -321,18 +336,24 @@ module AccessControl
 
           before do
             record.class.send(:include, Inheritance)
-            record.stub(:inherits_permissions_from).
+            record.class.stub(:inherits_permissions_from).
               and_return([:parent1, :parent2])
             node.stub(:block).and_return(true)
           end
 
           it "returns only the global node when no inheritance" do
-            record.stub(:inherits_permissions_from).and_return([])
+            record.class.stub(:inherits_permissions_from).and_return([])
             get_nodes.should == Set.new([global])
           end
 
+          it "gets the securable object" do
+            record.class.should_receive(:find).with(record.id).
+              and_return(record)
+            get_nodes
+          end
+
           it "gets the securable's associated parent records" do
-            record.should_receive(:inherits_permissions_from).
+            record.class.should_receive(:inherits_permissions_from).
               and_return([:parent1, :parent2])
             record.should_receive(:parent1).and_return(assoc_proxy1)
             record.should_receive(:parent2).and_return(assoc_proxy2)
@@ -503,7 +524,8 @@ module AccessControl
           AccessControl.config.stub!(:default_roles_on_create).
             and_return(Set.new(['owner', 'manager']))
 
-          node = Node.create!(:securable => securable).reload
+          node = Node.create!(:securable_id => securable.id,
+                              :securable_type => securable.class.name).reload
 
           assignments = node.assignments.map do |a|
             { :node_id => a.node_id, :role_id => a.role_id,
@@ -536,7 +558,8 @@ module AccessControl
         it "doesn't assigns the node to any role" do
           AccessControl.config.stub!(:default_roles_on_create).
             and_return(nil)
-          node = Node.create!(:securable => securable).reload
+          node = Node.create!(:securable_id => securable.id,
+                              :securable_type => securable.class.name).reload
           node.assignments.should be_empty
         end
       end
