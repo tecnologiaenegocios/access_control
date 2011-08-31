@@ -1,4 +1,5 @@
 require 'access_control/util'
+require 'access_control/parenter'
 
 module AccessControl
   class Context
