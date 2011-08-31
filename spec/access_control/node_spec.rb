@@ -298,29 +298,43 @@ module AccessControl
               get_nodes
             end
 
-            it "gets their nodes using a context" do
-              Context.should_receive(:new).with(assoc_proxy1).
-                and_return(context1)
-              Context.should_receive(:new).with(assoc_proxy2).
-                and_return(context2)
-              context1.should_receive(:nodes).
-                and_return(Set.new([parent_node1]))
-              context2.should_receive(:nodes).
-                and_return(Set.new([parent_node2]))
-              get_nodes
+            describe "when the associated record isn't nil" do
+
+              it "gets their nodes using a context" do
+                Context.should_receive(:new).with(assoc_proxy1).
+                  and_return(context1)
+                Context.should_receive(:new).with(assoc_proxy2).
+                  and_return(context2)
+                context1.should_receive(:nodes).
+                  and_return(Set.new([parent_node1]))
+                context2.should_receive(:nodes).
+                  and_return(Set.new([parent_node2]))
+                get_nodes
+              end
+
+              it "gets their unblocked ancestors" do
+                parent_node1.should_receive(:unblocked_ancestors).
+                  and_return(Set.new([ancestor_node1]))
+                parent_node2.should_receive(:unblocked_ancestors).
+                  and_return(Set.new([ancestor_node2]))
+                get_nodes
+              end
+
+              it "returns their ancestors merged with the global node" do
+                get_nodes.should ==
+                  Set.new([ancestor_node1, ancestor_node2, global])
+              end
+
             end
 
-            it "gets their unblocked ancestors" do
-              parent_node1.should_receive(:unblocked_ancestors).
-                and_return(Set.new([ancestor_node1]))
-              parent_node2.should_receive(:unblocked_ancestors).
-                and_return(Set.new([ancestor_node2]))
-              get_nodes
-            end
-
-            it "returns their ancestors merged with the global node" do
-              get_nodes.should ==
-                Set.new([ancestor_node1, ancestor_node2, global])
+            describe "when the associated record is nil" do
+              before do
+                record.stub(:parent1).and_return(nil)
+              end
+              it "just skips the nodes of that associated parent" do
+                Context.should_not_receive(:new).with(nil)
+                get_nodes
+              end
             end
 
           end
@@ -390,29 +404,43 @@ module AccessControl
             get_nodes
           end
 
-          it "gets their nodes using a context" do
-            Context.should_receive(:new).with(assoc_proxy1).
-              and_return(context1)
-            Context.should_receive(:new).with(assoc_proxy2).
-              and_return(context2)
-            context1.should_receive(:nodes).
-              and_return(Set.new([parent_node1]))
-            context2.should_receive(:nodes).
-              and_return(Set.new([parent_node2]))
-            get_nodes
+          describe "when the associated record isn't nil" do
+
+            it "gets their nodes using a context" do
+              Context.should_receive(:new).with(assoc_proxy1).
+                and_return(context1)
+              Context.should_receive(:new).with(assoc_proxy2).
+                and_return(context2)
+              context1.should_receive(:nodes).
+                and_return(Set.new([parent_node1]))
+              context2.should_receive(:nodes).
+                and_return(Set.new([parent_node2]))
+              get_nodes
+            end
+
+            it "gets their ancestors" do
+              parent_node1.should_receive(:ancestors).
+                and_return(Set.new([ancestor_node1]))
+              parent_node2.should_receive(:ancestors).
+                and_return(Set.new([ancestor_node2]))
+              get_nodes
+            end
+
+            it "returns their ancestors merged with the global node" do
+              get_nodes.should ==
+                Set.new([ancestor_node1, ancestor_node2, global])
+            end
+
           end
 
-          it "gets their ancestors" do
-            parent_node1.should_receive(:ancestors).
-              and_return(Set.new([ancestor_node1]))
-            parent_node2.should_receive(:ancestors).
-              and_return(Set.new([ancestor_node2]))
-            get_nodes
-          end
-
-          it "returns their ancestors merged with the global node" do
-            get_nodes.should ==
-              Set.new([ancestor_node1, ancestor_node2, global])
+          describe "when the associated record is nil" do
+            before do
+              record.stub(:parent1).and_return(nil)
+            end
+            it "just skips the nodes of that associated parent" do
+              Context.should_not_receive(:new).with(nil)
+              get_nodes
+            end
           end
 
         end

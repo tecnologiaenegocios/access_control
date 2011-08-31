@@ -160,13 +160,14 @@ module AccessControl
     end
 
     def parents
-      if can_inherit?
-        securable_class.inherits_permissions_from.inject(Set.new) do |p, assoc|
-          p | Context.new(securable.send(assoc)).nodes
-        end
-      else
-        Set.new
+      return Set.new unless can_inherit?
+      securable_class.inherits_permissions_from.inject(Set.new) do |p, assoc|
+        p | self.class.get_nodes_from(securable.send(assoc))
       end
+    end
+
+    def self.get_nodes_from(object)
+      object ? Context.new(object).nodes : Set.new
     end
 
     def unblocked_parents
