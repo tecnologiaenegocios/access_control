@@ -138,6 +138,10 @@ module AccessControl
       end
     end
 
+    def securable
+      securable_class.unrestricted_find(securable_id)
+    end
+
     after_create :set_default_roles
 
   private
@@ -175,10 +179,6 @@ module AccessControl
 
     def securable_class
       securable_type.constantize
-    end
-
-    def securable
-      securable_class.unrestricted_find(securable_id)
     end
 
   end

@@ -113,6 +113,36 @@ module AccessControl
 
     end
 
+    describe "#securable" do
+
+      # The first version of this method was an association method, which was
+      # public.  Then the association was removed bevause it could not search
+      # unrestrictly, and this method resurfaced as a private method, which
+      # took its own precautions to not trigger Unauthorized errors.  But it
+      # was too late...  The method was being used elsewhere, in app code and
+      # app specs too...  Now the method was promoted to public, just it was
+      # when it was an association.
+
+      let(:model) { Class.new }
+      let(:node) { Node.new(:securable_type => 'SecurableType',
+                            :securable_id => 1000) }
+      before do
+        Object.send(:const_set, 'SecurableType', model)
+      end
+
+      after do
+        Object.send(:remove_const, 'SecurableType')
+      end
+
+      it "gets the record by calling .unrestricted_find in the model" do
+        securable = stub('securable')
+        model.should_receive(:unrestricted_find).with(1000).
+          and_return(securable)
+        node.securable.should == securable
+      end
+
+    end
+
     describe "#principal_roles" do
 
       it "returns only the roles belonging to the current principals" do
