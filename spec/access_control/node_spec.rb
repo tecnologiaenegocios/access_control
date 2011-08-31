@@ -215,7 +215,7 @@ module AccessControl
         Context.stub(:new).with(assoc_proxy1).and_return(context1)
         Context.stub(:new).with(assoc_proxy2).and_return(context2)
         Node.stub(:global).and_return(global)
-        securable_class.stub(:find).and_return(record)
+        securable_class.stub(:unrestricted_find).and_return(record)
       end
 
       describe "#strict_unblocked_ancestors" do
@@ -255,7 +255,7 @@ module AccessControl
             before { node.stub(:block).and_return(false) }
 
             it "gets the securable object" do
-              record.class.should_receive(:find).with(record.id).
+              record.class.should_receive(:unrestricted_find).with(record.id).
                 and_return(record)
               get_nodes
             end
@@ -347,7 +347,7 @@ module AccessControl
           end
 
           it "gets the securable object" do
-            record.class.should_receive(:find).with(record.id).
+            record.class.should_receive(:unrestricted_find).with(record.id).
               and_return(record)
             get_nodes
           end

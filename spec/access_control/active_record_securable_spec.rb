@@ -7,6 +7,12 @@ module AccessControl
 
     let(:base) do
       Class.new do
+        def self.primary_key
+          'id'
+        end
+        def id
+          1000
+        end
       private
         def create
           create_without_callbacks

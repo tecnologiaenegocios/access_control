@@ -178,7 +178,7 @@ module AccessControl
     end
 
     def securable
-      securable_class.find(securable_id)
+      securable_class.unrestricted_find(securable_id)
     end
 
   end
