@@ -147,10 +147,9 @@ module AccessControl
   private
 
     def set_default_roles
-      return unless AccessControl.config.default_roles_on_create
-      AccessControl.manager.principal_ids.each do |principal_id|
-        AccessControl.config.default_roles_on_create.each do |role|
-          next unless role = Role.find_by_name(role)
+      AccessControl.config.default_roles_on_create.each do |role|
+        next unless role = Role.find_by_name(role)
+        AccessControl.manager.principal_ids.each do |principal_id|
           r = assignments.build(:role_id => role.id,
                                 :principal_id => principal_id)
           r.skip_assignment_verification!

@@ -615,7 +615,7 @@ module AccessControl
       describe "when there's no default roles" do
         it "doesn't assigns the node to any role" do
           AccessControl.config.stub!(:default_roles_on_create).
-            and_return(nil)
+            and_return(Set.new)
           node = Node.create!(:securable_id => securable.id,
                               :securable_type => securable.class.name).reload
           node.assignments.should be_empty

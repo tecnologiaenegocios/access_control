@@ -120,7 +120,7 @@ module AccessControl
       it "accepts `nil`" do
         config = Configuration.new
         config.default_roles_on_create = nil
-        config.default_roles_on_create.should be_nil
+        config.default_roles_on_create.should == Set.new
       end
 
     end

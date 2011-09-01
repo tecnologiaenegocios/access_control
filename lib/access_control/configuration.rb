@@ -41,11 +41,8 @@ module AccessControl
     end
 
     def default_roles_on_create= *args
-      if args.compact.empty?
-        @default_roles_on_create = nil
-      else
-        @default_roles_on_create = Util.make_set_from_args(*args)
-      end
+      args = args.compact
+      @default_roles_on_create = Util.make_set_from_args(*args)
     end
 
     def register_permissions

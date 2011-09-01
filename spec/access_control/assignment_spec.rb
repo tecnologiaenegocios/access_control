@@ -11,7 +11,7 @@ module AccessControl
     let(:manager) { Manager.new }
 
     before do
-      AccessControl.config.stub(:default_roles_on_create).and_return(nil)
+      AccessControl.config.stub(:default_roles_on_create).and_return(Set.new)
       AccessControl.stub(:manager).and_return(manager)
       manager.stub(:can_assign_or_unassign?).and_return(true)
     end
@@ -195,7 +195,7 @@ module AccessControl
           )
         ]
         @node = Node.create!(:securable_type => 'SecurableType',
-                            :securable_id => 0)
+                             :securable_id => 0)
         @item1 = Assignment.create!(
           :node => @node, :principal => @principal1, :role => @role1
         )
