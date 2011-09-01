@@ -38,13 +38,11 @@ module AccessControl
           should == Set.new(['some permission', 'some other'])
       end
 
-      it "registers permissions under the class' name" do
-        klass.should_receive(:name).and_return('TheClassName')
+      it "registers permissions with metadata provided" do
         Registry.should_receive(:register).
-          with('some permission',
-               :model => 'TheClassName',
-               :method => 'some_method')
-        klass.protect(:some_method, :with => 'some permission')
+          with('some permission', :metadata => 'value')
+        klass.protect(:some_method, :with => 'some permission',
+                      :data => { :metadata => 'value'})
       end
 
       describe "on regular methods" do

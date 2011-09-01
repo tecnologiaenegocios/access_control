@@ -44,11 +44,13 @@ module AccessControl
         end
 
         def set(*permissions)
+          metadata = permissions.extract_options!
           if permissions == [:none]
             declared_no_permissions!
             permissions = Set.new
+          else
+            register(*(permissions + [metadata]))
           end
-          register(*permissions)
           @declared = Util.make_set_from_args(*permissions)
         end
 
@@ -74,11 +76,7 @@ module AccessControl
         end
 
         def register(*permissions)
-          args_to_register = permissions.dup + [{
-            :action => @type.to_s,
-            :model => @owner.name
-          }]
-          Registry.register(*args_to_register)
+          Registry.register(*permissions.dup)
         end
 
         def get_from_superclass_or_config

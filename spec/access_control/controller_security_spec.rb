@@ -453,13 +453,12 @@ module AccessControl
         records_controller.some_action
       end
 
-      it "registers the permissions passed in :with and additional options" do
+      it "registers the permissions passed in :with and additional metadata" do
         Registry.should_receive(:register).
-          with('the content of the :with option',
-               :controller => 'RecordsController',
-               :action => 'some_action')
+          with('the content of the :with option', :metadata => 'value')
         records_controller.class.class_eval do
-          protect :some_action, :with => 'the content of the :with option'
+          protect :some_action, :with => 'the content of the :with option',
+                  :data => { :metadata => 'value' }, :ignored => 'ignored'
         end
       end
 

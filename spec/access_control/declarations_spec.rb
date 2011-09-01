@@ -110,10 +110,13 @@ module AccessControl
 
         it "informs Registry about the permissions" do
           Registry.should_receive(:register).
-            with('some permission',
-                 :model => 'Record',
-                 :action => t)
-          model.send("#{t}_requires", 'some permission')
+            with('some permission', :metadata => 'value')
+          model.send("#{t}_requires", 'some permission', :metadata => 'value')
+        end
+
+        it "doesn't inform Registry if passed :none" do
+          Registry.should_not_receive(:register)
+          model.send("#{t}_requires", :none)
         end
 
       end
@@ -198,10 +201,9 @@ module AccessControl
 
         it "informs Registry about the permissions" do
           Registry.should_receive(:register).
-            with('some permission',
-                 :model => 'Record',
-                 :action => t)
-          model.send("add_#{t}_requirement", 'some permission')
+            with('some permission', :metadata => 'value')
+          model.send("add_#{t}_requirement", 'some permission',
+                     :metadata => 'value')
         end
 
       end
