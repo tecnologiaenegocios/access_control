@@ -8,7 +8,7 @@ module AccessControl
              :dependent => :destroy
 
     def self.anonymous
-      find_by_subject_type_and_subject_id(
+      @anonymous ||= find_by_subject_type_and_subject_id(
         anonymous_subject_type,
         anonymous_subject_id
       )
@@ -37,6 +37,11 @@ module AccessControl
     def self.anonymous_subject_id
       0
     end
+
+    def self.clear_anonymous_principal_cache
+      @anonymous = nil
+    end
+
   end
 
   class AnonymousUser

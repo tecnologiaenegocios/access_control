@@ -76,17 +76,26 @@ module AccessControl
 
       describe "after action is executed" do
 
-        it "unsets manager after action execution" do
+        it "unsets manager" do
           AccessControl.should_receive(:block_called).ordered
           AccessControl.should_receive(:no_manager).ordered
           records_controller.process(Proc.new{ AccessControl.block_called })
         end
 
-        it "clears the global node cache after action execution" do
+        it "clears the global node cache" do
           AccessControl::Node.should_receive(:block_called).ordered
           AccessControl::Node.should_receive(:clear_global_node_cache).ordered
           records_controller.process(
             Proc.new{ AccessControl::Node.block_called }
+          )
+        end
+
+        it "clears the anonymous principal cache" do
+          AccessControl::Principal.should_receive(:block_called).ordered
+          AccessControl::Principal.
+            should_receive(:clear_anonymous_principal_cache).ordered
+          records_controller.process(
+            Proc.new{ AccessControl::Principal.block_called }
           )
         end
 

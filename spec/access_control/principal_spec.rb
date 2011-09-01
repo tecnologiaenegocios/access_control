@@ -42,6 +42,10 @@ module AccessControl
         )
       end
 
+      before do
+        Principal.clear_anonymous_principal_cache
+      end
+
       it "creates the anonymous principal" do
         Principal.create_anonymous_principal!
       end
@@ -58,6 +62,13 @@ module AccessControl
 
       it "returns nil if there's no anonymous principal" do
         Principal.anonymous.should be_nil
+      end
+
+      it "caches the anonymous principal" do
+        Principal.create_anonymous_principal!
+        Principal.anonymous
+        Principal.should_not_receive(:find)
+        Principal.anonymous
       end
 
       describe "predicate method #anonymous?" do
