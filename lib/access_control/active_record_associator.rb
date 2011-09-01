@@ -29,9 +29,10 @@ module AccessControl
         ac_model = class_name.constantize
         id = :"#{polymorphic_name}_id"
         type = :"#{polymorphic_name}_type"
-        id_value = self.send(self.class.primary_key)
+        id_value = send(self.class.primary_key)
         type_value = self.class.name
         ac_model.create!(id => id_value, type => type_value)
+        send(name, true)
       end
     end
 

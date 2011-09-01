@@ -72,6 +72,7 @@ module AccessControl
       end
 
       describe "on create" do
+        before { instance.stub(:ac_node) }
         it "verifies the create permission" do
           model.stub(:permissions_required_to_create).
             and_return(Set.new(['some permissions']))

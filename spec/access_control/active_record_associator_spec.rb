@@ -55,6 +55,7 @@ module AccessControl
           model.stub(:has_one)
           model.associate_with_access_control(:ac_class, 'ACClass',
                                               :ac_class_able)
+          instance.stub(:ac_class)
         end
 
         after do
@@ -85,6 +86,15 @@ module AccessControl
             end
             instance.should_receive(:created).ordered
             instance.should_receive(:run_after_create_callbacks).ordered
+            instance.send(:create)
+          end
+
+          it "reloads association after creating the access control object" do
+            ac_class.stub(:create!) do |params|
+              instance.created
+            end
+            instance.should_receive(:created).ordered
+            instance.should_receive(:ac_class).ordered.with(true)
             instance.send(:create)
           end
 
