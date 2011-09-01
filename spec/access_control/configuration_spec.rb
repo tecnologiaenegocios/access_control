@@ -46,18 +46,31 @@ module AccessControl
         config.send("default_#{k}_permissions").should == Set.new
       end
 
+      it "accepts metadata" do
+        config.send("default_#{k}_permissions=", 'some permission',
+                    :metadata => 'value')
+        config.send("default_#{k}_permissions_metadata").
+          should == { :metadata => 'value' }
+      end
+
       it "defaults to '#{v}'" do
         config.send("default_#{k}_permissions").should == Set.new([v])
+      end
+
+      it "defaults metadata to {}" do
+        config.send("default_#{k}_permissions_metadata").should == {}
       end
 
       describe "when #register_permissions is called" do
 
         it "registers the #{k} permission" do
-          PermissionRegistry.stub!(:register)
+          PermissionRegistry.stub(:register)
           PermissionRegistry.should_receive(:register).
-            with(Set.new(['some permission', 'another permission']))
+            with(Set.new(['some permission', 'another permission']),
+                 :metadata => 'value')
           config.send("default_#{k}_permissions=",
-                      ['some permission', 'another permission'])
+                      ['some permission', 'another permission'],
+                      :metadata => 'value')
           config.register_permissions
         end
 

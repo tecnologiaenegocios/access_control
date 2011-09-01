@@ -7,6 +7,11 @@ module AccessControl
     attr_reader :default_create_permissions
     attr_reader :default_update_permissions
     attr_reader :default_destroy_permissions
+    attr_reader :default_query_permissions_metadata
+    attr_reader :default_view_permissions_metadata
+    attr_reader :default_create_permissions_metadata
+    attr_reader :default_update_permissions_metadata
+    attr_reader :default_destroy_permissions_metadata
 
     attr_reader :default_roles_on_create
 
@@ -23,6 +28,11 @@ module AccessControl
       @default_create_permissions = Set.new(['add'])
       @default_update_permissions = Set.new(['modify'])
       @default_destroy_permissions = Set.new(['delete'])
+      @default_query_permissions_metadata = {}
+      @default_view_permissions_metadata = {}
+      @default_create_permissions_metadata = {}
+      @default_update_permissions_metadata = {}
+      @default_destroy_permissions_metadata = {}
 
       @default_roles_on_create = Set.new(['owner'])
 
@@ -32,6 +42,9 @@ module AccessControl
     %w(view query create update destroy).each do |name|
       define_method(:"default_#{name}_permissions=") do |*args|
         args = args.compact
+        metadata = args.extract_options!
+        instance_variable_set(:"@default_#{name}_permissions_metadata",
+                              metadata)
         instance_variable_set(:"@default_#{name}_permissions",
                               Util.make_set_from_args(*args))
       end
@@ -43,11 +56,16 @@ module AccessControl
     end
 
     def register_permissions
-      PermissionRegistry.register(default_query_permissions)
-      PermissionRegistry.register(default_view_permissions)
-      PermissionRegistry.register(default_create_permissions)
-      PermissionRegistry.register(default_update_permissions)
-      PermissionRegistry.register(default_destroy_permissions)
+      PermissionRegistry.register(default_query_permissions,
+                                  default_query_permissions_metadata)
+      PermissionRegistry.register(default_view_permissions,
+                                  default_view_permissions_metadata)
+      PermissionRegistry.register(default_create_permissions,
+                                  default_create_permissions_metadata)
+      PermissionRegistry.register(default_update_permissions,
+                                  default_update_permissions_metadata)
+      PermissionRegistry.register(default_destroy_permissions,
+                                  default_destroy_permissions_metadata)
     end
 
   end
