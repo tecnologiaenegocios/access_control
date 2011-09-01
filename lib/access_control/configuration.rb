@@ -31,6 +31,7 @@ module AccessControl
 
     %w(view query create update destroy).each do |name|
       define_method(:"default_#{name}_permissions=") do |*args|
+        args = args.compact
         instance_variable_set(:"@default_#{name}_permissions",
                               Util.make_set_from_args(*args))
       end

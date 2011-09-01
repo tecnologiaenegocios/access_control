@@ -4,6 +4,8 @@ require 'access_control/configuration'
 module AccessControl
   describe Configuration do
 
+    let(:config) { Configuration.new }
+
     {
       "view" => 'view',
       "query" => 'query',
@@ -13,12 +15,10 @@ module AccessControl
     }.each do |k, v|
 
       it "can define default #{k} permissions" do
-        Configuration.new.send("default_#{k}_permissions=",
-                               'some permission')
+        config.send("default_#{k}_permissions=", 'some permission')
       end
 
       it "can retrieve the #{k} permission, returns a set" do
-        config = Configuration.new
         config.send("default_#{k}_permissions=", 'some permission')
         config.send("default_#{k}_permissions").
           should == Set.new(['some permission'])
@@ -28,7 +28,6 @@ module AccessControl
       end
 
       it "accepts a list of arguments" do
-        config = Configuration.new
         config.send("default_#{k}_permissions=",
                     'some permission', 'another permission')
         config.send("default_#{k}_permissions").
@@ -36,22 +35,24 @@ module AccessControl
       end
 
       it "accepts an enumerable as a single argument" do
-        config = Configuration.new
         config.send("default_#{k}_permissions=",
                     ['some permission', 'another permission'])
         config.send("default_#{k}_permissions").
           should == Set.new(['some permission', 'another permission'])
       end
 
+      it "accepts nil" do
+        config.send("default_#{k}_permissions=", nil)
+        config.send("default_#{k}_permissions").should == Set.new
+      end
+
       it "defaults to '#{v}'" do
-        Configuration.new.send("default_#{k}_permissions").
-          should == Set.new([v])
+        config.send("default_#{k}_permissions").should == Set.new([v])
       end
 
       describe "when #register_permissions is called" do
 
         it "registers the #{k} permission" do
-          config = Configuration.new
           PermissionRegistry.stub!(:register)
           PermissionRegistry.should_receive(:register).
             with(Set.new(['some permission', 'another permission']))
@@ -67,11 +68,10 @@ module AccessControl
     describe "restrict belongs_to association" do
 
       it "is disabled by default" do
-        Configuration.new.restrict_belongs_to_association.should == false
+        config.restrict_belongs_to_association.should == false
       end
 
       it "can be enabled" do
-        config = Configuration.new
         config.restrict_belongs_to_association = true
         config.restrict_belongs_to_association.should be_true
       end
@@ -81,30 +81,25 @@ module AccessControl
     describe "default roles on create" do
 
       it "is 'owner' by default" do
-        config = Configuration.new
         config.default_roles_on_create.should == Set.new(['owner'])
       end
 
       it "accepts a single string" do
-        config = Configuration.new
         config.default_roles_on_create = 'other_role'
         config.default_roles_on_create.should == Set.new(['other_role'])
       end
 
       it "accepts a list of strings" do
-        config = Configuration.new
         config.send(:default_roles_on_create=, 'role1', 'role2')
         config.default_roles_on_create.should == Set.new(['role1', 'role2'])
       end
 
       it "accepts a single enumerable argument" do
-        config = Configuration.new
         config.default_roles_on_create = ['role1', 'role2']
         config.default_roles_on_create.should == Set.new(['role1', 'role2'])
       end
 
       it "accepts `nil`" do
-        config = Configuration.new
         config.default_roles_on_create = nil
         config.default_roles_on_create.should == Set.new
       end
