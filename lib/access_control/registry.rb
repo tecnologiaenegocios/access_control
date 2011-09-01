@@ -1,7 +1,7 @@
 require 'access_control/util'
 
 module AccessControl
-  module PermissionRegistry
+  module Registry
 
     class << self
 

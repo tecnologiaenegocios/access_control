@@ -342,7 +342,7 @@ module AccessControl
             call_filters_for_some_action
           end
         end
-        PermissionRegistry.stub(:register)
+        Registry.stub(:register)
         records_controller.stub(:current_context).and_return(node)
         AccessControl.stub(:manager).and_return(manager)
         manager.stub(:can!)
@@ -454,7 +454,7 @@ module AccessControl
       end
 
       it "registers the permissions passed in :with and additional options" do
-        PermissionRegistry.should_receive(:register).
+        Registry.should_receive(:register).
           with('the content of the :with option',
                :controller => 'RecordsController',
                :action => 'some_action')

@@ -12,11 +12,9 @@ module AccessControl
 
       def protect action, options
 
-        PermissionRegistry.register(
-          permissions = options[:with],
-          :controller => self.name,
-          :action => action.to_s
-        )
+        Registry.register(permissions = options[:with],
+                          :controller => self.name,
+                          :action => action.to_s)
 
         before_filter :only => action do |controller|
           permissions = [permissions] if !permissions.is_a?(Enumerable)

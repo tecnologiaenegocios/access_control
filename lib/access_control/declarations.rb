@@ -1,5 +1,5 @@
 require 'access_control/exceptions'
-require 'access_control/permission_registry'
+require 'access_control/registry'
 require 'access_control/util'
 
 module AccessControl
@@ -78,7 +78,7 @@ module AccessControl
             :action => @type.to_s,
             :model => @owner.name
           }]
-          PermissionRegistry.register(*args_to_register)
+          Registry.register(*args_to_register)
         end
 
         def get_from_superclass_or_config

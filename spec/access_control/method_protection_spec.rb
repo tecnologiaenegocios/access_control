@@ -9,7 +9,7 @@ module AccessControl
 
     before do
       AccessControl.stub(:manager).and_return(manager)
-      PermissionRegistry.stub!(:register)
+      Registry.stub!(:register)
       manager.stub(:can!)
       klass.stub(:name).and_return('TheClassName')
     end
@@ -40,7 +40,7 @@ module AccessControl
 
       it "registers permissions under the class' name" do
         klass.should_receive(:name).and_return('TheClassName')
-        PermissionRegistry.should_receive(:register).
+        Registry.should_receive(:register).
           with('some permission',
                :model => 'TheClassName',
                :method => 'some_method')

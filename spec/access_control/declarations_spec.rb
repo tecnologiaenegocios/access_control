@@ -108,8 +108,8 @@ module AccessControl
             should == Set.new(['some permission'])
         end
 
-        it "informs PermissionRegistry about the permissions" do
-          PermissionRegistry.should_receive(:register).
+        it "informs Registry about the permissions" do
+          Registry.should_receive(:register).
             with('some permission',
                  :model => 'Record',
                  :action => t)
@@ -196,8 +196,8 @@ module AccessControl
                                'permission three'])
         end
 
-        it "informs PermissionRegistry about the permissions" do
-          PermissionRegistry.should_receive(:register).
+        it "informs Registry about the permissions" do
+          Registry.should_receive(:register).
             with('some permission',
                  :model => 'Record',
                  :action => t)

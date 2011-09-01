@@ -64,8 +64,8 @@ module AccessControl
       describe "when #register_permissions is called" do
 
         it "registers the #{k} permission" do
-          PermissionRegistry.stub(:register)
-          PermissionRegistry.should_receive(:register).
+          Registry.stub(:register)
+          Registry.should_receive(:register).
             with(Set.new(['some permission', 'another permission']),
                  :metadata => 'value')
           config.send("default_#{k}_permissions=",

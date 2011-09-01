@@ -33,7 +33,7 @@ module AccessControl
         h[k] = v.group_by{|i| i.role_id}
         h
       end
-      (PermissionRegistry.all | Set.new(_all.map(&:permission))).
+      (Registry.all | Set.new(_all.map(&:permission))).
         inject({}) do |result, permission|
           result[permission] = roles.map do |role|
             if all_by_permission_and_role[permission] &&
@@ -44,7 +44,7 @@ module AccessControl
             SecurityPolicyItem.new(:role_id => role.id,
                                    :permission => permission)
           end
-          unless PermissionRegistry.all.include?(permission)
+          unless Registry.all.include?(permission)
             Util.log_unregistered_permission(permission)
           end
           result

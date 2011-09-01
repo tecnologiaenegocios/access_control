@@ -128,7 +128,7 @@ module AccessControl
         ]
         @item = SecurityPolicyItem.create!(:role => @role1,
                                            :permission => 'a permission')
-        PermissionRegistry.stub!(:all).and_return(Set.new([
+        Registry.stub!(:all).and_return(Set.new([
           'another permission', 'some other permission'
         ]))
         @items = SecurityPolicyItem.items_for_management(roles)

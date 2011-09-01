@@ -56,16 +56,16 @@ module AccessControl
     end
 
     def register_permissions
-      PermissionRegistry.register(default_query_permissions,
-                                  default_query_permissions_metadata)
-      PermissionRegistry.register(default_view_permissions,
-                                  default_view_permissions_metadata)
-      PermissionRegistry.register(default_create_permissions,
-                                  default_create_permissions_metadata)
-      PermissionRegistry.register(default_update_permissions,
-                                  default_update_permissions_metadata)
-      PermissionRegistry.register(default_destroy_permissions,
-                                  default_destroy_permissions_metadata)
+      Registry.register(default_query_permissions,
+                        default_query_permissions_metadata)
+      Registry.register(default_view_permissions,
+                        default_view_permissions_metadata)
+      Registry.register(default_create_permissions,
+                        default_create_permissions_metadata)
+      Registry.register(default_update_permissions,
+                        default_update_permissions_metadata)
+      Registry.register(default_destroy_permissions,
+                        default_destroy_permissions_metadata)
     end
 
   end
