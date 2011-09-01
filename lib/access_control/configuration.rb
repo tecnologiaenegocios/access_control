@@ -10,8 +10,6 @@ module AccessControl
 
     attr_reader :default_roles_on_create
 
-    attr_accessor :tree_creation
-
     # By default, belongs_to associations are seen as ordinary attributes of an
     # instance, that is, they're not restricted by default.  Setting this to
     # true will subject them to normal `find` restriction rules.
@@ -27,8 +25,6 @@ module AccessControl
       @default_destroy_permissions = Set.new(['delete'])
 
       @default_roles_on_create = Set.new(['owner'])
-
-      @tree_creation = true
 
       @restrict_belongs_to_association = false
     end
