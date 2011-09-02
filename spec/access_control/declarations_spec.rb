@@ -36,9 +36,9 @@ module AccessControl
           }.should raise_exception(MissingPermissionDeclaration)
         end
 
-        it "doesn't require any permission if :none is set" do
+        it "doesn't require any permission if nil is set" do
           config.stub("default_#{t}_permissions").and_return(Set.new)
-          model.send("#{t}_requires", :none)
+          model.send("#{t}_requires", nil)
           model.send("permissions_required_to_#{t}").should == Set.new
         end
 
@@ -114,9 +114,9 @@ module AccessControl
           model.send("#{t}_requires", 'some permission', :metadata => 'value')
         end
 
-        it "doesn't inform Registry if passed :none" do
+        it "doesn't inform Registry if passed nil" do
           Registry.should_not_receive(:register)
-          model.send("#{t}_requires", :none)
+          model.send("#{t}_requires", nil)
         end
 
       end

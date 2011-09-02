@@ -45,7 +45,7 @@ module AccessControl
 
         def set(*permissions)
           metadata = permissions.extract_options!
-          if permissions == [:none]
+          if permissions == [nil]
             declared_no_permissions!
             permissions = Set.new
           else
