@@ -7,8 +7,8 @@ module AccessControl
     let(:config) { Configuration.new }
 
     {
-      "view" => 'view',
-      "query" => 'query',
+      "show" => 'view',
+      "index" => 'list',
       "create" => 'add',
       "update" => 'modify',
       "destroy" => 'delete',

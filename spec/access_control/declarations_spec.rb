@@ -5,8 +5,8 @@ module AccessControl
   describe Declarations do
 
     [
-      ["view requirement",    'view',     'view'],
-      ["query requirement",   'query',    'query'],
+      ["show requirement",    'show',     'view'],
+      ["index requirement",   'index',    'list'],
       ["create requirement",  'create',   'add'],
       ["update requirement",  'update',   'modify'],
       ["destroy requirement", 'destroy',  'delete'],

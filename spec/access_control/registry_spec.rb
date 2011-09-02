@@ -18,9 +18,9 @@ module AccessControl
         AccessControl.configure do |config|
           config.default_create_permissions = []
           config.default_destroy_permissions = []
-          config.default_query_permissions = []
+          config.default_index_permissions = []
           config.default_update_permissions = []
-          config.default_view_permissions = []
+          config.default_show_permissions = []
         end
       end
 

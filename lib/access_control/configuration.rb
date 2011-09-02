@@ -2,13 +2,13 @@ module AccessControl
 
   class Configuration
 
-    attr_reader :default_query_permissions
-    attr_reader :default_view_permissions
+    attr_reader :default_index_permissions
+    attr_reader :default_show_permissions
     attr_reader :default_create_permissions
     attr_reader :default_update_permissions
     attr_reader :default_destroy_permissions
-    attr_reader :default_query_permissions_metadata
-    attr_reader :default_view_permissions_metadata
+    attr_reader :default_index_permissions_metadata
+    attr_reader :default_show_permissions_metadata
     attr_reader :default_create_permissions_metadata
     attr_reader :default_update_permissions_metadata
     attr_reader :default_destroy_permissions_metadata
@@ -23,13 +23,13 @@ module AccessControl
     attr_accessor :restrict_belongs_to_association
 
     def initialize
-      @default_query_permissions = Set.new(['query'])
-      @default_view_permissions = Set.new(['view'])
+      @default_index_permissions = Set.new(['list'])
+      @default_show_permissions = Set.new(['view'])
       @default_create_permissions = Set.new(['add'])
       @default_update_permissions = Set.new(['modify'])
       @default_destroy_permissions = Set.new(['delete'])
-      @default_query_permissions_metadata = {}
-      @default_view_permissions_metadata = {}
+      @default_index_permissions_metadata = {}
+      @default_show_permissions_metadata = {}
       @default_create_permissions_metadata = {}
       @default_update_permissions_metadata = {}
       @default_destroy_permissions_metadata = {}
@@ -39,7 +39,7 @@ module AccessControl
       @restrict_belongs_to_association = false
     end
 
-    %w(view query create update destroy).each do |name|
+    %w(show index create update destroy).each do |name|
       define_method(:"default_#{name}_permissions=") do |*args|
         args = args.compact
         metadata = args.extract_options!
@@ -56,10 +56,10 @@ module AccessControl
     end
 
     def register_permissions
-      Registry.register(default_query_permissions,
-                        default_query_permissions_metadata)
-      Registry.register(default_view_permissions,
-                        default_view_permissions_metadata)
+      Registry.register(default_index_permissions,
+                        default_index_permissions_metadata)
+      Registry.register(default_show_permissions,
+                        default_show_permissions_metadata)
       Registry.register(default_create_permissions,
                         default_create_permissions_metadata)
       Registry.register(default_update_permissions,

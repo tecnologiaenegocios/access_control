@@ -17,7 +17,7 @@ module AccessControl
         return super unless AccessControl.manager.restrict_queries?
         case args.first
         when :all, :last, :first
-          permissions = permissions_required_to_query
+          permissions = permissions_required_to_index
           return super if AccessControl.manager.can?(permissions, Node.global)
           with_scope(:find => {
             :conditions => Restricter.new(self).sql_condition(permissions)
@@ -25,7 +25,7 @@ module AccessControl
             super
           end
         else
-          permissions = permissions_required_to_view
+          permissions = permissions_required_to_show
           results = super(*args)
           test_results = results
           test_results = [results] if !test_results.is_a?(Array)

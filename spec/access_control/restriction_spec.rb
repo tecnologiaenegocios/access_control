@@ -28,8 +28,8 @@ module AccessControl
     describe ".find" do
 
       before do
-        model.stub(:permissions_required_to_query)
-        model.stub(:permissions_required_to_view)
+        model.stub(:permissions_required_to_index)
+        model.stub(:permissions_required_to_show)
         manager.stub(:restrict_queries?).and_return(true)
         manager.stub(:can!)
       end
@@ -70,8 +70,8 @@ module AccessControl
           let(:global_node)   { stub('global node') }
 
           before do
-            model.stub(:permissions_required_to_query).
-              and_return('the query permissions')
+            model.stub(:permissions_required_to_index).
+              and_return('the index permissions')
             Restricter.stub(:new).and_return(restricter)
           end
 
@@ -81,13 +81,13 @@ module AccessControl
 
               before do
                 Node.stub(:global).and_return(global_node)
-                manager.stub(:can?).with('the query permissions', global_node).
+                manager.stub(:can?).with('the index permissions', global_node).
                   and_return(true)
               end
 
               it "calls .can? to verify permissions in the global node" do
                 manager.should_receive(:can?).
-                  with('the query permissions', global_node).and_return(true)
+                  with('the index permissions', global_node).and_return(true)
                 model.find(option, 'find arguments')
               end
 
@@ -109,13 +109,13 @@ module AccessControl
 
               before do
                 Node.stub(:global).and_return(global_node)
-                manager.stub(:can?).with('the query permissions', global_node).
+                manager.stub(:can?).with('the index permissions', global_node).
                   and_return(false)
               end
 
               it "calls .can? to verify permissions in the global node" do
                 manager.should_receive(:can?).
-                  with('the query permissions', global_node).and_return(false)
+                  with('the index permissions', global_node).and_return(false)
                 model.find(option, 'find arguments')
               end
 
@@ -126,7 +126,7 @@ module AccessControl
 
               it "gets the find options from the restricter" do
                 restricter.should_receive(:sql_condition).
-                  with('the query permissions').
+                  with('the index permissions').
                   and_return(sql_condition)
                 model.find(option, 'find arguments')
               end
@@ -165,8 +165,8 @@ module AccessControl
           # returned.
 
           before do
-            model.stub(:permissions_required_to_view).
-              and_return('the view permissions')
+            model.stub(:permissions_required_to_show).
+              and_return('the show permissions')
             base.stub(:find).and_return('some result')
           end
 
@@ -178,7 +178,7 @@ module AccessControl
 
           it "test the record returned with the manager" do
             manager.should_receive(:can!).
-              with('the view permissions', 'some result')
+              with('the show permissions', 'some result')
             model.find(23, 'options')
           end
 
@@ -194,8 +194,8 @@ module AccessControl
           # permission test with each record returned.
 
           before do
-            model.stub(:permissions_required_to_view).
-              and_return('the view permissions')
+            model.stub(:permissions_required_to_show).
+              and_return('the show permissions')
             base.stub(:find).and_return(['result 1', 'result 2'])
           end
 
@@ -212,9 +212,9 @@ module AccessControl
 
             it "test each record returned with the manager" do
               manager.should_receive(:can!).
-                with('the view permissions', 'result 1')
+                with('the show permissions', 'result 1')
               manager.should_receive(:can!).
-                with('the view permissions', 'result 2')
+                with('the show permissions', 'result 2')
               model.find(parameters)
             end
 

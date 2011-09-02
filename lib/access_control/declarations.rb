@@ -11,7 +11,7 @@ module AccessControl
 
     module ClassMethods
 
-      [:view, :query, :create, :update, :destroy].each do |t|
+      [:show, :index, :create, :update, :destroy].each do |t|
 
         define_method(:"#{t}_requires") do |*permissions|
           permission_requirement(t).set(*permissions)
