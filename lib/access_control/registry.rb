@@ -8,7 +8,6 @@ module AccessControl
       def clear_registry
         @permissions = nil
         @permissions_with_options = nil
-        @loaded = false
       end
 
       def register *args
@@ -20,13 +19,19 @@ module AccessControl
       end
 
       def all
-        load_stuff if load_stuff?
         permissions
       end
 
       def all_with_options
-        load_stuff if load_stuff?
         permissions_with_options
+      end
+
+      def register_undeclared_permissions
+        register([
+          'grant_roles',
+          'share_own_roles',
+          'change_inheritance_blocking'
+        ])
       end
 
       def load_all_controllers
@@ -45,17 +50,7 @@ module AccessControl
         AccessControl.config.register_permissions
       end
 
-      def load_stuff
-        load_all_controllers
-        load_all_models
-        load_all_permissions_from_config
-        register_undeclared_permissions
-        @loaded = true
-      end
-
-      def load_stuff?
-        !@loaded
-      end
+    private
 
       def load_top_level_constant filename
         # We can't simply load or require the file by its filename because of
@@ -70,14 +65,6 @@ module AccessControl
           gsub(/\.rb$/, '').
           camelize.
           constantize
-      end
-
-      def register_undeclared_permissions
-        register([
-          'grant_roles',
-          'share_own_roles',
-          'change_inheritance_blocking'
-        ])
       end
 
       def permissions

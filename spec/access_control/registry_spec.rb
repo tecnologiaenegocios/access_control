@@ -11,19 +11,6 @@ module AccessControl
 
     describe "permission registering" do
 
-      before do
-        Registry.stub!(:load_all_controllers)
-        Registry.stub!(:load_all_models)
-        Registry.stub!(:register_undeclared_permissions)
-        AccessControl.configure do |config|
-          config.default_create_permissions = []
-          config.default_destroy_permissions = []
-          config.default_index_permissions = []
-          config.default_update_permissions = []
-          config.default_show_permissions = []
-        end
-      end
-
       it "registers permissions through self.register" do
         Registry.register('some permission')
         Registry.all.should include('some permission')
@@ -51,47 +38,6 @@ module AccessControl
         Registry.all.should include('some permission')
         Registry.all.should include('another permission')
         Registry.all.size.should == 2
-      end
-
-      it "loads all controllers when registered permissions are requested" do
-        Registry.should_receive(:load_all_controllers)
-        Registry.all
-      end
-
-      it "doesn't load controllers if the registry is not cleared" do
-        # The before block clears the registry.
-        Registry.all # makes the loading
-        # Now the registry is not cleared, so should not load controllers.
-        Registry.should_not_receive(:load_all_controllers)
-        Registry.all
-      end
-
-      it "loads all models when registered permissions are requested" do
-        Registry.should_receive(:load_all_models)
-        Registry.all
-      end
-
-      it "doesn't load models if the registry is not cleared" do
-        # The before block clears the registry.
-        Registry.all # makes the loading
-        # Now the registry is not cleared, so should not load models.
-        Registry.should_not_receive(:load_all_models)
-        Registry.all
-      end
-
-      it "loads all configuration permissions when registered permissions "\
-         "are requested" do
-        AccessControl.config.should_receive(:register_permissions)
-        Registry.all
-      end
-
-      it "doesn't load configuration permissions if the registry is not "\
-         "cleared" do
-        # The before block clears the registry.
-        Registry.all # makes the loading
-        # Now the registry is not cleared, so should not load controllers.
-        AccessControl.config.should_not_receive(:register_permissions)
-        Registry.all
       end
 
       describe "with options" do
@@ -170,53 +116,11 @@ module AccessControl
           Registry.all.size.should == 1
         end
 
-        it "loads all controllers when registered with options are "\
-           "requested" do
-          Registry.should_receive(:load_all_controllers)
-          Registry.all_with_options
-        end
-
-        it "doesn't load controllers if the registry is not cleared" do
-          # The before block clears the registry.
-          Registry.all_with_options # makes the loading
-          # Now the registry is not cleared, so should not load models.
-          Registry.should_not_receive(:load_all_controllers)
-          Registry.all_with_options
-        end
-
-        it "loads all models when registered with options are requested" do
-          Registry.should_receive(:load_all_models)
-          Registry.all_with_options
-        end
-
-        it "doesn't load models if the registry is not cleared" do
-          # The before block clears the registry.
-          Registry.all_with_options # makes the loading
-          # Now the registry is not cleared, so should not load models.
-          Registry.should_not_receive(:load_all_models)
-          Registry.all_with_options
-        end
-
-        it "loads all configuration permissions when registered permissions "\
-          "with options are requested" do
-          AccessControl.config.should_receive(:register_permissions)
-          Registry.all_with_options
-        end
-
-        it "doesn't load configuration permissions if the registry is not "\
-          "cleared" do
-          # The before block clears the registry.
-          Registry.all_with_options # makes the loading
-          # Now the registry is not cleared, so should not load controllers.
-          AccessControl.config.should_not_receive(:register_permissions)
-          Registry.all_with_options
-        end
-
       end
 
     end
 
-    describe "controller loading" do
+    describe "#load_all_controllers" do
 
       # The method specified here loads the controllers in the hope that they
       # will make calls to `protect` once loaded, which in turn makes the
@@ -229,8 +133,8 @@ module AccessControl
       end
 
       it "gets a top level constant based on each filename" do
-        Dir.stub!(:[]).and_return(['some_controller.rb',
-                                   'another_controller.rb'])
+        Dir.stub(:[]).and_return(['some_controller.rb',
+                                  'another_controller.rb'])
         ActiveSupport::Inflector.should_receive(:constantize).
           with('SomeController')
         ActiveSupport::Inflector.should_receive(:constantize).
@@ -240,7 +144,7 @@ module AccessControl
 
     end
 
-    describe "model loading" do
+    describe "#load_all_models" do
 
       # The method specified here loads the models in the hope that they will
       # make calls to `protect` once loaded, which in turn makes the
@@ -253,8 +157,8 @@ module AccessControl
       end
 
       it "gets a top level constant based on each filename" do
-        Dir.stub!(:[]).and_return(['some_model.rb',
-                                   'another_model.rb'])
+        Dir.stub(:[]).and_return(['some_model.rb',
+                                  'another_model.rb'])
         ActiveSupport::Inflector.should_receive(:constantize).
           with('SomeModel')
         ActiveSupport::Inflector.should_receive(:constantize).
@@ -264,20 +168,24 @@ module AccessControl
 
     end
 
-    describe "undeclared permissions" do
-
-      before do
-        Registry.stub!(:load_all_controllers)
-        Registry.stub!(:load_all_models)
+    describe "#load_all_permissions_from_config" do
+      it "defers the job to the config object" do
+        AccessControl.config.should_receive(:register_permissions)
+        Registry.load_all_permissions_from_config
       end
+    end
+
+    describe "#register_undeclared_permissions" do
 
       %w(grant_roles share_own_roles change_inheritance_blocking).each do |p|
 
         it "registers '#{p}'" do
+          Registry.register_undeclared_permissions
           Registry.all.should include(p)
         end
 
         it "registers '#{p}' with empty options" do
+          Registry.register_undeclared_permissions
           Registry.all_with_options[p].should include({})
         end
 

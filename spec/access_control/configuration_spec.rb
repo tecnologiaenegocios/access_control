@@ -63,8 +63,9 @@ module AccessControl
 
       describe "when #register_permissions is called" do
 
+        before { Registry.stub(:register) }
+
         it "registers the #{k} permission" do
-          Registry.stub(:register)
           Registry.should_receive(:register).
             with(Set.new(['some permission', 'another permission']),
                  :metadata => 'value')
