@@ -6,15 +6,36 @@ module AccessControl
     true
   end
 
+  # The public permission.
+  PUBLIC = Object.new
+
   module ControllerSecurity
 
     module ClassMethods
 
+      def action_protected?(action)
+        (@__ac_protected_actions__ || []).include?(action.to_sym)
+      end
+
+      def publish action
+        protect action, :with => PUBLIC
+      end
+
       def protect action, options
-        Registry.register(permissions = options[:with], options[:data] || {})
+        permissions = Set.new(Array(options[:with]))
+
+        if permissions.include?(PUBLIC)
+          if permissions.size != 1
+            raise ArgumentError, 'PUBLIC cannot be used with other permissions'
+          end
+          mark_as_protected(action)
+          return
+        end
+
+        mark_as_protected(action)
+        Registry.register(permissions, options[:data] || {})
+
         before_filter :only => action do |controller|
-          permissions = [permissions] if !permissions.is_a?(Enumerable)
-          permissions = Set.new(permissions)
 
           context = nil
           case options[:context]
@@ -39,6 +60,12 @@ module AccessControl
         end
       end
 
+    private
+
+      def mark_as_protected(action)
+        (@__ac_protected_actions__ ||= []) << action.to_sym
+      end
+
     end
 
     module InstanceMethods
@@ -51,7 +78,7 @@ module AccessControl
       end
 
       def process_with_manager(*args)
-        with_security do
+        with_security(args.first) do
           process_without_manager(*args)
         end
       end
@@ -66,8 +93,11 @@ module AccessControl
         []
       end
 
-      def with_security
+      def with_security request
         AccessControl.manager.use_anonymous!
+        if !self.class.action_protected?(request.parameters['action'].to_sym)
+          raise MissingPermissionDeclaration, request.parameters['action']
+        end
         yield
       ensure
         AccessControl::Principal.clear_anonymous_principal_cache

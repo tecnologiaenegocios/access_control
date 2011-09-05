@@ -18,12 +18,8 @@ module AccessControl
     let(:params) { HashWithIndifferentAccess.new }
 
     before do
-      class ActionController::Base
-        include ControllerSecurity::InstanceMethods
-      end
       class ::Object::RecordsController < ActionController::Base
       end
-      ActiveRecord::Base.stub!(:drop_all_temporary_instantiation_requirements!)
       records_controller.stub!(:params).and_return(params)
       records_controller.stub(:current_user)
     end
@@ -50,15 +46,18 @@ module AccessControl
     describe "request wrapping" do
 
       let(:manager) { mock('manager') }
+      let(:request) { stub('request',
+                           :parameters => {'action' => 'some_action'}) }
 
       before do
         AccessControl.stub(:manager).and_return(manager)
         AccessControl.stub(:no_manager)
         manager.stub(:use_anonymous!)
+        records_controller.class.stub(:action_protected?).and_return(true)
         RecordsController.class_eval do
           # This method overrides the default implementation of `process` from
           # Rails, which was aliased.
-          def process_without_manager block
+          def process_without_manager request, block
             block.call
           end
         end
@@ -69,7 +68,25 @@ module AccessControl
         it "makes the manager to use anonymous user by default" do
           manager.should_receive(:use_anonymous!).ordered
           manager.should_receive(:block_called).ordered
-          records_controller.process(Proc.new{ manager.block_called })
+          records_controller.process(request, Proc.new{ manager.block_called })
+        end
+
+        it "checks if the action is protected" do
+          records_controller.class.should_receive(:action_protected?).
+            with('some_action'.to_sym).ordered
+          records_controller.class.should_receive(:block_called).ordered
+          records_controller.process(request, Proc.new{
+            records_controller.class.block_called
+          })
+        end
+
+        describe "when the action is not protected" do
+          it "raises an error" do
+            records_controller.class.stub(:action_protected?).and_return(false)
+            lambda {
+              records_controller.process(request, Proc.new {})
+            }.should raise_error(AccessControl::MissingPermissionDeclaration)
+          end
         end
 
       end
@@ -79,14 +96,15 @@ module AccessControl
         it "unsets manager" do
           AccessControl.should_receive(:block_called).ordered
           AccessControl.should_receive(:no_manager).ordered
-          records_controller.process(Proc.new{ AccessControl.block_called })
+          records_controller.process(request,
+                                     Proc.new{ AccessControl.block_called })
         end
 
         it "clears the global node cache" do
           AccessControl::Node.should_receive(:block_called).ordered
           AccessControl::Node.should_receive(:clear_global_node_cache).ordered
           records_controller.process(
-            Proc.new{ AccessControl::Node.block_called }
+            request, Proc.new{ AccessControl::Node.block_called }
           )
         end
 
@@ -95,7 +113,7 @@ module AccessControl
           AccessControl::Principal.
             should_receive(:clear_anonymous_principal_cache).ordered
           records_controller.process(
-            Proc.new{ AccessControl::Principal.block_called }
+            request, Proc.new{ AccessControl::Principal.block_called }
           )
         end
 
@@ -331,12 +349,12 @@ module AccessControl
             end
           end
           def filters
-            @filters
+            @filters || {}
           end
         end
         records_controller.class.class_eval do
           def call_filters_for_some_action
-            self.class.filters[:some_action].each{|b| b.call(self)}
+            (self.class.filters[:some_action] || []).each{|b| b.call(self)}
           end
           def some_action
             call_filters_for_some_action
@@ -455,11 +473,19 @@ module AccessControl
 
       it "registers the permissions passed in :with and additional metadata" do
         Registry.should_receive(:register).
-          with('the content of the :with option', :metadata => 'value')
+          with(Set.new(['the content of the :with option']),
+               :metadata => 'value')
         records_controller.class.class_eval do
           protect :some_action, :with => 'the content of the :with option',
                   :data => { :metadata => 'value' }, :ignored => 'ignored'
         end
+      end
+
+      it "marks the action as protected" do
+        records_controller.class.class_eval do
+          protect :some_action, :with => 'the content of the :with option'
+        end
+        records_controller.class.action_protected?(:some_action).should be_true
       end
 
       describe "with string permission" do
@@ -495,6 +521,53 @@ module AccessControl
         end
       end
 
+      describe "with AccessControl::PUBLIC" do
+
+        it "doesn't protects the action at all" do
+          manager.should_not_receive(:can!)
+          records_controller.class.class_eval do
+            protect :some_action, :with => PUBLIC
+          end
+          records_controller.some_action
+        end
+
+        it "doesn't registers permission" do
+          Registry.should_not_receive(:register)
+          records_controller.class.class_eval do
+            protect :some_action, :with => PUBLIC
+          end
+        end
+
+        describe "if PUBLIC isn't passed alone" do
+
+          it "raises error" do
+            lambda {
+              records_controller.class.class_eval do
+                protect :some_action, :with => [PUBLIC, 'some permission']
+              end
+            }.should raise_exception(ArgumentError)
+          end
+
+          it "doesn't mark action as protected" do
+            records_controller.class.class_eval do
+              protect :some_action, :with => [PUBLIC, 'some permission'] \
+                rescue nil
+            end
+            records_controller.class.action_protected?(:some_action).
+              should be_false
+          end
+
+        end
+      end
+
+    end
+
+    describe "action publication" do
+      it "calls protect with AccessControl::PUBLIC" do
+        records_controller.class.should_receive(:protect).
+          with(:some_action, :with => AccessControl::PUBLIC)
+        records_controller.class.publish :some_action
+      end
     end
 
   end
