@@ -21,6 +21,7 @@ module AccessControl
 
     before do
       records_controller.stub(:params).and_return(params)
+      records_controller_class.stub(:name).and_return('RecordsController')
       base.class_eval do
         def self.before_filter *args, &block
           options = args.extract_options!
@@ -101,8 +102,6 @@ module AccessControl
         end
 
         it "checks if the action is protected" do
-          # Due to some behavior which I can't figure out this could only be
-          # made by using a before filter.
           records_controller.class.should_receive(:action_protected?).
             with('some_action'.to_sym).ordered
           records_controller.class.should_receive(:block_called).ordered

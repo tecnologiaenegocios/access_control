@@ -9,12 +9,14 @@ module AccessControl
   # The public permission.
   PUBLIC = Object.new
 
+  ProtectedActions = {}
+
   module ControllerSecurity
 
     module ClassMethods
 
       def action_protected?(action)
-        (@__ac_protected_actions__ || []).include?(action.to_sym)
+        (ProtectedActions[self.name] || []).include?(action.to_sym)
       end
 
       def publish action
@@ -63,7 +65,7 @@ module AccessControl
     private
 
       def mark_as_protected(action)
-        (@__ac_protected_actions__ ||= []) << action.to_sym
+        (ProtectedActions[self.name] ||= []) << action.to_sym
       end
 
     end
