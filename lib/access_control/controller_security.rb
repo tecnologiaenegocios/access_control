@@ -74,6 +74,7 @@ module AccessControl
         base.extend(AccessControl::ControllerSecurity::ClassMethods)
         base.class_eval do
           alias_method_chain :process, :manager
+          before_filter :ensure_action_protected
         end
       end
 
@@ -85,6 +86,12 @@ module AccessControl
 
     private
 
+      def ensure_action_protected
+        if !self.class.action_protected?(params['action'].to_sym)
+          raise MissingPermissionDeclaration, params['action']
+        end
+      end
+
       def current_context
         Contextualizer.new(self).context
       end
@@ -95,9 +102,6 @@ module AccessControl
 
       def with_security request
         AccessControl.manager.use_anonymous!
-        if !self.class.action_protected?(request.parameters['action'].to_sym)
-          raise MissingPermissionDeclaration, request.parameters['action']
-        end
         yield
       ensure
         AccessControl::Principal.clear_anonymous_principal_cache

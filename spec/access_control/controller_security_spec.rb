@@ -11,21 +11,58 @@ module AccessControl
 
   describe ControllerSecurity do
 
+    let(:base) { Class.new }
+    let(:records_controller_class) { Class.new(base) }
     let(:records_controller) do
-      RecordsController.new
+      records_controller_class.new
     end
 
     let(:params) { HashWithIndifferentAccess.new }
 
     before do
-      class ::Object::RecordsController < ActionController::Base
+      records_controller.stub(:params).and_return(params)
+      base.class_eval do
+        def self.before_filter *args, &block
+          options = args.extract_options!
+          action = (options[:only] || :some_action).to_sym
+          @filters ||= {}
+          @filters[action] ||= []
+          if block_given?
+            @filters[action] << block
+          else
+            method = args.first
+            @filters[action] << Proc.new{|controller| controller.send(method)}
+          end
+        end
+        def self.filters
+          @filters || {}
+        end
+        def call_filters_for_some_action
+          (self.class.filters[:some_action] || []).each{|b| b.call(self)}
+        end
+        def process block
+          some_action(block)
+        end
       end
-      records_controller.stub!(:params).and_return(params)
-      records_controller.stub(:current_user)
+      records_controller_class.class_eval do
+        def self.filters
+          @filters ||= {}
+          keys = superclass.filters.keys | @filters.keys
+          keys.inject({}) do |h, k|
+            h[k] = (@filters[k] || []) + (superclass.filters[k] || [])
+            h
+          end
+        end
+        def some_action(block=nil)
+          call_filters_for_some_action
+          block.call if block
+        end
+      end
+      base.send(:include, ControllerSecurity::InstanceMethods)
     end
 
-    after do
-      Object.send(:remove_const, 'RecordsController')
+    it "includes into ActionController::Base" do
+      ActionController::Base.should include(ControllerSecurity::InstanceMethods)
     end
 
     describe "#current_groups" do
@@ -46,21 +83,13 @@ module AccessControl
     describe "request wrapping" do
 
       let(:manager) { mock('manager') }
-      let(:request) { stub('request',
-                           :parameters => {'action' => 'some_action'}) }
 
       before do
         AccessControl.stub(:manager).and_return(manager)
         AccessControl.stub(:no_manager)
         manager.stub(:use_anonymous!)
         records_controller.class.stub(:action_protected?).and_return(true)
-        RecordsController.class_eval do
-          # This method overrides the default implementation of `process` from
-          # Rails, which was aliased.
-          def process_without_manager request, block
-            block.call
-          end
-        end
+        params[:action] = 'some_action'
       end
 
       describe "before action is executed" do
@@ -68,14 +97,16 @@ module AccessControl
         it "makes the manager to use anonymous user by default" do
           manager.should_receive(:use_anonymous!).ordered
           manager.should_receive(:block_called).ordered
-          records_controller.process(request, Proc.new{ manager.block_called })
+          records_controller.process(Proc.new{ manager.block_called })
         end
 
         it "checks if the action is protected" do
+          # Due to some behavior which I can't figure out this could only be
+          # made by using a before filter.
           records_controller.class.should_receive(:action_protected?).
             with('some_action'.to_sym).ordered
           records_controller.class.should_receive(:block_called).ordered
-          records_controller.process(request, Proc.new{
+          records_controller.some_action(Proc.new{
             records_controller.class.block_called
           })
         end
@@ -84,7 +115,7 @@ module AccessControl
           it "raises an error" do
             records_controller.class.stub(:action_protected?).and_return(false)
             lambda {
-              records_controller.process(request, Proc.new {})
+              records_controller.some_action
             }.should raise_error(AccessControl::MissingPermissionDeclaration)
           end
         end
@@ -96,15 +127,14 @@ module AccessControl
         it "unsets manager" do
           AccessControl.should_receive(:block_called).ordered
           AccessControl.should_receive(:no_manager).ordered
-          records_controller.process(request,
-                                     Proc.new{ AccessControl.block_called })
+          records_controller.process(Proc.new{ AccessControl.block_called })
         end
 
         it "clears the global node cache" do
           AccessControl::Node.should_receive(:block_called).ordered
           AccessControl::Node.should_receive(:clear_global_node_cache).ordered
           records_controller.process(
-            request, Proc.new{ AccessControl::Node.block_called }
+            Proc.new{ AccessControl::Node.block_called }
           )
         end
 
@@ -113,7 +143,7 @@ module AccessControl
           AccessControl::Principal.
             should_receive(:clear_anonymous_principal_cache).ordered
           records_controller.process(
-            request, Proc.new{ AccessControl::Principal.block_called }
+            Proc.new{ AccessControl::Principal.block_called }
           )
         end
 
@@ -129,6 +159,11 @@ module AccessControl
       # of the action.  For special needs, there's the option :context in the
       # `protect` method, which will allow customization of the security
       # context, allowing even to return more than one context, in an array.
+
+      let(:records_controller_class) { Class.new(ActionController::Base) }
+      before do
+        records_controller_class.stub(:name).and_return('RecordsController')
+      end
 
       %w(show edit update destroy).each do |action|
 
@@ -335,35 +370,11 @@ module AccessControl
       let(:node) { stub('node') }
 
       before do
-        records_controller.class.instance_eval do
-          def before_filter *args, &block
-            options = args.extract_options!
-            action = options[:only].to_sym
-            @filters ||= {}
-            @filters[action] ||= []
-            if block_given?
-              @filters[action] << block
-            else
-              method = args.first
-              @filters[action] << Proc.new{|controller| controller.send(method)}
-            end
-          end
-          def filters
-            @filters || {}
-          end
-        end
-        records_controller.class.class_eval do
-          def call_filters_for_some_action
-            (self.class.filters[:some_action] || []).each{|b| b.call(self)}
-          end
-          def some_action
-            call_filters_for_some_action
-          end
-        end
         Registry.stub(:register)
-        records_controller.stub(:current_context).and_return(node)
         AccessControl.stub(:manager).and_return(manager)
+        records_controller.stub(:current_context).and_return(node)
         manager.stub(:can!)
+        params[:action] = 'some_action'
       end
 
       it "raises an error when there's no context" do
