@@ -11,86 +11,54 @@ module AccessControl
 
   describe ControllerSecurity do
 
-    let(:base) { Class.new }
+    let(:base) do
+      Class.new(ActionController::Base) do
+        def process_without_filters(req, resp, method=:perform_action, *args)
+          perform_the_action
+        end
+        def perform_the_action
+          chain = self.class.filter_chain
+          index = run_before_filters(chain, 0, 0)
+          send(action_name) unless @before_filter_chain_aborted
+          run_after_filters(chain, index)
+        end
+        def process_with_block(&block)
+          @action_block = block
+          process_without_block(nil, nil)
+        end
+        alias_method :process_without_block, :process
+        alias_method :process, :process_with_block
+        def action_name
+          'some_action'
+        end
+      end
+    end
     let(:records_controller_class) { Class.new(base) }
     let(:records_controller) do
       records_controller_class.new
     end
-
     let(:params) { HashWithIndifferentAccess.new }
+    let(:manager) { mock('manager') }
 
     before do
       records_controller.stub(:params).and_return(params)
       records_controller_class.stub(:name).and_return('RecordsController')
-      base.class_eval do
-        def self.before_filter *args, &block
-          options = args.extract_options!
-          action = (options[:only] || :some_action).to_sym
-          @filters ||= {}
-          @filters[action] ||= []
-          if block_given?
-            @filters[action] << block
-          else
-            method = args.first
-            @filters[action] << Proc.new{|controller| controller.send(method)}
-          end
-        end
-        def self.filters
-          @filters || {}
-        end
-        def call_filters_for_some_action
-          (self.class.filters[:some_action] || []).each{|b| b.call(self)}
-        end
-        def process block
-          some_action(block)
-        end
-      end
       records_controller_class.class_eval do
-        def self.filters
-          @filters ||= {}
-          keys = superclass.filters.keys | @filters.keys
-          keys.inject({}) do |h, k|
-            h[k] = (@filters[k] || []) + (superclass.filters[k] || [])
-            h
-          end
-        end
-        def some_action(block=nil)
-          call_filters_for_some_action
-          block.call if block
+        def some_action
+          @action_block.call if @action_block
         end
       end
-      base.send(:include, ControllerSecurity::InstanceMethods)
-    end
-
-    it "includes into ActionController::Base" do
-      ActionController::Base.should include(ControllerSecurity::InstanceMethods)
-    end
-
-    describe "#current_groups" do
-
-      # There must be by default an implementation of `current_groups` that is
-      # private and returns an empty array.  This simplifies the common case
-      # where there's no concept of user groups.
-
-      it "returns an empty array" do
-        records_controller.send(:current_groups).should == []
-      end
-
-      it "is declared private" do
-        records_controller.private_methods.should include('current_groups')
-      end
+      params[:action] = 'some_action'
+      manager.stub(:can!)
+      manager.stub(:use_anonymous!)
+      AccessControl.stub(:manager).and_return(manager)
+      AccessControl.stub(:no_manager)
     end
 
     describe "request wrapping" do
 
-      let(:manager) { mock('manager') }
-
       before do
-        AccessControl.stub(:manager).and_return(manager)
-        AccessControl.stub(:no_manager)
-        manager.stub(:use_anonymous!)
         records_controller.class.stub(:action_protected?).and_return(true)
-        params[:action] = 'some_action'
       end
 
       describe "before action is executed" do
@@ -98,24 +66,242 @@ module AccessControl
         it "makes the manager to use anonymous user by default" do
           manager.should_receive(:use_anonymous!).ordered
           manager.should_receive(:block_called).ordered
-          records_controller.process(Proc.new{ manager.block_called })
+          records_controller.process { manager.block_called }
         end
 
         it "checks if the action is protected" do
           records_controller.class.should_receive(:action_protected?).
             with('some_action'.to_sym).ordered
           records_controller.class.should_receive(:block_called).ordered
-          records_controller.some_action(Proc.new{
+          records_controller.process do
             records_controller.class.block_called
-          })
+          end
         end
 
         describe "when the action is not protected" do
           it "raises an error" do
             records_controller.class.stub(:action_protected?).and_return(false)
             lambda {
-              records_controller.some_action
+              records_controller.process
             }.should raise_error(AccessControl::MissingPermissionDeclaration)
+          end
+        end
+
+        describe "action protection" do
+
+          let(:node) { stub('node') }
+
+          before do
+            Registry.stub(:register)
+            records_controller.stub(:current_context).and_return(node)
+            records_controller.class.unstub(:action_protected?)
+            params[:action] = 'some_action'
+          end
+
+          it "raises an error when there's no context" do
+            records_controller.should_receive(:current_context).
+              and_return(nil)
+            records_controller.class.class_eval do
+              protect :some_action, :with => 'some permission'
+            end
+            lambda {
+              records_controller.process
+            }.should raise_exception(AccessControl::NoContextError)
+          end
+
+          it "works when `current_context` is protected" do
+            records_controller.class.class_eval do
+              protected :current_context
+              protect :some_action, :with => 'some permission'
+            end
+            lambda {
+              records_controller.process
+            }.should_not raise_exception
+          end
+
+          it "works when `current_context` is private" do
+            records_controller.class.class_eval do
+              private :current_context
+              protect :some_action, :with => 'some permission'
+            end
+            lambda {
+              records_controller.process
+            }.should_not raise_exception
+          end
+
+          it "accepts custom context as symbol that is the name of a method" do
+            records_controller.class.class_eval do
+              protect :some_action,
+                      :with => 'some permission',
+                      :context => :custom_context
+              def custom_context
+                'a custom context'
+              end
+            end
+            manager.should_receive(:can!).
+              with(Set.new(['some permission']), 'a custom context')
+            records_controller.process
+          end
+
+          it "accepts a proc as a custom context" do
+            records_controller.class.class_eval do
+              protect :some_action,
+                      :with => 'some permission',
+                      :context => Proc.new{|controller| 'a custom context'}
+            end
+            manager.should_receive(:can!).
+              with(Set.new(['some permission']), 'a custom context')
+            records_controller.process
+          end
+
+          it "accepts a symbol starting with @ to indicate an instance var "\
+             "as the context" do
+            records_controller.class.class_eval do
+              before_filter :load_variable, :only => :some_action
+              protect :some_action,
+                      :with => 'some permission',
+                      :context => :@variable
+              def load_variable
+                @variable = 'a custom context'
+              end
+            end
+            manager.should_receive(:can!).
+              with(Set.new(['some permission']), 'a custom context')
+            records_controller.process
+          end
+
+          it "passes the controller instance to the proc for context" do
+            records_controller.class.class_eval do
+              protect :some_action,
+                      :with => 'some permission',
+                      :context => Proc.new{|controller|
+                        controller.custom_context
+                      }
+              def custom_context
+                'a custom context'
+              end
+            end
+            manager.should_receive(:can!).
+              with(Set.new(['some permission']), 'a custom context')
+            records_controller.process
+          end
+
+          it "raises unauthorized if action is accessed without permission" do
+            records_controller.class.class_eval do
+              protect :some_action, :with => 'some permission'
+            end
+            manager.stub!(:can!).and_raise('the unauthorized exception')
+            lambda {
+              records_controller.process
+            }.should raise_exception('the unauthorized exception')
+          end
+
+          it "doesn't raise unauthorized if security is disabled" do
+            records_controller.class.class_eval do
+              protect :some_action, :with => 'some permission'
+            end
+            AccessControl.stub(:controller_security_enabled?).and_return(false)
+            manager.stub(:can!).and_raise('the unauthorized exception')
+            records_controller.process
+          end
+
+          it "registers permissions passed in :with and additional metadata" do
+            Registry.should_receive(:register).
+              with(Set.new(['the content of the :with option']),
+                  :metadata => 'value')
+            records_controller.class.class_eval do
+              protect :some_action, :with => 'the content of the :with option',
+                      :data => { :metadata => 'value' }, :ignored => 'ignored'
+            end
+          end
+
+          it "marks the action as protected" do
+            records_controller.class.class_eval do
+              protect :some_action, :with => 'the content of the :with option'
+            end
+            records_controller.class.action_protected?(:some_action).
+              should be_true
+          end
+
+          describe "with string permission" do
+            it "protects an action with permissions provided" do
+              manager.should_receive(:can!).
+                with(Set.new(['some permission']), node)
+              records_controller.class.class_eval do
+                protect :some_action, :with => 'some permission'
+              end
+              records_controller.process
+            end
+          end
+
+          describe "with array of permissions" do
+            it "protects an action with permissions provided" do
+              manager.should_receive(:can!).
+                with(Set.new(['some permission']), node)
+              records_controller.class.class_eval do
+                protect :some_action, :with => ['some permission']
+              end
+              records_controller.process
+            end
+          end
+
+          describe "with set of permissions" do
+            it "protects an action with permissions provided" do
+              manager.should_receive(:can!).
+                with(Set.new(['some permission']), node)
+              records_controller.class.class_eval do
+                protect :some_action, :with => Set.new(['some permission'])
+              end
+              records_controller.process
+            end
+          end
+
+          describe "with AccessControl::PUBLIC" do
+
+            it "doesn't protects the action at all" do
+              manager.should_not_receive(:can!)
+              records_controller.class.class_eval do
+                protect :some_action, :with => PUBLIC
+              end
+              records_controller.process
+            end
+
+            it "doesn't registers permission" do
+              Registry.should_not_receive(:register)
+              records_controller.class.class_eval do
+                protect :some_action, :with => PUBLIC
+              end
+            end
+
+            describe "if PUBLIC isn't passed alone" do
+
+              it "raises error" do
+                lambda {
+                  records_controller.class.class_eval do
+                    protect :some_action, :with => [PUBLIC, 'some permission']
+                  end
+                }.should raise_exception(ArgumentError)
+              end
+
+              it "doesn't mark action as protected" do
+                records_controller.class.class_eval do
+                  protect :some_action, :with => [PUBLIC, 'some permission'] \
+                    rescue nil
+                end
+                records_controller.class.action_protected?(:some_action).
+                  should be_false
+              end
+
+            end
+          end
+
+        end
+
+        describe "action publication" do
+          it "calls protect with AccessControl::PUBLIC" do
+            records_controller.class.should_receive(:protect).
+              with(:some_action, :with => AccessControl::PUBLIC)
+            records_controller.class.publish :some_action
           end
         end
 
@@ -126,24 +312,24 @@ module AccessControl
         it "unsets manager" do
           AccessControl.should_receive(:block_called).ordered
           AccessControl.should_receive(:no_manager).ordered
-          records_controller.process(Proc.new{ AccessControl.block_called })
+          records_controller.process { AccessControl.block_called }
         end
 
         it "clears the global node cache" do
           AccessControl::Node.should_receive(:block_called).ordered
           AccessControl::Node.should_receive(:clear_global_node_cache).ordered
-          records_controller.process(
-            Proc.new{ AccessControl::Node.block_called }
-          )
+          records_controller.process do
+            AccessControl::Node.block_called
+          end
         end
 
         it "clears the anonymous principal cache" do
           AccessControl::Principal.should_receive(:block_called).ordered
           AccessControl::Principal.
             should_receive(:clear_anonymous_principal_cache).ordered
-          records_controller.process(
-            Proc.new{ AccessControl::Principal.block_called }
-          )
+          records_controller.process do
+            AccessControl::Principal.block_called
+          end
         end
 
       end
@@ -158,11 +344,6 @@ module AccessControl
       # of the action.  For special needs, there's the option :context in the
       # `protect` method, which will allow customization of the security
       # context, allowing even to return more than one context, in an array.
-
-      let(:records_controller_class) { Class.new(ActionController::Base) }
-      before do
-        records_controller_class.stub(:name).and_return('RecordsController')
-      end
 
       %w(show edit update destroy).each do |action|
 
@@ -361,223 +542,6 @@ module AccessControl
         )
       end
 
-    end
-
-    describe "action protection" do
-
-      let(:manager) { mock('manager') }
-      let(:node) { stub('node') }
-
-      before do
-        Registry.stub(:register)
-        AccessControl.stub(:manager).and_return(manager)
-        records_controller.stub(:current_context).and_return(node)
-        manager.stub(:can!)
-        params[:action] = 'some_action'
-      end
-
-      it "raises an error when there's no context" do
-        records_controller.should_receive(:current_context).
-          and_return(nil)
-        records_controller.class.class_eval do
-          protect :some_action, :with => 'some permission'
-        end
-        lambda {
-          records_controller.some_action
-        }.should raise_exception(::AccessControl::NoContextError)
-      end
-
-      it "works when `current_context` is protected" do
-        records_controller.class.class_eval do
-          protected :current_context
-          protect :some_action, :with => 'some permission'
-        end
-        lambda {
-          records_controller.some_action
-        }.should_not raise_exception
-      end
-
-      it "works when `current_context` is private" do
-        records_controller.class.class_eval do
-          private :current_context
-          protect :some_action, :with => 'some permission'
-        end
-        lambda {
-          records_controller.some_action
-        }.should_not raise_exception
-      end
-
-      it "accepts a custom context as symbol that is the name of a method" do
-        records_controller.class.class_eval do
-          protect :some_action,
-                  :with => 'some permission',
-                  :context => :custom_context
-          def custom_context
-            'a custom context'
-          end
-        end
-        manager.should_receive(:can!).
-          with(Set.new(['some permission']), 'a custom context')
-        records_controller.some_action
-      end
-
-      it "accepts a proc as a custom context" do
-        records_controller.class.class_eval do
-          protect :some_action,
-                  :with => 'some permission',
-                  :context => Proc.new{|controller| 'a custom context'}
-        end
-        manager.should_receive(:can!).
-          with(Set.new(['some permission']), 'a custom context')
-        records_controller.some_action
-      end
-
-      it "accepts a symbol starting with @ to indicate an instance var as "\
-         "the context" do
-        records_controller.class.class_eval do
-          before_filter :load_variable, :only => :some_action
-          protect :some_action,
-                  :with => 'some permission',
-                  :context => :@variable
-          def load_variable
-            @variable = 'a custom context'
-          end
-        end
-        manager.should_receive(:can!).
-          with(Set.new(['some permission']), 'a custom context')
-        records_controller.some_action
-      end
-
-      it "passes the controller instance to the proc for context" do
-        records_controller.class.class_eval do
-          protect :some_action,
-                  :with => 'some permission',
-                  :context => Proc.new{|controller| controller.custom_context}
-          def custom_context
-            'a custom context'
-          end
-        end
-        manager.should_receive(:can!).
-          with(Set.new(['some permission']), 'a custom context')
-        records_controller.some_action
-      end
-
-      it "raises unauthorized if action is accessed without permission" do
-        records_controller.class.class_eval do
-          protect :some_action, :with => 'some permission'
-        end
-        manager.stub!(:can!).and_raise('the unauthorized exception')
-        lambda {
-          records_controller.some_action
-        }.should raise_exception('the unauthorized exception')
-      end
-
-      it "doesn't raise unauthorized if security is disabled" do
-        records_controller.class.class_eval do
-          protect :some_action, :with => 'some permission'
-        end
-        AccessControl.stub!(:controller_security_enabled?).and_return(false)
-        manager.stub!(:can!).and_raise('the unauthorized exception')
-        records_controller.some_action
-      end
-
-      it "registers the permissions passed in :with and additional metadata" do
-        Registry.should_receive(:register).
-          with(Set.new(['the content of the :with option']),
-               :metadata => 'value')
-        records_controller.class.class_eval do
-          protect :some_action, :with => 'the content of the :with option',
-                  :data => { :metadata => 'value' }, :ignored => 'ignored'
-        end
-      end
-
-      it "marks the action as protected" do
-        records_controller.class.class_eval do
-          protect :some_action, :with => 'the content of the :with option'
-        end
-        records_controller.class.action_protected?(:some_action).should be_true
-      end
-
-      describe "with string permission" do
-        it "protects an action with permissions provided" do
-          manager.should_receive(:can!).
-            with(Set.new(['some permission']), node)
-          records_controller.class.class_eval do
-            protect :some_action, :with => 'some permission'
-          end
-          records_controller.some_action
-        end
-      end
-
-      describe "with array of permissions" do
-        it "protects an action with permissions provided" do
-          manager.should_receive(:can!).
-            with(Set.new(['some permission']), node)
-          records_controller.class.class_eval do
-            protect :some_action, :with => ['some permission']
-          end
-          records_controller.some_action
-        end
-      end
-
-      describe "with set of permissions" do
-        it "protects an action with permissions provided" do
-          manager.should_receive(:can!).
-            with(Set.new(['some permission']), node)
-          records_controller.class.class_eval do
-            protect :some_action, :with => Set.new(['some permission'])
-          end
-          records_controller.some_action
-        end
-      end
-
-      describe "with AccessControl::PUBLIC" do
-
-        it "doesn't protects the action at all" do
-          manager.should_not_receive(:can!)
-          records_controller.class.class_eval do
-            protect :some_action, :with => PUBLIC
-          end
-          records_controller.some_action
-        end
-
-        it "doesn't registers permission" do
-          Registry.should_not_receive(:register)
-          records_controller.class.class_eval do
-            protect :some_action, :with => PUBLIC
-          end
-        end
-
-        describe "if PUBLIC isn't passed alone" do
-
-          it "raises error" do
-            lambda {
-              records_controller.class.class_eval do
-                protect :some_action, :with => [PUBLIC, 'some permission']
-              end
-            }.should raise_exception(ArgumentError)
-          end
-
-          it "doesn't mark action as protected" do
-            records_controller.class.class_eval do
-              protect :some_action, :with => [PUBLIC, 'some permission'] \
-                rescue nil
-            end
-            records_controller.class.action_protected?(:some_action).
-              should be_false
-          end
-
-        end
-      end
-
-    end
-
-    describe "action publication" do
-      it "calls protect with AccessControl::PUBLIC" do
-        records_controller.class.should_receive(:protect).
-          with(:some_action, :with => AccessControl::PUBLIC)
-        records_controller.class.publish :some_action
-      end
     end
 
   end

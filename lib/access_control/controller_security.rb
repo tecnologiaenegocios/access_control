@@ -1,3 +1,4 @@
+require 'access_control/principal'
 require 'access_control/exceptions'
 
 module AccessControl
@@ -53,11 +54,9 @@ module AccessControl
             context = controller.send(:current_context)
           end
 
-          raise ::AccessControl::NoContextError unless context
+          raise AccessControl::NoContextError unless context
 
-          manager = AccessControl.manager
-
-          manager.can!(permissions, context) \
+          AccessControl.manager.can!(permissions, context) \
             if AccessControl.controller_security_enabled?
         end
       end
@@ -80,9 +79,9 @@ module AccessControl
         end
       end
 
-      def process_with_manager(*args)
-        with_security(args.first) do
-          process_without_manager(*args)
+      def process_with_manager(*args, &block)
+        with_security do
+          process_without_manager(*args, &block)
         end
       end
 
@@ -98,11 +97,7 @@ module AccessControl
         Contextualizer.new(self).context
       end
 
-      def current_groups
-        []
-      end
-
-      def with_security request
+      def with_security
         AccessControl.manager.use_anonymous!
         yield
       ensure
