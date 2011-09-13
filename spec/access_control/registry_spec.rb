@@ -36,6 +36,12 @@ module AccessControl
                                         'another permission'])
       end
 
+      it "registers permissioms only once" do
+        Registry.register('some permission')
+        Registry.register('some permission')
+        Registry.all.should == Set.new(['some permission'])
+      end
+
       describe "with metadata" do
 
         # Metadata are a way to assign information into a permission when it
@@ -55,8 +61,8 @@ module AccessControl
         # :method => :field_name }.  The metadata is the Hash passed as the
         # last argument to .register.  Note that a metadata cannot hold model
         # classes directly (although most classes can be held) because of the
-        # caching/discarding ActiveSupport::Dependencies does, and so the name
-        # of the class is used (both when registering and when querying).
+        # caching/discarding that ActiveSupport::Dependencies does, and so the
+        # name of the class is used (both when registering and when querying).
         #
         # A metadata key/value pair never overwrites another:
         #
@@ -74,18 +80,18 @@ module AccessControl
         # using a hash for registering, and the assertions are done inspecting
         # the return of .all_with_metadata and .all.
 
-        it "accepts options" do
+        it "accepts metadata (an options hash)" do
           Registry.register('some permission', :key => 'value')
         end
 
-        it "registers when using options" do
+        it "registers when using metadata" do
           Registry.register('some permission', :key => 'value')
           Registry.all_with_metadata.should == {
             'some permission' => Set.new([{:key => 'value'}])
           }
         end
 
-        it "registers many permissions using the same options" do
+        it "registers many permissions using the same metadata" do
           Registry.register('permission 1',
                             'permission 2',
                             :key => 'value')
@@ -95,14 +101,14 @@ module AccessControl
           }
         end
 
-        it "registers a permission with the same options once" do
+        it "registers a permission with the same metadata once" do
           Registry.register('some permission', :key => 'value')
           Registry.register('some permission', :key => 'value')
           r = Registry.all_with_metadata
           r.should == { 'some permission' => Set.new([{:key => 'value'}]) }
         end
 
-        it "registers a permission with all different options passed" do
+        it "registers a permission with all different metadata passed" do
           Registry.register('some permission',
                             :key_1 => 'value 1',
                             :key_2 => 'value 2')
@@ -115,19 +121,19 @@ module AccessControl
           }
         end
 
-        it "registers an empty hash if no options are passed" do
+        it "registers an empty hash if no metadata are passed" do
           Registry.register('some permission')
           Registry.all_with_metadata.should == {
             'some permission' => Set.new([{}])
           }
         end
 
-        it "registers when using options and permission in .all" do
+        it "registers in .all when using metadata and permission" do
           Registry.register('some permission', :key => 'value')
           Registry.all.should == Set.new(['some permission'])
         end
 
-        it "registers the same permission with different options but .all "\
+        it "registers the same permission with different metadata but .all "\
            "returns the permission only once" do
           Registry.register('some permission', :key => 'value 1')
           Registry.register('some permission', :key => 'value 2')
@@ -224,7 +230,7 @@ module AccessControl
           Registry.all.should include(p)
         end
 
-        it "registers '#{p}' with empty options" do
+        it "registers '#{p}' with empty metadata" do
           Registry.register_undeclared_permissions
           Registry.all_with_metadata[p].should include({})
         end
