@@ -215,7 +215,7 @@ module AccessControl
 
     end
 
-    describe "#register_undeclared_permissions" do
+    describe ".register_undeclared_permissions" do
 
       %w(grant_roles share_own_roles change_inheritance_blocking).each do |p|
 
@@ -227,6 +227,14 @@ module AccessControl
         it "registers '#{p}' with empty options" do
           Registry.register_undeclared_permissions
           Registry.all_with_metadata[p].should include({})
+        end
+
+        it "is called during initialization phase (so '#{p}' is registered)" do
+          # We can't test this in Registry object because it is being cleared
+          # in the top "before" block.
+          reg_class = Registry.class
+          new_registry = reg_class.new
+          new_registry.all.should include(p)
         end
 
       end

@@ -5,6 +5,7 @@ module AccessControl
 
     def initialize
       clear_registry
+      register_undeclared_permissions
     end
 
     def clear_registry
