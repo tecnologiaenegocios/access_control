@@ -65,21 +65,6 @@ module AccessControl
       @permissions_by_metadata[[key, value]] ||= Set.new
     end
 
-    def load_top_level_constant filename
-      # We can't simply load or require the file by its filename because of
-      # the handling of cached classes in Rails, so we deduce their class
-      # name from the filename and get the constant (a.k.a. the top level
-      # class).  If the class wasn't loaded yet, ActiveSupport::Dependencies
-      # will get it from the source file based on the its name anyway, taking
-      # into consideration the cache_class config option.
-      filename.
-        gsub(Rails.root + 'app/models/', '').
-        gsub(Rails.root + 'app/controllers/', '').
-        gsub(/\.rb$/, '').
-        camelize.
-        constantize
-    end
-
   end
 
   Registry = RegistryFactory.new
