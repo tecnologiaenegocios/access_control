@@ -215,61 +215,6 @@ module AccessControl
 
     end
 
-    describe "#load_all_controllers" do
-
-      # The method specified here loads the controllers in the hope that they
-      # will make calls to `protect` once loaded, which in turn makes the
-      # registering of permissions.
-
-      it "can load all controllers though Dir[]" do
-        Dir.should_receive(:[]).
-          with(Rails.root + 'app/controllers/**/*.rb').and_return([])
-        Registry.load_all_controllers
-      end
-
-      it "gets a top level constant based on each filename" do
-        Dir.stub(:[]).and_return(['some_controller.rb',
-                                  'another_controller.rb'])
-        ActiveSupport::Inflector.should_receive(:constantize).
-          with('SomeController')
-        ActiveSupport::Inflector.should_receive(:constantize).
-          with('AnotherController')
-        Registry.load_all_controllers
-      end
-
-    end
-
-    describe "#load_all_models" do
-
-      # The method specified here loads the models in the hope that they will
-      # make calls to `protect` once loaded, which in turn makes the
-      # registering of permissions.
-
-      it "can load all controllers though Dir[]" do
-        Dir.should_receive(:[]).
-          with(Rails.root + 'app/models/**/*.rb').and_return([])
-        Registry.load_all_models
-      end
-
-      it "gets a top level constant based on each filename" do
-        Dir.stub(:[]).and_return(['some_model.rb',
-                                  'another_model.rb'])
-        ActiveSupport::Inflector.should_receive(:constantize).
-          with('SomeModel')
-        ActiveSupport::Inflector.should_receive(:constantize).
-          with('AnotherModel')
-        Registry.load_all_models
-      end
-
-    end
-
-    describe "#load_all_permissions_from_config" do
-      it "defers the job to the config object" do
-        AccessControl.config.should_receive(:register_permissions)
-        Registry.load_all_permissions_from_config
-      end
-    end
-
     describe "#register_undeclared_permissions" do
 
       %w(grant_roles share_own_roles change_inheritance_blocking).each do |p|

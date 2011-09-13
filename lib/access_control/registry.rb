@@ -42,22 +42,6 @@ module AccessControl
       criteria.map{|criterion| permissions_matching(criterion)}.inject(&:|)
     end
 
-    def load_all_controllers
-      Dir[Rails.root + 'app/controllers/**/*.rb'].each do |path|
-        load_top_level_constant(path)
-      end
-    end
-
-    def load_all_models
-      Dir[Rails.root + 'app/models/**/*.rb'].each do |path|
-        load_top_level_constant(path)
-      end
-    end
-
-    def load_all_permissions_from_config
-      AccessControl.config.register_permissions
-    end
-
   private
 
     def register_permission(permission)
