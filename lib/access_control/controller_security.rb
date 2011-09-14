@@ -7,9 +7,6 @@ module AccessControl
     true
   end
 
-  # The public permission.
-  PUBLIC = Object.new
-
   PublicActions = {}
 
   module ControllerSecurity
@@ -21,30 +18,16 @@ module AccessControl
       end
 
       def publish action
-        protect action, :with => PUBLIC
+        (PublicActions[self.name] ||= []) << action.to_sym
       end
 
       def protect action, options
-        permissions = Set.new(Array(options[:with]))
-        if permissions.include?(PUBLIC)
-          if permissions.size != 1
-            raise ArgumentError, 'PUBLIC cannot be used with other permissions'
-          end
-          mark_as_public(action)
-          return
-        end
         metadata = (options[:data] || {}).merge(
           :__ac_controller__ => self.name,
           :__ac_action__     => action.to_sym,
           :__ac_context__    => options[:context] || :current_context
         )
-        Registry.register(permissions, metadata)
-      end
-
-    private
-
-      def mark_as_public(action)
-        (PublicActions[self.name] ||= []) << action.to_sym
+        Registry.register(options[:with], metadata)
       end
 
     end

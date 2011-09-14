@@ -58,9 +58,10 @@ module AccessControl
 
     describe ".protect" do
 
-      it "registers permissions with __ac_controller__ and __ac_action__" do
+      it "registers permissions with __ac_controller__, __ac_action__ and "\
+         "__ac_context__" do
         Registry.should_receive(:register).with(
-          Set.new(['the contents of the :with option']),
+          'the contents of the :with option',
           :__ac_controller__ => 'RecordsController',
           :__ac_action__ => :some_action,
           :__ac_context__ => :current_context
@@ -71,7 +72,7 @@ module AccessControl
 
       it "registers additional metadata under :data option" do
         Registry.should_receive(:register).with(
-          Set.new(['the contents of the :with option']),
+          'the contents of the :with option',
           :metadata => 'value',
           :__ac_controller__ => 'RecordsController',
           :__ac_action__ => :some_action,
@@ -86,7 +87,7 @@ module AccessControl
 
       it "doesn't register values outside :data option" do
         Registry.should_receive(:register).with(
-          Set.new(['the contents of the :with option']),
+          'the contents of the :with option',
           :metadata => 'value',
           :__ac_controller__ => 'RecordsController',
           :__ac_action__ => :some_action,
@@ -100,30 +101,12 @@ module AccessControl
         )
       end
 
-      it "accepts multiple permissions as an array" do
-        Registry.should_receive(:register).with(
-          Set.new(['permission 1', 'permission 2']), instance_of(Hash)
-        )
-        records_controller.class.
-          protect(:some_action, :with => ['permission 1', 'permission 2'])
-      end
-
-      it "accepts multiple permissions as an set" do
-        Registry.should_receive(:register).with(
-          Set.new(['permission 1', 'permission 2']), instance_of(Hash)
-        )
-        records_controller.class.protect(
-          :some_action,
-          :with => Set.new(['permission 1', 'permission 2'])
-        )
-      end
-
       describe ":context" do
 
         it "overrides the default value of __ac_context__ metadata" do
           context = stub('the contents of the context option')
           Registry.should_receive(:register).with(
-            Set.new(['the contents of the :with option']),
+            'the contents of the :with option',
             :__ac_controller__ => 'RecordsController',
             :__ac_action__ => :some_action,
             :__ac_context__ => context
@@ -144,41 +127,12 @@ module AccessControl
           should be_false
       end
 
-      describe "with AccessControl::PUBLIC" do
-
-        it "marks the action as public" do
-          records_controller.class.protect :some_action, :with => PUBLIC
-          records_controller.class.action_public?(:some_action).
-            should be_true
-        end
-
-        describe "if PUBLIC isn't passed alone" do
-
-          it "raises error" do
-            lambda {
-              records_controller.class.
-                protect :some_action, :with => [PUBLIC, 'some permission']
-            }.should raise_exception(ArgumentError)
-          end
-
-          it "doesn't mark action as public" do
-            records_controller.class.
-              protect :some_action, :with => [PUBLIC, 'some permission'] \
-                rescue nil
-            records_controller.class.action_public?(:some_action).
-              should be_false
-          end
-
-        end
-      end
-
     end
 
     describe "action publication" do
-      it "calls protect with AccessControl::PUBLIC" do
-        records_controller.class.should_receive(:protect).
-          with(:some_action, :with => AccessControl::PUBLIC)
+      it "marks the action as public" do
         records_controller.class.publish :some_action
+        records_controller.class.action_public?(:some_action).should be_true
       end
     end
 
