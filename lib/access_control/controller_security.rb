@@ -10,14 +10,14 @@ module AccessControl
   # The public permission.
   PUBLIC = Object.new
 
-  ProtectedActions = {}
+  PublicActions = {}
 
   module ControllerSecurity
 
     module ClassMethods
 
-      def action_protected?(action)
-        (ProtectedActions[self.name] || []).include?(action.to_sym)
+      def action_public?(action)
+        (PublicActions[self.name] || []).include?(action.to_sym)
       end
 
       def publish action
@@ -26,45 +26,25 @@ module AccessControl
 
       def protect action, options
         permissions = Set.new(Array(options[:with]))
-
         if permissions.include?(PUBLIC)
           if permissions.size != 1
             raise ArgumentError, 'PUBLIC cannot be used with other permissions'
           end
-          mark_as_protected(action)
+          mark_as_public(action)
           return
         end
-
-        mark_as_protected(action)
-        Registry.register(permissions, options[:data] || {})
-
-        before_filter :only => action do |controller|
-
-          context = nil
-          case options[:context]
-          when Symbol, String
-            if options[:context].to_s.starts_with?('@')
-              context = controller.instance_variable_get(options[:context])
-            else
-              context = controller.send(options[:context])
-            end
-          when Proc
-            context = options[:context].call(controller)
-          else
-            context = controller.send(:current_context)
-          end
-
-          raise AccessControl::NoContextError unless context
-
-          AccessControl.manager.can!(permissions, context) \
-            if AccessControl.controller_security_enabled?
-        end
+        metadata = (options[:data] || {}).merge(
+          :__ac_controller__ => self.name,
+          :__ac_action__     => action.to_sym,
+          :__ac_context__    => options[:context] || :current_context
+        )
+        Registry.register(permissions, metadata)
       end
 
     private
 
-      def mark_as_protected(action)
-        (ProtectedActions[self.name] ||= []) << action.to_sym
+      def mark_as_public(action)
+        (PublicActions[self.name] ||= []) << action.to_sym
       end
 
     end
@@ -75,7 +55,7 @@ module AccessControl
         base.extend(AccessControl::ControllerSecurity::ClassMethods)
         base.class_eval do
           alias_method_chain :process, :manager
-          before_filter :ensure_action_protected
+          before_filter :verify_permissions
         end
       end
 
@@ -87,10 +67,43 @@ module AccessControl
 
     private
 
-      def ensure_action_protected
-        if !self.class.action_protected?(params['action'].to_sym)
-          raise MissingPermissionDeclaration, params['action']
+      def verify_permissions
+        return true if self.class.action_public?(params[:action])
+        return true unless AccessControl.controller_security_enabled?
+        default_metadata = {
+          :__ac_controller__ => self.class.name,
+          :__ac_action__     => params[:action].to_sym
+        }
+        effective_permissions = Registry.query(default_metadata)
+        raise MissingPermissionDeclaration if effective_permissions.empty?
+        all_permissions = Registry.all_with_metadata
+        effective_permissions.each do |permission|
+          # We are sure to detect the right metadata because we queried for it
+          # above.
+          metadata = all_permissions[permission].detect do |m|
+            m[:__ac_controller__] == default_metadata[:__ac_controller__] &&
+              m[:__ac_action__]   == default_metadata[:__ac_action__]
+          end
+          AccessControl.manager.can!(permission,
+                                     fetch_context(metadata[:__ac_context__]))
         end
+      end
+
+      def fetch_context(context_designator)
+        validate_context(
+          if context_designator.is_a?(Proc)
+            context_designator.call(self)
+          elsif context_designator.to_s =~ /^@.+/
+            instance_variable_get(context_designator)
+          else
+            send(context_designator)
+          end
+        )
+      end
+
+      def validate_context(context)
+        raise AccessControl::NoContextError unless context
+        context
       end
 
       def current_context
