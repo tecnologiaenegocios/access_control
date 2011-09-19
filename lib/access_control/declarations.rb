@@ -9,6 +9,8 @@ module AccessControl
       base.extend(ClassMethods)
     end
 
+    Requirements = {}
+
     module ClassMethods
 
       [:show, :index, :create, :update, :destroy].each do |t|
@@ -30,13 +32,13 @@ module AccessControl
     private
 
       def permission_requirement(type)
-        (@permission_requirements ||= {})[type] ||= Requirement.new(self, type)
+        (Requirements[self.name] ||= {})[type] ||= Requirement.new(self, type)
       end
 
       class Requirement
 
         def initialize(owner, type)
-          @owner = owner
+          @owner_name = owner.name
           @type = type
           @declared_no_permissions = false
           @declared = Set.new
@@ -88,7 +90,7 @@ module AccessControl
         end
 
         def superclass
-          @owner.superclass
+          @owner_name.constantize.superclass
         end
 
         def config

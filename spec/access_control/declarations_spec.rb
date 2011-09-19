@@ -4,24 +4,44 @@ require 'access_control/declarations'
 module AccessControl
   describe Declarations do
 
+    def set_model(model_name='Record', superclass=Object)
+      Object.const_set(model_name, Class.new(superclass){include Declarations})
+    end
+
+    def unset_model(model_name='Record')
+      Object.send(:remove_const, model_name)
+    end
+
+    def model(name='Record')
+      name.constantize
+    end
+
+    let(:config) { mock('config') }
+
+    before do
+      set_model
+      AccessControl.stub(:config).and_return(config)
+      Declarations::Requirements.clear
+    end
+
+    after do
+      unset_model
+    end
+
     [
-      ["show requirement",    'show',     'view'],
-      ["index requirement",   'index',    'list'],
-      ["create requirement",  'create',   'add'],
-      ["update requirement",  'update',   'modify'],
-      ["destroy requirement", 'destroy',  'delete'],
-    ].each do |r, t, default|
+      ['show',    'view'],
+      ['index',   'list'],
+      ['create',  'add'],
+      ['update',  'modify'],
+      ['destroy', 'delete'],
+    ].each do |t, default|
 
-      let(:model) { Class.new { def self.name; 'Record'; end } }
-      let(:config) { mock('config') }
+      describe "#{t} requirement" do
 
-      before do
-        model.send(:include, Declarations)
-        AccessControl.stub(:config).and_return(config)
-        config.stub("default_#{t}_permissions").and_return(default_permission)
-      end
-
-      describe r do
+        before do
+          config.stub("default_#{t}_permissions").
+            and_return(default_permission)
+        end
 
         let(:default_permission) { Set.new([default]) }
 
@@ -84,28 +104,31 @@ module AccessControl
         end
 
         it "can be inherited by subclasses" do
-          subclass = Class.new(model)
+          subclass = set_model('SubRecord', model)
           model.send("#{t}_requires", 'some permission')
           subclass.send("permissions_required_to_#{t}").
             should == Set.new(['some permission'])
+          unset_model('SubRecord')
         end
 
         it "can be changed in subclasses" do
-          subclass = Class.new(model)
+          subclass = set_model('SubRecord', model)
           model.send("#{t}_requires", 'some permission')
           subclass.send("#{t}_requires", 'another permission')
           subclass.send("permissions_required_to_#{t}").
             should == Set.new(['another permission'])
+          unset_model('SubRecord')
         end
 
         it "doesn't mess with superclass' value" do
-          subclass = Class.new(model)
+          subclass = set_model('SubRecord', model)
           model.send("#{t}_requires", 'some permission')
           subclass.send("#{t}_requires", 'another permission')
           subclass.send("permissions_required_to_#{t}").
             should == Set.new(['another permission'])
           model.send("permissions_required_to_#{t}").
             should == Set.new(['some permission'])
+          unset_model('SubRecord')
         end
 
         it "informs Registry about the permissions" do
@@ -119,9 +142,28 @@ module AccessControl
           model.send("#{t}_requires", nil)
         end
 
+        describe "when model is reloaded" do
+
+          it "keeps the permissions" do
+            model.send("#{t}_requires", 'some permission')
+            unset_model
+            set_model
+            model.send("permissions_required_to_#{t}").
+              should == Set.new(['some permission'])
+          end
+
+          it "keeps an empty requirement" do
+            model.send("#{t}_requires", nil)
+            unset_model
+            set_model
+            model.send("permissions_required_to_#{t}").should == Set.new
+          end
+
+        end
+
       end
 
-      describe "additional #{r}" do
+      describe "additional #{t} requirement" do
 
         let(:default_permission) { Set.new([default]) }
 
@@ -171,32 +213,35 @@ module AccessControl
         it "combines permissions from superclasses" do
           # Config is not taken into account because of the explicit
           # declaration.
-          subclass = Class.new(model)
+          subclass = set_model('SubRecord', model)
           model.send("#{t}_requires", 'some permission')
           subclass.send("add_#{t}_requirement", "another permission")
           subclass.send("permissions_required_to_#{t}").
             should == Set.new(['some permission', 'another permission'])
+          unset_model('SubRecord')
         end
 
         it "doesn't mess with superclass' value" do
           # Config is not taken into account because of the explicit
           # declaration.
-          subclass = Class.new(model)
+          subclass = set_model('SubRecord', model)
           model.send("#{t}_requires", 'some permission')
           subclass.send("add_#{t}_requirement", 'another permission')
           model.send("permissions_required_to_#{t}").
             should == Set.new(['some permission'])
+          unset_model('SubRecord')
         end
 
         it "combines permissions from superclasses and config" do
           config.stub("default_#{t}_permissions").
             and_return(Set.new(['permission one']))
-          subclass = Class.new(model)
+          subclass = set_model('SubRecord', model)
           model.send("add_#{t}_requirement", 'permission two')
           subclass.send("add_#{t}_requirement", 'permission three')
           subclass.send("permissions_required_to_#{t}").
             should == Set.new(['permission one', 'permission two',
                                'permission three'])
+          unset_model('SubRecord')
         end
 
         it "informs Registry about the permissions" do
@@ -204,6 +249,19 @@ module AccessControl
             with('some permission', :metadata => 'value')
           model.send("add_#{t}_requirement", 'some permission',
                      :metadata => 'value')
+        end
+
+        describe "when model is reloaded" do
+
+          it "keeps the permissions" do
+            config.stub("default_#{t}_permissions").and_return(Set.new)
+            model.send("add_#{t}_requirement", 'some permission')
+            unset_model
+            set_model
+            model.send("permissions_required_to_#{t}").
+              should == Set.new(['some permission'])
+          end
+
         end
 
       end
