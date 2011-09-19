@@ -1,17 +1,35 @@
 require 'spec_helper'
 require 'access_control/method_protection'
 
+# TODO Merge this with ControllerSecurity.protect.  Their API's work (almost)
+# the same.
+
 module AccessControl
   describe MethodProtection do
 
     let(:manager) { mock('manager') }
-    let(:klass) { Class.new { include MethodProtection } }
+
+    def set_class
+      Object.const_set('TheClass', Class.new{ include MethodProtection })
+    end
+
+    def unset_class
+      Object.send(:remove_const, 'TheClass')
+    end
+
+    def klass
+      TheClass
+    end
 
     before do
+      set_class
       AccessControl.stub(:manager).and_return(manager)
-      Registry.stub!(:register)
       manager.stub(:can!)
-      klass.stub(:name).and_return('TheClassName')
+    end
+
+    after do
+      unset_class
+      Registry.clear_registry
     end
 
     describe ".protect" do
@@ -40,65 +58,61 @@ module AccessControl
 
       it "registers permissions with metadata provided" do
         Registry.should_receive(:register).
-          with('some permission', :metadata => 'value')
+          with('some permission', hash_including(:metadata => 'value'))
         klass.protect(:some_method, :with => 'some permission',
                       :data => { :metadata => 'value'})
       end
 
-      describe "on regular methods" do
+      describe "regular and dynamic methods" do
 
-        before do
+        def set_methods
           klass.class_eval do
-            protect :some_method, :with => 'some permission'
-            def some_method
+            def regular_method
               'result'
             end
-          end
-        end
-
-        [:new, :allocate].each do |creation_method|
-          it "checks permissions when the method is called "\
-             "(using #{creation_method})" do
-            instance = klass.send(creation_method)
-            manager.should_receive(:can!).
-              with(Set.new(['some permission']), instance)
-            instance.some_method
-          end
-
-          it "returns what the method returns if allowed" do
-            manager.stub(:can!)
-            klass.send(creation_method).some_method.should == 'result'
-          end
-        end
-
-      end
-
-      describe "on dynamic methods" do
-
-        let(:new_instance) { klass.new }
-        let(:allocated_instance) { klass.allocate }
-
-        before do
-          klass.class_eval do
-            protect :some_method, :with => 'some permission'
             def method_missing method_name, *args, &block
               'result'
             end
           end
         end
 
-        [:new, :allocate].each do |creation_method|
-          it "checks permissions when the method is called "\
-             "(using #{creation_method})" do
-            instance = klass.send(creation_method)
-            manager.should_receive(:can!).
-              with(Set.new(['some permission']), instance)
-            instance.some_method
+        before do
+          set_methods
+          klass.class_eval do
+            protect :regular_method, :with => 'some permission'
+            protect :dynamic_method, :with => 'some permission'
           end
+        end
 
-          it "returns what the method returns if allowed" do
-            manager.stub(:can!)
-            klass.send(creation_method).some_method.should == 'result'
+        [:new, :allocate].each do |creation_method|
+          [:regular_method, :dynamic_method].each do |meth|
+            describe "using .#{creation_method}" do
+              describe "calling ##{meth}" do
+
+                it "checks permissions when the method is called " do
+                  instance = klass.send(creation_method)
+                  manager.should_receive(:can!).
+                    with(Set.new(['some permission']), instance)
+                  instance.send(meth)
+                end
+
+                it "checks permissions even if class is reloaded" do
+                  unset_class
+                  set_class
+                  set_methods
+                  instance = klass.send(creation_method)
+                  manager.should_receive(:can!).
+                    with(Set.new(['some permission']), instance)
+                  instance.send(meth)
+                end
+
+                it "returns what the method returns if allowed" do
+                  manager.stub(:can!)
+                  klass.send(creation_method).send(meth).should == 'result'
+                end
+
+              end
+            end
           end
         end
 

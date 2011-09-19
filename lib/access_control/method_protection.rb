@@ -1,17 +1,20 @@
+require 'access_control/registry'
+
 module AccessControl
 
   # Test if Class#new calls Class#allocate when Class#allocate is overridden.
   #
-  # In some Ruby implementations, like Rubinius, #new calls #allocate even if
-  # it is overridden, unlike in MRI where #new calls only the C implementation
-  # of #allocate (effectively skipping the overridden implementation).  So in
-  # the platforms where #new calls the overridden #allocate we don't do our
+  # In some Ruby implementations, like Rubinius, .new calls .allocate even if
+  # it is overridden, unlike in MRI where .new calls only the C implementation
+  # of #allocate (effectively skipping the overriding implementation).  So in
+  # the platforms where .new calls the overridden .allocate we don't do our
   # dark wizardry for instance creation twice, since it is enough to do it by
-  # overriding #allocate.  On the other hand, if #new only calls the low-level
-  # implementation, we need to do our magic in #new and #allocate.
+  # overriding .allocate.  On the other hand, if .new only calls the low-level
+  # implementation directly, we need to do our magic in .allocate and in .new
+  # as well.
   #
-  # But why the hell one wants to override #allocate?  Isn't #new just as good?
-  # No.  ActiveRecord calls #allocate to create instances from #find, and even
+  # But why the hell one wants to override .allocate?  Isn't .new just as good?
+  # No.  ActiveRecord calls .allocate to create instances from .find, and even
   # then we want our funny tricks working.
   def self.new_calls_allocate?
     return @new_calls_allocate unless @new_calls_allocate.nil?
@@ -36,22 +39,50 @@ module AccessControl
       base.extend(ClassMethods)
     end
 
+    class Protector
+      def initialize(klass)
+        @class_name = klass.name
+      end
+      def get_permissions_for(method_name)
+        Registry.query(
+          :__ac_class__  => @class_name,
+          :__ac_method__ => method_name.to_sym
+        )
+      end
+      def set_permissions_for(method_name, options)
+        Registry.register(options[:with], (options[:data] || {}).merge(
+          :__ac_class__  => @class_name,
+          :__ac_method__ => method_name.to_sym
+        ))
+      end
+      def restricted_methods
+        Registry.query(:__ac_class__ => @class_name).inject([]) do |m, p|
+          Registry.all_with_metadata[p].each do |metadata|
+            if metadata.include?(:__ac_method__)
+              m << metadata[:__ac_method__]
+            end
+          end
+          m
+        end
+      end
+    end
+
     module ClassMethods
 
       def protect method_name, options
-        Registry.register(permissions = options[:with], options[:data] || {})
-        permissions_for_methods[method_name.to_s].merge(permissions)
+        Protector.new(self).set_permissions_for(method_name, options)
       end
 
       def permissions_for method_name
-        permissions_for_methods[method_name.to_s]
+        Protector.new(self).get_permissions_for(method_name)
       end
 
-      def new *args
-        return super if AccessControl.new_calls_allocate?
-        instance = super
-        protect_methods!(instance)
-        instance
+      unless AccessControl.new_calls_allocate?
+        def new *args
+          instance = super
+          protect_methods!(instance)
+          instance
+        end
       end
 
       def allocate
@@ -62,12 +93,8 @@ module AccessControl
 
     private
 
-      def permissions_for_methods
-        @ac_permissions_for_methods ||= Hash.new{|h, k| h[k] = Set.new}
-      end
-
       def protect_methods! instance
-        permissions_for_methods.keys.each do |m|
+        Protector.new(self).restricted_methods.each do |m|
           (class << instance; self; end;).class_eval do
             define_method(m) do
               AccessControl.manager.can!(
