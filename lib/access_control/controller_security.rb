@@ -57,7 +57,11 @@ module AccessControl
           :__ac_action__     => params[:action].to_sym
         }
         effective_permissions = Registry.query(default_metadata)
-        raise MissingPermissionDeclaration if effective_permissions.empty?
+        raise(
+          MissingPermissionDeclaration,
+          "#{self.class.name}##{params[:action]} is missing permission "\
+          "declaration"
+        ) if effective_permissions.empty?
         all_permissions = Registry.all_with_metadata
         effective_permissions.each do |permission|
           # We are sure to detect the right metadata because we queried for it
