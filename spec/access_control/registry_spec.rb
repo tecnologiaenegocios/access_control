@@ -235,6 +235,11 @@ module AccessControl
           Registry.all_with_metadata[p].should include({})
         end
 
+        it "accepts metadata" do
+          Registry.register_undeclared_permissions(:key => 'value')
+          Registry.all_with_metadata[p].should include({:key => 'value'})
+        end
+
         it "is called during initialization phase (so '#{p}' is registered)" do
           # We can't test this in Registry object because it is being cleared
           # in the top "before" block.

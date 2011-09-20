@@ -30,12 +30,12 @@ module AccessControl
       @permissions_with_metadata
     end
 
-    def register_undeclared_permissions
+    def register_undeclared_permissions(metadata={})
       register([
         'grant_roles',
         'share_own_roles',
         'change_inheritance_blocking'
-      ])
+      ], metadata)
     end
 
     def query(*criteria)
