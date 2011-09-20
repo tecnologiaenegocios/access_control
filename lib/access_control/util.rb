@@ -4,10 +4,11 @@ module AccessControl
 
     class << self
 
-      def log_missing_permissions requirements, current, trace
+      def log_missing_permissions requirements, current, roles, trace
         AccessControl::Logger.log_missing_permissions(
           make_set_from_args(requirements),
           make_set_from_args(current),
+          make_set_from_args(roles),
           trace
         )
       end
@@ -53,11 +54,15 @@ module AccessControl
         permissions.to_a.map(&:inspect).to_sentence(:locale => 'en')
       end
 
-      def format_unauthorized_message missing_permissions
+      def format_current_roles roles
+        roles.to_a.map(&:name).to_sentence(:locale => 'en')
+      end
+
+      def format_unauthorized_message missing_permissions, current_roles
         principals = AccessControl.manager.principal_ids
         msg = "Access denied for principal(s) #{
           principals.to_sentence(:locale => 'en')
-        }: missing #{missing_permissions}"
+        } (roles: #{current_roles}): missing #{missing_permissions}"
         if ActiveRecord::Base.colorize_logging
           return "  \e[31;1m#{msg}\e[0m\n"
         end
@@ -72,10 +77,11 @@ module AccessControl
         base
       end
 
-      def log_missing_permissions requirements, current, trace
+      def log_missing_permissions requirements, current, roles, trace
         missing_permissions = format_permissions(requirements - current)
+        current_roles = format_current_roles(roles)
         Rails.logger.info(
-          format_unauthorized_message(missing_permissions) +
+          format_unauthorized_message(missing_permissions, current_roles) +
           format_trace(trace)
         )
       end

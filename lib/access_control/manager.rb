@@ -54,6 +54,7 @@ module AccessControl
       return if can?(permissions, nodes)
       Util.log_missing_permissions(permissions,
                                    permissions_in_context(nodes),
+                                   roles_in_context(nodes),
                                    caller)
       raise Unauthorized
     end
@@ -100,6 +101,12 @@ module AccessControl
     def permissions_in_context *args
       Context.new(args).nodes.inject(Set.new) do |permissions, node|
         permissions | PermissionInspector.new(node).permissions
+      end
+    end
+
+    def roles_in_context *args
+      Context.new(args).nodes.inject(Set.new) do |roles, node|
+        roles | PermissionInspector.new(node).current_roles
       end
     end
 

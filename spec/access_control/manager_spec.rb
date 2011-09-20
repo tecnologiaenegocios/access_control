@@ -272,6 +272,7 @@ module AccessControl
 
       before do
         inspector.stub(:permissions).and_return(Set.new)
+        inspector.stub(:current_roles).and_return(Set.new)
         PermissionInspector.stub(:new).and_return(inspector)
         Context.stub(:new).and_return(context)
         AccessControl::Util.stub(:log_missing_permissions)
@@ -303,8 +304,11 @@ module AccessControl
         manager.stub(:can?).and_return(false)
         inspector.should_receive(:permissions).
           and_return(Set.new(['permissions']))
+        inspector.should_receive(:current_roles).
+          and_return(Set.new(['roles']))
         AccessControl::Util.should_receive(:log_missing_permissions).
-          with('some permissions', Set.new(['permissions']), instance_of(Array))
+          with('some permissions', Set.new(['permissions']),
+               Set.new(['roles']), instance_of(Array))
         lambda {
           manager.can!('some permissions', 'some context')
         }.should raise_exception(::AccessControl::Unauthorized)
