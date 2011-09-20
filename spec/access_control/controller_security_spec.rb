@@ -11,8 +11,8 @@ module AccessControl
 
   describe ControllerSecurity do
 
-    let(:base) do
-      Class.new(ActionController::Base) do
+    def make_app_controller
+      base = Class.new(ActionController::Base) do
         def process_without_filters(req, resp, method=:perform_action, *args)
           perform_the_action
         end
@@ -22,18 +22,29 @@ module AccessControl
           send(action_name) unless @before_filter_chain_aborted
           run_after_filters(chain, index)
         end
-        def process_with_block(&block)
+        def process(&block)
           @action_block = block
-          process_without_block(nil, nil)
+          super(nil, nil)
         end
-        alias_method :process_without_block, :process
-        alias_method :process, :process_with_block
         def action_name
           'some_action'
         end
       end
+
+      # Why ApplicationController1 and not ApplicationController?  Because our
+      # spec/app/app/controllers folder already has one ApplicationController
+      # constant.  And why don't we just use anonymous classes?  Because having
+      # a name is a requirement for before_filters.
+      Object.const_set('ApplicationController1', Class.new(base))
+
+      ApplicationController1.class_eval do
+        # before_filter :authenticate
+        # The callback bellow must be placed after the authentication callback.
+        before_filter :verify_permissions
+      end
     end
-    let(:records_controller_class) { Class.new(base) }
+
+    let(:records_controller_class) { Class.new(ApplicationController1) }
     let(:records_controller) do
       records_controller_class.new
     end
@@ -41,6 +52,7 @@ module AccessControl
     let(:manager) { mock('manager') }
 
     before do
+      make_app_controller
       records_controller.stub(:params).and_return(params)
       records_controller_class.stub(:name).and_return('RecordsController')
       records_controller_class.class_eval do
@@ -54,6 +66,10 @@ module AccessControl
       AccessControl.stub(:manager).and_return(manager)
       AccessControl.stub(:no_manager)
       AccessControl::PublicActions.clear
+    end
+
+    after do
+      Object.send(:remove_const, 'ApplicationController1')
     end
 
     describe ".protect" do

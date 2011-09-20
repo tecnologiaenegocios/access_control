@@ -38,7 +38,6 @@ module AccessControl
         base.extend(AccessControl::ControllerSecurity::ClassMethods)
         base.class_eval do
           alias_method_chain :process, :manager
-          before_filter :verify_permissions
         end
       end
 
