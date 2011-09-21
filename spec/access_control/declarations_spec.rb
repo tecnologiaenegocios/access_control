@@ -68,6 +68,12 @@ module AccessControl
             should == Set.new(['some permission'])
         end
 
+        specify "querying returns only permissions, not metadata" do
+          model.send("#{t}_requires", 'some permission', :metadata => 'value')
+          model.send("permissions_required_to_#{t}").
+            should == Set.new(['some permission'])
+        end
+
         it "accepts a list of arguments" do
           model.send("#{t}_requires", 'some permission', 'another permission')
           model.send("permissions_required_to_#{t}").
@@ -177,6 +183,14 @@ module AccessControl
           model.send("add_#{t}_requirement", 'another permission')
           model.send("permissions_required_to_#{t}").
             should == Set.new(['some permission', 'another permission'])
+        end
+
+        specify "querying returns only permissions, not metadata" do
+          config.stub("default_#{t}_permissions").and_return(Set.new)
+          model.send("add_#{t}_requirement", 'some permission',
+                     :metadata => 'value')
+          model.send("permissions_required_to_#{t}").
+            should == Set.new(['some permission'])
         end
 
         it "accepts a list of arguments" do

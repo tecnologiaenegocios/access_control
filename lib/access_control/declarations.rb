@@ -57,7 +57,8 @@ module AccessControl
         end
 
         def add(*permissions)
-          register(*permissions)
+          metadata = permissions.extract_options!
+          register(*(permissions + [metadata]))
           @added = Util.make_set_from_args(*permissions)
         end
 
