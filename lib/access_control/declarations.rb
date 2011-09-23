@@ -29,10 +29,32 @@ module AccessControl
 
       end
 
+      def allocate
+        check_missing_declarations!
+        super
+      end
+
+      unless AccessControl::Util.new_calls_allocate?
+        def new(*args)
+          check_missing_declarations!
+          super
+        end
+      end
+
     private
 
       def permission_requirement(type)
         (Requirements[self.name] ||= {})[type] ||= Requirement.new(self, type)
+      end
+
+      def check_missing_declarations!
+        [:show, :index, :create, :update, :destroy].each do |t|
+          if permission_requirement(t).get.empty? &&
+             !permission_requirement(t).declared_no_permissions?
+            raise MissingPermissionDeclaration,
+                  "expected to have declaration for #{t} in model #{name}"
+          end
+        end
       end
 
       class Requirement
@@ -65,14 +87,14 @@ module AccessControl
         def get
           return Set.new if declared_no_permissions?
           return @declared | @added if @declared.any?
-          assert_and_return(get_from_superclass_or_config | @added)
+          get_from_superclass_or_config | @added
         end
-
-      private
 
         def declared_no_permissions?
           !!@declared_no_permissions
         end
+
+      private
 
         def declared_no_permissions!
           @declared_no_permissions = true
@@ -96,11 +118,6 @@ module AccessControl
 
         def config
           AccessControl.config
-        end
-
-        def assert_and_return(values)
-          raise AccessControl::MissingPermissionDeclaration if values.empty?
-          values
         end
 
       end

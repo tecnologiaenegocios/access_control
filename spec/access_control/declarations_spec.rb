@@ -5,7 +5,15 @@ module AccessControl
   describe Declarations do
 
     def set_model(model_name='Record', superclass=Object)
-      Object.const_set(model_name, Class.new(superclass){include Declarations})
+      Object.const_set(model_name, Class.new(superclass) do
+        include Declarations
+        def initialize(foo=nil)
+          @foo = foo
+        end
+        def foo
+          @foo
+        end
+      end)
     end
 
     def unset_model(model_name='Record')
@@ -22,6 +30,15 @@ module AccessControl
       set_model
       AccessControl.stub(:config).and_return(config)
       Declarations::Requirements.clear
+      [
+        ['show',    'view'],
+        ['index',   'list'],
+        ['create',  'add'],
+        ['update',  'modify'],
+        ['destroy', 'delete'],
+      ].each do |t, default|
+        config.stub("default_#{t}_permissions").and_return(Set.new([default]))
+      end
     end
 
     after do
@@ -38,28 +55,10 @@ module AccessControl
 
       describe "#{t} requirement" do
 
-        before do
-          config.stub("default_#{t}_permissions").
-            and_return(default_permission)
-        end
-
         let(:default_permission) { Set.new([default]) }
 
         it "can be defined in the class level" do
           model.send("#{t}_requires", 'some permission')
-        end
-
-        it "requires at least one permission by default" do
-          config.stub("default_#{t}_permissions").and_return(Set.new)
-          lambda {
-            model.send("permissions_required_to_#{t}")
-          }.should raise_exception(MissingPermissionDeclaration)
-        end
-
-        it "doesn't require any permission if nil is set" do
-          config.stub("default_#{t}_permissions").and_return(Set.new)
-          model.send("#{t}_requires", nil)
-          model.send("permissions_required_to_#{t}").should == Set.new
         end
 
         it "can be queried in the class level" do
@@ -137,15 +136,71 @@ module AccessControl
           unset_model('SubRecord')
         end
 
+        it "can be set to nil, which means \"no permissions\"" do
+          model.send("#{t}_requires", nil)
+          model.send("permissions_required_to_#{t}").should be_empty
+        end
+
         it "informs Registry about the permissions" do
           Registry.should_receive(:register).
             with('some permission', :metadata => 'value')
           model.send("#{t}_requires", 'some permission', :metadata => 'value')
         end
 
-        it "doesn't inform Registry if passed nil" do
+        it "doesn't inform Registry if explicitly set no permissions" do
           Registry.should_not_receive(:register)
           model.send("#{t}_requires", nil)
+        end
+
+        it "requires at least one permission by default on allocation" do
+          config.stub("default_#{t}_permissions").and_return(Set.new)
+          lambda {
+            object = model.allocate
+          }.should raise_exception(MissingPermissionDeclaration)
+        end
+
+        it "requires at least one permission by default on instantiation" do
+          config.stub("default_#{t}_permissions").and_return(Set.new)
+          lambda {
+            object = model.new
+          }.should raise_exception(MissingPermissionDeclaration)
+        end
+
+        specify "allocation is fine if a permission is set in config" do
+          object = model.allocate
+          object.class.should == model
+        end
+
+        specify "allocation is fine if a permission is set in the model" do
+          model.send("#{t}_requires", 'some permission')
+          object = model.allocate
+          object.class.should == model
+        end
+
+        specify "allocation is fine if a permission is explicitly omitted" do
+          model.send("#{t}_requires", nil)
+          object = model.allocate
+          object.class.should == model
+        end
+
+        specify "instantiation is fine if a permission is set in config" do
+          object = model.new('foo')
+          object.class.should == model
+          object.foo.should == 'foo'
+        end
+
+        specify "instantiation is fine if a permission is set in the model" do
+          model.send("#{t}_requires", 'some permission')
+          object = model.new('foo')
+          object.class.should == model
+          object.foo.should == 'foo'
+        end
+
+        specify "instantiation is fine if a permission is explicitly omitted" do
+          model.send("#{t}_requires", nil)
+          object = model.new('foo')
+          object.class.should == model
+          object.foo.should == 'foo'
         end
 
         describe "when model is reloaded" do

@@ -1,38 +1,7 @@
 require 'access_control/registry'
+require 'access_control/util'
 
 module AccessControl
-
-  # Test if Class#new calls Class#allocate when Class#allocate is overridden.
-  #
-  # In some Ruby implementations, like Rubinius, .new calls .allocate even if
-  # it is overridden, unlike in MRI where .new calls only the C implementation
-  # of #allocate (effectively skipping the overriding implementation).  So in
-  # the platforms where .new calls the overridden .allocate we don't do our
-  # dark wizardry for instance creation twice, since it is enough to do it by
-  # overriding .allocate.  On the other hand, if .new only calls the low-level
-  # implementation directly, we need to do our magic in .allocate and in .new
-  # as well.
-  #
-  # But why the hell one wants to override .allocate?  Isn't .new just as good?
-  # No.  ActiveRecord calls .allocate to create instances from .find, and even
-  # then we want our funny tricks working.
-  def self.new_calls_allocate?
-    return @new_calls_allocate unless @new_calls_allocate.nil?
-    @new_calls_allocate = false
-    klass = Class.new do
-      def self.allocate
-        AccessControl.new_calls_allocate!
-        super
-      end
-    end
-    klass.new
-    @new_calls_allocate
-  end
-
-  def self.new_calls_allocate!
-    @new_calls_allocate = true
-  end
-
   module MethodProtection
 
     def self.included(base)
@@ -77,7 +46,7 @@ module AccessControl
         Protector.new(self).get_permissions_for(method_name)
       end
 
-      unless AccessControl.new_calls_allocate?
+      unless AccessControl::Util.new_calls_allocate?
         def new *args
           instance = super
           protect_methods!(instance)
