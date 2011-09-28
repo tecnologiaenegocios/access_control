@@ -23,8 +23,7 @@ module AccessControl
 
       def protect action, options
         metadata = (options[:data] || {}).merge(
-          :__ac_controller__ => self.name,
-          :__ac_action__     => action.to_sym,
+          :__ac_controller_action__ => [self.name, action.to_sym],
           :__ac_context__    => options[:context] || :current_context
         )
         Registry.register(options[:with], metadata)
@@ -52,23 +51,24 @@ module AccessControl
       def verify_permissions
         return true if self.class.action_public?(params[:action])
         return true unless AccessControl.controller_security_enabled?
+        metadata_key = :__ac_controller_action__
         default_metadata = {
-          :__ac_controller__ => self.class.name,
-          :__ac_action__     => params[:action].to_sym
+          metadata_key => [self.class.name, params[:action].to_sym]
         }
         effective_permissions = Registry.query(default_metadata)
+
         raise(
           MissingPermissionDeclaration,
           "#{self.class.name}##{params[:action]} is missing permission "\
           "declaration"
         ) if effective_permissions.empty?
+
         all_permissions = Registry.all_with_metadata
         effective_permissions.each do |permission|
           # We are sure to detect the right metadata because we queried for it
           # above.
           metadata = all_permissions[permission].detect do |m|
-            m[:__ac_controller__] == default_metadata[:__ac_controller__] &&
-              m[:__ac_action__]   == default_metadata[:__ac_action__]
+            m[metadata_key] == default_metadata[metadata_key]
           end
           AccessControl.manager.can!(permission,
                                      fetch_context(metadata[:__ac_context__]))

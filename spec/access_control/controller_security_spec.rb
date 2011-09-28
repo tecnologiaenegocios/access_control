@@ -78,8 +78,7 @@ module AccessControl
          "__ac_context__" do
         Registry.should_receive(:register).with(
           'the contents of the :with option',
-          :__ac_controller__ => 'RecordsController',
-          :__ac_action__ => :some_action,
+          :__ac_controller_action__ => ['RecordsController', :some_action],
           :__ac_context__ => :current_context
         )
         records_controller.class.
@@ -90,8 +89,7 @@ module AccessControl
         Registry.should_receive(:register).with(
           'the contents of the :with option',
           :metadata => 'value',
-          :__ac_controller__ => 'RecordsController',
-          :__ac_action__ => :some_action,
+          :__ac_controller_action__ => ['RecordsController', :some_action],
           :__ac_context__ => :current_context
         )
         records_controller.class.protect(
@@ -105,8 +103,7 @@ module AccessControl
         Registry.should_receive(:register).with(
           'the contents of the :with option',
           :metadata => 'value',
-          :__ac_controller__ => 'RecordsController',
-          :__ac_action__ => :some_action,
+          :__ac_controller_action__ => ['RecordsController', :some_action],
           :__ac_context__ => :current_context
         )
         records_controller.class.protect(
@@ -123,8 +120,7 @@ module AccessControl
           context = stub('the contents of the context option')
           Registry.should_receive(:register).with(
             'the contents of the :with option',
-            :__ac_controller__ => 'RecordsController',
-            :__ac_action__ => :some_action,
+            :__ac_controller_action__ => ['RecordsController', :some_action],
             :__ac_context__ => context
           )
           records_controller.class.protect(
@@ -162,8 +158,7 @@ module AccessControl
         Registry.stub(:query).and_return(Set.new(['some permission']))
         Registry.stub(:all_with_metadata).and_return({
           'some permission' => Set.new([{
-            :__ac_controller__ => 'RecordsController',
-            :__ac_action__     => :some_action,
+            :__ac_controller_action__ => ['RecordsController', :some_action],
             :__ac_context__    => default_context
           }, {:some_other_metadata => 'some other value'}])
         })
@@ -205,8 +200,7 @@ module AccessControl
           it "queries the Registry for a permission matching the controller "\
              "and action" do
             Registry.should_receive(:query).with(
-              :__ac_controller__ => 'RecordsController',
-              :__ac_action__ => :some_action
+              :__ac_controller_action__ => ['RecordsController', :some_action]
             ).and_return(Set.new(['some permission']))
             records_controller.process
           end
