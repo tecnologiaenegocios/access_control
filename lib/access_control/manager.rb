@@ -8,6 +8,7 @@ module AccessControl
 
     def initialize
       @restrict_queries = true
+      @restrict_assignment_or_unassignment = true
       @use_anonymous = false
     end
 
@@ -61,6 +62,7 @@ module AccessControl
 
     def can_assign_or_unassign? node, role
       return true if unrestrictable_user_logged_in?
+      return true unless restrict_assignment_or_unassignment?
       inspector = PermissionInspector.new(node)
       return true if inspector.has_permission?('grant_roles')
       return false unless inspector.has_permission?('share_own_roles')
@@ -84,12 +86,33 @@ module AccessControl
       really_restrict_queries?
     end
 
+    def restrict_assignment_or_unassignment!
+      @restrict_assignment_or_unassignment = true
+    end
+
+    def unrestrict_assignment_or_unassignment!
+      @restrict_assignment_or_unassignment = false
+    end
+
+    def restrict_assignment_or_unassignment?
+      return false if unrestrictable_user_logged_in?
+      @restrict_assignment_or_unassignment
+    end
+
     def without_query_restriction
       old_restriction_value = really_restrict_queries?
       unrestrict_queries!
       yield
     ensure
       restrict_queries! if old_restriction_value
+    end
+
+    def without_assignment_restriction
+      old_restriction_value = restrict_assignment_or_unassignment?
+      unrestrict_assignment_or_unassignment!
+      yield
+    ensure
+      restrict_assignment_or_unassignment! if old_restriction_value
     end
 
   private

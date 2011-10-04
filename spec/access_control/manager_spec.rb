@@ -316,15 +316,62 @@ module AccessControl
 
     end
 
+    describe "assignment verification flag" do
+
+      # The flag #(un)restrict_assignment_or_unassignment(!/?) controls whether
+      # or not assignment verification should be done.
+
+      before do
+        manager.use_anonymous! # Simulate a web request
+      end
+
+      describe "#restrict_assignment_or_unassignment?" do
+        it "is true by default" do
+          manager.restrict_assignment_or_unassignment?.should be_true
+        end
+
+        it "can be turned off by calling "\
+           "#unrestrict_assignment_or_unassignment!" do
+          manager.unrestrict_assignment_or_unassignment!
+          manager.restrict_assignment_or_unassignment?.should be_false
+        end
+
+        it "can be turned on by calling "\
+           "#restrict_assignment_or_unassignment!" do
+          manager.unrestrict_assignment_or_unassignment!
+          manager.restrict_assignment_or_unassignment!
+          manager.restrict_assignment_or_unassignment?.should be_true
+        end
+
+        describe "when the UnrestrictableUser is logged in" do
+
+          before do
+            manager.current_subjects = [UnrestrictableUser.instance]
+          end
+
+          it "returns false" do
+            manager.restrict_assignment_or_unassignment?.should be_false
+          end
+
+        end
+      end
+    end
+
     describe "#can_assign_or_unassign?" do
 
-      # In general: an assignment can be created/updated if the user
+      # In general: an assignment can be created/updated/destroyed if the user
+      # mets one of the following:
       #
       # - Has `grant_roles`.  This permission allows the user to grant roles
       # (that is, make assignments) anywhere, for any other principal)
       #
-      # - Has `share_own_roles`.  This perission allows the user to grant only
+      # - Has `share_own_roles`.  This permission allows the user to grant only
       # its roles to someone else.
+      #
+      # - Is the UnrestrictableUser.
+      #
+      # If the assignment/unassignment restriction flag is disabled then
+      # nothing is required from the user and there's no restriction.
 
       let(:node) { stub('node') }
       let(:role) { stub('role') }
@@ -383,8 +430,19 @@ module AccessControl
           manager.current_subjects = [UnrestrictableUser.instance]
         end
 
-        it "returns true without any further verification on node or "\
-           "role" do
+        it "returns true without any further verification on node or role" do
+          manager.can_assign_or_unassign?('any node', 'any role').should be_true
+        end
+
+      end
+
+      describe "when the restriction flag is disabled" do
+
+        before do
+          manager.stub(:restrict_assignment_or_unassignment?).and_return(false)
+        end
+
+        it "returns true without any further verification on node or role" do
           manager.can_assign_or_unassign?('any node', 'any role').should be_true
         end
 
@@ -455,28 +513,173 @@ module AccessControl
     describe "#without_query_restriction" do
 
       before do
-        manager.use_anonymous! # Simulate a web request
+        manager.stub(:use_anonymous?).and_return(true) # Simulate web request
       end
 
-      it "executes a block without query restriction" do
-        manager.restrict_queries!
-        manager.without_query_restriction do
+      describe "when restriction was restricted previously" do
+
+        before do
+          manager.restrict_queries!
+        end
+
+        it "executes a block without query restriction" do
+          manager.restrict_queries!
+          manager.without_query_restriction do
+            manager.restrict_queries?.should be_false
+          end
+        end
+
+        it "restricts queries after the block is run" do
+          manager.without_query_restriction {}
+          manager.restrict_queries?.should be_true
+        end
+
+        it "restricts queries even if the block raises an exception" do
+          manager.without_query_restriction {
+            raise StandardError
+          } rescue nil
+          manager.restrict_queries?.should be_true
+        end
+
+        it "raises any exception the block have raised" do
+          exception = Class.new(StandardError)
+          lambda {
+            manager.without_query_restriction { raise exception }
+          }.should raise_exception(exception)
+        end
+
+        it "returns the value returned by the block" do
+          manager.without_query_restriction{'a value returned by the block'}.
+            should == 'a value returned by the block'
+        end
+
+      end
+
+      describe "when restriction was unrestricted previously" do
+
+        before do
+          manager.unrestrict_queries!
+        end
+
+        it "executes a block without query restriction" do
+          manager.restrict_queries!
+          manager.without_query_restriction do
+            manager.restrict_queries?.should be_false
+          end
+        end
+
+        it "unrestricts queries after the block is run" do
+          manager.without_query_restriction {}
           manager.restrict_queries?.should be_false
         end
+
+        it "restricts queries even if the block raises an exception" do
+          manager.without_query_restriction {
+            raise StandardError
+          } rescue nil
+          manager.restrict_queries?.should be_false
+        end
+
+        it "raises any exception the block have raised" do
+          exception = Class.new(StandardError)
+          lambda {
+            manager.without_query_restriction { raise exception }
+          }.should raise_exception(exception)
+        end
+
+        it "returns the value returned by the block" do
+          manager.without_query_restriction{'a value returned by the block'}.
+            should == 'a value returned by the block'
+        end
+
       end
 
-      it "restores back the old value of the restriction flag" do
-        manager.restrict_queries!
-        manager.without_query_restriction {}
-        manager.restrict_queries?.should be_true
-        manager.unrestrict_queries!
-        manager.without_query_restriction {}
-        manager.restrict_queries?.should be_false
+    end
+
+    describe "#without_assignment_restriction" do
+
+      before do
+        manager.stub(:use_anonymous?).and_return(true) # Simulate web request
       end
 
-      it "returns the value returned by the block" do
-        manager.without_query_restriction{'a value returned by the block'}.
-          should == 'a value returned by the block'
+      describe "when restriction was restricted previously" do
+
+        before do
+          manager.restrict_assignment_or_unassignment!
+        end
+
+        it "executes a block without assignment restriction" do
+          manager.restrict_assignment_or_unassignment!
+          manager.without_assignment_restriction do
+            manager.restrict_assignment_or_unassignment?.should be_false
+          end
+        end
+
+        it "restricts assignments after the block is run" do
+          manager.without_assignment_restriction {}
+          manager.restrict_assignment_or_unassignment?.should be_true
+        end
+
+        it "restricts assignments even if the block raises an exception" do
+          manager.without_assignment_restriction {
+            raise StandardError
+          } rescue nil
+          manager.restrict_assignment_or_unassignment?.should be_true
+        end
+
+        it "raises any exception the block have raised" do
+          exception = Class.new(StandardError)
+          lambda {
+            manager.without_assignment_restriction { raise exception }
+          }.should raise_exception(exception)
+        end
+
+        it "returns the value returned by the block" do
+          manager.without_assignment_restriction {
+            'a value returned by the block'
+          }.should == 'a value returned by the block'
+        end
+
+      end
+
+      describe "when restriction was unrestricted previously" do
+
+        before do
+          manager.unrestrict_assignment_or_unassignment!
+        end
+
+        it "executes a block without assignment restriction" do
+          manager.restrict_assignment_or_unassignment!
+          manager.without_assignment_restriction do
+            manager.restrict_assignment_or_unassignment?.should be_false
+          end
+        end
+
+        it "unrestricts assignments after the block is run" do
+          manager.without_assignment_restriction {}
+          manager.restrict_assignment_or_unassignment?.should be_false
+        end
+
+        it "unrestricts assignments even if the block raises an exception" do
+          manager.without_assignment_restriction {
+            raise StandardError
+          } rescue nil
+          manager.restrict_assignment_or_unassignment?.should be_false
+        end
+
+        it "raises any exception the block have raised" do
+          exception = Class.new(StandardError)
+          lambda {
+            manager.without_assignment_restriction { raise exception }
+          }.should raise_exception(exception)
+        end
+
+        it "returns the value returned by the block" do
+          manager.without_assignment_restriction {
+            'a value returned by the block'
+          }.should == 'a value returned by the block'
+        end
+
       end
 
     end
