@@ -23,16 +23,49 @@ module AccessControl
       Role.create!(:name => 'the role name')
     end
 
-    it "destroys assignments when it is destroyed" do
-      Principal.create_anonymous_principal!
-      Node.create_global_node!
-      manager.stub(:can_assign_or_unassign?).and_return(true)
-      role = Role.create!(:name => 'the role name')
-      Assignment.create!(:role => role,
-                         :node => Node.global,
-                         :principal => Principal.anonymous)
-      role.destroy
-      Assignment.count.should == 0
+    describe "assignment destruction" do
+
+      let(:assignment) do
+        stub_model(Assignment, :[]= => true, :save => true)
+      end
+
+      let(:role) do
+        Role.new(:name => 'the role name')
+      end
+
+      before do
+        Object.const_set('TestPoint', stub('testpoint'))
+        role.assignments << assignment
+      end
+
+      after do
+        Object.send(:remove_const, 'TestPoint')
+      end
+
+      it "destroys assignments when it is destroyed" do
+        assignment.should_receive(:destroy)
+        role.destroy
+      end
+
+      it "destroys the assignment in a unrestricted block" do
+        TestPoint.should_receive(:before_yield).ordered
+        TestPoint.should_receive(:on_destroy).ordered
+        TestPoint.should_receive(:after_yield).ordered
+        manager.instance_eval do
+          def without_assignment_restriction
+            TestPoint.before_yield
+            yield
+            TestPoint.after_yield
+          end
+        end
+        assignment.instance_eval do
+          def destroy
+            TestPoint.on_destroy
+          end
+        end
+        role.destroy
+      end
+
     end
 
     it "destroys security policy items when it is destroyed" do

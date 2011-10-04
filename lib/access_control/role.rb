@@ -4,8 +4,11 @@ module AccessControl
     has_many :security_policy_items,
              :dependent => :destroy,
              :class_name => 'AccessControl::SecurityPolicyItem'
+
+    # This association is not marked as `:dependent => :destroy` because the
+    # destruction of the dependent items is done explicitly in a callback
+    # below.
     has_many :assignments,
-             :dependent => :destroy,
              :class_name => 'AccessControl::Assignment'
 
     validates_presence_of :name
@@ -19,6 +22,18 @@ module AccessControl
 
     def permissions
       Set.new(security_policy_items.map(&:permission))
+    end
+
+    before_destroy :destroy_dependant_assignments
+
+  private
+
+    def destroy_dependant_assignments
+      AccessControl.manager.without_assignment_restriction do
+        assignments.each do |assignment|
+          assignment.destroy
+        end
+      end
     end
   end
 end
