@@ -23,7 +23,7 @@ module AccessControl
       else
         if blocked_ids.any?
           ids = (blocked_ids - grantable.ids_with(permissions)).to_a
-          ["#{table_id} NOT IN (?)", ids]
+          ids.any? ? ["#{table_id} NOT IN (?)", ids] : '1'
         else
           filter ? ["#{table_id} IN (?)", filter] : '1'
         end

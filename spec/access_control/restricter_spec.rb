@@ -152,6 +152,18 @@ module AccessControl
               ["`table_name`.pk NOT IN (?)", invalid_ids.to_a]
           end
 
+          describe "when all blocked ids are granted" do
+
+            before do
+              grantable.stub(:ids_with).and_return(blockable.ids)
+            end
+
+            it "virtually adds no restriction" do
+              restricter_condition.should == '1'
+            end
+
+          end
+
         end
 
         describe "when there's no blocked id" do
