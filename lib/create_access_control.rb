@@ -15,53 +15,6 @@ class CreateAccessControl < ActiveRecord::Migration
     "
     add_index :ac_nodes, [:securable_type, :securable_id], :unique => true
 
-    create_table :ac_parents,
-                 :id => false,
-                 :options => 'ENGINE=InnoDB DEFAULT CHARSET=utf8' do |t|
-      t.integer :node_id, :limit => 8, :null => false
-      t.integer :parent_id, :limit => 8, :null => false
-    end
-    add_index :ac_parents, [:node_id, :parent_id], :unique => true
-    execute "
-      ALTER TABLE `ac_parents`
-        ADD CONSTRAINT `constraint_ac_parents_on_node_id`
-        FOREIGN KEY (`node_id`)
-        REFERENCES `ac_nodes`(`id`)
-        ON UPDATE CASCADE
-        ON DELETE RESTRICT
-    "
-    execute "
-      ALTER TABLE `ac_parents`
-        ADD CONSTRAINT `constraint_ac_parents_on_parent_id`
-        FOREIGN KEY (`parent_id`)
-        REFERENCES `ac_nodes`(`id`)
-        ON UPDATE CASCADE
-        ON DELETE RESTRICT
-    "
-
-    create_table :ac_paths,
-                 :id => false,
-                 :options => 'ENGINE=InnoDB DEFAULT CHARSET=utf8' do |t|
-      t.integer :ancestor_id, :limit => 8, :null => false
-      t.integer :descendant_id, :limit => 8, :null => false
-    end
-    add_index :ac_paths, [:ancestor_id, :descendant_id], :unique => true
-    execute "
-      ALTER TABLE `ac_paths`
-        ADD CONSTRAINT `constraint_ac_paths_on_ancestor_id`
-        FOREIGN KEY (`ancestor_id`)
-        REFERENCES `ac_nodes`(`id`)
-        ON UPDATE CASCADE
-        ON DELETE RESTRICT
-    "
-    execute "
-      ALTER TABLE `ac_paths`
-        ADD CONSTRAINT `constraint_ac_paths_on_descendant_id`
-        FOREIGN KEY (`descendant_id`)
-        REFERENCES `ac_nodes`(`id`)
-        ON UPDATE CASCADE
-        ON DELETE RESTRICT
-    "
 
     # This table is a wrapper for users/groups/whatever.
     create_table :ac_principals,
@@ -144,8 +97,6 @@ class CreateAccessControl < ActiveRecord::Migration
     drop_table :ac_security_policy_items
     drop_table :ac_roles
     drop_table :ac_principals
-    drop_table :ac_paths
-    drop_table :ac_parents
     drop_table :ac_nodes
   end
 end
