@@ -73,12 +73,49 @@ module AccessControl
         Node.create_global_node!
       end
 
-      it "destroys the dependant assignments when the node is destroyed" do
-        node = Node.new(:securable_type => 'Foo', :securable_id => 1)
-        assignment = stub_model(Assignment, :[]= => true, :save => true)
-        node.assignments << assignment
-        assignment.should_receive(:destroy)
-        node.destroy
+      describe "assignment destruction" do
+
+        let(:assignment) do
+          stub_model(Assignment, :[]= => true, :save => true)
+        end
+
+        let(:node) do
+          Node.new(:securable_type => 'Foo', :securable_id => 1)
+        end
+
+        before do
+          Object.const_set('TestPoint', stub('testpoint'))
+          node.assignments << assignment
+        end
+
+        after do
+          Object.send(:remove_const, 'TestPoint')
+        end
+
+        it "destroys the dependant assignments when the node is destroyed" do
+          assignment.should_receive(:destroy)
+          node.destroy
+        end
+
+        it "destroys the assignment in a unrestricted block" do
+          TestPoint.should_receive(:before_yield).ordered
+          TestPoint.should_receive(:on_destroy).ordered
+          TestPoint.should_receive(:after_yield).ordered
+          manager.instance_eval do
+            def without_assignment_restriction
+              TestPoint.before_yield
+              yield
+              TestPoint.after_yield
+            end
+          end
+          assignment.instance_eval do
+            def destroy
+              TestPoint.on_destroy
+            end
+          end
+          node.destroy
+        end
+
       end
 
       it "accepts nested attributes" do

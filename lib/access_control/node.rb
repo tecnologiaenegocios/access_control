@@ -34,11 +34,13 @@ module AccessControl
 
     end
 
+    # This association is not marked as `:dependent => :destroy` because the
+    # dependent destruction is done explicitly in a `before_destroy` callback
+    # below.
     has_many(
       :assignments,
       :foreign_key => :node_id,
-      :class_name => 'AccessControl::Assignment',
-      :dependent => :destroy
+      :class_name => 'AccessControl::Assignment'
     )
 
     accepts_nested_attributes_for :assignments, :allow_destroy => true
@@ -143,8 +145,17 @@ module AccessControl
     end
 
     after_create :set_default_roles
+    before_destroy :destroy_dependant_assignments
 
   private
+
+    def destroy_dependant_assignments
+      AccessControl.manager.without_assignment_restriction do
+        assignments.each do |assignment|
+          assignment.destroy
+        end
+      end
+    end
 
     def set_default_roles
       AccessControl.config.default_roles_on_create.each do |role|
