@@ -4,10 +4,6 @@ require 'access_control/security_policy_item'
 module AccessControl
   describe SecurityPolicyItem do
 
-    it "is not securable" do
-      SecurityPolicyItem.securable?.should be_false
-    end
-
     describe "mass-update/create/destroy items" do
 
       let(:item1) do

@@ -4,10 +4,6 @@ module AccessControl
     set_table_name :ac_security_policy_items
     belongs_to :role, :class_name => 'AccessControl::Role'
 
-    def self.securable?
-      false
-    end
-
     def self.mass_manage!(params)
       params ||= {}
       params = params.values if params.is_a?(Hash)
@@ -26,29 +22,27 @@ module AccessControl
     end
 
     def self.items_for_management roles
-      _all = all
-      all_by_permission_and_role = _all.group_by do |i|
-        i.permission
-      end.inject({}) do |h, (k, v)|
-        h[k] = v.group_by{|i| i.role_id}
-        h
-      end
-      (Registry.all | Set.new(_all.map(&:permission))).
-        inject({}) do |result, permission|
-          result[permission] = roles.map do |role|
-            if all_by_permission_and_role[permission] &&
-               item = all_by_permission_and_role[permission][role.id]
-              # item is an array, so get the first (hopefully the only) member.
-              next item.first
-            end
-            SecurityPolicyItem.new(:role_id => role.id,
-                                   :permission => permission)
-          end
-          unless Registry.all.include?(permission)
-            Util.log_unregistered_permission(permission)
-          end
-          result
+      all_by_permission_and_role =
+        all.group_by(&:permission).inject({}) do |h, (permission, items)|
+          h[permission] = items.group_by(&:role_id)
+          h
         end
+      permissions = (Registry.all | Set.new(all_by_permission_and_role.keys))
+      permissions.inject({}) do |result, permission|
+        result[permission] = roles.map do |role|
+          if all_by_permission_and_role[permission] &&
+              item = all_by_permission_and_role[permission][role.id]
+            # item is an array, so get the first (hopefully the only) member.
+            next item.first
+          end
+          SecurityPolicyItem.new(:role_id => role.id,
+                                  :permission => permission)
+        end
+        unless Registry.all.include?(permission)
+          Util.log_unregistered_permission(permission)
+        end
+        result
+      end
     end
 
     private
