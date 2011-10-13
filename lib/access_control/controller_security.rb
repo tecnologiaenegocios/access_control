@@ -93,7 +93,7 @@ module AccessControl
       end
 
       def current_context
-        Contextualizer.new(self).context
+        AccessControl::Node.global
       end
 
       def with_security
@@ -103,73 +103,6 @@ module AccessControl
         AccessControl::Principal.clear_anonymous_principal_cache
         AccessControl.no_manager
         AccessControl::Node.clear_global_node_cache
-      end
-
-      class Contextualizer
-
-        RESOURCE_ACTIONS = %w(show destroy edit update)
-        COLLECTION_ACTIONS = %w(index new create)
-
-        attr_reader :controller
-
-        def initialize controller
-          @controller = controller
-        end
-
-        def context
-          fetch_candidate_resource || AccessControl::Node.global
-        end
-
-      private
-
-        def fetch_candidate_resource
-          if resource_action?
-            fetch_resource
-          elsif collection_action?
-            fetch_parent
-          end
-        end
-
-        def resource_action?
-          RESOURCE_ACTIONS.include?(params[:action])
-        end
-
-        def params
-          controller.send(:params)
-        end
-
-        def fetch_resource
-          controller.instance_variable_get(expected_resource_var_name)
-        end
-
-        def expected_resource_var_name
-          '@' + controller_path.gsub('/', '_').singularize
-        end
-
-        def controller_path
-          controller.send(:controller_path)
-        end
-
-        def collection_action?
-          COLLECTION_ACTIONS.include?(params[:action])
-        end
-
-        def fetch_parent
-          var = expected_parent_var_name
-          var && controller.instance_variable_get(var)
-        end
-
-        def expected_parent_var_name
-          return unless route = ActionController::Routing::Routes.routes.select do |r|
-            r.matches_controller_and_action?(controller_path, params[:action]) &&
-              r.defaults[:controller] == controller_path
-          end.first
-          return unless segment = route.segments.reverse.detect do |s|
-            ActionController::Routing::DynamicSegment === s && !s.optional?
-          end
-          '@' + segment.key.to_s.gsub(/_id$/, '')
-        end
-
       end
 
     end

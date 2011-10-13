@@ -343,208 +343,21 @@ module AccessControl
 
     describe "#current_context" do
 
-      # This method should return one node for permission checking.  The
-      # default behaviour can vary if the user is accessing a single resource
-      # action or a collection action.  Currently, this is checked by the name
-      # of the action.  For special needs, there's the option :context in the
-      # `protect` method, which will allow customization of the security
-      # context, allowing even to return more than one context, in an array.
+      # This method should return one or mode nodes for permission checking,
+      # and it is meant to be overridden by application code.  By default
+      # return the global node.
 
-      %w(show edit update destroy).each do |action|
-
-        describe "for action #{action}" do
-
-          before do
-            params[:action] = action
-          end
-
-          describe "when there's an instance var named according resource" do
-
-            let(:record) { mock('test resource') }
-
-            before do
-              records_controller.instance_variable_set('@record', record)
-            end
-
-            describe "when there's no global node" do
-              it "returns the var" do
-                records_controller.
-                  send(:current_context).should == record
-              end
-            end
-
-            describe "when there's a global node" do
-              before do
-                AccessControl::Node.stub(:global).and_return('the global node')
-              end
-              it "doesn't matter, returns the var" do
-                records_controller.
-                  send(:current_context).should == record
-              end
-            end
-
-          end
-
-          describe "when there's no instance var named according resource" do
-
-            describe "and there's a global node" do
-              before do
-                AccessControl::Node.stub(:global).and_return('the global node')
-              end
-              it "returns it" do
-                records_controller.send(:current_context).
-                  should == 'the global node'
-              end
-            end
-
-            describe "and there's no global node" do
-              before do
-                AccessControl::Node.stub(:global).and_return(nil)
-              end
-              it "returns nil, and probably will break some code" do
-                records_controller.send(:current_context).should be_nil
-              end
-            end
-
-          end
-
-        end
-
+      before do
+        AccessControl::Node.stub(:global).and_return('the global node')
       end
 
-      %w(index new create).each do |action|
-
-        describe "for action #{action}" do
-
-          before do
-            params[:action] = action
-          end
-
-          describe "when there's a parent resource" do
-
-            before do
-              params[:some_resource_id] = 'a resource id'
-              ActionController::Routing::Routes.draw do |map|
-                map.resources :some_resources do |parent|
-                  parent.resources :records
-                end
-              end
-            end
-
-            describe "and an instance var named accondingly" do
-
-              let(:some_resource) { mock('the parent resource') }
-
-              before do
-                records_controller.instance_variable_set('@some_resource',
-                                                         some_resource)
-              end
-
-              describe "and there's no global node" do
-                it "returns the var" do
-                  records_controller.
-                    send(:current_context).should == some_resource
-                end
-              end
-
-              describe "and there's a global node" do
-                before do
-                  AccessControl::Node.stub(:global).
-                    and_return('the global node')
-                end
-                it "doesn't matter, returns the var" do
-                  records_controller.
-                    send(:current_context).should == some_resource
-                end
-              end
-
-            end
-
-            describe "and there's no var named accordingly" do
-
-              describe "and there's a global node" do
-                before do
-                  AccessControl::Node.stub(:global).
-                    and_return('the global node')
-                end
-                it "returns it" do
-                  records_controller.send(:current_context).
-                    should == 'the global node'
-                end
-              end
-
-              describe "and there's no global node" do
-                before do
-                  AccessControl::Node.stub(:global).and_return(nil)
-                end
-                it "returns nil, and probably will break some code" do
-                  records_controller.send(:current_context).should be_nil
-                end
-              end
-
-            end
-
-          end
-
-          describe "and there's no parent resource parameter" do
-
-            describe "and there's a global node" do
-              before do
-                AccessControl::Node.stub(:global).and_return('the global node')
-              end
-              it "returns it" do
-                records_controller.send(:current_context).
-                  should == 'the global node'
-              end
-            end
-
-            describe "and there's no global node" do
-              before do
-                AccessControl::Node.stub(:global).and_return(nil)
-              end
-              it "returns nil, and probably will break some code" do
-                records_controller.send(:current_context).should be_nil
-              end
-            end
-
-          end
-
-        end
-
-      end
-
-      describe "for any other action" do
-
-        before do
-          params[:action] = 'some_custom_action'
-        end
-
-        describe "when there's a global node" do
-          before do
-            AccessControl::Node.stub(:global).and_return('the global node')
-          end
-          it "falls back into the global node" do
-            records_controller.send(:current_context).should == \
-              'the global node'
-          end
-        end
-
-        describe "when there's no global node" do
-          before do
-            AccessControl::Node.stub(:global).and_return(nil)
-          end
-          it "returns nil, and probably will break some code" do
-            records_controller.send(:current_context).should be_nil
-          end
-        end
-
+      it "returns the global node" do
+        records_controller.send(:current_context).should == 'the global node'
       end
 
       it "is declared private" do
         # This should not be public since it is not an action.
-        records_controller.private_methods.should(
-          include('current_context')
-        )
+        records_controller.private_methods.should(include('current_context'))
       end
 
     end
