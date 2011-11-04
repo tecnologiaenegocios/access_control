@@ -31,7 +31,7 @@ module AccessControl
 
     def assigned_to?(user, options={})
       principal, node = assignment_parameters(user, options)
-      assignments.exists?(:principal => principal, :node => node)
+      assignments.exists?(:principal_id => principal, :node_id => node)
     end
 
     def assign_permission(permission)

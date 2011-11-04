@@ -215,8 +215,8 @@ module AccessControl
 
         it "should test the existence of the role by principal and node" do
           association_proxy.should_receive(:exists?).with(
-            :principal => principal,
-            :node => global_node
+            :principal_id => principal,
+            :node_id => global_node
           )
           test_assignment
         end
@@ -249,8 +249,8 @@ module AccessControl
 
         it "should test the existence of the role by principal and node" do
           association_proxy.should_receive(:exists?).with(
-            :principal => principal,
-            :node => node
+            :principal_id => principal,
+            :node_id => node
           )
           test_assignment
         end
