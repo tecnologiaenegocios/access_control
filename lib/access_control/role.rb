@@ -24,6 +24,19 @@ module AccessControl
       Set.new(security_policy_items.map(&:permission))
     end
 
+    def assign_to(user, options={})
+      principal = user.ac_principal
+      if context = options[:at]
+        node = Context.new(context).nodes.first
+      else
+        node = Node.global
+      end
+      assignments.create!(
+        :principal => principal,
+        :node => node
+      )
+    end
+
     before_destroy :destroy_dependant_assignments
 
   private
