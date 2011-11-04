@@ -110,15 +110,15 @@ module AccessControl
     describe "#assign_to" do
 
       let(:association_proxy) { stub('association proxy') }
-      let(:global_node) { stub('global node') }
-      let(:principal) { stub('principal object') }
+      let(:global_node) { stub_model(Node) }
+      let(:principal) { stub_model(Principal) }
       let(:user) { stub('user object', :ac_principal => principal) }
       let(:role) { Role.new }
 
       before do
         AccessControl::Node.stub(:global).and_return(global_node)
         role.stub(:assignments).and_return(association_proxy)
-        association_proxy.stub(:find_or_create_by_node_id_and_principal_id)
+        association_proxy.stub(:find_or_create_by_principal_id_and_node_id)
       end
 
       def make_assignment
@@ -140,8 +140,8 @@ module AccessControl
         it "creates an assignment in the global node or finds one if it "\
            "already exists" do
           association_proxy.
-            should_receive(:find_or_create_by_node_id_and_principal_id).
-            with(global_node, principal)
+            should_receive(:find_or_create_by_principal_id_and_node_id).
+            with(principal.id, global_node.id)
           make_assignment
         end
 
@@ -150,7 +150,7 @@ module AccessControl
       context "specifying a context" do
 
         let(:context) { stub('context object') }
-        let(:node) { stub('node object') }
+        let(:node) { stub_model(Node) }
         let(:contextualizer) { stub('contextualizer', :nodes => Set[node]) }
 
         def make_assignment
@@ -174,8 +174,8 @@ module AccessControl
         it "creates an assignment using the node of the context or finds one "\
            "if it already exists" do
           association_proxy.
-            should_receive(:find_or_create_by_node_id_and_principal_id).
-            with(node, principal)
+            should_receive(:find_or_create_by_principal_id_and_node_id).
+            with(principal.id, node.id)
           make_assignment
         end
 
@@ -186,8 +186,8 @@ module AccessControl
     describe "#assigned_to?" do
 
       let(:association_proxy) { stub('association proxy') }
-      let(:global_node) { stub('global node') }
-      let(:principal) { stub('principal object') }
+      let(:global_node) { stub_model(Node) }
+      let(:principal) { stub_model(Principal) }
       let(:user) { stub('user object', :ac_principal => principal) }
       let(:role) { Role.new }
 
@@ -226,7 +226,7 @@ module AccessControl
       context "specifying a context" do
 
         let(:context) { stub('context object') }
-        let(:node) { stub('node object') }
+        let(:node) { stub_model(Node) }
         let(:contextualizer) { stub('contextualizer', :nodes => Set[node]) }
 
         def test_assignment

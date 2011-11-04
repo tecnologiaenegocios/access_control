@@ -26,7 +26,8 @@ module AccessControl
 
     def assign_to(user, options={})
       principal, node = assignment_parameters(user, options)
-      assignments.find_or_create_by_node_id_and_principal_id(node, principal)
+      assignments.find_or_create_by_principal_id_and_node_id(principal.id,
+                                                             node.id)
     end
 
     def assigned_to?(user, options={})
