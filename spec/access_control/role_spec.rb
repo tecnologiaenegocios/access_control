@@ -121,16 +121,16 @@ module AccessControl
         association_proxy.stub(:create!)
       end
 
+      def make_assignment
+        role.assign_to(user)
+      end
+
+      it "gets the principal of the user" do
+        user.should_receive(:ac_principal)
+        make_assignment
+      end
+
       context "without specifying a context" do
-
-        def make_assignment
-          role.assign_to(user)
-        end
-
-        it "gets the principal of the user" do
-          user.should_receive(:ac_principal)
-          make_assignment
-        end
 
         it "gets the global node" do
           Node.should_receive(:global).and_return(global_node)
@@ -161,11 +161,6 @@ module AccessControl
           Context.stub(:new).and_return(contextualizer)
         end
 
-        it "gets the principal of the user" do
-          user.should_receive(:ac_principal)
-          make_assignment
-        end
-
         it "initializes a Context object using the context provided" do
           Context.should_receive(:new).with(context).and_return(contextualizer)
           make_assignment
@@ -182,6 +177,82 @@ module AccessControl
             :node => node
           )
           make_assignment
+        end
+
+      end
+
+    end
+
+    describe "#assigned_to?" do
+
+      let(:association_proxy) { stub('association proxy') }
+      let(:global_node) { stub('global node') }
+      let(:principal) { stub('principal object') }
+      let(:user) { stub('user object', :ac_principal => principal) }
+      let(:role) { Role.new }
+
+      before do
+        AccessControl::Node.stub(:global).and_return(global_node)
+        role.stub(:assignments).and_return(association_proxy)
+        association_proxy.stub(:exists?)
+      end
+
+      def test_assignment
+        role.assigned_to?(user)
+      end
+
+      it "gets the principal of the user" do
+        user.should_receive(:ac_principal)
+        test_assignment
+      end
+
+      context "without specifying a context" do
+
+        it "gets the global node" do
+          Node.should_receive(:global).and_return(global_node)
+          test_assignment
+        end
+
+        it "should test the existence of the role by principal and node" do
+          association_proxy.should_receive(:exists?).with(
+            :principal => principal,
+            :node => global_node
+          )
+          test_assignment
+        end
+
+      end
+
+      context "specifying a context" do
+
+        let(:context) { stub('context object') }
+        let(:node) { stub('node object') }
+        let(:contextualizer) { stub('contextualizer', :nodes => Set[node]) }
+
+        def test_assignment
+          role.assigned_to?(user, :at => context)
+        end
+
+        before do
+          Context.stub(:new).and_return(contextualizer)
+        end
+
+        it "initializes a Context object using the context provided" do
+          Context.should_receive(:new).with(context).and_return(contextualizer)
+          test_assignment
+        end
+
+        it "gets the nodes from the contextualizer" do
+          contextualizer.should_receive(:nodes).and_return(Set[node])
+          test_assignment
+        end
+
+        it "should test the existence of the role by principal and node" do
+          association_proxy.should_receive(:exists?).with(
+            :principal => principal,
+            :node => node
+          )
+          test_assignment
         end
 
       end

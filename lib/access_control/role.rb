@@ -25,16 +25,13 @@ module AccessControl
     end
 
     def assign_to(user, options={})
-      principal = user.ac_principal
-      if context = options[:at]
-        node = Context.new(context).nodes.first
-      else
-        node = Node.global
-      end
-      assignments.create!(
-        :principal => principal,
-        :node => node
-      )
+      principal, node = assignment_parameters(user, options)
+      assignments.create!(:principal => principal, :node => node)
+    end
+
+    def assigned_to?(user, options={})
+      principal, node = assignment_parameters(user, options)
+      assignments.exists?(:principal => principal, :node => node)
     end
 
     def assign_permission(permission)
@@ -53,6 +50,16 @@ module AccessControl
           assignment.destroy
         end
       end
+    end
+
+    def assignment_parameters(user, options)
+      principal = user.ac_principal
+      if context = options[:at]
+        node = Context.new(context).nodes.first
+      else
+        node = Node.global
+      end
+      [principal, node]
     end
   end
 end
