@@ -37,6 +37,12 @@ module AccessControl
       )
     end
 
+    def assign_permission(permission)
+      unless security_policy_items.find_by_permission(permission)
+        security_policy_items.create!(:permission => permission)
+      end
+    end
+
     before_destroy :destroy_dependant_assignments
 
   private

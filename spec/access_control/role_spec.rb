@@ -188,5 +188,51 @@ module AccessControl
 
     end
 
+    describe "#assign_permission" do
+
+      let(:association_proxy) { stub('association proxy') }
+      let(:permission) { 'a permission' }
+      let(:role) { Role.new }
+
+      before do
+        role.stub(:security_policy_items).and_return(association_proxy)
+        association_proxy.stub(:find_by_permission).and_return(nil)
+        association_proxy.stub(:create!)
+      end
+
+      def make_assignment
+        role.assign_permission(permission)
+      end
+
+      it "finds the permission at first" do
+        association_proxy.should_receive(:find_by_permission).
+          with(permission).and_return(nil)
+        make_assignment
+      end
+
+      context "the permission doesn't exist" do
+        it "creates a new security policy item from the assoc. proxy" do
+          association_proxy.should_receive(:create!).with(
+            :permission => permission
+          )
+          make_assignment
+        end
+      end
+
+      context "the permission already exists" do
+        let(:item) { stub('security policy item') }
+
+        before do
+          association_proxy.stub(:find_by_permission).and_return(item)
+        end
+
+        it "does nothing" do
+          association_proxy.should_not_receive(:create!)
+          make_assignment
+        end
+      end
+
+    end
+
   end
 end
