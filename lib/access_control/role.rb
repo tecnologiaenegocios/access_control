@@ -26,7 +26,7 @@ module AccessControl
 
     def assign_to(user, options={})
       principal, node = assignment_parameters(user, options)
-      assignments.create!(:principal => principal, :node => node)
+      assignments.find_or_create_by_node_id_and_principal_id(node, principal)
     end
 
     def assigned_to?(user, options={})
