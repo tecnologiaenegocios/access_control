@@ -3,6 +3,9 @@ require 'access_control/util'
 module AccessControl
   class RegistryFactory
 
+    UNION = :|.to_proc
+    INTERSECTION = :&.to_proc
+
     def initialize
       clear_registry
       register_undeclared_permissions
@@ -40,7 +43,7 @@ module AccessControl
 
     def query(*criteria)
       return all if criteria.empty?
-      criteria.map{|criterion| permissions_matching(criterion)}.inject(&:|)
+      criteria.map{|criterion| permissions_matching(criterion)}.inject(&UNION)
     end
 
   private
@@ -58,7 +61,8 @@ module AccessControl
 
     def permissions_matching(criterion)
       return all if criterion.empty?
-      criterion.map{|key, value| query_permissions(key, value)}.inject(&:&)
+      criterion.map{|key, value| query_permissions(key, value)}.
+        inject(&INTERSECTION)
     end
 
     def query_permissions(key, value)
