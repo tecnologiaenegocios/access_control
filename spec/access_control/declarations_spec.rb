@@ -152,20 +152,6 @@ module AccessControl
           model.send("#{t}_requires", nil)
         end
 
-        it "requires at least one permission by default on allocation" do
-          config.stub("default_#{t}_permissions").and_return(Set.new)
-          lambda {
-            object = model.allocate
-          }.should raise_exception(MissingPermissionDeclaration)
-        end
-
-        it "requires at least one permission by default on instantiation" do
-          config.stub("default_#{t}_permissions").and_return(Set.new)
-          lambda {
-            object = model.new
-          }.should raise_exception(MissingPermissionDeclaration)
-        end
-
         specify "allocation is fine if a permission is set in config" do
           object = model.allocate
           object.class.should == model
@@ -203,7 +189,7 @@ module AccessControl
           object.foo.should == 'foo'
         end
 
-        describe "when model is reloaded" do
+        describe "when model is (re)loaded" do
 
           it "keeps the permissions" do
             model.send("#{t}_requires", 'some permission')
@@ -218,6 +204,34 @@ module AccessControl
             unset_model
             set_model
             model.send("permissions_required_to_#{t}").should == Set.new
+          end
+
+          context "checking permission declarations in the class" do
+
+            before do
+              # Do a fresh load.
+              unset_model
+              set_model
+            end
+
+            context "allocation" do
+              it "requires at least one permission by default on allocation" do
+                config.stub("default_#{t}_permissions").and_return(Set.new)
+                lambda {
+                  model.allocate
+                }.should raise_exception(MissingPermissionDeclaration)
+              end
+            end
+
+            context "instantiation" do
+              it "requires at least one permission by default on instantiation" do
+                config.stub("default_#{t}_permissions").and_return(Set.new)
+                lambda {
+                  model.new
+                }.should raise_exception(MissingPermissionDeclaration)
+              end
+            end
+
           end
 
         end

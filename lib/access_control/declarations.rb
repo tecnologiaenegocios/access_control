@@ -48,6 +48,7 @@ module AccessControl
       end
 
       def check_missing_declarations!
+        return if @checked_missing_declarations
         [:show, :index, :create, :update, :destroy].each do |t|
           if permission_requirement(t).get.empty? &&
              !permission_requirement(t).declared_no_permissions?
@@ -55,6 +56,7 @@ module AccessControl
                   "expected to have declaration for #{t} in model #{name}"
           end
         end
+        @checked_missing_declarations = true
       end
 
       class Requirement
