@@ -67,11 +67,11 @@ module AccessControl
 
         def set_methods
           klass.class_eval do
-            def regular_method
-              'result'
+            def regular_method(*args, &block)
+              ['regular', args.first, block]
             end
             def method_missing method_name, *args, &block
-              'result'
+              ['missing', args.first, block]
             end
           end
         end
@@ -85,15 +85,28 @@ module AccessControl
         end
 
         [:new, :allocate].each do |creation_method|
-          [:regular_method, :dynamic_method].each do |meth|
+          [ [:regular_method, 'regular'],
+            [:dynamic_method, 'missing']].each do |meth, sig|
             describe "using .#{creation_method}" do
               describe "calling ##{meth}" do
+
+                def proc_as_block_for_methods
+                  @proc_as_block_for_methods ||= Proc.new { }
+                end
+
+                def calling_method(instance, meth)
+                  instance.send(meth, 1, &proc_as_block_for_methods)
+                end
+
+                def expected_result(sig)
+                  [sig, 1, proc_as_block_for_methods]
+                end
 
                 it "checks permissions when the method is called " do
                   instance = klass.send(creation_method)
                   manager.should_receive(:can!).
                     with(Set.new(['some permission']), instance)
-                  instance.send(meth)
+                  calling_method(instance, meth)
                 end
 
                 it "checks permissions even if class is reloaded" do
@@ -103,12 +116,13 @@ module AccessControl
                   instance = klass.send(creation_method)
                   manager.should_receive(:can!).
                     with(Set.new(['some permission']), instance)
-                  instance.send(meth)
+                  calling_method(instance, meth)
                 end
 
                 it "returns what the method returns if allowed" do
                   manager.stub(:can!)
-                  klass.send(creation_method).send(meth).should == 'result'
+                  instance = klass.send(creation_method)
+                  calling_method(instance, meth).should == expected_result(sig)
                 end
 
               end
