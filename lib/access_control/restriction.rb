@@ -19,10 +19,13 @@ module AccessControl
         when :all, :last, :first
           permissions = permissions_required_to_index
           return super if AccessControl.manager.can?(permissions, Node.global)
-          with_scope(:find => {
-            :conditions => Restricter.new(self).sql_condition(permissions)
-          }) do
-            super
+          condition = Restricter.new(self).sql_condition(permissions)
+          if condition == '0'
+            return [] if args.first == :all
+          else
+            with_scope(:find => { :conditions => condition }) do
+              super
+            end
           end
         else
           permissions = permissions_required_to_show

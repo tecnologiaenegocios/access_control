@@ -84,20 +84,34 @@ module AccessControl
           restricter_condition
         end
 
-        it "builds a condition expression for the primary key" do
-          # We should get all inheritable ids minus those that are blocked,
-          # united with all grantable ids.
-          valid_ids = (inheritable.ids_with - blockable.ids)|grantable.ids_with
-          restricter_condition.should ==
-            ["`table_name`.pk IN (?)", valid_ids.to_a]
+        context "when there are ids left to narrow down the outer query" do
+          it "builds a condition expression for the primary key" do
+            # We should get all inheritable ids minus those that are blocked,
+            # united with all grantable ids.
+            valid_ids = (inheritable.ids_with - blockable.ids) |
+              grantable.ids_with
+            restricter_condition.should ==
+              ["`table_name`.pk IN (?)", valid_ids.to_a]
+          end
+
+          it "filters out ids not in the filter" do
+            valid_ids = (inheritable.ids_with - blockable.ids) |
+              grantable.ids_with
+            filter = Set.new([10, valid_ids.first])
+            valid_ids = filter & valid_ids # This should let only one id.
+            restricter_condition(filter.to_a).should ==
+              ["`table_name`.pk IN (?)", valid_ids.to_a]
+          end
         end
 
-        it "filters out ids not in the filter" do
-          valid_ids = (inheritable.ids_with - blockable.ids)|grantable.ids_with
-          filter = Set.new([10, valid_ids.first])
-          valid_ids = filter & valid_ids # This should let only one id.
-          restricter_condition(filter.to_a).should ==
-            ["`table_name`.pk IN (?)", valid_ids.to_a]
+        context "when there are no ids left" do
+          it "returns a condition that is always false" do
+            # The '0' can be used for other components to avoid a known-empty
+            # query.
+            inheritable.stub(:ids_with).and_return(Set.new)
+            grantable.stub(:ids_with).and_return(Set.new)
+            restricter_condition.should == '0'
+          end
         end
 
       end

@@ -19,7 +19,11 @@ module AccessControl
         inherited_ids = Inheritable.new(model).ids_with(permissions)
         ids = (inherited_ids - blocked_ids) | granted_ids
         ids = (Set.new(filter) & ids) if filter
-        ["#{table_id} IN (?)", ids.to_a]
+        if ids.any?
+          ["#{table_id} IN (?)", ids.to_a]
+        else
+          '0'
+        end
       else
         if blocked_ids.any?
           ids = (blocked_ids - grantable.ids_with(permissions)).to_a

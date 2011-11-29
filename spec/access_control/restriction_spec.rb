@@ -77,7 +77,7 @@ module AccessControl
 
           [:all, :first, :last].each do |option|
 
-            describe "with permissions in the global node" do
+            context "with permissions in the global node" do
 
               before do
                 Node.stub(:global).and_return(global_node)
@@ -105,7 +105,7 @@ module AccessControl
 
             end
 
-            describe "without permissions in the global node" do
+            context "without permissions in the global node" do
 
               before do
                 Node.stub(:global).and_return(global_node)
@@ -131,27 +131,49 @@ module AccessControl
                 model.find(option, 'find arguments')
               end
 
-              it "runs a .with_scope with the find options from the restricter" do
-                model.should_receive(:with_scope).
-                  with(:find => {:conditions => sql_condition})
-                model.find(option, 'find arguments')
+              context "when conditions from restricter are not falsy" do
+
+                it "runs a .with_scope with the find options from the "\
+                   "restricter" do
+                  model.should_receive(:with_scope).
+                    with(:find => {:conditions => sql_condition})
+                  model.find(option, 'find arguments')
+                end
+
+                it "forwards all parameters to base's find" do
+                  base.should_receive(:find).with(option, 'find arguments')
+                  model.find(option, 'find arguments')
+                end
+
+                it "returns the results of calling base's find" do
+                  base.stub(:find).and_return('results')
+                  model.find(option, 'find arguments').should == 'results'
+                end
+
+                it "runs the query entirely within the scope" do
+                  base.should_receive(:before_yield).ordered
+                  base.should_receive(:find).ordered.and_return('results')
+                  base.should_receive(:after_yield).ordered
+                  model.find(option, 'find arguments').should == 'results'
+                end
+
               end
 
-              it "forwards all parameters to base's find" do
-                base.should_receive(:find).with(option, 'find arguments')
-                model.find(option, 'find arguments')
-              end
+              context "when conditions from restricter are falsy" do
+                before { restricter.stub(:sql_condition).and_return('0') }
 
-              it "returns the results of calling base's find" do
-                base.stub(:find).and_return('results')
-                model.find(option, 'find arguments').should == 'results'
-              end
+                it "doesn't hit the database" do
+                  model.should_not_receive(:with_scope)
+                  model.find(option, 'find arguments')
+                end
 
-              it "runs the query entirely within the scope" do
-                base.should_receive(:before_yield).ordered
-                base.should_receive(:find).ordered.and_return('results')
-                base.should_receive(:after_yield).ordered
-                model.find(option, 'find arguments').should == 'results'
+                it "returns an empty result" do
+                  if option == :all
+                    model.find(option, 'find arguments').should == []
+                  else
+                    model.find(option, 'find arguments').should be_nil
+                  end
+                end
               end
 
             end

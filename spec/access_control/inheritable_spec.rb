@@ -16,7 +16,7 @@ module AccessControl
     before do
       model.stub(:named_scope)
       model.stub(:find)
-      model.stub(:quoted_table_name)
+      model.stub(:quoted_table_name).and_return('`table_name`')
       model.stub(:primary_key).and_return('pk')
     end
 
@@ -83,14 +83,26 @@ module AccessControl
             inheritable.ids_with('permissions inherited')
           end
 
-          it "gets model ids joining reflected model and filtering ids" do
-            # This uses .unrestricted_find to avoid infinite recursion.
-            model.should_receive(:unrestricted_find).
-              with(:all, :joins => :parent, :conditions => sql_condition).
-              and_return(results)
-            inheritable.ids_with('permissions inherited')
+          context "when a non-falsy condition is returned" do
+            it "gets model ids joining reflected model and filtering ids" do
+              # This uses .unrestricted_find to avoid infinite recursion.
+              model.should_receive(:unrestricted_find).with(
+                :all,
+                :select => '`table_name`.pk',
+                :joins => :parent,
+                :conditions => sql_condition
+              ).and_return(results)
+              inheritable.ids_with('permissions inherited')
+            end
           end
 
+          context "when a falsy condition is returned" do
+            it "skips query the model ids" do
+              restricter.stub(:sql_condition).and_return('0')
+              model.should_not_receive(:unrestricted_find)
+              inheritable.ids_with('permissions inherited')
+            end
+          end
         end
 
         describe "with all ids returned from partial findings" do
