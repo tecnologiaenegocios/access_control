@@ -30,21 +30,45 @@ module AccessControl
       end
 
       def protect_methods
-        return if methods_protected?
-        restricted_methods.each do |m|
-          if @class.method_defined?(m)
-            define_using_alias_method(m)
-          else
-            define_using_super(m)
+        return if method_protection_complete?
+        defined_restricted_methods.each do |method_name|
+          protect_method(method_name)
+        end
+        class << @class
+          def method_added(method_name)
+            Protector.new(self).protect_method(method_name)
+            super
           end
         end
-        mark_methods_as_protected
+        mark_method_protection_as_complete
+      end
+
+      def protect_method(method_name)
+        method_name = method_name.to_sym
+        return unless restricted_methods.include?(method_name)
+        return if method_already_protected?(method_name)
+        mark_method_as_already_protected(method_name)
+        @class.class_exec(method_name) do |method_name|
+          new_impl = :"#{method_name}_with_protection"
+          original_impl = :"#{method_name}_without_protection"
+          define_method(new_impl) do |*args, &block|
+            AccessControl.manager.can!(self.class.permissions_for(method_name),
+                                       self)
+            send(original_impl, *args, &block)
+          end
+          alias_method original_impl, method_name
+          alias_method method_name, new_impl
+        end
       end
 
     private
 
-      def methods_protected?
-        !!@class.instance_variable_get(:"@__methods_protected__")
+      def method_protection_complete?
+        !!@class.instance_variable_get(:"@__method_protection_complete__")
+      end
+
+      def defined_restricted_methods
+        restricted_methods.select{ |m| @class.method_defined?(m) }
       end
 
       def restricted_methods
@@ -58,32 +82,23 @@ module AccessControl
         end
       end
 
-      def define_using_alias_method(method_name)
-        @class.class_exec(method_name) do |method_name|
-          new_name = :"#{method_name}_with_protection"
-          original_name = :"#{method_name}_without_protection"
-          define_method(new_name) do |*args, &block|
-            AccessControl.manager.can!(self.class.permissions_for(method_name),
-                                       self)
-            send(original_name, *args, &block)
-          end
-          alias_method original_name, method_name
-          alias_method method_name, new_name
-        end
+      def mark_method_protection_as_complete
+        @class.instance_variable_set(:"@__method_protection_complete__", true)
       end
 
-      def define_using_super(method_name)
-        @class.class_exec(method_name) do |method_name|
-          define_method(method_name) do |*args, &block|
-            AccessControl.manager.can!(self.class.permissions_for(method_name),
-                                       self)
-            super(*args, &block)
-          end
-        end
+      def method_already_protected?(method_name)
+        methods_already_protected.include?(method_name)
       end
 
-      def mark_methods_as_protected
-        @class.instance_variable_set(:"@__methods_protected__", true)
+      def methods_already_protected
+        unless v = @class.instance_variable_get(:"@__methods_protected__")
+          v = @class.instance_variable_set(:"@__methods_protected__", Set.new)
+        end
+        v
+      end
+
+      def mark_method_as_already_protected(method_name)
+        methods_already_protected << method_name
       end
 
     end
