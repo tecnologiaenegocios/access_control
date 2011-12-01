@@ -1,7 +1,10 @@
+require 'access_control/ids'
 require 'access_control/manager'
 
 module AccessControl
   class Assignment < ActiveRecord::Base
+
+    extend AccessControl::Ids
 
     set_table_name :ac_assignments
 
@@ -22,9 +25,22 @@ module AccessControl
 
     before_destroy :verify_security_restrictions!
 
-    named_scope :with_roles, lambda{|roles|
-      { :conditions => { :role_id => roles.map(&:id) } }
+    named_scope :with_roles, lambda {|role|
+      { :conditions => { :role_id => role } }
     }
+
+    named_scope :assigned_to, lambda {|principal|
+      { :conditions => { :principal_id => principal } }
+    }
+
+    named_scope :granting, lambda {|permission|
+      ids = Role.for_permission(permission).ids
+      { :conditions => { :role_id => ids } }
+    }
+
+    def self.granting_for_principal(permission, principal)
+      granting(permission).assigned_to(principal)
+    end
 
     def validate_role_locality
       return unless role && node

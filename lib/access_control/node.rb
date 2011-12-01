@@ -1,8 +1,11 @@
 require 'access_control/exceptions'
+require 'access_control/ids'
 require 'access_control/inheritance'
 
 module AccessControl
   class Node < ActiveRecord::Base
+
+    extend AccessControl::Ids
 
     set_table_name :ac_nodes
 
@@ -51,56 +54,21 @@ module AccessControl
       :source => :role
     )
 
+    named_scope :with_type, lambda {|securable_type| {
+      :conditions => { :securable_type => securable_type }
+    }}
+
+    named_scope :blocked,   :conditions => { :block => true }
+    named_scope :unblocked, :conditions => { :block => false }
+
     def block= value
       AccessControl.manager.can!('change_inheritance_blocking', self)
       self[:block] = value
     end
 
-    def self.global
-      Thread.current[:global_node_cache] ||= \
-        find_by_securable_type_and_securable_id(
-          global_securable_type,
-          global_securable_id
-        )
-    end
-
-    def self.global_id
-      global.id
-    end
-
-    def self.global_securable_type
-      'AccessControl::GlobalRecord'
-    end
-
-    def self.global_securable_id
-      0
-    end
-
-    def self.create_global_node!
-      clear_global_node_cache
-      ActiveRecord::Base.connection.execute("
-        INSERT INTO `ac_nodes` (`securable_type`, `securable_id`)
-        VALUES ('#{global_securable_type}', #{global_securable_id})
-      ")
-    end
-
-    def self.clear_global_node_cache
-      Thread.current[:global_node_cache] = nil
-    end
-
-    def self.granted_for(securable_type, principal_ids, permissions,
-                         conditions={})
-      principal_ids = principal_ids.first if principal_ids.size == 1
-      permissions = permissions.to_a
-      permissions = permissions.first if permissions.size == 1
-      find(
-        :all,
-        :joins => { :assignments => { :role => :security_policy_items } },
-        :conditions => {
-          :securable_type => securable_type,
-          :'ac_assignments.principal_id' => principal_ids,
-          :'ac_security_policy_items.permission' => permissions,
-        }.merge(conditions)
+    def self.granted_for(securable_type, principal_ids, permissions)
+      with_type(securable_type).with_ids(
+        Assignment.granting_for_principal(permissions, principal_ids).node_ids
       )
     end
 
@@ -113,10 +81,7 @@ module AccessControl
     end
 
     def global?
-      [securable_type, securable_id] == [
-        self.class.global_securable_type,
-        self.class.global_securable_id
-      ]
+      id == AccessControl.global_node_id
     end
 
     def unblocked_ancestors
@@ -125,7 +90,7 @@ module AccessControl
 
     def strict_unblocked_ancestors
       unblocked_parents.
-        inject(Set.new([self.class.global])) do |ancestors, parent|
+        inject(Set.new([AccessControl.global_node])) do |ancestors, parent|
           ancestors | parent.unblocked_ancestors
         end
     end
@@ -135,7 +100,7 @@ module AccessControl
     end
 
     def strict_ancestors
-      parents.inject(Set.new([self.class.global])) do |ancestors, parent|
+      parents.inject(Set.new([AccessControl.global_node])) do |ancestors, parent|
         ancestors | parent.ancestors
       end
     end
@@ -192,15 +157,5 @@ module AccessControl
       securable_type.constantize
     end
 
-  end
-
-  class GlobalRecord
-    include Singleton
-    def ac_node
-      AccessControl::Node.global
-    end
-    def self.find *args
-      instance
-    end
   end
 end

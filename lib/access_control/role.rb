@@ -1,5 +1,10 @@
+require 'access_control/ids'
+
 module AccessControl
   class Role < ActiveRecord::Base
+
+    extend AccessControl::Ids
+
     set_table_name :ac_roles
     has_many :security_policy_items,
              :dependent => :destroy,
@@ -14,11 +19,18 @@ module AccessControl
     validates_presence_of :name
     validates_uniqueness_of :name
 
+    before_destroy :destroy_dependant_assignments
+
     named_scope :local_assignables,
                 :conditions => {:local => true}
 
     named_scope :global_assignables,
                 :conditions => {:global => true}
+
+    named_scope :for_permission, lambda {|permission|
+      ids = SecurityPolicyItem.with_permission(permission).role_ids
+      { :conditions => { :id => ids } }
+    }
 
     def permissions
       Set.new(security_policy_items.map(&:permission))
@@ -41,8 +53,6 @@ module AccessControl
       end
     end
 
-    before_destroy :destroy_dependant_assignments
-
   private
 
     def destroy_dependant_assignments
@@ -58,7 +68,7 @@ module AccessControl
       if context = options[:at]
         node = Context.new(context).nodes.first
       else
-        node = Node.global
+        node = AccessControl.global_node
       end
       [principal, node]
     end

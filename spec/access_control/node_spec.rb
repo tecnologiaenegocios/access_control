@@ -1,17 +1,10 @@
 require 'spec_helper'
+require 'access_control/behavior'
 require 'access_control/configuration'
 require 'access_control/node'
 
 module AccessControl
   describe Node do
-
-    let(:global_node) do
-      global_securable_type = Node.global_securable_type
-      global_securable_id = Node.global_securable_id
-      Node.find_by_securable_type_and_securable_id(
-        global_securable_type, global_securable_id
-      )
-    end
 
     let(:manager) { Manager.new }
 
@@ -20,9 +13,8 @@ module AccessControl
     end
 
     before do
-      Node.clear_global_node_cache
+      AccessControl.clear_global_node_cache
       AccessControl.stub(:manager).and_return(manager)
-      manager.stub(:can_assign_or_unassign?).and_return(true)
       Principal.create_anonymous_principal!
       class Object::SecurableObj < ActiveRecord::Base
         set_table_name 'records'
@@ -33,45 +25,142 @@ module AccessControl
       Object.send(:remove_const, 'SecurableObj')
     end
 
-    describe "global node" do
+    it "is extended with AccessControl::Ids" do
+      singleton_class = (class << Node; self; end)
+      singleton_class.should include(AccessControl::Ids)
+    end
 
-      it "can create the global node" do
-        Node.create_global_node!
+    describe "#global?" do
+
+      let(:node) { Node.new }
+      let(:global_id) { 1 }
+      before { AccessControl.stub(:global_node_id).and_return(global_id) }
+
+      subject { node }
+
+      context "the node has the same id of the global node" do
+        before { node.stub(:id).and_return(global_id) }
+        it { should be_global }
       end
 
-      it "can return the global object" do
-        Node.create_global_node!
-        Node.global.should == global_node
+      context "the node has any other id" do
+        before { node.stub(:id).and_return('any other id') }
+        it { should_not be_global }
       end
 
-      it "can return the global id" do
-        Node.create_global_node!
-        Node.global_id.should == global_node.id
+    end
+
+    describe ".with_type" do
+      let(:node1) do
+        Node.create!(:securable_type => 'SomeType', :securable_id => '2341')
+      end
+      let(:node2) do
+        Node.create!(:securable_type => 'AnotherType', :securable_id => '2341')
       end
 
-      it "returns nil if there's no global node" do
-        Node.global.should be_nil
+      subject { Node.with_type('SomeType') }
+
+      it { should discover(node1) }
+      it { should_not discover(node2) }
+
+      context "using an array" do
+        subject { Node.with_type(['SomeType', 'AnotherType']) }
+        it { should discover(node1, node2) }
+      end
+    end
+
+    describe ".blocked and .unblocked" do
+      let(:blocked_node) do
+        Node.create!(:securable_type => 'Foo', :securable_id => 0,
+                     :block => true)
+      end
+      let(:unblocked_node) do
+        Node.create!(:securable_type => 'Foo', :securable_id => 0,
+                     :block => false)
       end
 
-      it "returns true in #global? if the node is the global one" do
-        Node.create_global_node!
-        Node.global.global?.should be_true
+      describe ".blocked" do
+        subject { Node.blocked }
+        it { should discover(blocked_node) }
+        it { should_not discover(unblocked_node) }
       end
 
-      it "returns false in #global? if the node is not the global one" do
-        Node.create_global_node!
-        other_node = Node.create!(:securable_id => securable.id,
-                                  :securable_type => securable.class.name)
-        other_node.global?.should be_false
+      describe ".unblocked" do
+        subject { Node.unblocked }
+        it { should discover(unblocked_node) }
+        it { should_not discover(blocked_node) }
       end
+    end
+
+    describe ".granted_for" do
+      let(:node_ids)    { [1, 2] }
+      let(:assignments) { stub('assignments', :node_ids => node_ids) }
+      let(:nodes) do
+        count = 0 # This variable makes securable_id unique.
+        [
+          [node_ids.first,      'RightType'],
+          [node_ids.second,     'WrongType'],
+          [node_ids.second + 1, 'RightType'],
+          [node_ids.second + 2, 'WrongType'],
+        ].map do |id, type|
+          count += 1
+          node = Node.create!(:securable_type => type, :securable_id => count)
+          Node.connection.execute(
+            "UPDATE #{Node.quoted_table_name} "\
+            "SET `id` = #{id} WHERE id = #{node.id}"
+          )
+          node
+        end
+      end
+
+      before do
+        Assignment.stub(:granting_for_principal).and_return(assignments)
+      end
+
+      subject { get_granted_nodes }
+
+      def get_granted_nodes
+        Node.granted_for('SecurableType', 'principal ids', 'permissions')
+      end
+
+      it "gets relevant assignments for permission and principal" do
+        Assignment.should_receive(:granting_for_principal).
+          with('permissions', 'principal ids').and_return(assignments)
+        get_granted_nodes
+      end
+
+      it "gets only the ids" do
+        assignments.should_receive(:node_ids).and_return('node ids')
+        get_granted_nodes
+      end
+
+      it { should discover(*items_from(nodes).
+                           with(:securable_type => 'RightType',
+                                :id => node_ids.first)) }
+    end
+
+    describe ".blocked_for" do
+
+      let(:nodes) do
+        count = 0
+        combine_values(:securable_type => ['RightType', 'WrongType'],
+                       :block => [true, false]) do |attrs|
+          count += 1
+          Node.create!(attrs.merge(:securable_id => count))
+        end
+      end
+
+      subject { Node.blocked_for('RightType') }
+
+      it { should discover(*items_from(nodes).
+                           with(:securable_type => 'RightType',
+                                :block => true)) }
 
     end
 
     describe "#assignments" do
 
-      before do
-        Node.create_global_node!
-      end
+      before { AccessControl.create_global_node! }
 
       describe "assignment destruction" do
 
@@ -153,11 +242,11 @@ module AccessControl
     describe "#securable" do
 
       # The first version of this method was an association method, which was
-      # public.  Then the association was removed bevause it could not search
+      # public.  Then the association was removed because it could not search
       # unrestrictly, and this method resurfaced as a private method, which
       # took its own precautions to not trigger Unauthorized errors.  But it
       # was too late...  The method was being used elsewhere, in app code and
-      # app specs too...  Now the method was promoted to public, just it was
+      # app specs too...  Now the method was promoted to public, just as it was
       # when it was an association.
 
       let(:model) { Class.new }
@@ -183,7 +272,7 @@ module AccessControl
     describe "#principal_roles" do
 
       it "returns only the roles belonging to the current principals" do
-        Node.create_global_node!
+        AccessControl.create_global_node!
         node = Node.create!(:securable_type => 'Foo', :securable_id => 1)
         principal1 = Principal.create!(:subject_type => 'User',
                                        :subject_id => 1)
@@ -237,9 +326,6 @@ module AccessControl
     end
 
     describe "#assignments_with_roles" do
-      describe "Assignment conformance with expected interface" do
-        it_has_class_method(Assignment, :with_roles)
-      end
       it "calls .with_roles named scope on assignments association" do
         node = Node.new
         roles = 'some roles to filter'
@@ -281,7 +367,7 @@ module AccessControl
         record.stub(:parent2).and_return(assoc_proxy2)
         Context.stub(:new).with(assoc_proxy1).and_return(context1)
         Context.stub(:new).with(assoc_proxy2).and_return(context2)
-        Node.stub(:global).and_return(global)
+        AccessControl.stub(:global_node).and_return(global)
         securable_class.stub(:unrestricted_find).and_return(record)
       end
 
@@ -513,94 +599,6 @@ module AccessControl
           node.ancestors.should == Set.new([node, whatever])
         end
       end
-    end
-
-    describe ".granted_for" do
-
-      # Gets nodes for a securable type and principal ids with the requested
-      # permissions
-
-      let(:results)       { stub('results') }
-      let(:principal_ids) { ['principal id 1', 'principal id 2'] }
-      let(:permissions)   { Set.new(['permission 1', 'permission 2']) }
-
-      def call_method(conditions={})
-        Node.granted_for('SecurableType', principal_ids, permissions,
-                         conditions)
-      end
-
-      before do
-        Node.stub(:find).and_return(results)
-      end
-
-      it "does the job for a type and principal ids with permissions" do
-        Node.should_receive(:find).with(
-          :all,
-          :joins => { :assignments => { :role => :security_policy_items } },
-          :conditions => {
-            :securable_type => 'SecurableType',
-            :'ac_assignments.principal_id' => principal_ids,
-            :'ac_security_policy_items.permission' => permissions.to_a,
-          }
-        ).and_return(results)
-        call_method
-      end
-
-      it "merges conditions passed" do
-        Node.should_receive(:find).with(:all, hash_including(
-          :conditions => hash_including(
-            :custom_condition => 'custom condition'
-          )
-        )).and_return(results)
-        call_method(:custom_condition => 'custom condition')
-      end
-
-      it "return the results of the find call" do
-        call_method.should == results
-      end
-
-      describe "with a single principal id" do
-        let(:principal_ids) { ['principal id'] }
-        it "extracts the principal id" do
-          Node.should_receive(:find).with(:all, hash_including(
-            :conditions => hash_including(
-              :'ac_assignments.principal_id' => 'principal id'
-            )
-          )).and_return(results)
-          call_method
-        end
-      end
-
-      describe "with a single permission" do
-        let(:permissions) { Set.new(['permission']) }
-        it "extracts the permission" do
-          Node.should_receive(:find).with(:all, hash_including(
-            :conditions => hash_including(
-              :'ac_security_policy_items.permission' => 'permission'
-            )
-          )).and_return(results)
-          call_method
-        end
-      end
-
-    end
-
-    describe ".blocked_for" do
-
-      # Gets all nodes with block = 1 or true for the securable type.
-
-      it "gets blocked nodes for a securable type" do
-        Node.create_global_node!
-        manager.stub(:can!)
-        node1 = Node.create!(:securable_type => 'SecurableType 1',
-                             :securable_id => 1)
-        node2 = Node.create!(:securable_type => 'SecurableType 1',
-                             :securable_id => 2, :block => 1)
-        node3 = Node.create!(:securable_type => 'SecurableType 2',
-                             :securable_id => 1)
-        Node.blocked_for('SecurableType 1').should == [node2]
-      end
-
     end
 
     describe "automatic role assignment" do

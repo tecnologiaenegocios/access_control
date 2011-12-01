@@ -93,7 +93,7 @@ module AccessControl
       end
 
       def current_context
-        AccessControl::Node.global
+        AccessControl.global_node
       end
 
       def with_security
@@ -102,7 +102,7 @@ module AccessControl
       ensure
         AccessControl::Principal.clear_anonymous_principal_cache
         AccessControl.no_manager
-        AccessControl::Node.clear_global_node_cache
+        AccessControl.clear_global_node_cache
       end
 
     end

@@ -23,6 +23,11 @@ module AccessControl
       Role.create!(:name => 'the role name')
     end
 
+    it "is extended with AccessControl::Ids" do
+      singleton_class = (class << Role; self; end)
+      singleton_class.should include(AccessControl::Ids)
+    end
+
     describe "assignment destruction" do
 
       let(:assignment) do
@@ -76,7 +81,7 @@ module AccessControl
       SecurityPolicyItem.count.should == 0
     end
 
-    describe "#local_assignables" do
+    describe ".local_assignables" do
 
       it "returns only roles with local = true" do
         r1 = Role.create!(:name => 'local unassignable', :local => false)
@@ -86,7 +91,7 @@ module AccessControl
 
     end
 
-    describe "#global_assignables" do
+    describe ".global_assignables" do
 
       it "returns only roles with global = true" do
         r1 = Role.create!(:name => 'global unassignable', :global => false)
@@ -94,6 +99,32 @@ module AccessControl
         Role.global_assignables.should == [r2]
       end
 
+    end
+
+    describe ".for_permission" do
+      let(:item) { stub('security policy item', :role_id => 'some id') }
+      let(:proxy) { stub('security policy items proxy') }
+      before do
+        SecurityPolicyItem.stub(:with_permission).and_return(proxy)
+        proxy.stub(:role_ids).and_return('role ids')
+      end
+
+      it "gets all relevant security policy items" do
+        SecurityPolicyItem.should_receive(:with_permission).
+          with('some permission').and_return(proxy)
+        Role.for_permission('some permission')
+      end
+
+      it "gets all role ids from them" do
+        proxy.should_receive(:role_ids)
+        Role.for_permission('some permission')
+      end
+
+      it "returns a condition over the ids" do
+        Role.for_permission('some permission').proxy_options.should == {
+          :conditions => { :id => 'role ids' }
+        }
+      end
     end
 
     describe "#permissions" do
@@ -116,7 +147,7 @@ module AccessControl
       let(:role) { Role.new }
 
       before do
-        AccessControl::Node.stub(:global).and_return(global_node)
+        AccessControl.stub(:global_node).and_return(global_node)
         role.stub(:assignments).and_return(association_proxy)
         association_proxy.stub(:find_or_create_by_principal_id_and_node_id)
       end
@@ -133,7 +164,7 @@ module AccessControl
       context "without specifying a context" do
 
         it "gets the global node" do
-          Node.should_receive(:global).and_return(global_node)
+          AccessControl.should_receive(:global_node).and_return(global_node)
           make_assignment
         end
 
@@ -192,7 +223,7 @@ module AccessControl
       let(:role) { Role.new }
 
       before do
-        AccessControl::Node.stub(:global).and_return(global_node)
+        AccessControl.stub(:global_node).and_return(global_node)
         role.stub(:assignments).and_return(association_proxy)
         association_proxy.stub(:exists?)
       end
@@ -209,7 +240,7 @@ module AccessControl
       context "without specifying a context" do
 
         it "gets the global node" do
-          Node.should_receive(:global).and_return(global_node)
+          AccessControl.should_receive(:global_node).and_return(global_node)
           test_assignment
         end
 

@@ -80,7 +80,7 @@ module AccessControl
             context "with permissions in the global node" do
 
               before do
-                Node.stub(:global).and_return(global_node)
+                AccessControl.stub(:global_node).and_return(global_node)
                 manager.stub(:can?).with('the index permissions', global_node).
                   and_return(true)
               end
@@ -108,7 +108,7 @@ module AccessControl
             context "without permissions in the global node" do
 
               before do
-                Node.stub(:global).and_return(global_node)
+                AccessControl.stub(:global_node).and_return(global_node)
                 manager.stub(:can?).with('the index permissions', global_node).
                   and_return(false)
               end

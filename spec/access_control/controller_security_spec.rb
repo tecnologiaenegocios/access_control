@@ -63,6 +63,7 @@ module AccessControl
       params[:action] = 'some_action'
       manager.stub(:can!)
       manager.stub(:use_anonymous!)
+      AccessControl.stub(:clear_global_node_cache)
       AccessControl.stub(:manager).and_return(manager)
       AccessControl.stub(:no_manager)
       AccessControl::PublicActions.clear
@@ -322,7 +323,7 @@ module AccessControl
 
         it "clears the global node cache" do
           AccessControl::Node.should_receive(:block_called).ordered
-          AccessControl::Node.should_receive(:clear_global_node_cache).ordered
+          AccessControl.should_receive(:clear_global_node_cache).ordered
           records_controller.process do
             AccessControl::Node.block_called
           end
@@ -348,7 +349,7 @@ module AccessControl
       # return the global node.
 
       before do
-        AccessControl::Node.stub(:global).and_return('the global node')
+        AccessControl.stub(:global_node).and_return('the global node')
       end
 
       it "returns the global node" do

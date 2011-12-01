@@ -1,5 +1,6 @@
 require 'spec_helper'
 require 'access_control/assignment'
+require 'access_control/behavior'
 require 'access_control/configuration'
 require 'access_control/node'
 require 'access_control/role'
@@ -13,7 +14,11 @@ module AccessControl
     before do
       AccessControl.config.stub(:default_roles_on_create).and_return(Set.new)
       AccessControl.stub(:manager).and_return(manager)
-      manager.stub(:can_assign_or_unassign?).and_return(true)
+    end
+
+    it "is extended with AccessControl::Ids" do
+      singleton_class = (class << Assignment; self; end)
+      singleton_class.should include(AccessControl::Ids)
     end
 
     it "can be created with valid attributes" do
@@ -50,15 +55,7 @@ module AccessControl
 
     describe "role validation" do
 
-      describe "Node conformance with expected interface" do
-        it_has_instance_method(Node, :global?)
-      end
-
-      describe "Role conformance with expected interface" do
-        it_has_instance_method(Role, :local)
-      end
-
-      describe "for global node" do
+      context "for global node" do
 
         let(:node) { stub_model(Node, :global? => true) }
 
@@ -95,11 +92,6 @@ module AccessControl
       end
 
       describe "assignment security" do
-
-        describe "Manager conformance with expected interface" do
-          it_has_instance_method(Manager, :can_assign_or_unassign?)
-          it_has_instance_method(Manager, :verify_assignment!)
-        end
 
         let(:node) { stub_model(Node) }
         let(:role) { stub_model(Role, :name => 'some_role', :local => true) }
@@ -158,19 +150,124 @@ module AccessControl
     end
 
     describe ".with_roles" do
-      it "filters out assignments which haven't one of the roles" do
-        role1 = stub('role', :id => "role1's id")
-        role2 = stub('role', :id => "role2's id")
-        Assignment.with_roles([role1, role2]).proxy_options.should == {
-          :conditions => { :role_id => ["role1's id", "role2's id"] }
-        }
+      let(:a1) do
+        r = Assignment.new(:principal_id => 0, :node_id => 0, :role_id => 1)
+        r.save(false)
+        r
+      end
+      let(:a2) do
+        r = Assignment.new(:principal_id => 0, :node_id => 0, :role_id => 2)
+        r.save(false)
+        r
+      end
+      before { a1; a2 }
+      it "returns assignments for the given role" do
+        Assignment.with_roles(1).should include(a1)
+      end
+      it "rejects assignments for different roles of the specified" do
+        Assignment.with_roles(1).should_not include(a2)
+      end
+      it "accepts an array" do
+        collection = Assignment.with_roles([1, 2])
+        collection.should include(a1)
+        collection.should include(a1)
+      end
+    end
+
+    describe ".assigned_to" do
+      let(:a1) do
+        r = Assignment.new(:principal_id => 1, :node_id => 0, :role_id => 0)
+        r.save(false)
+        r
+      end
+      let(:a2) do
+        r = Assignment.new(:principal_id => 2, :node_id => 0, :role_id => 0)
+        r.save(false)
+        r
+      end
+      before { a1; a2 }
+      it "returns assignments for the given principal" do
+        Assignment.assigned_to(1).should include(a1)
+      end
+      it "rejects assignments for different principals of the specified" do
+        Assignment.assigned_to(1).should_not include(a2)
+      end
+      it "accepts an array" do
+        collection = Assignment.assigned_to([1, 2])
+        collection.should include(a1)
+        collection.should include(a1)
+      end
+    end
+
+    describe ".granting" do
+
+      let(:roles_proxy) { stub('roles proxy', :ids => [1]) }
+      let(:a1) do
+        r = Assignment.new(:role_id => 1, :node_id => 1, :principal_id => 1)
+        r.save(false)
+        r
+      end
+      let(:a2) do
+        r = Assignment.new(:role_id => 2, :node_id => 1, :principal_id => 1)
+        r.save(false)
+        r
+      end
+
+      before do
+        a1; a2
+        Role.stub(:for_permission).and_return(roles_proxy)
+      end
+
+      it "gets all roles for the specified permission" do
+        Role.should_receive(:for_permission).with('some permission').
+          and_return(roles_proxy)
+        Assignment.granting('some permission')
+      end
+
+      it "gets all role ids from the proxy" do
+        roles_proxy.should_receive(:ids)
+        Assignment.granting('some permission')
+      end
+
+      it "returns assignments with the relevant role_id" do
+        Assignment.granting('some permission').should include(a1)
+      end
+
+      it "rejects assignments without the relevant role_id" do
+        Assignment.granting('some permission').should_not include(a2)
+      end
+    end
+
+    describe ".granting_for_principal" do
+      let(:granting_proxy) { stub('granting proxy') }
+      let(:assignment_proxy) { stub('assignment proxy') }
+
+      before do
+        Assignment.stub(:granting).and_return(granting_proxy)
+        granting_proxy.stub(:assigned_to).and_return(assignment_proxy)
+      end
+
+      it "calls .granting with permission provided" do
+        Assignment.should_receive(:granting).with('permission').
+          and_return(granting_proxy)
+        Assignment.granting_for_principal('permission', 'principal')
+      end
+
+      it "calls .assigned_to with principal provided in the resulting object" do
+        granting_proxy.should_receive(:assigned_to).with('principal')
+        Assignment.granting_for_principal('permission', 'principal')
+      end
+
+      it "returns whatever .assigned_to returns" do
+        Assignment.granting_for_principal('permission', 'principal').should ==
+          assignment_proxy
       end
     end
 
     describe "assignments for management" do
 
       before do
-        Node.create_global_node!
+        AccessControl.create_global_node!
         roles = [
           @role1 = Role.create!(:name => 'role1'),
           @role2 = Role.create!(:name => 'role2'),

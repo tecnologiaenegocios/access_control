@@ -59,7 +59,7 @@ module AccessControl
     describe "#from_class?" do
 
       before do
-        Node.stub(:granted_for).and_return([node1])
+        Node.stub(:granted_for).and_return([node1, node2])
       end
 
       it "gets the current principal ids" do
@@ -69,18 +69,26 @@ module AccessControl
 
       it "finds nodes grantable for the current principals for securable 0" do
         Node.should_receive(:granted_for).
-          with('Record', principal_ids, permissions, {:securable_id => 0}).
-          and_return([node1])
+          with('Record', principal_ids, permissions).
+          and_return([])
         grantable.from_class?(permissions)
       end
 
-      describe "when a node is returned" do
-        it "returns true" do
-          grantable.from_class?(permissions).should be_true
+      context "when one or more nodes are returned" do
+        context "and one of them has securable_id == 0" do
+          it "returns true" do
+            grantable.from_class?(permissions).should be_true
+          end
+        end
+        context "and none of them have securable_id == 0" do
+          it "returns false" do
+            Node.stub(:granted_for).and_return([node2])
+            grantable.from_class?(permissions).should be_false
+          end
         end
       end
 
-      describe "when nothing is returned" do
+      context "when nothing is returned" do
         it "returns false" do
           Node.stub(:granted_for).and_return([])
           grantable.from_class?(permissions).should be_false

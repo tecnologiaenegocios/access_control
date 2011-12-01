@@ -1,8 +1,40 @@
 require 'spec_helper'
+require 'access_control/behavior'
 require 'access_control/security_policy_item'
 
 module AccessControl
   describe SecurityPolicyItem do
+
+    describe ".role_ids" do
+      it "maps to #role_id for each existing item" do
+        r = SecurityPolicyItem.new(:role_id => 12345, :permission => 'foo')
+        r.save(false)
+        SecurityPolicyItem.role_ids.should == [12345]
+      end
+    end
+
+    describe ".with_permission" do
+      let(:item1) do
+        SecurityPolicyItem.create!(:role_id => 0, :permission => 'permission 1')
+      end
+      let(:item2) do
+        SecurityPolicyItem.create!(:role_id => 0, :permission => 'permission 2')
+      end
+      before { item1; item2 }
+      it "returns items for the specified permission" do
+        SecurityPolicyItem.with_permission('permission 1').should include(item1)
+      end
+      it "rejects items for not specified permissions" do
+        SecurityPolicyItem.with_permission('permission 1').
+          should_not include(item2)
+      end
+      it "accepts an array" do
+        collection = SecurityPolicyItem.
+          with_permission(['permission 1', 'permission 2'])
+        collection.should include(item1)
+        collection.should include(item2)
+      end
+    end
 
     describe "mass-update/create/destroy items" do
 
@@ -106,8 +138,8 @@ module AccessControl
       end
 
       it "clears the global node cache" do
-        SecurityPolicyItem.stub!(:find).and_return(item1)
-        Node.should_receive(:clear_global_node_cache).once
+        SecurityPolicyItem.stub(:find).and_return(item1)
+        AccessControl.should_receive(:clear_global_node_cache).once
         SecurityPolicyItem.mass_manage!([
           {:id => item1.to_param, :role_id => '3'}
         ])

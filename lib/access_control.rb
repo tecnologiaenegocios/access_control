@@ -1,6 +1,7 @@
 require 'rubygems'
 require 'active_record'
 require 'action_controller'
+require 'access_control/behavior'
 
 # Models
 require 'access_control/assignment'
@@ -22,16 +23,5 @@ require 'access_control/securable'
 require 'access_control/active_record_subject'
 
 module AccessControl
-
-  MANAGER_THREAD_KEY = :ac_manager
-
-  def self.manager
-    Thread.current[MANAGER_THREAD_KEY] ||= Manager.new
-  end
-
-  def self.no_manager
-    Thread.current[MANAGER_THREAD_KEY] = nil
-  end
-
   LIB_PATH = File.dirname(__FILE__)
 end
