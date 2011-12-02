@@ -23,8 +23,14 @@ module AccessControl
 
     describe "#ids_with" do
 
+      let(:scoped) do
+        stub('scoped', :select_values_of_column => [
+          node1.securable_id, node2.securable_id
+        ])
+      end
+
       before do
-        Node.stub(:granted_for).and_return([node1, node2])
+        Node.stub(:granted_for).and_return(scoped)
       end
 
       it "gets the current principal ids" do
@@ -35,7 +41,13 @@ module AccessControl
       it "finds all nodes grantable for the current principals" do
         Node.should_receive(:granted_for).
           with('Record', principal_ids, permissions).
-          and_return([node1, node2])
+          and_return(scoped)
+        grantable.ids_with(permissions)
+      end
+
+      it "gets the securable ids from the nodes" do
+        scoped.should_receive(:select_values_of_column).with(:securable_id).
+          and_return([])
         grantable.ids_with(permissions)
       end
 

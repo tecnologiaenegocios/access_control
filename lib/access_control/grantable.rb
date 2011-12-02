@@ -12,7 +12,7 @@ module AccessControl
 
     def ids_with(permissions)
       nodes = Node.granted_for(model.name, principal_ids, permissions)
-      Set.new(nodes.map(&:securable_id) - [0])
+      Set.new(nodes.select_values_of_column(:securable_id) - [0])
     end
 
     def from_class?(permissions)
