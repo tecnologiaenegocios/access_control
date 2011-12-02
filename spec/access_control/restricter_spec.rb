@@ -8,18 +8,15 @@ module AccessControl
     # A Restricter assembles a sql condition which can be used to filter ids in
     # a query based on permissions.
 
-    let(:model)       { Class.new }
-    let(:restricter)  { Restricter.new(model) }
+    let(:orm_class)   { Class.new }
+    let(:restricter)  { Restricter.new(orm_class) }
     let(:inheritable) { mock(:ids_with => Set.new([1,2,    5,6,    9])) }
     let(:blockable)   { mock(:ids      => Set.new([      4,5,6      ])) }
     let(:grantable)   { mock(:ids_with => Set.new([  2,  4,  6,  8  ])) }
 
     before do
-      model.stub(:named_scope)
-      model.stub(:find)
-      model.stub(:quoted_table_name).and_return('`table_name`')
-      model.stub(:primary_key).and_return('pk')
-      model.send(:include, Restriction)
+      orm_class.stub(:full_pk).and_return('`table_name`.pk')
+      orm_class.stub(:quote_values).and_return('quoted values')
       Grantable.stub(:new).and_return(grantable)
       Blockable.stub(:new).and_return(blockable)
       Inheritable.stub(:new).and_return(inheritable)
@@ -31,18 +28,18 @@ module AccessControl
         restricter.permitted_ids('some permissions', filter)
       end
 
-      it "creates a inheritable from the model" do
-        Inheritable.should_receive(:new).with(model).and_return(inheritable)
+      it "creates a inheritable from the orm class" do
+        Inheritable.should_receive(:new).with(orm_class).and_return(inheritable)
         get_ids
       end
 
-      it "creates a grantable from the model" do
-        Grantable.should_receive(:new).with(model).and_return(grantable)
+      it "creates a grantable from the orm class" do
+        Grantable.should_receive(:new).with(orm_class).and_return(grantable)
         get_ids
       end
 
-      it "creates a blockable from the model" do
-        Blockable.should_receive(:new).with(model).and_return(blockable)
+      it "creates a blockable from the orm class" do
+        Blockable.should_receive(:new).with(orm_class).and_return(blockable)
         get_ids
       end
 
@@ -124,15 +121,23 @@ module AccessControl
         end
 
         context "when there are ids left to narrow down the outer query" do
+          it "quotes them" do
+            orm_class.should_receive(:quote_values).with(['permitted ids']).
+              and_return('quoted values')
+            restricter_condition('some filtering ids')
+          end
           it "builds a condition expression for the primary key" do
-            restricter_condition.should ==
-              ["`table_name`.pk IN (?)", ['permitted ids']]
+            restricter_condition.should == "`table_name`.pk IN (quoted values)"
           end
         end
 
         context "when there are no ids left" do
+          before { restricter.stub(:permitted_ids).and_return(Set.new) }
+          it "doesn't issue quoting" do
+            orm_class.should_not_receive(:quote_values)
+            restricter_condition('some filtering ids')
+          end
           it "returns a condition that is always false" do
-            restricter.stub(:permitted_ids).and_return(Set.new)
             restricter_condition.should == '0'
           end
         end
@@ -143,20 +148,22 @@ module AccessControl
 
         before do
           grantable.stub(:from_class?).and_return(true)
+          orm_class.stub(:quote_values) do |values|
+            quote(values)
+          end
         end
 
-        it "creates a grantable from the model" do
-          Grantable.should_receive(:new).with(model).and_return(grantable)
+        def quote values
+          values.map(&:to_s).join(',')
+        end
+
+        it "creates a grantable from the orm class" do
+          Grantable.should_receive(:new).with(orm_class).and_return(grantable)
           restricter_condition
         end
 
-        it "creates a blockable from the model" do
-          Blockable.should_receive(:new).with(model).and_return(blockable)
-          restricter_condition
-        end
-
-        it "asks the grantable if the class grants the permissions" do
-          grantable.should_receive(:from_class?).and_return(true)
+        it "creates a blockable from the orm class" do
+          Blockable.should_receive(:new).with(orm_class).and_return(blockable)
           restricter_condition
         end
 
@@ -180,13 +187,13 @@ module AccessControl
             # granted in a NOT IN expression.
             invalid_ids = blockable.ids - grantable.ids_with
             restricter_condition.should ==
-              ["`table_name`.pk NOT IN (?)", invalid_ids.to_a]
+              "`table_name`.pk NOT IN (#{quote(invalid_ids)})"
           end
 
           it "ignores the filter" do
             invalid_ids = blockable.ids - grantable.ids_with
             restricter_condition(['whatever']).should ==
-              ["`table_name`.pk NOT IN (?)", invalid_ids.to_a]
+              "`table_name`.pk NOT IN (#{quote(invalid_ids)})"
           end
 
           describe "when all blocked ids are granted" do
@@ -209,7 +216,7 @@ module AccessControl
           describe "when a filter is provided" do
             it "builds a condition using only the filter" do
               restricter_condition([1, 2, 3]).should ==
-                ["`table_name`.pk IN (?)", [1, 2, 3]]
+                "`table_name`.pk IN (#{quote([1, 2, 3])})"
             end
           end
 

@@ -2,6 +2,7 @@ require 'access_control/blockable'
 require 'access_control/exceptions'
 require 'access_control/grantable'
 require 'access_control/inheritable'
+require 'access_control/orm'
 
 module AccessControl
 
@@ -25,16 +26,16 @@ module AccessControl
       if !grantable.from_class?(permissions)
         ids = permitted_ids(permissions, filter)
         if ids.any?
-          ["#{table_id} IN (?)", ids.to_a]
+          "#{table_id} IN (#{quote(ids)})"
         else
           '0'
         end
       else
         if blocked_ids.any?
-          ids = (blocked_ids - grantable.ids_with(permissions)).to_a
-          ids.any? ? ["#{table_id} NOT IN (?)", ids] : '1'
+          ids = blocked_ids - grantable.ids_with(permissions)
+          ids.any? ? "#{table_id} NOT IN (#{quote(ids)})" : '1'
         else
-          filter ? ["#{table_id} IN (?)", filter] : '1'
+          filter ? "#{table_id} IN (#{quote(filter)})" : '1'
         end
       end
     end
@@ -50,7 +51,11 @@ module AccessControl
     end
 
     def table_id
-      @table_id ||= "#{model.quoted_table_name}.#{model.primary_key}"
+      @table_id ||= model.full_pk
+    end
+
+    def quote(values)
+      model.quote_values(values.to_a)
     end
 
   end

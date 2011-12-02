@@ -8,7 +8,8 @@ module AccessControl
     end
 
     def ids
-      Set.new(Node.blocked_for(model.name).map(&:securable_id) - [0])
+      Set.new(Node.blocked_for(model.name).
+              select_values_of_column(:securable_id) - [0])
     end
 
   end

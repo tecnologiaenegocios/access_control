@@ -4,8 +4,8 @@ require 'access_control/grantable'
 module AccessControl
   describe Grantable do
 
-    let(:model)         { Class.new }
-    let(:grantable)     { Grantable.new(model) }
+    let(:orm_class)     { Class.new }
+    let(:grantable)     { Grantable.new(orm_class) }
     let(:principal_ids) { stub('principal ids') }
     let(:permissions)   { stub('permissions') }
     let(:node1)         { stub('node1', :securable_id => 0) }
@@ -13,12 +13,12 @@ module AccessControl
     let(:manager)       { mock('manager', :principal_ids => principal_ids) }
 
     before do
-      model.stub(:name).and_return('Record')
+      orm_class.stub(:name).and_return('Record')
       AccessControl.stub(:manager).and_return(manager)
     end
 
-    it "can be created with a model" do
-      Grantable.new(model)
+    it "can be created with an orm class" do
+      Grantable.new(orm_class)
     end
 
     describe "#ids_with" do

@@ -13,17 +13,22 @@ module AccessControl
     describe "#ids" do
 
       let(:blockable) { Blockable.new(model) }
-      let(:node1)     { stub('node1', :securable_id => 0) }
-      let(:node2)     { stub('node1', :securable_id => 14528) }
+      let(:scoped)    { stub('scoped', :select_values_of_column => [0, 14528])}
 
       before do
         model.stub(:name).and_return('Record')
-        Node.stub(:blocked_for).and_return([node1, node2])
+        Node.stub(:blocked_for).and_return(scoped)
       end
 
       it "finds all nodes for that type of record" do
         Node.should_receive(:blocked_for).
-          with('Record').and_return([node1, node2])
+          with('Record').and_return(scoped)
+        blockable.ids
+      end
+
+      it "gets only the securable_id column" do
+        scoped.should_receive(:select_values_of_column).with(:securable_id).
+          and_return([])
         blockable.ids
       end
 
