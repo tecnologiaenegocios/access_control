@@ -8,8 +8,11 @@ module AccessControl
     # A Restricter assembles a sql condition which can be used to filter ids in
     # a query based on permissions.
 
-    let(:model) { Class.new }
-    let(:restricter) { Restricter.new(model) }
+    let(:model)       { Class.new }
+    let(:restricter)  { Restricter.new(model) }
+    let(:inheritable) { mock(:ids_with => Set.new([1,2,    5,6,    9])) }
+    let(:blockable)   { mock(:ids      => Set.new([      4,5,6      ])) }
+    let(:grantable)   { mock(:ids_with => Set.new([  2,  4,  6,  8  ])) }
 
     before do
       model.stub(:named_scope)
@@ -17,6 +20,79 @@ module AccessControl
       model.stub(:quoted_table_name).and_return('`table_name`')
       model.stub(:primary_key).and_return('pk')
       model.send(:include, Restriction)
+      Grantable.stub(:new).and_return(grantable)
+      Blockable.stub(:new).and_return(blockable)
+      Inheritable.stub(:new).and_return(inheritable)
+    end
+
+    describe "#permitted_ids" do
+
+      def get_ids(filter=nil)
+        restricter.permitted_ids('some permissions', filter)
+      end
+
+      it "creates a inheritable from the model" do
+        Inheritable.should_receive(:new).with(model).and_return(inheritable)
+        get_ids
+      end
+
+      it "creates a grantable from the model" do
+        Grantable.should_receive(:new).with(model).and_return(grantable)
+        get_ids
+      end
+
+      it "creates a blockable from the model" do
+        Blockable.should_receive(:new).with(model).and_return(blockable)
+        get_ids
+      end
+
+      it "gets inherited ids" do
+        ids = inheritable.ids_with
+        inheritable.should_receive(:ids_with).with('some permissions').
+          and_return(ids)
+        get_ids
+      end
+
+      it "gets granted ids" do
+        ids = grantable.ids_with
+        grantable.should_receive(:ids_with).with('some permissions').
+          and_return(ids)
+        get_ids
+      end
+
+      it "gets blocked ids" do
+        ids = blockable.ids
+        blockable.should_receive(:ids).and_return(ids)
+        get_ids
+      end
+
+      context "when there's no filter" do
+        it "returns only valid ids" do
+          # We should get all inheritable ids minus those that are blocked,
+          # united with all grantable ids.
+          valid_ids = (inheritable.ids_with - blockable.ids) |
+            grantable.ids_with
+          get_ids.should == valid_ids
+        end
+        it "returns a set" do
+          get_ids.should be_a(Set)
+        end
+      end
+
+      context "when there's a filter" do
+        it "returns valid ids intersected with those in the filter" do
+          valid_ids = (inheritable.ids_with - blockable.ids) |
+            grantable.ids_with
+          filter = Set.new([10, valid_ids.first])
+          valid_ids = filter & valid_ids # This should let only one id.
+          get_ids(filter).should == valid_ids
+        end
+        it "returns a set" do
+          filter = Set.new
+          get_ids(filter).should be_a(Set)
+        end
+      end
+
     end
 
     describe "#sql_condition" do
@@ -24,92 +100,39 @@ module AccessControl
       # Returns a sql condition for scoping a primary key with a :conditions
       # option.
 
-      let(:inheritable) { mock(:ids_with => Set.new([1,2,    5,6,    9])) }
-      let(:blockable)   { mock(:ids      => Set.new([      4,5,6      ])) }
-      let(:grantable)   { mock(:ids_with => Set.new([  2,  4,  6,  8  ])) }
-
       def restricter_condition(filter=nil)
         restricter.sql_condition('some permissions', filter)
       end
 
-      before do
-        Grantable.stub(:new).and_return(grantable)
-        Blockable.stub(:new).and_return(blockable)
-        Inheritable.stub(:new).and_return(inheritable)
+      it "asks the grantable if the class grants the permissions" do
+        grantable.should_receive(:from_class?).and_return(false)
+        restricter_condition
       end
 
       describe "when the class doesn't grant the permission" do
 
         before do
           grantable.stub(:from_class?).and_return(false)
+          restricter.stub(:permitted_ids).and_return(Set.new('permitted ids'))
         end
 
-        it "creates a inheritable from the model" do
-          Inheritable.should_receive(:new).with(model).and_return(inheritable)
-          restricter_condition
-        end
-
-        it "creates a grantable from the model" do
-          Grantable.should_receive(:new).with(model).and_return(grantable)
-          restricter_condition
-        end
-
-        it "creates a blockable from the model" do
-          Blockable.should_receive(:new).with(model).and_return(blockable)
-          restricter_condition
-        end
-
-        it "asks the grantable if the class grants the permissions" do
-          grantable.should_receive(:from_class?).and_return(false)
-          restricter_condition
-        end
-
-        it "gets inherited ids" do
-          ids = inheritable.ids_with
-          inheritable.should_receive(:ids_with).with('some permissions').
-            and_return(ids)
-          restricter_condition
-        end
-
-        it "gets granted ids" do
-          ids = grantable.ids_with
-          grantable.should_receive(:ids_with).with('some permissions').
-            and_return(ids)
-          restricter_condition
-        end
-
-        it "gets blocked ids" do
-          ids = blockable.ids
-          blockable.should_receive(:ids).and_return(ids)
-          restricter_condition
+        it "passes parameters unmodified to #permitted_ids" do
+          restricter.should_receive(:permitted_ids).
+            with('some permissions', 'some filtering ids').
+            and_return(Set.new)
+          restricter_condition('some filtering ids')
         end
 
         context "when there are ids left to narrow down the outer query" do
           it "builds a condition expression for the primary key" do
-            # We should get all inheritable ids minus those that are blocked,
-            # united with all grantable ids.
-            valid_ids = (inheritable.ids_with - blockable.ids) |
-              grantable.ids_with
             restricter_condition.should ==
-              ["`table_name`.pk IN (?)", valid_ids.to_a]
-          end
-
-          it "filters out ids not in the filter" do
-            valid_ids = (inheritable.ids_with - blockable.ids) |
-              grantable.ids_with
-            filter = Set.new([10, valid_ids.first])
-            valid_ids = filter & valid_ids # This should let only one id.
-            restricter_condition(filter.to_a).should ==
-              ["`table_name`.pk IN (?)", valid_ids.to_a]
+              ["`table_name`.pk IN (?)", ['permitted ids']]
           end
         end
 
         context "when there are no ids left" do
           it "returns a condition that is always false" do
-            # The '0' can be used for other components to avoid a known-empty
-            # query.
-            inheritable.stub(:ids_with).and_return(Set.new)
-            grantable.stub(:ids_with).and_return(Set.new)
+            restricter.stub(:permitted_ids).and_return(Set.new)
             restricter_condition.should == '0'
           end
         end
