@@ -137,6 +137,8 @@ module AccessControl
       it { should discover(*items_from(nodes).
                            with(:securable_type => 'RightType',
                                 :id => node_ids.first)) }
+
+      it { subject.respond_to?(:to_sql).should be_true }
     end
 
     describe ".blocked_for" do
@@ -156,6 +158,7 @@ module AccessControl
                            with(:securable_type => 'RightType',
                                 :block => true)) }
 
+      it { subject.respond_to?(:to_sql).should be_true }
     end
 
     describe "#assignments" do

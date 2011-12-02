@@ -73,7 +73,7 @@ module AccessControl
     end
 
     def self.blocked_for(securable_type)
-      find_all_by_securable_type_and_block(securable_type, true)
+      blocked.with_type(securable_type)
     end
 
     def assignments_with_roles(filter_roles)
