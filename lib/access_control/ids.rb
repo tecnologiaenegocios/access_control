@@ -16,6 +16,12 @@ module AccessControl
       super
     end
 
+    def select_values_of_column(column_name)
+      connection.select_values(scoped(
+        :select => "#{quoted_table_name}.#{column_name}"
+      ).to_sql)
+    end
+
   private
 
     def belongs_to_association_ids_or_nil(method_name)
@@ -26,12 +32,6 @@ module AccessControl
           end
         end
       end
-    end
-
-    def select_values_of_column(column_name)
-      connection.select_values(scoped(
-        :select => "#{quoted_table_name}.#{column_name}"
-      ).to_sql)
     end
   end
 end

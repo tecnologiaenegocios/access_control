@@ -13,19 +13,19 @@ module AccessControl
       model.extend(Ids)
     end
 
-    describe ".ids" do
+    describe ".select_values_of_column" do
       before do
-        connection.stub(:select_values).and_return(['some id'])
+        connection.stub(:select_values).and_return(['some value'])
         scoped.stub(:to_sql).and_return('the resulting sql')
       end
 
       def call_method
-        model.ids
+        model.select_values_of_column(:column)
       end
 
-      it "gets the scoped model with a select involving only the id" do
+      it "gets the scoped model with a select involving only the column" do
         model.should_receive(:scoped).with(
-          :select => "#{model.quoted_table_name}.id"
+          :select => "#{model.quoted_table_name}.column"
         ).and_return(scoped)
         call_method
       end
@@ -42,7 +42,27 @@ module AccessControl
       end
 
       it "returns the array returned by the driver" do
-        call_method.should == ['some id']
+        call_method.should == ['some value']
+      end
+    end
+
+    describe ".ids" do
+      before do
+        model.stub(:select_values_of_column).and_return('result')
+      end
+
+      def call_method
+        model.ids
+      end
+
+      it "forwards the call to select_values_of_column using :id" do
+        model.should_receive(:select_values_of_column).
+          with(:id).and_return([])
+        call_method
+      end
+
+      it "returns whatever is returned by that method" do
+        call_method.should == 'result'
       end
     end
 
