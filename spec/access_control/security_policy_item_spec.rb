@@ -5,12 +5,9 @@ require 'access_control/security_policy_item'
 module AccessControl
   describe SecurityPolicyItem do
 
-    describe ".role_ids" do
-      it "maps to #role_id for each existing item" do
-        r = SecurityPolicyItem.new(:role_id => 12345, :permission => 'foo')
-        r.save(false)
-        SecurityPolicyItem.role_ids.should == [12345]
-      end
+    it "is extended with AccessControl::Ids" do
+      singleton_class = (class << SecurityPolicyItem; self; end)
+      singleton_class.should include(AccessControl::Ids)
     end
 
     describe ".with_permission" do

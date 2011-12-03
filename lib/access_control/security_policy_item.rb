@@ -1,7 +1,10 @@
 require 'access_control/behavior'
+require 'access_control/ids'
 
 module AccessControl
   class SecurityPolicyItem < ActiveRecord::Base
+
+    extend AccessControl::Ids
 
     set_table_name :ac_security_policy_items
     belongs_to :role, :class_name => 'AccessControl::Role'
@@ -11,10 +14,6 @@ module AccessControl
     }}
 
     class << self
-
-      def role_ids
-        all(:select => "DISTINCT #{quoted_table_name}.role_id").map(&:role_id)
-      end
 
       def mass_manage!(params)
         params ||= {}
