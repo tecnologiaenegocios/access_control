@@ -1,3 +1,4 @@
+require 'access_control/orm'
 require 'access_control/restricter'
 
 module AccessControl
@@ -20,7 +21,8 @@ module AccessControl
           permissions = permissions_required_to_index
           return super if AccessControl.manager.can?(permissions,
                                                      AccessControl.global_node)
-          condition = Restricter.new(self).sql_condition(permissions)
+          adapted = ORM.adapt_class(self)
+          condition = Restricter.new(adapted).sql_condition(permissions)
           if condition == '0'
             return [] if args.first == :all
           else

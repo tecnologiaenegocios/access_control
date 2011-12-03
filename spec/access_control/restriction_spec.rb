@@ -68,10 +68,12 @@ module AccessControl
                                      :sql_condition => sql_condition) }
           let(:sql_condition) { stub('sql condition') }
           let(:global_node)   { stub('global node') }
+          let(:adapted)       { stub('adapted') }
 
           before do
             model.stub(:permissions_required_to_index).
               and_return('the index permissions')
+            ORM.stub(:adapt_class).and_return(adapted)
             Restricter.stub(:new).and_return(restricter)
           end
 
@@ -119,8 +121,15 @@ module AccessControl
                 model.find(option, 'find arguments')
               end
 
+              it "adapts the model to the ORM interface" do
+                ORM.should_receive(:adapt_class).with(model).
+                  and_return(adapted)
+                model.find(option, 'find arguments')
+              end
+
               it "builds a restricter from the model" do
-                Restricter.should_receive(:new).and_return(restricter)
+                Restricter.should_receive(:new).with(adapted).
+                  and_return(restricter)
                 model.find(option, 'find arguments')
               end
 
