@@ -33,7 +33,7 @@ module AccessControl
       condition = Restricter.new(reflected_orm).
         sql_condition(permissions, filter)
       return Set.new if condition == '0'
-      Set.new(orm.primary_keys(condition))
+      Set.new(orm.primary_keys(condition, association))
     end
 
   end

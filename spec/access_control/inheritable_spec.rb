@@ -58,9 +58,9 @@ module AccessControl
             with('permissions inherited', parent2_pks).
             and_return(sql_condition2)
 
-          orm_class.stub(:primary_keys).with(sql_condition1).
+          orm_class.stub(:primary_keys).with(sql_condition1, :parent1).
             and_return(inherited_from_parent1)
-          orm_class.stub(:primary_keys).with(sql_condition2).
+          orm_class.stub(:primary_keys).with(sql_condition2, :parent2).
             and_return(inherited_from_parent2)
         end
 
@@ -102,10 +102,10 @@ module AccessControl
           context "when a non-falsy condition is returned" do
             it "gets orm class ids" do
               orm_class.should_receive(:primary_keys).
-                with(sql_condition1).
+                with(sql_condition1, :parent1).
                 and_return(inherited_from_parent1)
               orm_class.should_receive(:primary_keys).
-                with(sql_condition2).
+                with(sql_condition2, :parent2).
                 and_return(inherited_from_parent2)
               inheritable.ids_with('permissions inherited')
             end
