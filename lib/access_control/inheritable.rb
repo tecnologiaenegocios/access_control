@@ -4,11 +4,11 @@ require 'access_control/orm'
 module AccessControl
   class Inheritable
 
-    attr_reader :model
+    attr_reader :orm
 
-    def initialize(model)
-      raise InvalidInheritage unless model.object.include?(Inheritance)
-      @model = model
+    def initialize(orm)
+      raise InvalidInheritage unless orm.object.include?(Inheritance)
+      @orm = orm
     end
 
     def ids_with(permissions)
@@ -20,20 +20,20 @@ module AccessControl
   private
 
     def parent_models_and_ids
-      model.object.inherits_permissions_from.inject([]) do |items, assoc|
+      orm.object.inherits_permissions_from.inject([]) do |items, assoc|
         items << [
-          model.associated_class(assoc),
+          orm.associated_class(assoc),
           assoc,
-          model.foreign_keys(assoc)
+          orm.foreign_keys(assoc)
         ]
       end
     end
 
-    def query_ids(association, reflected_model, permissions, filter)
-      condition = Restricter.new(reflected_model).
+    def query_ids(association, reflected_orm, permissions, filter)
+      condition = Restricter.new(reflected_orm).
         sql_condition(permissions, filter)
       return Set.new if condition == '0'
-      Set.new(model.primary_keys(condition))
+      Set.new(orm.primary_keys(condition))
     end
 
   end

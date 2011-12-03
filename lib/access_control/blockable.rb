@@ -1,14 +1,14 @@
 module AccessControl
   class Blockable
 
-    attr_reader :model
+    attr_reader :orm
 
-    def initialize(model)
-      @model = model
+    def initialize(orm)
+      @orm = orm
     end
 
     def ids
-      Set.new(Node.blocked_for(model.name).
+      Set.new(Node.blocked_for(orm.name).
               select_values_of_column(:securable_id) - [0])
     end
 
