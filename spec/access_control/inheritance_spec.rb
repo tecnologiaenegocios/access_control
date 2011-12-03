@@ -6,30 +6,12 @@ module AccessControl
   describe Inheritance do
 
     let(:model) { Class.new }
-    let(:reflected_model) { Class.new }
-    let(:manager) { mock('manager') }
-    let(:reflection) { mock('reflection', :klass => reflected_model) }
 
     before do
-      AccessControl.stub(:manager).and_return(manager)
       model.send(:include, Inheritance)
-      model.stub(:find)
-      model.stub(:reflections => { :parent => reflection })
-      reflected_model.stub(:quoted_table_name => '`reflected_table`')
-      reflected_model.stub(:primary_key => 'pk')
-      manager.instance_eval do
-        def without_query_restriction
-          yield
-        end
-      end
     end
 
     describe ".inherits_permissions_from" do
-
-      before do
-        model.stub(:reflections => { :parent1 => reflection,
-                                     :parent2 => reflection })
-      end
 
       it "accepts a list of associations" do
         model.inherits_permissions_from(:parent1, :parent2)
