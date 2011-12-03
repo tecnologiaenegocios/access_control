@@ -42,13 +42,17 @@ module AccessControl
       # Get all of the ORM class table's primary keys which are in the given
       # SQL fragment used as condition (for the WHERE clause).
       #
+      # A join association, if given, should be used in the SQL (it may provide
+      # some joins for the conditions).
+      #
       # The resulting array must not be filtered by AccessControl, thus .find
       # should not be used (or should only be used inside a
       # AccessControl.manager.without_query_restriction block).
-      def primary_keys(sql_condition)
+      def primary_keys(sql_condition, join_association=nil)
         connection.select_values(scoped(
-          :select => full_pk,
-          :conditions => sql_condition
+          :select     => full_pk,
+          :conditions => sql_condition,
+          :joins      => join_association
         ).to_sql)
       end
 

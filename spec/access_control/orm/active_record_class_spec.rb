@@ -74,19 +74,39 @@ module AccessControl
       end
 
       describe "#primary_keys" do
-        subject { orm.primary_keys('Some SQL') }
+        context "without join association" do
+          subject { orm.primary_keys('Some SQL') }
 
-        it "issues a query using the connection" do
-          connection.should_receive(:select_values).with(
-            "Scoped SQL: #{{
-              :select => "`table_name`.pk",
-              :conditions => 'Some SQL'
-            }.inspect}"
-          )
-          subject
+          it "issues a query using the connection" do
+            connection.should_receive(:select_values).with(
+              "Scoped SQL: #{{
+                :select     => "`table_name`.pk",
+                :conditions => 'Some SQL',
+                :joins      => nil
+              }.inspect}"
+            )
+            subject
+          end
+
+          it { should == 'result' }
         end
 
-        it { should == 'result' }
+        context "with join association" do
+          subject { orm.primary_keys('Some SQL', :association) }
+
+          it "issues a query using the connection" do
+            connection.should_receive(:select_values).with(
+              "Scoped SQL: #{{
+                :select     => "`table_name`.pk",
+                :conditions => 'Some SQL',
+                :joins      => :association
+              }.inspect}"
+            )
+            subject
+          end
+
+          it { should == 'result' }
+        end
       end
 
       describe "#foreign_keys" do
