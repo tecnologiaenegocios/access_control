@@ -56,32 +56,23 @@ module AccessControl
 
     describe "persistency protection" do
 
-      let(:manager) { mock('manager', :can! => nil) }
+      let(:protector) { stub('protector', :verify! => nil) }
       let(:instance) { model.new }
 
       before do
         Node.stub(:create!)
-        AccessControl.stub(:manager).and_return(manager)
-        model.send(:include, ActiveRecordSecurable)
-        model.stub(:permissions_required_to_create).
-          and_return(Set.new(['some permissions']))
-        model.stub(:permissions_required_to_update).
-          and_return(Set.new(['some permissions']))
-        model.stub(:permissions_required_to_destroy).
-          and_return(Set.new(['some permissions']))
+        PersistencyProtector.stub(:new).with(instance).and_return(protector)
+        instance.extend(ActiveRecordSecurable)
       end
 
       describe "on create" do
         before { instance.stub(:ac_node) }
         it "verifies the create permission" do
-          model.stub(:permissions_required_to_create).
-            and_return(Set.new(['some permissions']))
-          manager.should_receive(:can!).
-            with(Set.new(['some permissions']), instance)
+          protector.should_receive(:verify!).with('create')
           instance.send(:create)
         end
         it "does it right after the record is created" do
-          manager.stub(:can!) do |permissions, instance|
+          protector.stub(:verify!) do |action|
             instance.verified
           end
           instance.should_receive(:do_action).ordered
@@ -89,7 +80,7 @@ module AccessControl
           instance.send(:create)
         end
         it "does it right before any after callback is called" do
-          manager.stub(:can!) do |permissions, instance|
+          protector.stub(:verify!) do |action|
             instance.verified
           end
           instance.should_receive(:verified).ordered
@@ -100,16 +91,13 @@ module AccessControl
 
       describe "on update" do
         it "verifies the update permission" do
-          model.stub(:permissions_required_to_update).
-            and_return(Set.new(['some permissions']))
-          manager.should_receive(:can!).
-            with(Set.new(['some permissions']), instance)
+          protector.should_receive(:verify!).with('update')
           instance.send(:update, 'some', 'arguments')
         end
         it "does it before doing the real update" do
           exception = Class.new(StandardError)
-          manager.stub(:can!).and_raise(exception)
-          model.should_not_receive(:do_action)
+          protector.stub(:verify!).and_raise(exception)
+          instance.should_not_receive(:do_action)
           begin
             instance.send(:update, 'some', 'arguments')
           rescue exception
@@ -124,16 +112,13 @@ module AccessControl
 
       describe "on destroy" do
         it "verifies the destroy permission" do
-          model.stub(:permissions_required_to_destroy).
-            and_return(Set.new(['some permissions']))
-          manager.should_receive(:can!).
-            with(Set.new(['some permissions']), instance)
+          protector.should_receive(:verify!).with('destroy')
           instance.send(:destroy)
         end
         it "does it before doing the real update" do
           exception = Class.new(StandardError)
-          manager.stub(:can!).and_raise(exception)
-          model.should_not_receive(:do_action)
+          protector.stub(:verify!).and_raise(exception)
+          instance.should_not_receive(:do_action)
           begin
             instance.send(:destroy)
           rescue exception

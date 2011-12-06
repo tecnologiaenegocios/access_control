@@ -1,6 +1,7 @@
 require 'access_control/active_record_associator'
 require 'access_control/declarations'
 require 'access_control/node'
+require 'access_control/persistency_protector'
 
 module AccessControl
   module ActiveRecordSecurable
@@ -14,7 +15,7 @@ module AccessControl
     end
 
     def destroy
-      verify_destroy_permissions
+      PersistencyProtector.new(self).verify!('destroy')
       super
     end
 
@@ -22,38 +23,12 @@ module AccessControl
 
     def create_without_callbacks
       super
-      verify_create_permissions
+      PersistencyProtector.new(self).verify!('create')
     end
 
     def update(*args)
-      verify_update_permissions
+      PersistencyProtector.new(self).verify!('update')
       super
     end
-
-    def verify_default_permissions?(type)
-      self.class.send(:"permissions_required_to_#{type}").any?
-    end
-
-    def verify_create_permissions
-      return unless verify_default_permissions?('create')
-      AccessControl.manager.can!(
-        self.class.permissions_required_to_create, self
-      )
-    end
-
-    def verify_update_permissions
-      return unless verify_default_permissions?('update')
-      AccessControl.manager.can!(
-        self.class.permissions_required_to_update, self
-      )
-    end
-
-    def verify_destroy_permissions
-      return unless verify_default_permissions?('destroy')
-      AccessControl.manager.can!(
-        self.class.permissions_required_to_destroy, self
-      )
-    end
-
   end
 end
