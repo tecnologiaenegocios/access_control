@@ -5,25 +5,26 @@ module AccessControl
   class Context
 
     def initialize(item_or_collection)
-      @collection = Util.make_set_from_args(item_or_collection)
+      @collection = Array(item_or_collection)
     end
 
     def nodes
-      @collection.inject(Set.new) do |nodes, item|
-        nodes | self.class.extract_nodes(item)
-      end
+      Util.flat_set(@collection) { |item| nodes_relevant_to(item) }
     end
 
   private
 
-    def self.extract_nodes item
-      unless item.is_a?(Node)
-        args = item.ac_node || Parenter.new(item).get.map(&:ac_node)
+    def nodes_relevant_to(item)
+      if owned_node = node_owned_by(item)
+        Set[owned_node]
       else
-        args = item
+        item_parents = Parenter.new(item).get
+        Util.flat_set(item_parents) { |parent| nodes_relevant_to(parent) }
       end
-      Util.make_set_from_args(args)
     end
 
+    def node_owned_by(item)
+      item.is_a?(Node) ? item : item.ac_node
+    end
   end
 end
