@@ -13,17 +13,17 @@ module AccessControl
       @record = record
     end
 
-    def get
+    def get(default_to_global_node = true)
       parent_associations = record.class.inherits_permissions_from
 
       parents = parent_associations.flat_map do |assoc|
         record.public_send(assoc) || []
       end
 
-      if parents.any?
-        Set.new(parents)
-      else
+      if parents.empty? && default_to_global_node
         Set[GlobalRecord.instance]
+      else
+        Set.new(parents)
       end
     end
 

@@ -85,24 +85,25 @@ module AccessControl
     end
 
     def unblocked_ancestors
-      Set.new([self]) | strict_unblocked_ancestors
+      strict_unblocked_ancestors.add(self)
     end
 
     def strict_unblocked_ancestors
-      unblocked_parents.
-        inject(Set.new([AccessControl.global_node])) do |ancestors, parent|
-          ancestors | parent.unblocked_ancestors
-        end
+      unblocked_ancestors = unblocked_parents.flat_map(&:unblocked_ancestors)
+      ancestors_set = Set.new(unblocked_ancestors).flatten
+
+      ancestors_set.add(AccessControl.global_node)
     end
 
     def ancestors
-      Set.new([self]) | strict_ancestors
+      strict_ancestors.add(self)
     end
 
     def strict_ancestors
-      parents.inject(Set.new([AccessControl.global_node])) do |ancestors, parent|
-        ancestors | parent.ancestors
-      end
+      parents_ancestors = parents.flat_map(&:ancestors)
+      ancestors_set     = Set.new(parents_ancestors).flatten
+
+      ancestors_set.add(AccessControl.global_node)
     end
 
     def securable
@@ -111,7 +112,6 @@ module AccessControl
 
     after_create :set_default_roles
     before_destroy :destroy_dependant_assignments
-
   private
 
     def destroy_dependant_assignments
@@ -136,9 +136,15 @@ module AccessControl
 
     def parents
       return Set.new unless can_inherit?
-      securable_class.inherits_permissions_from.inject(Set.new) do |p, assoc|
-        p | self.class.get_nodes_from(securable.send(assoc))
+
+      securable_parents.inject(Set.new) do |parents_set, securable_parent|
+        securable_parent_nodes = self.class.get_nodes_from(securable_parent)
+        parents_set.merge(securable_parent_nodes)
       end
+    end
+
+    def securable_parents(include_global = false)
+      Parenter.new(securable).get(include_global)
     end
 
     def self.get_nodes_from(object)
