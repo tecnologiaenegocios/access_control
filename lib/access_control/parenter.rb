@@ -1,5 +1,6 @@
 require 'access_control/exceptions'
 require 'access_control/node'
+require 'access_control/behavior'
 
 module AccessControl
   class Parenter
@@ -13,10 +14,17 @@ module AccessControl
     end
 
     def get
-      p = record.class.inherits_permissions_from.inject(Set.new) do |p, assoc|
-        p | Set.new([record.send(assoc)].flatten.compact)
+      parent_associations = record.class.inherits_permissions_from
+
+      parents = parent_associations.flat_map do |assoc|
+        record.public_send(assoc) || []
       end
-      p.any? ? p : Set.new([GlobalRecord.instance])
+
+      if parents.any?
+        Set.new(parents)
+      else
+        Set[GlobalRecord.instance]
+      end
     end
 
   end
