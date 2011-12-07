@@ -36,19 +36,19 @@ module AccessControl
     describe "mass-update/create/destroy items" do
 
       let(:item1) do
-        SecurityPolicyItem.create!(:role_id => 0,
-                                   :permission => 'a permission')
-      end
-      let(:item2) do
-        SecurityPolicyItem.create!(:role_id => 0,
-                                   :permission => 'another permission')
-      end
-      let(:item3) do
         SecurityPolicyItem.create!(:role_id => 1,
                                    :permission => 'a permission')
       end
-      let(:item4) do
+      let(:item2) do
+        SecurityPolicyItem.create!(:role_id => 1,
+                                   :permission => 'another permission')
+      end
+      let(:item3) do
         SecurityPolicyItem.create!(:role_id => 2,
+                                   :permission => 'a permission')
+      end
+      let(:item4) do
+        SecurityPolicyItem.create!(:role_id => 3,
                                    :permission => 'a permission')
       end
       let(:item5) do
@@ -56,70 +56,133 @@ module AccessControl
                                    :permission => 'another permission')
       end
 
-      it "can mass-update or mass-destroy with a hash of attribute hashes" do
-        SecurityPolicyItem.mass_manage!({
-          '0' => {:id => item1.to_param, :role_id => '3', :_destroy => '0'},
-          '1' => {:id => item2.to_param, :role_id => '3'},
-          '2' => {:id => item3.to_param,
+      let(:parameters) do
+        {
+          '0' => {},
+          '1' => {:id => item1.to_param},
+          '2' => {:id => item2.to_param, :_destroy => '0'},
+          '3' => {:id => item3.to_param, :_destroy => '1'},
+          '4' => {:id => item4.to_param, :role_id => '4'},
+          '5' => {:id => item5.to_param,
                   :permission => 'some other permission'},
-          '3' => {:id => item4.to_param, :_destroy => '1'},
-          '4' => {:id => item5.to_param, :_destroy => '1'},
-          '5' => {:role_id => '1', :id => '',
-                  :permission => 'another permission'},
-          '6' => {:role_id => '2',
-                  :permission => 'some other permission'}
-        })
-        SecurityPolicyItem.find(item1.id).role_id.should == 3
-        SecurityPolicyItem.find(item1.id).permission.should == 'a permission'
-        SecurityPolicyItem.find(item2.id).role_id.should == 3
-        SecurityPolicyItem.find(item2.id).
-          permission.should == 'another permission'
-        SecurityPolicyItem.find(item3.id).role_id.should == 1
-        SecurityPolicyItem.find(item3.id).
-          permission.should == 'some other permission'
-        SecurityPolicyItem.find_by_id(item4.id).should be_nil
-        SecurityPolicyItem.find_by_id(item5.id).should be_nil
-        SecurityPolicyItem.find_by_role_id_and_permission(
-          1, 'another permission'
-        ).should_not be_nil
-        SecurityPolicyItem.find_by_role_id_and_permission(
-          2, 'some other permission'
-        ).should_not be_nil
+          '6' => {:role_id => '5', :permission => 'unique permission'},
+          # New item, should ignore _destroy.
+          '7' => {:role_id => '5',
+                  :permission => 'other unique permission',
+                  :_destroy => '1'}
+        }
       end
 
-      it "can mass-update or mass-destroy with an array of attribute hashes" do
-        SecurityPolicyItem.mass_manage!([
-          {:id => item1.to_param, :role_id => '3', :_destroy => '0'},
-          {:id => item2.to_param, :role_id => '3'},
-          {:id => item3.to_param, :permission => 'some other permission'},
-          {:id => item4.to_param, :_destroy => '1'},
-          {:id => item5.to_param, :_destroy => '1'},
-          {:role_id => '1', :id => '',
-           :permission => 'another permission'},
-          {:role_id => '2', :permission => 'some other permission'}
-        ])
-        SecurityPolicyItem.find(item1.id).role_id.should == 3
-        SecurityPolicyItem.find(item1.id).permission.should == 'a permission'
-        SecurityPolicyItem.find(item2.id).role_id.should == 3
-        SecurityPolicyItem.find(item2.id).
-          permission.should == 'another permission'
-        SecurityPolicyItem.find(item3.id).role_id.should == 1
-        SecurityPolicyItem.find(item3.id).
-          permission.should == 'some other permission'
-        SecurityPolicyItem.find_by_id(item4.id).should be_nil
-        SecurityPolicyItem.find_by_id(item5.id).should be_nil
-        SecurityPolicyItem.find_by_role_id_and_permission(
-          1, 'another permission'
-        ).should_not be_nil
-        SecurityPolicyItem.find_by_role_id_and_permission(
-          2, 'some other permission'
-        ).should_not be_nil
+      [
+        ['using a hash of attribute hashes',   Proc.new {|p| p }],
+        ['using an array of attribute hashes', Proc.new {|p| p.values } ]
+      ].each do |type_description, type_proc|
+        describe "mass-update or mass-destroy #{type_description}" do
+
+          let(:effective_parameters) { type_proc[parameters] }
+
+          def do_mass_manage
+            SecurityPolicyItem.mass_manage!(effective_parameters)
+          end
+
+          before do
+            do_mass_manage
+          end
+
+          it "should not change item 1 since it is not being changed" do
+            attrs = item1.attributes.symbolize_keys
+            attrs.delete(:lock_version)
+            attrs.should == {
+              :id => item1.id, :role_id => 1, :permission => 'a permission'
+            }
+          end
+
+          it "should not destroy item 2 since its _destroy flag isn't set" do
+            lambda {
+              SecurityPolicyItem.find(item2.id)
+            }.should_not raise_exception
+          end
+
+          it "should destroy item 3" do
+            SecurityPolicyItem.find_by_id(item3.id).should be_nil
+          end
+
+          it "should have changed the role of item 4" do
+            item4.reload.role_id.should == 4
+          end
+
+          it "should have changed the permission of item 5" do
+            item5.reload.permission.should == 'some other permission'
+          end
+
+          it "should have created a new item" do
+            SecurityPolicyItem.find(
+              :first, :conditions => { :role_id => 5,
+                                       :permission => 'unique permission' }
+            ).should_not be_nil
+          end
+
+          it "should have created a new item even if _destroy was set" do
+            SecurityPolicyItem.find(
+              :first,
+              :conditions => { :role_id => 5,
+                               :permission => 'other unique permission' }
+            ).should_not be_nil
+          end
+
+          context "filtering roles" do
+            def do_mass_manage
+              SecurityPolicyItem.mass_manage!(effective_parameters,
+                                              roles_filtered_out)
+            end
+
+            context "while creating" do
+              let(:roles_filtered_out) { [mock_model(Role, :id => 3)] }
+
+              it "skips items of that role" do
+                SecurityPolicyItem.find(
+                  :first, :conditions => { :role_id => 3,
+                                           :permission => 'unique permission' }
+                ).should be_nil
+              end
+            end
+
+            context "while updating" do
+              context "an item from any role to a filtered role" do
+                let(:roles_filtered_out) { [mock_model(Role, :id => 4)] }
+
+                it "skips updating" do
+                  item4.reload.role_id.should == 3
+                end
+              end
+
+              context "an item of that role" do
+                let(:roles_filtered_out) { [mock_model(Role, :id => 2)] }
+
+                it "skips updating" do
+                  item5.reload.permission.should == 'another permission'
+                end
+              end
+            end
+
+            context "while destroying" do
+              let(:roles_filtered_out) { [mock_model(Role, :id => 2)] }
+              
+              it "skips destroying" do
+                lambda {
+                  SecurityPolicyItem.find(item3.id)
+                }.should_not raise_exception
+              end
+            end
+          end
+
+        end
       end
 
       it "raises ActiveRecord::RecordNotFound if some item is not found" do
         lambda {
           SecurityPolicyItem.mass_manage!([
-            {:id => -10, :role_id => '3', :_destroy => '0'}
+            {:id => '-10', :role_id => '3', :_destroy => '0'}
           ])
         }.should raise_exception(ActiveRecord::RecordNotFound)
       end
@@ -135,6 +198,7 @@ module AccessControl
       end
 
       it "clears the global node cache" do
+        # Needed to sweep any assignment/role/item attached to the global node.
         SecurityPolicyItem.stub(:find).and_return(item1)
         AccessControl.should_receive(:clear_global_node_cache).once
         SecurityPolicyItem.mass_manage!([

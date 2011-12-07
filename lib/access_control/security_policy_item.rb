@@ -15,19 +15,20 @@ module AccessControl
 
     class << self
 
-      def mass_manage!(params)
+      def mass_manage!(params, filtered_roles=[])
         params ||= {}
         params = params.values if params.is_a?(Hash)
+        filtered_role_ids = filtered_roles.map(&:id)
         params.each do |attributes|
           attributes = attributes.with_indifferent_access
-          id = attributes.delete(:id)
           destroy = param_to_boolean(attributes.delete(:_destroy))
-          if id.present?
-            item = find(id)
-            next item.destroy if destroy
-            next item.update_attributes!(attributes)
-          end
-          create!(attributes) unless destroy
+          next if attributes.empty?
+          next if filtered_role_ids.include?(attributes[:role_id].to_i)
+          item = get_new_item_or_find_existing_one(attributes)
+          next if filtered_role_ids.include?(item.role_id)
+          item.attributes = attributes
+          next item.destroy if destroy && !item.new_record?
+          item.save!
         end
         AccessControl.clear_global_node_cache
       end
@@ -56,7 +57,12 @@ module AccessControl
         end
       end
 
-    private
+      private
+
+      def get_new_item_or_find_existing_one(attributes)
+        id = attributes.delete(:id)
+        item = id.present?? find(id) : new(attributes)
+      end
 
       def param_to_boolean param
         case param
