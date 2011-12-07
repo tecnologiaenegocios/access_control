@@ -4,6 +4,7 @@ source "http://rubygems.org"
 gemspec
 
 gem 'pry'
+gem 'pry-doc'
 
 platform :mri_18 do
   gem 'ruby-debug'
