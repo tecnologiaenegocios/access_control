@@ -19,7 +19,7 @@ module AccessControl
     def select_values_of_column(column_name)
       connection.select_values(scoped(
         :select => "#{quoted_table_name}.#{column_name}"
-      ).to_sql)
+      ).sql)
     end
 
   private
@@ -37,11 +37,11 @@ module AccessControl
 end
 
 # This feature is needed but is not available in Rails 2.3.x.
-unless ActiveRecord::NamedScope::Scope.method_defined?('to_sql')
+unless ActiveRecord::NamedScope::Scope.method_defined?('sql')
   module ActiveRecord
     module NamedScope
       class Scope
-        def to_sql
+        def sql
           construct_finder_sql({})
         end
       end

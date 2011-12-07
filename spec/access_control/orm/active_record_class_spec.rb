@@ -33,7 +33,7 @@ module AccessControl
 
       def scope_with(options)
         scoped = stub('scoped with args', :options => options)
-        scoped.stub(:to_sql) do
+        scoped.stub(:sql) do
           "Scoped SQL: #{options.inspect}"
         end
         scoped

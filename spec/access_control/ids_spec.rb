@@ -16,7 +16,7 @@ module AccessControl
     describe ".select_values_of_column" do
       before do
         connection.stub(:select_values).and_return(['some value'])
-        scoped.stub(:to_sql).and_return('the resulting sql')
+        scoped.stub(:sql).and_return('the resulting sql')
       end
 
       def call_method
@@ -31,7 +31,7 @@ module AccessControl
       end
 
       it "gets the sql from the scoped" do
-        scoped.should_receive(:to_sql).and_return('the resulting sql')
+        scoped.should_receive(:sql).and_return('the resulting sql')
         call_method
       end
 
@@ -99,7 +99,7 @@ module AccessControl
 
           before do
             connection.stub(:select_values).and_return(['some id'])
-            scoped.stub(:to_sql).and_return('the resulting sql')
+            scoped.stub(:sql).and_return('the resulting sql')
           end
 
           def call_method
@@ -115,7 +115,7 @@ module AccessControl
           end
 
           it "gets the sql from the scoped" do
-            scoped.should_receive(:to_sql).and_return('the resulting sql')
+            scoped.should_receive(:sql).and_return('the resulting sql')
             call_method
           end
 

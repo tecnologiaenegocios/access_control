@@ -53,7 +53,7 @@ module AccessControl
           :select     => full_pk,
           :conditions => sql_condition,
           :joins      => join_association
-        ).to_sql)
+        ).sql)
       end
 
       # Given a join association, get all of its primary keys which are related
@@ -67,7 +67,7 @@ module AccessControl
         connection.select_values(scoped(
           :select => reflected.full_pk,
           :joins  => join_association
-        ).to_sql)
+        ).sql)
       end
 
     private
