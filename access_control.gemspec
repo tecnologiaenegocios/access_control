@@ -21,11 +21,5 @@ Gem::Specification.new do |s|
   s.add_dependency('backports')
   s.add_development_dependency('rspec-rails', '>= 1.3')
   s.add_development_dependency('accept_values_for')
-  s.add_development_dependency('ruby-debug')
-  s.add_development_dependency('guard')
-  s.add_development_dependency('guard-rspec')
-  s.add_development_dependency('libnotify')
-  s.add_development_dependency('rb-inotify')
-  s.add_development_dependency('pry')
   s.add_development_dependency('mysql')
 end
