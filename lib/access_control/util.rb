@@ -4,6 +4,18 @@ module AccessControl
 
     class << self
 
+      def flat_set(enumerable, &block)
+        collection = block ? enumerable.map(&block) : enumerable
+
+        collection.inject(Set.new) do |set, element|
+          if element.kind_of?(Enumerable)
+            set.merge element
+          else
+            set.add element
+          end
+        end
+      end
+
       def log_missing_permissions requirements, current, roles, trace
         AccessControl::Logger.log_missing_permissions(
           make_set_from_args(requirements),
