@@ -23,19 +23,19 @@ module AccessControl
     end
 
     def sql_condition(permissions, filter=nil)
-      if !grantable.from_class?(permissions)
-        ids = permitted_ids(permissions, filter)
-        if ids.any?
-          "#{table_id} IN (#{quote(ids)})"
-        else
-          '0'
-        end
-      else
+      if grantable.from_class?(permissions)
         if blocked_ids.any?
           ids = blocked_ids - grantable.ids_with(permissions)
           ids.any? ? "#{table_id} NOT IN (#{quote(ids)})" : '1'
         else
           filter ? "#{table_id} IN (#{quote(filter)})" : '1'
+        end
+      else
+        ids = permitted_ids(permissions, filter)
+        if ids.any?
+          "#{table_id} IN (#{quote(ids)})"
+        else
+          '0'
         end
       end
     end

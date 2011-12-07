@@ -1,5 +1,6 @@
 require 'access_control/exceptions'
 require 'access_control/manager'
+require 'backports'
 
 module AccessControl
   module Inheritance
@@ -9,13 +10,13 @@ module AccessControl
     end
 
     module ClassMethods
-      def inherits_permissions_from *args
-        @__inheritance__ =
-          if args.any?
-            args.flatten.inject([]) { |items, assoc| items << assoc.to_sym }
-          else
-            @__inheritance__ || []
-          end
+      def inherits_permissions_from(*args)
+        unless args.any? || @__inheritance__.nil?
+          @__inheritance__
+        else
+          associations = args.flatten(1)
+          @__inheritance__ = associations.flat_map(&:to_sym)
+        end
       end
     end
 

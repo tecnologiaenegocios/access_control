@@ -20,8 +20,8 @@ module AccessControl
   private
 
     def parent_models_and_ids
-      orm.object.inherits_permissions_from.inject([]) do |items, assoc|
-        items << [
+      orm.object.inherits_permissions_from.map do |assoc|
+        [
           orm.associated_class(assoc),
           assoc,
           orm.foreign_keys(assoc)
