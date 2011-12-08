@@ -37,16 +37,16 @@ module AccessControl
 
         let(:record1) { stub(:ac_node => nil) }
         let(:record2) { stub(:ac_node => nil) }
-        let(:parent1) { Set.new([stub('parent 1', :ac_node => node1)]) }
-        let(:parent2) { Set.new([stub('parent 2', :ac_node => node2)]) }
-        let(:parenter1) { stub(:get => parent1) }
-        let(:parenter2) { stub(:get => parent2) }
+
+        let(:parent1) { Set[stub('parent 1', :ac_node => node1)] }
+        let(:parent2) { Set[stub('parent 2', :ac_node => node2)] }
 
         it "uses its parents (assumes that the object is a baby)" do
-          Parenter.should_receive(:new).with(record1).and_return(parenter1)
-          Parenter.should_receive(:new).with(record2).and_return(parenter2)
+          Parenter.stub(:parents_of).with(record1).and_return(parent1)
+          Parenter.stub(:parents_of).with(record2).and_return(parent2)
+
           Context.new([record1, record2]).nodes.
-            should == Set.new([node1, node2])
+            should == Set[node1, node2]
         end
 
       end

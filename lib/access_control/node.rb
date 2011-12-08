@@ -152,7 +152,7 @@ module AccessControl
     end
 
     def securable_parents(include_global = false)
-      Parenter.new(securable).get(include_global)
+      Parenter.new(securable).parent_records(include_global)
     end
 
     def self.get_nodes_from(object)

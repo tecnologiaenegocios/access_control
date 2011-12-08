@@ -16,7 +16,7 @@ module AccessControl
       if owned_node = AccessControl::Node(item)
         Set[owned_node]
       else
-        item_parents = Parenter.new(item).get
+        item_parents = Parenter.parents_of(item)
         Util.flat_set(item_parents) { |parent| nodes_relevant_to(parent) }
       end
     end

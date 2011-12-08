@@ -6,7 +6,7 @@ module AccessControl
   class Parenter
 
     def self.parents_of(record, associations = record.class.inherits_permissions_from)
-      self.new(record, associations).get
+      self.new(record, associations).parent_records
     end
 
     attr_reader :record
@@ -17,7 +17,7 @@ module AccessControl
       @parent_associations = associations
     end
 
-    def get(default_to_global_record = true)
+    def parent_records(default_to_global_record = true)
       parents = Util.flat_set(@parent_associations) do |association_name|
         @record.public_send(association_name)
       end

@@ -64,8 +64,9 @@ module AccessControl
         }.should_not raise_exception(ArgumentError)
       end
 
-      it "works in the same way as Parenter.new(foo).get" do
-        Parenter.parents_of(record).should == Parenter.new(record).get
+      it "works in the same way as Parenter.new(foo).parent_records" do
+        Parenter.parents_of(record).should ==
+          Parenter.new(record).parent_records
       end
     end
 
@@ -89,14 +90,14 @@ module AccessControl
         record.stub(:parent1 => parents[1])
         record.stub(:parent2 => parents[2])
 
-        subject.get.should == Set[parents[1], parents[2]]
+        subject.parent_records.should == Set[parents[1], parents[2]]
       end
 
       it "doesn't break if the some of the parents are nil" do
         record.stub(:parent1 => parents[1])
         record.stub(:parent2 => nil)
 
-        subject.get.should == Set[parents[1]]
+        subject.parent_records.should == Set[parents[1]]
       end
 
       it "merges collection associations" do
@@ -105,7 +106,7 @@ module AccessControl
         record.stub(:parent1 => parents[3])
         record.stub(:parent2 => parents[4])
 
-        subject.get.should == Set[parents[1], parents[2], parents[4]]
+        subject.parent_records.should == Set[parents[1], parents[2], parents[4]]
       end
 
       context "when the record has no parents" do
@@ -115,11 +116,11 @@ module AccessControl
         end
 
         it "returns the global record by default" do
-          subject.get.should == Set[global_record]
+          subject.parent_records.should == Set[global_record]
         end
 
         it "may receive a flag to not include the global record" do
-          returned_set = subject.get(false)
+          returned_set = subject.parent_records(false)
           returned_set.should be_empty
         end
       end
