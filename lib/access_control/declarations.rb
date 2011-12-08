@@ -31,13 +31,13 @@ module AccessControl
       end
 
       def allocate
-        check_missing_declarations!
+        check_missing_declarations! unless include?(Singleton)
         super
       end
 
       unless AccessControl::Util.new_calls_allocate?
         def new(*args)
-          check_missing_declarations!
+          check_missing_declarations! unless include?(Singleton)
           super
         end
       end

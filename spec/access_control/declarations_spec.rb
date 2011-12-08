@@ -207,16 +207,22 @@ module AccessControl
           end
 
           context "checking permission declarations in the class" do
-
             before do
+              config.stub("default_#{t}_permissions").and_return(Set.new)
               # Do a fresh load.
               unset_model
               set_model
             end
 
+            context "in singletons" do
+              it "doesn't check for declarations" do
+                model.send(:include, Singleton)
+                lambda { model.instance }.should_not raise_exception
+              end
+            end
+
             context "allocation" do
               it "requires at least one permission by default on allocation" do
-                config.stub("default_#{t}_permissions").and_return(Set.new)
                 lambda {
                   model.allocate
                 }.should raise_exception(MissingPermissionDeclaration)
@@ -224,8 +230,8 @@ module AccessControl
             end
 
             context "instantiation" do
-              it "requires at least one permission by default on instantiation" do
-                config.stub("default_#{t}_permissions").and_return(Set.new)
+              it "requires at least one permission by default on "\
+                  "instantiation" do
                 lambda {
                   model.new
                 }.should raise_exception(MissingPermissionDeclaration)
