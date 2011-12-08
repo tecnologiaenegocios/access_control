@@ -3,6 +3,15 @@ require 'access_control/ids'
 require 'access_control/inheritance'
 
 module AccessControl
+
+  def AccessControl.Node(object)
+    if object.kind_of? Node
+      object
+    else
+      object.ac_node
+    end
+  end
+
   class Node < ActiveRecord::Base
 
     extend AccessControl::Ids
@@ -112,19 +121,19 @@ module AccessControl
 
     after_create :set_default_roles
     before_destroy :destroy_dependant_assignments
+
   private
 
     def destroy_dependant_assignments
       AccessControl.manager.without_assignment_restriction do
-        assignments.each do |assignment|
-          assignment.destroy
-        end
+        assignments.each(&:destroy)
       end
     end
 
     def set_default_roles
-      AccessControl.config.default_roles_on_create.each do |role|
-        next unless role = Role.find_by_name(role)
+      AccessControl.config.default_roles_on_create.each do |role_name|
+        next unless role = Role.find_by_name(role_name)
+
         AccessControl.manager.principal_ids.each do |principal_id|
           r = assignments.build(:role_id => role.id,
                                 :principal_id => principal_id)
@@ -137,9 +146,8 @@ module AccessControl
     def parents
       return Set.new unless can_inherit?
 
-      securable_parents.inject(Set.new) do |parents_set, securable_parent|
-        securable_parent_nodes = self.class.get_nodes_from(securable_parent)
-        parents_set.merge(securable_parent_nodes)
+      Util.flat_set(securable_parents) do |securable_parent|
+        self.class.get_nodes_from(securable_parent)
       end
     end
 

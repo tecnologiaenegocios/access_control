@@ -4,6 +4,26 @@ require 'access_control/configuration'
 require 'access_control/node'
 
 module AccessControl
+  describe ".Node" do
+
+    subject { AccessControl.method(:Node) }
+
+    it "when the argument is a Node, returns it untouched" do
+      node = stub_model(Node)
+      return_value = subject.call(node)
+
+      return_value.should == node
+    end
+
+    it "when the argument isn't a Node, returns it's .ac_node" do
+      node = stub_model(Node)
+      securable = stub("Securable", :ac_node => node)
+      return_value = subject.call(securable)
+
+      return_value.should == node
+    end
+  end
+
   describe Node do
 
     let(:manager) { Manager.new }
