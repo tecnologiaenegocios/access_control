@@ -5,20 +5,24 @@ require 'access_control/behavior'
 module AccessControl
   class Parenter
 
+    def self.parents_of(record, associations = record.class.inherits_permissions_from)
+      self.new(record, associations).get
+    end
+
     attr_reader :record
 
-    def initialize(record)
-      raise InvalidInheritage unless record.class.
-        respond_to?(:inherits_permissions_from)
+    def initialize(record, associations = record.class.inherits_permissions_from)
+      raise InvalidInheritage unless record.kind_of?(Inheritance)
       @record = record
+      @parent_associations = associations
     end
 
     def get(default_to_global_node = true)
-      parent_associations = record.class.inherits_permissions_from
-
-      parents = parent_associations.flat_map do |assoc|
-        record.public_send(assoc) || []
+      parents = Util.flat_set(@parent_associations) do |association_name|
+        @record.public_send(association_name)
       end
+
+      parents.reject!(&:nil?)
 
       if parents.empty? && default_to_global_node
         Set[GlobalRecord.instance]
