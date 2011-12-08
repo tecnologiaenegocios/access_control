@@ -4,6 +4,20 @@ module AccessControl
 
     class << self
 
+      # An utility method that wraps the following common patterns:
+      #
+      # enumerable.inject(Set.new, &:add)
+      # enumerable.inject(Set.new) { |set, foo| set.add foo.bar }
+      # enumerable.inject(Set.new) { |set, foo| set.merge foo.bars }.flatten
+      #
+      # On the following:
+      #
+      # Util.flat_set(enumerable)
+      # Util.flat_set(enumerable, &:foo)
+      # Util.flat_set(enumerable, &:foos)
+      #
+      # Check out the specs for more specific examples.
+
       def flat_set(enumerable, &block)
         collection = block ? enumerable.map(&block) : enumerable
 
