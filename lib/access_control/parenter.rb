@@ -17,14 +17,14 @@ module AccessControl
       @parent_associations = associations
     end
 
-    def get(default_to_global_node = true)
+    def get(default_to_global_record = true)
       parents = Util.flat_set(@parent_associations) do |association_name|
         @record.public_send(association_name)
       end
 
       parents.reject!(&:nil?)
 
-      if parents.empty? && default_to_global_node
+      if parents.empty? && default_to_global_record
         Set[GlobalRecord.instance]
       else
         Set.new(parents)
