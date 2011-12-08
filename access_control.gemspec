@@ -21,5 +21,5 @@ Gem::Specification.new do |s|
   s.add_dependency('backports')
   s.add_development_dependency('rspec-rails', '>= 1.3')
   s.add_development_dependency('accept_values_for')
-  s.add_development_dependency('mysql')
+  s.add_development_dependency('sqlite3')
 end

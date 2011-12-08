@@ -1,9 +1,8 @@
 bin/*
 pkg/*
-spec/app/config/database.yml
 spec/app/db/migrate/*_create_access_control.rb
-spec/app/db/schema.rb
 spec/app/log/
+spec/app/test.sqlite3
 .bundle
 *.gem
 *.swp

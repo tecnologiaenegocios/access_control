@@ -109,8 +109,14 @@ module AccessControl
             "UPDATE #{Node.quoted_table_name} "\
             "SET `id` = #{id} WHERE id = #{node.id}"
           )
+          node.stub(:id).and_return(id)
           node
         end
+      end
+
+      let(:nodes_with_the_right_attributes) do
+        items_from(nodes).with(:securable_type => 'RightType',
+                               :id => node_ids.first)
       end
 
       before do
@@ -120,7 +126,7 @@ module AccessControl
       subject { get_granted_nodes }
 
       def get_granted_nodes
-        Node.granted_for('SecurableType', 'principal ids', 'permissions')
+        Node.granted_for('RightType', 'principal ids', 'permissions')
       end
 
       it "gets relevant assignments for permission and principal" do
@@ -134,10 +140,7 @@ module AccessControl
         get_granted_nodes
       end
 
-      it { should discover(*items_from(nodes).
-                           with(:securable_type => 'RightType',
-                                :id => node_ids.first)) }
-
+      it { should discover(*nodes_with_the_right_attributes) }
       it { subject.respond_to?(:sql).should be_true }
     end
 
