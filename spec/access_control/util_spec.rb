@@ -40,6 +40,29 @@ module AccessControl
         end
       end
 
+      it "doesn't remove null values from the resulting Set" do
+        collection = [1, 2, nil]
+        returned_set = Util.flat_set(collection)
+
+        returned_set.should == Set[1,2,nil]
+      end
     end
+
+    describe ".compact_flat_set" do
+      it "acts as .flat_set, but removes the nil values" do
+        collection = [1, 2, nil]
+        returned_set = Util.compact_flat_set(collection)
+
+        returned_set.should == Set[1,2]
+      end
+
+      it "removes nil values returned by a passed block as well" do
+        collection = [1, 2, 3]
+        returned_set = Util.compact_flat_set(collection) { |n| n unless n == 3 }
+
+        returned_set.should == Set[1,2]
+      end
+    end
+
   end
 end

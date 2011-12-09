@@ -30,6 +30,24 @@ module AccessControl
         end
       end
 
+      # Has the same behavior as Util.flat_set, but removes nil values from
+      # the result. Example:
+      #
+      # collection = [1, nil, 3, 4, nil]
+      #
+      # Util.flat_set(collection)
+      # => #<Set: {1, nil, 3, 4}>
+      #
+      # Util.compact_flat_set(collection)
+      # => #<Set: {1, 3, 4}>
+
+      def compact_flat_set(enumerable, &block)
+        set = flat_set(enumerable, &block)
+        set.reject!(&:nil?)
+
+        set
+      end
+
       def log_missing_permissions requirements, current, roles, trace
         AccessControl::Logger.log_missing_permissions(
           make_set_from_args(requirements),
