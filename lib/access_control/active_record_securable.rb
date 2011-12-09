@@ -12,22 +12,41 @@ module AccessControl
       base.class_eval do
         associate_with_access_control(:ac_node, Node.name, :securable)
       end
+      base.extend(ClassMethods)
+    end
+
+    module ClassMethods
+
+      def instantiate(*args)
+        result = super
+        PersistencyProtector.track_parents(result)
+        result
+      end
+
+      def new(*args)
+        result = super
+        PersistencyProtector.track_parents(result)
+        result
+      end
+
     end
 
     def destroy
-      PersistencyProtector.new(self).verify!('destroy')
+      PersistencyProtector.verify_detachment!(self)
       super
     end
 
   private
 
     def create_without_callbacks
+      PersistencyProtector.verify_attachment!(self)
       super
-      PersistencyProtector.new(self).verify!('create')
     end
 
-    def update(*args)
-      PersistencyProtector.new(self).verify!('update')
+    def update_without_callbacks(*args)
+      PersistencyProtector.verify_detachment!(self)
+      PersistencyProtector.verify_attachment!(self)
+      PersistencyProtector.verify_update!(self)
       super
     end
   end
