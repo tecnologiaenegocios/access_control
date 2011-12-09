@@ -5,8 +5,8 @@ require 'access_control/behavior'
 module AccessControl
   class Parenter
 
-    def self.parents_of(record, associations = record.class.inherits_permissions_from)
-      self.new(record, associations).parent_records
+    def self.parents_of(*args)
+      self.new(*args).parent_records
     end
 
     attr_reader :record
@@ -18,11 +18,9 @@ module AccessControl
     end
 
     def parent_records(default_to_global_record = true)
-      parents = Util.flat_set(@parent_associations) do |association_name|
+      parents = Util.compact_flat_set(@parent_associations) do |association_name|
         @record.public_send(association_name)
       end
-
-      parents.reject!(&:nil?)
 
       if parents.empty? && default_to_global_record
         Set[GlobalRecord.instance]
