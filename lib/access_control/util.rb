@@ -6,9 +6,9 @@ module AccessControl
 
       # An utility method that wraps the following common patterns:
       #
-      # enumerable.inject(Set.new, &:add)
-      # enumerable.inject(Set.new) { |set, foo| set.add foo.bar }
-      # enumerable.inject(Set.new) { |set, foo| set.merge foo.bars }.flatten
+      # collection.inject(Set.new, &:add)
+      # collection.inject(Set.new) { |set, foo| set.add foo.bar }
+      # collection.inject(Set.new) { |set, foo| set.merge foo.bars }.flatten
       #
       # On the following:
       #
@@ -22,7 +22,7 @@ module AccessControl
         collection = block ? enumerable.map(&block) : enumerable
 
         collection.inject(Set.new) do |set, element|
-          if element.kind_of?(Enumerable)
+          if element.kind_of?(Set) || element.kind_of?(Array)
             set.merge element
           else
             set.add element
