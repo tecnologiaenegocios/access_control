@@ -1,12 +1,16 @@
+# vim: fdm=marker
+
 require 'spec_helper'
 require 'access_control/parenter'
 
 module AccessControl
   describe Parenter do
 
+    # Verbose setup {{{
     let(:model) do
       Class.new(Struct.new(:parent1, :parent2, :node)) do
         include Inheritance
+        inherits_permissions_from :parent1, :parent2
       end
     end
 
@@ -25,6 +29,19 @@ module AccessControl
         hash[index] = node_class.new(index)
       end
     end
+
+    let(:parents) do
+      Hash.new do |hash, index|
+        hash[index] = model.new
+      end
+    end
+
+    before do
+      AccessControl.stub(:Node) do |obj|
+        obj.kind_of?(node_class) ? obj : obj.node
+      end
+    end
+    # }}}
 
     let(:root_node) { nodes[0] }
     let(:record) { model.new }
@@ -58,13 +75,6 @@ module AccessControl
     end
 
     describe "the convenience method Parenter.parents_of" do
-
-      before(:all) do
-        model.class_exec do
-          inherits_permissions_from :parent1, :parent2
-        end
-      end
-
       it "may take a list of associations as the second argument" do
         lambda {
           Parenter.parents_of(record, [:parent1, :parent2])
@@ -83,20 +93,34 @@ module AccessControl
       end
     end
 
+    describe "the convenicence method Parenter.parent_nodes_of" do
+      before do
+        record.parent1 = parents[1]
+        record.parent1 = parents[2]
+      end
+
+      it "may take a list of associations as the second argument" do
+        lambda {
+          Parenter.parent_nodes_of(record, [:parent1, :parent2])
+        }.should_not raise_exception(ArgumentError)
+      end
+
+      it "may use the record's class associations as default" do
+        lambda {
+          Parenter.parent_nodes_of(record)
+        }.should_not raise_exception(ArgumentError)
+      end
+
+      it "works in the same way as Parenter.new(foo).parent_nodes" do
+        Parenter.parent_nodes_of(record).should ==
+          Parenter.new(record).parent_nodes
+      end
+    end
+
     describe "when the record has inheritance" do
 
       let(:global_record) { AccessControl::GlobalRecord.instance }
       subject { Parenter.new(record) }
-
-      let(:parents) do
-        Hash.new do |hash, index|
-          hash[index] = model.new
-        end
-      end
-
-      before do
-        model.inherits_permissions_from [:parent1, :parent2]
-      end
 
       describe "#parent_records" do
 
@@ -143,10 +167,6 @@ module AccessControl
       describe "#parent_nodes" do
 
         before do
-          AccessControl.stub(:Node) do |obj|
-            obj.kind_of?(node_class) ? obj : obj.node
-          end
-
           record.parent1 = parents[1]
           record.parent2 = parents[2]
         end
