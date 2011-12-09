@@ -29,5 +29,11 @@ module AccessControl
       end
     end
 
+    def parent_nodes
+      Util.compact_flat_set(parent_records) do |parent|
+        AccessControl::Node(parent)
+      end
+    end
+
   end
 end

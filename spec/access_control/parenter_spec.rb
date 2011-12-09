@@ -140,21 +140,63 @@ module AccessControl
         end
       end
 
-      context "when the record has no parents" do
+      describe "#parent_nodes" do
+
         before do
-          record.stub(:parent1 => nil)
-          record.stub(:parent2 => nil)
+          AccessControl.stub(:Node) do |obj|
+            obj.kind_of?(node_class) ? obj : obj.node
+          end
+
+          record.parent1 = parents[1]
+          record.parent2 = parents[2]
         end
 
-        it "returns the global record by default" do
-          subject.parent_records.should == Set[global_record]
+        it "includes the immediate parent node of a record" do
+          parents[1].node = parents[2].node = root_node
+
+          parenter = Parenter.new record
+          result   =  parenter.parent_nodes
+
+          result.should include root_node
         end
 
-        it "may receive a flag to not include the global record" do
-          returned_set = subject.parent_records(false)
-          returned_set.should be_empty
+        it "includes all the immediate parent nodes of a record" do
+          parents[1].node = nodes[1]
+          parents[2].node = nodes[2]
+
+          parenter = Parenter.new record
+          result   =  parenter.parent_nodes
+
+          result.should include(nodes[1], nodes[2])
+        end
+
+        it "doesn't include 'nil' values" do
+          parents[1].node = nodes[1]
+          parents[2].node = nil
+
+          parenter = Parenter.new record
+          result   =  parenter.parent_nodes
+
+          result.should_not include nil
+        end
+
+        context "when the record has no parents" do
+          it "returns the global node" do
+            record.parent1 = nil
+            record.parent2 = nil
+
+            AccessControl.stub(:Node) do |obj|
+              root_node if obj == GlobalRecord.instance
+            end
+
+            parenter = Parenter.new record
+            result   =  parenter.parent_nodes
+
+            result.should == Set[root_node]
+          end
         end
       end
+
     end
 
   end
