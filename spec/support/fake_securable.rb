@@ -1,6 +1,10 @@
 require 'active_support/core_ext/module'
 require 'active_support/core_ext/class'
 
+# vim: fdm=marker
+
+# Documentation {{{
+#
 # A 'fixture' class used to clean the Node class tests. All the behaviour is
 # implemented on the FakeSecurableMethods module, which is included on the
 # FakeSecurable class and its anonymous brothers (that can be created by using
@@ -14,6 +18,25 @@ require 'active_support/core_ext/class'
 #
 # By using that approach, 'securable_class' will be an entirely new class on
 # each test.
+#
+# Struct/OpenStruct-like behavior {{{
+#
+# By default, the classes present a Struct/OpenStruct-like behavior on
+# initialization, making the customization and instantiation straightforward.
+# Example:
+#
+# securable_class = FakeSecurableClass.new(:name)
+# securable = securable_class.new(:name => "Securable")
+# securable.name
+#  => "Securable"
+#
+# It's also worth mentioning that the 'attributes' listed on the
+# FakeSecurableClass::DEFAULT_ACCESSORS constant are always added to the
+# classes.
+#
+# }}}
+#
+# Passing blocks to FakeSecurableClass.new {{{
 #
 # On the occasion where specific methods and/or inclusions are needed, it is
 # possible to pass a block to the FakeSecurableClass.new method, and that
@@ -36,13 +59,22 @@ require 'active_support/core_ext/class'
 #
 # securable.is_a?(Inheritance)
 # => true
+#
+# }}}
+#
+# }}}
 
 module AccessControl
   module FakeSecurableClass
-    def self.new(*args, &block)
-      new_class = Class.new(*args)
+    DEFAULT_ACCESSORS = %w[ac_node]
+
+    def self.new(accessors = [], &block)
+      new_class = Class.new
       new_class.send(:include, FakeSecurableMethods)
       new_class.send(:extend,  FakeSecurableClassMethods)
+
+      accessors.concat DEFAULT_ACCESSORS
+      new_class.send(:attr_accessor, *accessors)
 
       if block_given?
         new_class.class_exec(&block)
@@ -55,7 +87,12 @@ module AccessControl
   module FakeSecurableMethods
     attr_reader :id
 
-    def initialize(*); end
+    def initialize(attributes = {})
+      attributes.each do |name, value|
+        setter_name = :"#{name}="
+        public_send(setter_name, value)
+      end
+    end
 
     def inspect
       variables_list = instance_variables.map do |variable_name|
