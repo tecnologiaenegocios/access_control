@@ -96,7 +96,6 @@ module AccessControl
     describe "the convenicence method Parenter.parent_nodes_of" do
       before do
         record.parent1 = parents[1]
-        record.parent1 = parents[2]
       end
 
       it "may take a list of associations as the second argument" do
@@ -217,6 +216,57 @@ module AccessControl
         end
       end
 
+      describe "#ancestor_records" do
+        let(:first_parent)  { parents[1] }
+        let(:second_parent) { parents[2] }
+
+        let(:first_ancestor)  { parents[3] }
+        let(:second_ancestor) { parents[4] }
+
+        before do
+          record.parent1 = first_parent
+          record.parent2 = second_parent
+
+          first_parent.parent1  = first_ancestor
+          second_parent.parent2 = second_ancestor
+        end
+
+        it "contains the immediate parents of the record" do
+          parenter = Parenter.new(record)
+          parenter.ancestor_records.should include first_parent, second_parent
+        end
+
+        it "contains the grandparents of the record" do
+          parenter = Parenter.new(record)
+          parenter.ancestor_records.
+            should include first_ancestor, second_ancestor
+        end
+
+        it "works with arbritarily big hierarchies" do
+          parent_chain = []
+
+          1.upto(10) do |order|
+            parent_chain << (parents[order].parent1 = parents[order+1])
+          end
+
+          parenter = Parenter.new(record)
+          parenter.ancestor_records.should include *parent_chain
+        end
+
+        it "doesn't include nil parents" do
+          record.parent2 = nil
+
+          parenter = Parenter.new(record)
+          parenter.ancestor_records.should_not include nil
+        end
+
+        it "doesn't include nil grandparents" do
+          first_parent.parent1 = nil
+
+          parenter = Parenter.new(record)
+          parenter.ancestor_records.should_not include nil
+        end
+      end
     end
 
   end

@@ -9,6 +9,14 @@ module AccessControl
       self.new(*args).parent_records
     end
 
+    def self.parent_nodes_of(*args)
+      self.new(*args).parent_nodes
+    end
+
+    def self.ancestor_records_of(*args)
+      self.new(*args).ancestor_records
+    end
+
     attr_reader :record
 
     def initialize(record, associations = record.class.inherits_permissions_from)
@@ -35,5 +43,11 @@ module AccessControl
       end
     end
 
+    def ancestor_records
+      parents_except_global = parent_records(false)
+      Util.flat_set(parents_except_global) do |parent|
+        Parenter.ancestor_records_of(parent) << parent
+      end
+    end
   end
 end
