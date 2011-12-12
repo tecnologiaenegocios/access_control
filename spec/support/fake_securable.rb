@@ -14,6 +14,28 @@ require 'active_support/core_ext/class'
 #
 # By using that approach, 'securable_class' will be an entirely new class on
 # each test.
+#
+# On the occasion where specific methods and/or inclusions are needed, it is
+# possible to pass a block to the FakeSecurableClass.new method, and that
+# block will be 'class_exec'd on the context of the new class. Example:
+#
+# my_securable_class = FakeSecurableClass.new do
+#   include Inheritance
+#
+#   attr_accessor :name
+#   def initialize(name)
+#     @name = name
+#   end
+# end
+#
+# securable = my_securable_class.new("Securable")
+# => #<FakeSecurable:0x3f9bdf31c79c @name="Securable" @id=1>
+#
+# securable.name
+# => "Securable"
+#
+# securable.is_a?(Inheritance)
+# => true
 
 module AccessControl
   module FakeSecurableClass
