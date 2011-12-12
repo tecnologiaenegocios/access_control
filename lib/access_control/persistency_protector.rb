@@ -13,9 +13,9 @@ module AccessControl
         existing_parents = get_tracked_parents(instance)
         current_parents = Parenter.parents_of(instance)
         added_parents = current_parents - existing_parents
+        permissions = permissions_for(:create, instance)
 
         added_parents.each do |new_parent|
-          permissions = permissions_for(:create, new_parent)
           manager.can!(permissions, new_parent)
         end
       end
@@ -24,9 +24,9 @@ module AccessControl
         existing_parents = get_tracked_parents(instance)
         current_parents = Parenter.parents_of(instance)
         removed_parents = existing_parents - current_parents
+        permissions = permissions_for(:destroy, instance)
 
         removed_parents.each do |old_parent|
-          permissions = permissions_for(:destroy, old_parent)
           manager.can!(permissions, old_parent)
         end
       end
