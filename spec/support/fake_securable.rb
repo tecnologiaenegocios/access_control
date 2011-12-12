@@ -29,6 +29,13 @@ module AccessControl
     def initialize(id)
       @id = id
     end
+
+    def inspect
+      hex_object_id = sprintf '0x%x', object_id
+      "#<FakeSecurable:#{hex_object_id} @id=#{id}>"
+    end
+    alias_method :to_s, :inspect
+
   end
 
   module FakeSecurableClassMethods
