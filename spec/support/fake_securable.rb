@@ -40,34 +40,49 @@ require 'active_support/core_ext/class'
 module AccessControl
   module FakeSecurableClass
     def self.new(*args, &block)
-      new_class = Class.new(*args, &block)
+      new_class = Class.new(*args)
       new_class.send(:include, FakeSecurableMethods)
       new_class.send(:extend,  FakeSecurableClassMethods)
+
+      if block_given?
+        new_class.class_exec(&block)
+      end
+
+      new_class
     end
   end
 
   module FakeSecurableMethods
     attr_reader :id
-    def initialize(id)
-      @id = id
-    end
+
+    def initialize(*); end
 
     def inspect
+      variables_list = instance_variables.map do |variable_name|
+        variable_value = instance_variable_get(variable_name)
+        [variable_name, variable_value.inspect].join("=")
+      end
+
+      variables_desc = variables_list.join(" ")
       hex_object_id = sprintf '0x%x', object_id
-      "#<FakeSecurable:#{hex_object_id} @id=#{id}>"
+
+      "#<FakeSecurable:#{hex_object_id} #{variables_desc}>"
     end
     alias_method :to_s, :inspect
-
   end
 
   module FakeSecurableClassMethods
-    def unrestricted_find(id)
+    def find(id)
       instances_store.fetch(id)
     end
+    alias_method :unrestricted_find, :find
 
-    def new
-      new_instance_id = increment_instance_counter()
-      new_instance = super(new_instance_id)
+    def new(*args)
+      options = args.extract_options!
+
+      new_instance_id = options[:id] || increment_instance_counter()
+      new_instance = super
+      new_instance.instance_variable_set("@id", new_instance_id)
 
       store_instance(new_instance_id, new_instance)
     end
