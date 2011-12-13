@@ -68,7 +68,7 @@ module AccessControl
   module FakeSecurableClass
     DEFAULT_ACCESSORS = %w[ac_node]
 
-    def self.new(accessors = [], &block)
+    def self.new(*accessors, &block)
       new_class = Class.new
       new_class.send(:include, FakeSecurableMethods)
       new_class.send(:extend,  FakeSecurableClassMethods)
@@ -114,11 +114,11 @@ module AccessControl
     end
     alias_method :unrestricted_find, :find
 
-    def new(*args)
+    def new(*args, &block)
+      new_instance = super(*args, &block)
       options = args.extract_options!
 
       new_instance_id = options[:id] || increment_instance_counter()
-      new_instance = super
       new_instance.instance_variable_set("@id", new_instance_id)
 
       store_instance(new_instance_id, new_instance)
