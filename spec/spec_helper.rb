@@ -10,5 +10,4 @@ Dir[File.expand_path(File.join(File.dirname(__FILE__), 'support', '**', '*.rb'))
 Spec::Runner.configure do |config|
   config.use_transactional_fixtures = true
   config.use_instantiated_fixtures  = false
-  config.extend(Introspection)
 end

@@ -7,15 +7,6 @@ require 'access_control/role'
 module AccessControl
   describe PermissionInspector do
 
-    describe "Role conformance with expected interface" do
-      it_has_instance_method(Role, :permissions)
-    end
-
-    describe "Node conformance with expected interface" do
-      it_has_instance_method(Node, :principal_roles)
-      it_has_instance_method(Node, :unblocked_ancestors)
-    end
-
     let(:parent) { mock('node') }
     let(:node) { mock('node') }
     let(:role1) { stub_model(Role, :permissions => ['permission 1']) }
@@ -72,17 +63,6 @@ module AccessControl
     end
 
     describe "#inherited_roles_for_all_principals" do
-
-      describe "Node conformance with expected interface" do
-        it_has_instance_method(Node, :global?)
-        it_has_instance_method(Node, :strict_ancestors)
-        it_has_instance_method(Node, :assignments_with_roles, 1)
-      end
-
-      describe "Assignment conformance with expected interface" do
-        it_has_instance_method(Assignment, :principal_id)
-        it_has_instance_method(Assignment, :role_id)
-      end
 
       # We don't depend on Principal's interface explicitly.  We use this
       # only to get nice sequencial unique ids.
