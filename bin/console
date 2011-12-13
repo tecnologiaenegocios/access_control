@@ -1,0 +1,11 @@
+#!/usr/bin/env sh
+
+if [ -z "$RAILS_ENV" ]; then
+  export RAILS_ENV="development"
+fi
+
+echo "Loading AccessControl console on '$RAILS_ENV'"
+bundle exec pry -I'lib' -r'access_control'         \
+                -r'spec/app/config/environment.rb' \
+                -r'console_app'                    \
+                -c 'AccessControl' --simple-prompt $*

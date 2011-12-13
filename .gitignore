@@ -2,7 +2,7 @@ bin/*
 pkg/*
 spec/app/db/migrate/*_create_access_control.rb
 spec/app/log/
-spec/app/test.sqlite3
+spec/app/*.sqlite3
 .bundle
 *.gem
 *.swp
