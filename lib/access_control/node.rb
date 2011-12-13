@@ -93,27 +93,6 @@ module AccessControl
       id == AccessControl.global_node_id
     end
 
-    def unblocked_ancestors
-      strict_unblocked_ancestors.add(self)
-    end
-
-    def strict_unblocked_ancestors
-      unblocked_ancestors = unblocked_parents.flat_map(&:unblocked_ancestors)
-      ancestors_set = Set.new(unblocked_ancestors).flatten
-
-      ancestors_set.add(AccessControl.global_node)
-    end
-
-    def ancestors
-      strict_ancestors.add(self)
-    end
-
-    def strict_ancestors
-      parents_ancestors = parents.flat_map(&:ancestors)
-      ancestors_set     = Set.new(parents_ancestors).flatten
-
-      ancestors_set.add(AccessControl.global_node)
-    end
     after_create :set_default_roles
     before_destroy :destroy_dependant_assignments
 
@@ -146,30 +125,5 @@ module AccessControl
         end
       end
     end
-
-    def parents
-      return Set.new unless can_inherit?
-
-      Util.flat_set(securable_parents) do |securable_parent|
-        self.class.get_nodes_from(securable_parent)
-      end
-    end
-
-    def securable_parents(include_global = false)
-      Parenter.new(securable).parent_records(include_global)
-    end
-
-    def self.get_nodes_from(object)
-      object ? Context.new(object).nodes : Set.new
-    end
-
-    def unblocked_parents
-      block ? Set.new : parents
-    end
-
-    def can_inherit?
-      securable_class.include?(Inheritance)
-    end
-
   end
 end
