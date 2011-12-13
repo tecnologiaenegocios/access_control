@@ -122,6 +122,11 @@ module AccessControl
     after_create :set_default_roles
     before_destroy :destroy_dependant_assignments
 
+    attr_writer :securable_class
+    def securable_class
+      @securable_class ||= securable_type.constantize
+    end
+
   private
 
     def destroy_dependant_assignments
@@ -165,10 +170,6 @@ module AccessControl
 
     def can_inherit?
       securable_class.include?(Inheritance)
-    end
-
-    def securable_class
-      securable_type.constantize
     end
 
   end

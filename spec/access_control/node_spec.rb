@@ -720,5 +720,26 @@ module AccessControl
 
     end
 
+    describe "the securable's class" do
+      it "is, by default, induced from the securable_type string" do
+        subject = Node.new(:securable_type => "Hash")
+        subject.securable_class.should == Hash
+      end
+
+      it "can be set using an accessor" do
+        subject = Node.new(:securable_type => "Hash")
+        subject.securable_class = String
+
+        subject.securable_class.should == String
+      end
+
+      it "overrides the securable_type if explicitly set on instantiation" do
+        subject = Node.new(:securable_type => "Hash",
+                           :securable_class => String)
+
+        subject.securable_class.should == String
+      end
+    end
+
   end
 end
