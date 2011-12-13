@@ -114,13 +114,12 @@ module AccessControl
 
       ancestors_set.add(AccessControl.global_node)
     end
+    after_create :set_default_roles
+    before_destroy :destroy_dependant_assignments
 
     def securable
       securable_class.unrestricted_find(securable_id)
     end
-
-    after_create :set_default_roles
-    before_destroy :destroy_dependant_assignments
 
     attr_writer :securable_class
     def securable_class
