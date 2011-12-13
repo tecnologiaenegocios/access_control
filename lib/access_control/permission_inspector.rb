@@ -23,17 +23,6 @@ module AccessControl
       end
     end
 
-    def inherited_roles_for_all_principals(filter_roles)
-      strict_ancestors.inject({}) do |results, node|
-        node.assignments_with_roles(filter_roles).each do |a|
-          results[a.principal_id] ||= {}
-          (results[a.principal_id][a.role_id] ||= Set.new).
-            add(node.global? ? 'global' : 'inherited')
-        end
-        results
-      end
-    end
-
   private
 
     def memoize var_name
