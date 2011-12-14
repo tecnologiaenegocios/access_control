@@ -1,4 +1,5 @@
 require 'access_control/inheritance'
+require 'support/matchers/recognize'
 
 module AccessControl
   describe Inheritance do
@@ -30,12 +31,6 @@ module AccessControl
         model.inherits_permissions_from.should == [:parent1, :parent2]
       end
 
-    end
-
-    Spec::Matchers.define :recognize do |object|
-      match do |target|
-        target.recognizes?(object)
-      end
     end
 
     describe ".recognizes?" do
