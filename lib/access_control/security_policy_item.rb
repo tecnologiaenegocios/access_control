@@ -30,7 +30,10 @@ module AccessControl
               next if !allow_management?(item, attributes, allowed_role_ids)
             end
             item.attributes = attributes
-            next item.destroy if destroy && !item.new_record?
+            if destroy
+              item.destroy unless item.new_record?
+              next
+            end
             item.save!
           end
         end

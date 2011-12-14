@@ -66,7 +66,7 @@ module AccessControl
           '5' => {:id => item5.to_param,
                   :permission => 'some other permission'},
           '6' => {:role_id => '5', :permission => 'unique permission'},
-          # New item, should ignore _destroy.
+          # New item, but should not create because _destroy == 1.
           '7' => {:role_id => '5',
                   :permission => 'other unique permission',
                   :_destroy => '1'}
@@ -120,12 +120,12 @@ module AccessControl
             ).should_not be_nil
           end
 
-          it "should have created a new item even if _destroy was set" do
+          it "should not have created a new item if _destroy was set" do
             SecurityPolicyItem.find(
               :first,
               :conditions => { :role_id => 5,
                                :permission => 'other unique permission' }
-            ).should_not be_nil
+            ).should be_nil
           end
 
           context "filtering roles" do
