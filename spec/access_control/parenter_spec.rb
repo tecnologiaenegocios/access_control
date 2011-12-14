@@ -10,7 +10,13 @@ module AccessControl
     let(:model) do
       Class.new(Struct.new(:parent1, :parent2, :node)) do
         include Inheritance
-        inherits_permissions_from :parent1, :parent2
+        inherits_permissions_from  :parent1, :parent2
+      end
+    end
+
+    before do
+      Inheritance.stub(:recognizes?) do |object|
+        object.kind_of?(model)
       end
     end
 
@@ -152,13 +158,8 @@ module AccessControl
             record.parent2 = nil
           end
 
-          it "returns the global record by default" do
+          it "returns the global record" do
             subject.parent_records.should == Set[global_record]
-          end
-
-          it "may receive a flag to not include the global record" do
-            returned_set = subject.parent_records(false)
-            returned_set.should be_empty
           end
         end
       end
@@ -265,6 +266,19 @@ module AccessControl
 
           parenter = Parenter.new(record)
           parenter.ancestor_records.should_not include nil
+        end
+
+        it "doesn't try to get the ancestors of 'orphan' parents" do
+          orphan_parent_class = Class.new
+          orphan_parent = orphan_parent_class.new
+          record.parent1 = orphan_parent
+
+          Inheritance.stub(:recognizes?).with(orphan_parent).and_return(false)
+
+          orphan_parent_class.should_not_receive :inherits_permissions_from
+
+          parenter = Parenter.new(record)
+          parenter.ancestor_records
         end
       end
     end

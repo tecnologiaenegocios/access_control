@@ -19,18 +19,21 @@ module AccessControl
 
     attr_reader :record
 
-    def initialize(record, associations = record.class.inherits_permissions_from)
-      raise InvalidInheritage unless record.kind_of?(Inheritance)
+    def initialize(record, associations = nil)
+      raise InvalidInheritage unless Inheritance.recognizes?(record)
+
+      associations ||= record.class.inherits_permissions_from
+
       @record = record
       @parent_associations = associations
     end
 
-    def parent_records(default_to_global_record = true)
+    def parent_records
       parents = Util.compact_flat_set(@parent_associations) do |association_name|
         @record.public_send(association_name)
       end
 
-      if parents.empty? && default_to_global_record
+      if parents.empty?
         Set[GlobalRecord.instance]
       else
         Set.new(parents)
@@ -44,9 +47,12 @@ module AccessControl
     end
 
     def ancestor_records
-      parents_except_global = parent_records(false)
-      Util.flat_set(parents_except_global) do |parent|
-        Parenter.ancestor_records_of(parent) << parent
+      Util.flat_set(parent_records) do |parent|
+        if Inheritance.recognizes?(parent)
+          Parenter.ancestor_records_of(parent) << parent
+        else
+          parent
+        end
       end
     end
   end
