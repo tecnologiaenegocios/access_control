@@ -15,17 +15,24 @@ module AccessControl
         end
       private
         def create
+          run_before_create_callbacks
           create_without_callbacks
           run_after_create_callbacks
         end
         def update(*args)
-          do_action
+          run_before_update_callbacks
+          update_without_callbacks
+          run_after_update_callbacks
         end
         def destroy
           do_action
         end
         def create_without_callbacks; do_action; end
+        def update_without_callbacks; do_action; end
+        def run_before_create_callbacks; end
         def run_after_create_callbacks; end
+        def run_before_update_callbacks; end
+        def run_after_update_callbacks; end
         def do_action; end
       end
     end
@@ -54,55 +61,96 @@ module AccessControl
       model.send(:include, ActiveRecordSecurable)
     end
 
+    describe "tracking parents" do
+
+      before do
+        PersistencyProtector.stub(:track_parents)
+        model.extend(ActiveRecordSecurable::ClassMethods)
+      end
+
+      # Tracking parents is needed for further calling the persistency
+      # protector and have it check the instance for added/removed parents.
+
+      # This is done either for .instantiate and for .new.  The reason for
+      # doing so is that .find will call .allocate, which in turn will call
+      # .instantiate, which returns a ready instance, whereas .new calls
+      # #initialize which also returns a ready instance.  Instead of patching
+      # #initialize and #find, it is easier to patch .instantiate and .new,
+      # because the patch will be the same for both.
+
+      [:instantiate, :new].each do |meth|
+        context "when calling .#{meth}" do
+          let(:instance) { stub('instance') }
+
+          before do
+            base.stub(meth).and_return(instance)
+          end
+
+          it "tell the protector to track the parents of the instance" do
+            PersistencyProtector.should_receive(:track_parents).with(instance)
+            model.send(meth)
+          end
+
+          it "return the instance created from superclass" do
+            the_arguments = stub('arguments')
+            correct_instance = stub
+            base.stub(meth).with(the_arguments).and_return(correct_instance)
+            model.send(meth, the_arguments).should == correct_instance
+          end
+        end
+      end
+    end
+
     describe "persistency protection" do
 
-      let(:protector) { stub('protector', :verify! => nil) }
       let(:instance) { model.new }
 
       before do
-        Node.stub(:create!)
-        PersistencyProtector.stub(:new).with(instance).and_return(protector)
+        PersistencyProtector.stub(:verify_attachment!)
+        PersistencyProtector.stub(:verify_detachment!)
+        PersistencyProtector.stub(:verify_update!)
         instance.extend(ActiveRecordSecurable)
       end
 
       describe "on create" do
-        before { instance.stub(:ac_node) }
-        it "verifies the create permission" do
-          protector.should_receive(:verify!).with('create')
-          instance.send(:create)
-        end
-        it "does it right after the record is created" do
-          protector.stub(:verify!) do |action|
+        it "verify attachment right after all before callbacks have run" do
+          PersistencyProtector.stub(:verify_attachment!) do |instance|
             instance.verified
           end
-          instance.should_receive(:do_action).ordered
+          instance.should_receive(:run_before_create_callbacks).ordered
           instance.should_receive(:verified).ordered
           instance.send(:create)
         end
-        it "does it right before any after callback is called" do
-          protector.stub(:verify!) do |action|
-            instance.verified
-          end
-          instance.should_receive(:verified).ordered
-          instance.should_receive(:run_after_create_callbacks).ordered
+        it "forwards to the super class method" do
+          instance.should_receive(:do_action)
           instance.send(:create)
         end
       end
 
       describe "on update" do
-        it "verifies the update permission" do
-          protector.should_receive(:verify!).with('update')
+        it "verify detachment right after all before callbacks have run" do
+          PersistencyProtector.stub(:verify_detachment!) do |instance|
+            instance.verified
+          end
+          instance.should_receive(:run_before_update_callbacks).ordered
+          instance.should_receive(:verified).ordered
           instance.send(:update, 'some', 'arguments')
         end
-        it "does it before doing the real update" do
-          exception = Class.new(StandardError)
-          protector.stub(:verify!).and_raise(exception)
-          instance.should_not_receive(:do_action)
-          begin
-            instance.send(:update, 'some', 'arguments')
-          rescue exception
-            # pass
+        it "verify attachment right after all before callbacks have run" do
+          PersistencyProtector.stub(:verify_attachment!) do |instance|
+            instance.verified
           end
+          instance.should_receive(:run_before_update_callbacks).ordered
+          instance.should_receive(:verified).ordered
+          instance.send(:update, 'some', 'arguments')
+        end
+        it "verify update right after all before callbacks have run" do
+          PersistencyProtector.stub(:verify_update!) do |instance|
+            instance.verified
+          end
+          instance.should_receive(:run_before_update_callbacks).ordered
+          instance.should_receive(:verified).ordered
+          instance.send(:update, 'some', 'arguments')
         end
         it "forwards to the super class method" do
           instance.should_receive(:do_action)
@@ -111,19 +159,13 @@ module AccessControl
       end
 
       describe "on destroy" do
-        it "verifies the destroy permission" do
-          protector.should_receive(:verify!).with('destroy')
-          instance.send(:destroy)
-        end
-        it "does it before doing the real update" do
-          exception = Class.new(StandardError)
-          protector.stub(:verify!).and_raise(exception)
-          instance.should_not_receive(:do_action)
-          begin
-            instance.send(:destroy)
-          rescue exception
-            # pass
+        it "verify detachment right before doing the destruction" do
+          PersistencyProtector.stub(:verify_detachment!) do |instance|
+            instance.verified
           end
+          instance.should_receive(:verified).ordered
+          instance.should_receive(:do_action).ordered
+          instance.send(:destroy)
         end
         it "forwards to the super class method" do
           instance.should_receive(:do_action)
