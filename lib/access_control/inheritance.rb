@@ -1,5 +1,3 @@
-require 'access_control/exceptions'
-require 'access_control/manager'
 require 'backports'
 
 module AccessControl
@@ -7,6 +5,14 @@ module AccessControl
 
     def self.included(base)
       base.extend(ClassMethods)
+    end
+
+    def self.recognizes?(object)
+      if object.kind_of?(Class)
+        object.include?(self)
+      else
+        object.class.include?(self)
+      end
     end
 
     module ClassMethods

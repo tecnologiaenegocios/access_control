@@ -1,6 +1,4 @@
-require 'spec_helper'
-require 'access_control/exceptions'
-require 'access_control/restriction'
+require 'access_control/inheritance'
 
 module AccessControl
   describe Inheritance do
@@ -32,6 +30,44 @@ module AccessControl
         model.inherits_permissions_from.should == [:parent1, :parent2]
       end
 
+    end
+
+    Spec::Matchers.define :recognize do |object|
+      match do |target|
+        target.recognizes?(object)
+      end
+    end
+
+    describe ".recognizes?" do
+      let(:inheritance_class) { Class.new { include Inheritance } }
+      let(:non_inheritance_class) { Class.new }
+
+      context "when the argument is a class" do
+        it "returns true when it includes Inheritance" do
+          Inheritance.should recognize inheritance_class
+        end
+
+        it "returns false when it doesn't include Inheritance" do
+          Inheritance.should_not recognize non_inheritance_class
+        end
+      end
+
+      context "when the argument is not a class" do
+        it "returns true when its Class includes Inheritance" do
+          object = inheritance_class.new
+          Inheritance.should recognize object
+        end
+
+        it "returns false when its Class doesn't include Inheritance" do
+          object = non_inheritance_class.new
+          Inheritance.should_not recognize object
+        end
+
+        it "returns false if Inheritance was injected directly in the object" do
+          object = Object.new.extend(Inheritance)
+          Inheritance.should_not recognize object
+        end
+      end
     end
 
   end
