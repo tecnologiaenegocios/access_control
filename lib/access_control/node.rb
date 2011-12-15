@@ -1,6 +1,7 @@
 require 'access_control/exceptions'
 require 'access_control/ids'
 require 'access_control/inheritance'
+require 'access_control/configuration'
 
 module AccessControl
 
