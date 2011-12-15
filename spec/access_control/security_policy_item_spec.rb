@@ -66,7 +66,7 @@ module AccessControl
           '5' => {:id => item5.to_param,
                   :permission => 'some other permission'},
           '6' => {:role_id => '5', :permission => 'unique permission'},
-          # New item, should ignore _destroy.
+          # New item, but should not create because _destroy == 1.
           '7' => {:role_id => '5',
                   :permission => 'other unique permission',
                   :_destroy => '1'}
@@ -98,9 +98,7 @@ module AccessControl
           end
 
           it "should not destroy item 2 since its _destroy flag isn't set" do
-            lambda {
-              SecurityPolicyItem.find(item2.id)
-            }.should_not raise_exception
+            SecurityPolicyItem.find(item2.id).should == item2
           end
 
           it "should destroy item 3" do
@@ -122,22 +120,24 @@ module AccessControl
             ).should_not be_nil
           end
 
-          it "should have created a new item even if _destroy was set" do
+          it "should not have created a new item if _destroy was set" do
             SecurityPolicyItem.find(
               :first,
               :conditions => { :role_id => 5,
                                :permission => 'other unique permission' }
-            ).should_not be_nil
+            ).should be_nil
           end
 
           context "filtering roles" do
             def do_mass_manage
               SecurityPolicyItem.mass_manage!(effective_parameters,
-                                              roles_filtered_out)
+                                              roles_allowed)
             end
 
             context "while creating" do
-              let(:roles_filtered_out) { [mock_model(Role, :id => 3)] }
+              let(:roles_allowed) { [
+                stub(:id => 1), stub(:id => 2), stub(:id => 4), stub(:id => 5)
+              ] }
 
               it "skips items of that role" do
                 SecurityPolicyItem.find(
@@ -149,7 +149,9 @@ module AccessControl
 
             context "while updating" do
               context "an item from any role to a filtered role" do
-                let(:roles_filtered_out) { [mock_model(Role, :id => 4)] }
+                let(:roles_allowed) { [
+                  stub(:id => 1), stub(:id => 2), stub(:id => 3), stub(:id => 5)
+                ] }
 
                 it "skips updating" do
                   item4.reload.role_id.should == 3
@@ -157,7 +159,9 @@ module AccessControl
               end
 
               context "an item of that role" do
-                let(:roles_filtered_out) { [mock_model(Role, :id => 2)] }
+                let(:roles_allowed) { [
+                  stub(:id => 1), stub(:id => 3), stub(:id => 4), stub(:id => 5)
+                ] }
 
                 it "skips updating" do
                   item5.reload.permission.should == 'another permission'
@@ -166,12 +170,12 @@ module AccessControl
             end
 
             context "while destroying" do
-              let(:roles_filtered_out) { [mock_model(Role, :id => 2)] }
+              let(:roles_allowed) { [
+                stub(:id => 1), stub(:id => 3), stub(:id => 4), stub(:id => 5)
+              ] }
               
               it "skips destroying" do
-                lambda {
-                  SecurityPolicyItem.find(item3.id)
-                }.should_not raise_exception
+                SecurityPolicyItem.find(item3.id).should == item3
               end
             end
           end

@@ -15,20 +15,27 @@ module AccessControl
 
     class << self
 
-      def mass_manage!(params, filtered_roles=[])
+      def mass_manage!(params, allowed_roles=nil)
         params ||= {}
         params = params.values if params.is_a?(Hash)
-        filtered_role_ids = filtered_roles.map(&:id)
-        params.each do |attributes|
-          attributes = attributes.with_indifferent_access
-          destroy = param_to_boolean(attributes.delete(:_destroy))
-          next if attributes.empty?
-          next if filtered_role_ids.include?(attributes[:role_id].to_i)
-          item = get_new_item_or_find_existing_one(attributes)
-          next if filtered_role_ids.include?(item.role_id)
-          item.attributes = attributes
-          next item.destroy if destroy && !item.new_record?
-          item.save!
+        allowed_role_ids = nil
+        allowed_role_ids = allowed_roles.map(&:id) if allowed_roles
+        transaction do
+          params.each do |attributes|
+            attributes = attributes.with_indifferent_access
+            destroy = param_to_boolean(attributes.delete(:_destroy))
+            next if attributes.empty?
+            item = get_new_item_or_find_existing_one(attributes)
+            if allowed_role_ids
+              next if !allow_management?(item, attributes, allowed_role_ids)
+            end
+            item.attributes = attributes
+            if destroy
+              item.destroy unless item.new_record?
+              next
+            end
+            item.save!
+          end
         end
         AccessControl.clear_global_node_cache
       end
@@ -43,7 +50,7 @@ module AccessControl
         permissions.inject({}) do |result, permission|
           result[permission] = roles.map do |role|
             if all_by_permission_and_role[permission] &&
-                item = all_by_permission_and_role[permission][role.id]
+               item = all_by_permission_and_role[permission][role.id]
               # item is an array, so get the first (hopefully the only) member.
               next item.first
             end
@@ -57,7 +64,7 @@ module AccessControl
         end
       end
 
-      private
+    private
 
       def get_new_item_or_find_existing_one(attributes)
         id = attributes.delete(:id)
@@ -73,7 +80,19 @@ module AccessControl
         end
       end
 
+      def allow_management?(item, attributes, allowed_role_ids)
+        if item.new_record?
+          allowed_role_ids.include?(attributes[:role_id].to_i)
+        else
+          new_role_id = attributes[:role_id]
+          if new_role_id
+            unless allowed_role_ids.include?(new_role_id.to_i)
+              return false
+            end
+          end
+          allowed_role_ids.include?(item.role_id)
+        end
+      end
     end
-
   end
 end
