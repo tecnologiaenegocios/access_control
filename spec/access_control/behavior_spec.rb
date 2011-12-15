@@ -66,6 +66,9 @@ describe AccessControl do
       end
     end
 
+    specify "its #securable is the GlobalRecord" do
+      AccessControl.global_node.securable.should be AccessControl::GlobalRecord.instance
+    end
   end
 
   describe ".global_node_id" do
@@ -99,6 +102,30 @@ describe AccessControl do
       end
     end
 
+    describe ".unrestricted_find" do
+      let(:global_record) { AccessControl::GlobalRecord.instance }
+      subject { AccessControl::GlobalRecord.public_method(:unrestricted_find) }
+
+      it "returns the global record when passed the :first parameter" do
+        subject[:first].should == global_record
+      end
+
+      it "returns the global record when passed the :last parameter" do
+        subject[:last].should == global_record
+      end
+
+      it "returns the global record when passed the GlobalRecord's ID" do
+        subject[global_record.id].should == global_record
+      end
+
+      it "returns nil when passed a number that is not the GlobalRecord's ID" do
+        subject[666].should be_nil
+      end
+
+      it "returns the global record inside a Set when passed :all" do
+        subject[:all].should == Set[global_record]
+      end
+    end
   end
 
 end
