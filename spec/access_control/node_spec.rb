@@ -489,29 +489,34 @@ module AccessControl
       let(:inheritance_manager) { stub("Inheritance manager") }
 
       context "on blocked nodes" do
-        before { subject.block = true }
+        before do
+          AccessControl.stub(:global_node => global_node)
+          subject.block = true
+        end
+
+        let(:global_node) { stub("Global Node") }
 
         describe "#ancestors" do
-          it "returns only the Node" do
-            subject.ancestors.should == Set[subject]
+          it "returns itself and the global node" do
+            subject.ancestors.should == Set[subject, global_node]
           end
         end
 
         describe "#strict_ancestors" do
-          it "returns an empty Set" do
-            subject.strict_ancestors.should == Set.new
+          it "returns only the global node" do
+            subject.strict_ancestors.should == Set[global_node]
           end
         end
 
         describe "#unblocked_ancestors" do
-          it "returns only the Node" do
-            subject.unblocked_ancestors.should == Set[subject]
+          it "returns itself and the global node" do
+            subject.unblocked_ancestors.should == Set[subject, global_node]
           end
         end
 
         describe "#strict_unblocked_ancestors" do
-          it "returns an empty Set" do
-            subject.strict_unblocked_ancestors.should == Set.new
+          it "returns only the global node" do
+            subject.strict_unblocked_ancestors.should == Set[global_node]
           end
         end
       end

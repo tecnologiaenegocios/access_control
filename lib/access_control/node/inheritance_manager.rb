@@ -30,9 +30,11 @@ module AccessControl
       guard_against_missing_inheritance do
         filtered_parents = parents.select(&filter)
 
-        Util.compact_flat_set(filtered_parents) do |parent_node|
+        ancestors = Util.compact_flat_set(filtered_parents) do |parent_node|
           parent_node.ancestors(filter)
         end
+
+        ancestors.add(AccessControl.global_node)
       end
     end
 

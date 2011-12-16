@@ -120,6 +120,16 @@ module AccessControl
           subject.ancestors.should include(ancestor1, ancestor2)
         end
 
+        let(:global_node) { stub("Global Node") }
+
+        before do
+          AccessControl.stub(:global_node => global_node)
+        end
+
+        it "includes the GlobalNode" do
+          subject.ancestors.should include(global_node)
+        end
+
         describe "when the 'filter' parameter is passed" do
           let(:filter) do
             Proc.new do |parent|

@@ -140,7 +140,7 @@ module AccessControl
   private
     def guard_against_block
       if block
-        Set.new
+        Set[AccessControl.global_node]
       else
         yield
       end
