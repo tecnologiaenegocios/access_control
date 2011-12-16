@@ -10,5 +10,5 @@ module AccessControl
   class MissingPermissionDeclaration < Error; end
   class CannotRestrict               < Error; end
   class InvalidSubject               < Error; end
-
+  class UnrecognizedSecurable        < Error; end
 end
