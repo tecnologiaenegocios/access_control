@@ -6,13 +6,12 @@ require 'access_control/configuration'
 module AccessControl
 
   def AccessControl.Node(object)
-    case object
-      when Node
-        object
-      when Securable
-        object.ac_node
-      else
-        raise(UnrecognizedSecurable)
+    if object.kind_of?(AccessControl::Node)
+      object
+    elsif object.kind_of?(AccessControl::Securable)
+      object.ac_node
+    else
+      raise(UnrecognizedSecurable)
     end
   end
 
