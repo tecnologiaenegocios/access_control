@@ -10,16 +10,27 @@ module AccessControl
 
     let(:orm_class)   { Class.new }
     let(:restricter)  { Restricter.new(orm_class) }
-    let(:inheritable) { mock(:ids_with => Set.new([1,2,    5,6,    9])) }
-    let(:blockable)   { mock(:ids      => Set.new([      4,5,6      ])) }
-    let(:grantable)   { mock(:ids_with => Set.new([  2,  4,  6,  8  ])) }
+    let(:inheritable) { stub('inheritable') }
+    let(:blockable)   { stub('blockable') }
+    let(:grantable)   { stub('grantable') }
+    let(:manager)     { stub('manager') }
+    let(:global_node) { stub('global node') }
 
     before do
       orm_class.stub(:full_pk).and_return('`table_name`.pk')
       orm_class.stub(:quote_values).and_return('quoted values')
-      Grantable.stub(:new).and_return(grantable)
-      Blockable.stub(:new).and_return(blockable)
-      Inheritable.stub(:new).and_return(inheritable)
+      Grantable.stub(:new).with(orm_class).and_return(grantable)
+      Blockable.stub(:new).with(orm_class).and_return(blockable)
+      Inheritable.stub(:new).with(orm_class).and_return(inheritable)
+      AccessControl.stub(:manager).and_return(manager)
+      AccessControl.stub(:global_node).and_return(global_node)
+
+      inheritable.stub(:ids_with).with('some permissions').
+        and_return(Set.new([1,2,    5,6,    9]))
+      blockable.stub(:ids).
+        and_return(Set.new([      4,5,6      ]))
+      grantable.stub(:ids_with).with('some permissions').
+        and_return(Set.new([  2,  4,  6,  8  ]))
     end
 
     describe "#permitted_ids" do
@@ -28,47 +39,13 @@ module AccessControl
         restricter.permitted_ids('some permissions', filter)
       end
 
-      it "creates a inheritable from the orm class" do
-        Inheritable.should_receive(:new).with(orm_class).and_return(inheritable)
-        get_ids
-      end
-
-      it "creates a grantable from the orm class" do
-        Grantable.should_receive(:new).with(orm_class).and_return(grantable)
-        get_ids
-      end
-
-      it "creates a blockable from the orm class" do
-        Blockable.should_receive(:new).with(orm_class).and_return(blockable)
-        get_ids
-      end
-
-      it "gets inherited ids" do
-        ids = inheritable.ids_with
-        inheritable.should_receive(:ids_with).with('some permissions').
-          and_return(ids)
-        get_ids
-      end
-
-      it "gets granted ids" do
-        ids = grantable.ids_with
-        grantable.should_receive(:ids_with).with('some permissions').
-          and_return(ids)
-        get_ids
-      end
-
-      it "gets blocked ids" do
-        ids = blockable.ids
-        blockable.should_receive(:ids).and_return(ids)
-        get_ids
-      end
-
       context "when there's no filter" do
         it "returns only valid ids" do
           # We should get all inheritable ids minus those that are blocked,
           # united with all grantable ids.
-          valid_ids = (inheritable.ids_with - blockable.ids) |
-            grantable.ids_with
+          valid_ids = (
+            inheritable.ids_with('some permissions') - blockable.ids
+          ) | grantable.ids_with('some permissions')
           get_ids.should == valid_ids
         end
         it "returns a set" do
@@ -78,8 +55,9 @@ module AccessControl
 
       context "when there's a filter" do
         it "returns valid ids intersected with those in the filter" do
-          valid_ids = (inheritable.ids_with - blockable.ids) |
-            grantable.ids_with
+          valid_ids = (
+            inheritable.ids_with('some permissions') - blockable.ids
+          ) | grantable.ids_with('some permissions')
           filter = Set.new([10, valid_ids.first])
           valid_ids = filter & valid_ids # This should let only one id.
           get_ids(filter).should == valid_ids
@@ -97,34 +75,50 @@ module AccessControl
       # Returns a sql condition for scoping a primary key with a :conditions
       # option.
 
-      def restricter_condition(filter=nil)
-        restricter.sql_condition('some permissions', filter)
+      let(:some_permissions) { 'some permissions' }
+
+      def restricter_condition(filter='some filtering ids')
+        restricter.sql_condition(some_permissions, filter)
       end
 
-      it "asks the grantable if the class grants the permissions" do
-        grantable.should_receive(:from_class?).and_return(false)
-        restricter_condition
+      before do
+        manager.stub(:can?).with(some_permissions, global_node).and_return(false)
+        grantable.stub(:from_class?).and_return(false)
       end
 
-      describe "when the class doesn't grant the permission" do
+      context "when the global node grants the permission" do
+        before do
+          manager.stub(:can?).with(some_permissions, global_node).
+            and_return(true)
+        end
+
+        it "adds no restriction if the global node grants the permission" do
+          restricter_condition.should == '1'
+        end
+      end
+
+      context "when the class doesn't grant the permission" do
+
+        let(:permitted_ids) { Set.new(['permitted ids']) }
 
         before do
           grantable.stub(:from_class?).and_return(false)
-          restricter.stub(:permitted_ids).and_return(Set.new('permitted ids'))
+          restricter.stub(:permitted_ids).
+            with(some_permissions, 'some filtering ids').
+            and_return(permitted_ids)
         end
 
-        it "passes parameters unmodified to #permitted_ids" do
+        specify "if no filter is passed, nil is passed to #permitted_ids" do
           restricter.should_receive(:permitted_ids).
-            with('some permissions', 'some filtering ids').
-            and_return(Set.new)
-          restricter_condition('some filtering ids')
+            with(some_permissions, nil).and_return(permitted_ids)
+          restricter.sql_condition(some_permissions)
         end
 
         context "when there are ids left to narrow down the outer query" do
-          it "quotes them" do
-            orm_class.should_receive(:quote_values).with(['permitted ids']).
-              and_return('quoted values')
-            restricter_condition('some filtering ids')
+          let(:quoted_values) { 'quoted values' }
+          before do
+            orm_class.stub(:quote_values).with(['permitted ids']).
+              and_return(quoted_values)
           end
           it "builds a condition expression for the primary key" do
             restricter_condition.should == "`table_name`.pk IN (quoted values)"
@@ -133,18 +127,13 @@ module AccessControl
 
         context "when there are no ids left" do
           before { restricter.stub(:permitted_ids).and_return(Set.new) }
-          it "doesn't issue quoting" do
-            orm_class.should_not_receive(:quote_values)
-            restricter_condition('some filtering ids')
-          end
           it "returns a condition that is always false" do
             restricter_condition.should == '0'
           end
         end
-
       end
 
-      describe "when the class grants the permission" do
+      context "when the class grants the permission" do
 
         before do
           grantable.stub(:from_class?).and_return(true)
@@ -157,41 +146,18 @@ module AccessControl
           values.map(&:to_s).join(',')
         end
 
-        it "creates a grantable from the orm class" do
-          Grantable.should_receive(:new).with(orm_class).and_return(grantable)
-          restricter_condition
-        end
-
-        it "creates a blockable from the orm class" do
-          Blockable.should_receive(:new).with(orm_class).and_return(blockable)
-          restricter_condition
-        end
-
-        it "gets granted ids" do
-          ids = grantable.ids_with
-          grantable.should_receive(:ids_with).with('some permissions').
-            and_return(ids)
-          restricter_condition
-        end
-
-        it "gets blocked ids" do
-          ids = blockable.ids
-          blockable.should_receive(:ids).and_return(ids)
-          restricter_condition
-        end
-
         describe "when there are blocked ids" do
 
           it "builds a condition expression for the primary key" do
             # We should get all blocked nodes minus those that are explicitly
             # granted in a NOT IN expression.
-            invalid_ids = blockable.ids - grantable.ids_with
+            invalid_ids = blockable.ids - grantable.ids_with('some permissions')
             restricter_condition.should ==
               "`table_name`.pk NOT IN (#{quote(invalid_ids)})"
           end
 
           it "ignores the filter" do
-            invalid_ids = blockable.ids - grantable.ids_with
+            invalid_ids = blockable.ids - grantable.ids_with('some permissions')
             restricter_condition(['whatever']).should ==
               "`table_name`.pk NOT IN (#{quote(invalid_ids)})"
           end
@@ -205,9 +171,7 @@ module AccessControl
             it "virtually adds no restriction" do
               restricter_condition.should == '1'
             end
-
           end
-
         end
 
         describe "when there's no blocked id" do
@@ -222,7 +186,7 @@ module AccessControl
 
           describe "when a filter is not provided" do
             it "virtually adds no restriction" do
-              restricter_condition.should == '1'
+              restricter_condition(nil).should == '1'
             end
           end
         end

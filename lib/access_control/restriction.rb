@@ -19,8 +19,6 @@ module AccessControl
         case args.first
         when :all, :last, :first
           permissions = permissions_required_to_index
-          return super if AccessControl.manager.can?(permissions,
-                                                     AccessControl.global_node)
           adapted = ORM.adapt_class(self)
           condition = Restricter.new(adapted).sql_condition(permissions)
           if condition == '0'
