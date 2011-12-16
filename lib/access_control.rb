@@ -6,6 +6,7 @@ require 'access_control/behavior'
 # Models
 require 'access_control/assignment'
 require 'access_control/node'
+require 'access_control/node/inheritance_manager'
 require 'access_control/principal'
 require 'access_control/role'
 require 'access_control/security_policy_item'
