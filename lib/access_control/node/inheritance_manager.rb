@@ -1,25 +1,15 @@
 require 'active_support'
 require 'delegate'
 require 'access_control/parenter'
+require 'access_control/node'
 
 module AccessControl
 
-  def self.InheritorNode(object)
-    if object.kind_of?(InheritorNode)
-      object
-    else
-      InheritorNode.new(object)
-    end
-  end
+  class Node::InheritanceManager
 
-  class InheritorNode < SimpleDelegator
-
-    if instance_methods.map(&:to_sym).include?(:id)
-      undef :id
-    end
-
+    attr_reader :node
     def initialize(node)
-      __setobj__ node
+      @node = node
     end
 
     def parents
@@ -34,23 +24,22 @@ module AccessControl
       end
     end
 
-    def ancestors
+    def ancestors(filter = nil)
+      filter ||= proc { true }
+
       guard_against_missing_inheritance do
-        Util.compact_flat_set(parents) do |parent|
-          parent_node = AccessControl::InheritorNode(parent)
-          parent_node.ancestors << parent
+        filtered_parents = parents.select(&filter)
+
+        Util.compact_flat_set(filtered_parents) do |parent_node|
+          parent_node.ancestors(filter)
         end
       end
     end
 
   private
 
-    def node
-      __getobj__
-    end
-
     def guard_against_missing_inheritance
-      if Inheritance.recognizes?(securable)
+      if Inheritance.recognizes?(node.securable)
         yield
       else
         Set.new
