@@ -106,7 +106,42 @@ module AccessControl
       @securable_class ||= securable_type.constantize
     end
 
+    attr_writer :inheritance_manager
+    def inheritance_manager
+      @inheritance_manager ||= InheritanceManager.new(self)
+    end
+
+    def ancestors(filter = nil)
+      strict_ancestors(filter).add(self)
+    end
+
+    def strict_ancestors(filter = nil)
+      filter ||= proc { true }
+
+      guard_against_block do
+        inheritance_manager.ancestors(filter)
+      end
+    end
+
+    def unblocked_ancestors
+      strict_unblocked_ancestors.add(self)
+    end
+
+    def strict_unblocked_ancestors
+      guard_against_block do
+        filter = proc { |node| not node.block }
+        strict_ancestors(filter)
+      end
+    end
+
   private
+    def guard_against_block
+      if block
+        Set.new
+      else
+        yield
+      end
+    end
 
     def destroy_dependant_assignments
       AccessControl.manager.without_assignment_restriction do
