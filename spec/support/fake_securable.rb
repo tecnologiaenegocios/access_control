@@ -1,7 +1,7 @@
+# vim: fdm=marker
+
 require 'active_support/core_ext/module'
 require 'active_support/core_ext/class'
-
-# vim: fdm=marker
 
 # Documentation {{{
 #
@@ -86,6 +86,8 @@ module AccessControl
 
   module FakeSecurableMethods
     attr_reader :id
+
+    include Securable
 
     def initialize(attributes = {})
       attributes.each do |name, value|
