@@ -1,6 +1,7 @@
 require 'spec_helper'
 require 'access_control/behavior'
 require 'access_control/node'
+require 'access_control/securable'
 
 describe AccessControl do
 
@@ -85,22 +86,33 @@ describe AccessControl do
 
   describe AccessControl::GlobalRecord do
 
+    subject { AccessControl::GlobalRecord.instance }
+
     it "cannot be instantiated" do
       lambda { AccessControl::GlobalRecord.new }.should raise_exception
     end
 
     it "has id == 1" do
       # The is is 1 and not 0 because we're using 0 for class nodes.
-      AccessControl::GlobalRecord.instance.id.should == 1
+      subject.id.should == 1
     end
 
-    describe "#ac_node" do
-      it "returns the global node" do
-        global_node = stub('the global node')
-        AccessControl.stub(:global_node).and_return(global_node)
-        AccessControl::GlobalRecord.instance.ac_node.should equal(global_node)
+    describe "its node" do
+      let(:global_node) { stub('the global node') }
+      before { AccessControl.stub(:global_node).and_return(global_node) }
+
+      it "is the global node" do
+        subject.ac_node.should be global_node
+      end
+
+      it "is returned without problems from AccessControl.Node" do
+        return_value = AccessControl::Node(subject)
+        return_value.should be global_node
       end
     end
+
+    it { should be_a AccessControl::Securable }
+
 
     describe ".unrestricted_find" do
       let(:global_record) { AccessControl::GlobalRecord.instance }

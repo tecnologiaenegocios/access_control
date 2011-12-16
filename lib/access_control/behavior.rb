@@ -1,4 +1,5 @@
 require 'access_control/manager'
+require 'access_control/securable'
 
 module AccessControl
 
@@ -53,6 +54,7 @@ module AccessControl
 
   class GlobalRecord
     include Singleton
+    include Securable
 
     def self.unrestricted_find(argument, *)
       case argument
