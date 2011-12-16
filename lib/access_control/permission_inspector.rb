@@ -16,7 +16,7 @@ module AccessControl
     end
 
     def current_roles
-      Util.compact_flat_set(@node.principal_roles)
+      Util.compact_flat_set(@node.unblocked_ancestors, &:principal_roles)
     end
 
   end
