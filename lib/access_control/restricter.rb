@@ -23,6 +23,7 @@ module AccessControl
     end
 
     def sql_condition(permissions, filter=nil)
+      return '1' if manager.can?(permissions, global_node)
       if grantable.from_class?(permissions)
         if blocked_ids.any?
           ids = blocked_ids - grantable.ids_with(permissions)
@@ -48,6 +49,14 @@ module AccessControl
 
     def blocked_ids
       @blocked_ids ||= Blockable.new(model).ids
+    end
+
+    def manager
+      AccessControl.manager
+    end
+
+    def global_node
+      AccessControl.global_node
     end
 
     def table_id
