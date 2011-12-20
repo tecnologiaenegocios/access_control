@@ -543,13 +543,6 @@ module AccessControl
 
             subject.strict_ancestors.should == ancestors_set
           end
-
-          it "forwards a received 'filter' to inheritance_manager" do
-            filter = Proc.new {}
-            inheritance_manager.should_receive(:ancestors).with(filter)
-
-            subject.strict_ancestors(filter)
-          end
         end
 
         describe "#ancestors" do
@@ -559,15 +552,6 @@ module AccessControl
 
             subject.ancestors.should == Set[ancestor, subject]
           end
-
-          it "forwards a received 'filter' to inheritance_manager" do
-            filter = proc {}
-
-            inheritance_manager.stub(:ancestors).with(filter).
-              and_return(Set.new)
-
-            subject.ancestors(filter)
-          end
         end
 
         describe "#strict_unblocked_ancestors" do
@@ -575,7 +559,7 @@ module AccessControl
           let(:blocked_ancestor)   { stub("blocked",   :block => true) }
 
           before do
-            inheritance_manager.stub(:ancestors) do |filter|
+            inheritance_manager.stub(:filtered_ancestors) do |filter|
               ancestors = [blocked_ancestor, unblocked_ancestor]
               Set.new(ancestors.select(&filter))
             end
@@ -602,7 +586,7 @@ module AccessControl
           let(:unblocked_ancestor) { stub("unblocked", :block => false) }
 
           before do
-            inheritance_manager.stub(:ancestors) do |filter|
+            inheritance_manager.stub(:filtered_ancestors) do |filter|
               ancestors = [blocked_ancestor, unblocked_ancestor]
               Set.new(ancestors.select(&filter))
             end

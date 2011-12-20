@@ -24,29 +24,42 @@ module AccessControl
       end
     end
 
-    def ancestors(filter = nil)
-      filter ||= proc { true }
-
+    def ancestors
       guard_against_missing_inheritance do
-        filtered_parents = parents.select(&filter)
-
-        ancestors = Util.compact_flat_set(filtered_parents) do |parent_node|
-          parent_node.ancestors(filter)
-        end
-
+        ancestors = Util.compact_flat_set(parents, &:ancestors)
         ancestors.add(AccessControl.global_node)
+      end
+    end
+
+    def filtered_ancestors(recursability_test)
+      recursability_test = recursability_test.to_proc
+
+      parents.each_with_object(Set.new) do |parent, ancestors_set|
+        ancestors_set.add(parent)
+
+        recursable_parent = inheritance_aware?(parent) &&
+                              recursability_test.call(parent)
+
+        if recursable_parent
+          manager          = self.class.new(parent)
+          parent_ancestors = manager.filtered_ancestors(recursability_test)
+          ancestors_set.merge(parent_ancestors)
+        end
       end
     end
 
   private
 
     def guard_against_missing_inheritance
-      if Inheritance.recognizes?(node.securable)
+      if inheritance_aware?(node)
         yield
       else
         Set.new
       end
     end
 
+    def inheritance_aware?(node)
+      Inheritance.recognizes?(node.securable)
+    end
   end
 end

@@ -29,6 +29,7 @@ module AccessControl
       parents = options.fetch(:as)
 
       turn_on_inheritance_for(node)
+      node.stub(:parents => parents)
       Parenter.stub(:parent_nodes_of).with(node.securable).
         and_return parents
     end
@@ -41,6 +42,8 @@ module AccessControl
         and_return parents
     end
     # }}}
+
+    before { Inheritance.stub(:recognizes? => false) }
 
     let(:securable) { stub("Node's securable") }
     let(:node) { stub("Underlying node", :securable => securable) }
@@ -130,35 +133,48 @@ module AccessControl
           subject.ancestors.should include(global_node)
         end
 
-        describe "when the 'filter' parameter is passed" do
-          let(:filter) do
-            Proc.new do |parent|
-              parent == parent1
-            end
-          end
-
-          it "returns parents that the filter approved" do
-            returned_set = subject.ancestors(filter)
-            returned_set.should include parent1
-          end
-
-          it "doesn't return the parents that the filter didn't approve" do
-            returned_set = subject.ancestors(filter)
-            returned_set.should_not include parent2
-          end
-
-          it "forwards the filter to the approved parents #ancestors call" do
-            parent1.should_receive(:ancestors).with(filter)
-            subject.ancestors(filter)
-          end
-
-          it "never calls the unnaproved parents #ancestors" do
-            parent2.should_not_receive(:ancestors)
-            subject.ancestors(filter)
-          end
-        end
       end
 
+    end
+
+    describe "#filtered_ancestors" do
+      let(:parent1)   { stub_node("Parent 1", :recursable? => true) }
+      let(:parent2)   { stub_node("Parent 2", :recursable? => false) }
+      let(:ancestor1) { stub_node("Ancestor 1") }
+      let(:ancestor2) { stub_node("Ancestor 2") }
+
+      before do
+        set_parent_nodes_of(node, :as => Set[parent1, parent2])
+
+        set_parent_nodes_of(parent1, :as => Set[ancestor1])
+        set_parent_nodes_of(parent2, :as => Set[ancestor2])
+      end
+
+      let(:returned_set) { subject.filtered_ancestors(:recursable?) }
+
+      it "returns recursable parents" do
+        returned_set.should include parent1
+      end
+
+      it "returns non-recursable parents" do
+        returned_set.should include parent2
+      end
+
+      it "returns the ancestors of recursable parents" do
+        returned_set.should include ancestor1
+      end
+
+      it "doesn't return the ancestors non-recursable parents" do
+        returned_set.should_not include ancestor2
+      end
+
+      it "works with bigger hierarchies" do
+        far_away_ancestor = stub_node("Far away ancestor")
+        set_parent_nodes_of(ancestor1, :as => Set[far_away_ancestor])
+        ancestor1.stub(:recursable? => true)
+
+        returned_set.should include far_away_ancestor
+      end
     end
 
   end
