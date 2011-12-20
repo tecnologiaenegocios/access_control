@@ -519,6 +519,18 @@ module AccessControl
             subject.strict_unblocked_ancestors.should == Set[global_node]
           end
         end
+
+        describe "#parents" do
+          it "returns an empty Set" do
+            subject.parents.should == Set.new
+          end
+        end
+
+        describe "#unblocked_parents" do
+          it "returns an empty Set" do
+            subject.unblocked_parents.should == Set.new
+          end
+        end
       end
 
       context "on non-blocked nodes" do
@@ -609,6 +621,56 @@ module AccessControl
           it "adds itself to the Set" do
             returned_set = subject.unblocked_ancestors
             returned_set.should include(subject)
+          end
+        end
+
+        describe "#parents" do
+          let(:blocked_parent) { stub("blocked", :block => true) }
+          let(:unblocked_parent) { stub("blocked", :unblock => true) }
+
+          before do
+            parents = Set[blocked_parent, unblocked_parent]
+            inheritance_manager.stub(:parents => parents)
+          end
+
+          it "returns unblocked parents" do
+            returned_set = subject.parents
+            returned_set.should include unblocked_parent
+          end
+
+          it "returns blocked parents" do
+            returned_set = subject.parents
+            returned_set.should include blocked_parent
+          end
+
+          it "doesn't return itself" do
+            returned_set = subject.parents
+            returned_set.should_not include subject
+          end
+        end
+
+        describe "#unblocked_parents" do
+          let(:blocked_parent)   { stub("blocked",   :block => true)  }
+          let(:unblocked_parent) { stub("unblocked", :block => false) }
+
+          before do
+            parents = Set[blocked_parent, unblocked_parent]
+            inheritance_manager.stub(:parents => parents)
+          end
+
+          it "returns unblocked parents" do
+            returned_set = subject.unblocked_parents
+            returned_set.should include unblocked_parent
+          end
+
+          it "doesn't return blocked parents" do
+            returned_set = subject.unblocked_parents
+            returned_set.should_not include blocked_parent
+          end
+
+          it "doesn't return itself" do
+            returned_set = subject.unblocked_parents
+            returned_set.should_not include subject
           end
         end
 

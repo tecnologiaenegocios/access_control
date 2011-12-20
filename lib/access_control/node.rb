@@ -120,7 +120,7 @@ module AccessControl
     def strict_ancestors(filter = nil)
       filter ||= proc { true }
 
-      guard_against_block do
+      guard_against_block(:by_returning => :global_node) do
         inheritance_manager.ancestors(filter)
       end
     end
@@ -130,16 +130,34 @@ module AccessControl
     end
 
     def strict_unblocked_ancestors
-      guard_against_block do
+      guard_against_block(:by_returning => :global_node) do
         filter = proc { |node| not node.block }
         strict_ancestors(filter)
       end
     end
 
+    def parents
+      guard_against_block(:by_returning => Set.new) do
+        inheritance_manager.parents
+      end
+    end
+
+    def unblocked_parents
+      guard_against_block(:by_returning => Set.new) do
+        Set.new parents.reject(&:block)
+      end
+    end
+
   private
-    def guard_against_block
+    def guard_against_block(arguments = {})
+      default_value = arguments.fetch(:by_returning)
+
       if block
-        Set[AccessControl.global_node]
+        if default_value == :global_node
+          Set[AccessControl.global_node]
+        else
+          default_value
+        end
       else
         yield
       end
