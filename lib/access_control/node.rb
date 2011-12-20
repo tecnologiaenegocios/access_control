@@ -100,7 +100,7 @@ module AccessControl
     before_destroy :destroy_dependant_assignments
 
     def securable
-      securable_class.unrestricted_find(securable_id)
+      @securable ||= securable_class.unrestricted_find(securable_id)
     end
 
     attr_writer :securable_class
