@@ -105,15 +105,6 @@ module AccessControl
         end
       end
 
-      describe "when there's no global node created" do
-        xit "raises exception" do
-          AccessControl::Node.destroy_all
-          lambda {
-            Node.global
-          }.should raise_exception(AccessControl::NoGlobalNode)
-        end
-      end
-
       specify "its #securable is the GlobalRecord" do
         Node.global.securable.should be AccessControl::GlobalRecord.instance
       end
