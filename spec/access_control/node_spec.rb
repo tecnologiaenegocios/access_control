@@ -160,22 +160,13 @@ module AccessControl
       end
     end
 
-    let(:manager) { Manager.new }
-
-    def securable
-      stub_model(SecurableObj)
-    end
+    let(:manager)         { Manager.new }
+    let(:securable_class) { FakeSecurableClass.new }
+    let(:securable)       { securable_class.new }
 
     before do
       AccessControl.stub(:manager).and_return(manager)
       Principal.create_anonymous_principal!
-      class Object::SecurableObj < ActiveRecord::Base
-        set_table_name 'records'
-      end
-    end
-
-    after do
-      Object.send(:remove_const, 'SecurableObj')
     end
 
     it "is extended with AccessControl::Ids" do
@@ -509,7 +500,7 @@ module AccessControl
             and_return(Set.new(['owner', 'manager']))
 
           node = Node.create!(:securable_id => securable.id,
-                              :securable_type => securable.class.name).reload
+                              :securable_class => securable_class).reload
 
           assignments = node.assignments.map do |a|
             { :node_id => a.node_id, :role_id => a.role_id,
@@ -543,7 +534,7 @@ module AccessControl
           AccessControl.config.stub!(:default_roles_on_create).
             and_return(Set.new)
           node = Node.create!(:securable_id => securable.id,
-                              :securable_type => securable.class.name).reload
+                              :securable_class => securable_class).reload
           node.assignments.should be_empty
         end
       end
@@ -603,6 +594,11 @@ module AccessControl
                            :securable_class => String)
 
         subject.securable_class.should == String
+      end
+
+      it "sets the securable_type accordingly" do
+        subject = Node.new(:securable_class => String)
+        subject.securable_type.should == "String"
       end
     end
 

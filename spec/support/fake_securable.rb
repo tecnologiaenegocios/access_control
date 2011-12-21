@@ -116,6 +116,8 @@ module AccessControl
     end
     alias_method :unrestricted_find, :find
 
+    alias_method :name, :to_s
+
     def new(*args, &block)
       new_instance = super(*args, &block)
       options = args.extract_options!

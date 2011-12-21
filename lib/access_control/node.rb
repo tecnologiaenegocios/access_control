@@ -145,7 +145,11 @@ module AccessControl
       @securable ||= securable_class.unrestricted_find(securable_id)
     end
 
-    attr_writer :securable_class
+    def securable_class=(klass)
+      self.securable_type = klass.name
+      @securable_class    = klass
+    end
+
     def securable_class
       @securable_class ||= securable_type.constantize
     end
