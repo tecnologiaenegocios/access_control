@@ -47,7 +47,7 @@ module AccessControl
     end
 
     def node
-      @node ||= Node.get(node_id)
+      @node ||= Node.fetch(node_id, nil)
     end
 
     def validate_role_locality

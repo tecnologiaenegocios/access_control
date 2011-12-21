@@ -40,19 +40,49 @@ module AccessControl
       Node.create!(properties)
     end
 
-    describe ".get" do
+    describe ".fetch" do
       let(:node) { build_node }
 
       it "returns the node that has the passed id" do
         node_id = node.id
-        Node.get(node_id).should == node
+        Node.fetch(node_id).should == node
       end
 
-      specify "when no node is found, raises AccessControl::NotFoundError" do
-        inexistent_id = -1
-        lambda {
-          Node.get(inexistent_id)
-        }.should raise_exception(AccessControl::NotFoundError)
+      context "when no node is found" do
+        context "and no block is given" do
+          it "raises AccessControl::NotFoundError if no default is given" do
+            inexistent_id = -1
+            lambda {
+              Node.fetch(inexistent_id)
+            }.should raise_exception(AccessControl::NotFoundError)
+          end
+
+          it "returns the default given" do
+            inexistent_id = -1
+            default = stub
+            Node.fetch(inexistent_id, default).should be default
+          end
+        end
+
+        context "and a block is given" do
+          it "uses the block if no value is given" do
+            inexistent_id = -1
+            default = stub
+            returned_value = Node.fetch(inexistent_id) { default }
+            returned_value.should be default
+          end
+
+          it "uses the block even if a value is given" do
+            inexistent_id = -1
+            value_default = stub('value')
+            block_default = stub('from block')
+            returned_value = Node.fetch(inexistent_id, value_default) do
+              block_default
+            end
+
+            returned_value.should be block_default
+          end
+        end
       end
     end
 

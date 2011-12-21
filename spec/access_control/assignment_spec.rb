@@ -293,7 +293,7 @@ module AccessControl
 
         @node = stub(:securable_type => 'SecurableType',
                      :securable_id => 0, :id => 12345)
-        Node.stub(:get).with(@node.id).and_return(@node)
+        Node.stub(:fetch).with(@node.id, nil).and_return(@node)
 
         @item1 = Assignment.create!(
           :node => @node, :principal => @principal1, :role => @role1
@@ -303,7 +303,7 @@ module AccessControl
         )
 
         inexistent_node_id = @node.id + 1
-        Node.stub(:get).with(inexistent_node_id).and_return(nil)
+        Node.stub(:fetch).with(inexistent_node_id, nil).and_return(nil)
 
         Assignment.create!(:node_id => inexistent_node_id,
                           :principal => @principal4, :role => @role1)

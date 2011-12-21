@@ -33,8 +33,17 @@ module AccessControl
         exists?(id)
       end
 
-      def get(id)
-        find_by_id(id) || raise(NotFoundError)
+      def fetch(id, default_value = marker)
+        found = find_by_id(id)
+        return found if found
+
+        if block_given?
+          return yield
+        end
+
+        default_value.tap do |value|
+          raise NotFoundError if value.eql?(marker)
+        end
       end
 
       def global!
@@ -66,6 +75,10 @@ module AccessControl
           :securable_type => AccessControl.global_securable_type,
           :securable_id   => AccessControl.global_securable_id
         }
+      end
+
+      def marker
+        @marker ||= Object.new
       end
     end
 
