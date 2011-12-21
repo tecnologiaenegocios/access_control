@@ -11,4 +11,5 @@ module AccessControl
   class CannotRestrict               < Error; end
   class InvalidSubject               < Error; end
   class UnrecognizedSecurable        < Error; end
+  class NotFoundError                < Error; end
 end

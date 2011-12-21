@@ -33,6 +33,43 @@ module AccessControl
   end
 
   describe Node do
+    def build_node(properties = {})
+      properties[:securable_type] ||= "AccessControl::GlobalRecord"
+      properties[:securable_id]   ||= 1
+
+      Node.create!(properties)
+    end
+
+    describe ".get" do
+      let(:node) { build_node }
+
+      it "returns the node that has the passed id" do
+        node_id = node.id
+        Node.get(node_id).should == node
+      end
+
+      specify "when no node is found, raises AccessControl::NotFoundError" do
+        inexistent_id = -1
+        lambda {
+          Node.get(inexistent_id)
+        }.should raise_exception(AccessControl::NotFoundError)
+      end
+    end
+
+    describe ".has?" do
+      let(:node) { build_node }
+
+      it "returns true if the node with the passed ID exists" do
+        node_id = node.id
+        Node.has?(node_id).should be_true
+      end
+
+      it "returns false if the ID doesn't correspond to any node" do
+        inexistent_id = -1
+        Node.has?(inexistent_id).should be_false
+      end
+    end
+
     describe ".clear_global_cache" do
       it "clears the global node cache" do
         prev_node = Node.global

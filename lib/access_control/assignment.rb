@@ -8,7 +8,6 @@ module AccessControl
 
     set_table_name :ac_assignments
 
-    belongs_to :node, :class_name => 'AccessControl::Node'
     belongs_to :principal, :class_name => 'AccessControl::Principal'
     belongs_to :role, :class_name => 'AccessControl::Role'
 
@@ -40,6 +39,15 @@ module AccessControl
 
     def self.granting_for_principal(permission, principal)
       granting(permission).assigned_to(principal)
+    end
+
+    def node=(node)
+      self.node_id = node.id
+      @node        = node
+    end
+
+    def node
+      @node ||= Node.get(node_id)
     end
 
     def validate_role_locality

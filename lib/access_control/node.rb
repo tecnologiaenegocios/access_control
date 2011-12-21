@@ -29,6 +29,14 @@ module AccessControl
 
     class << self
 
+      def has?(id)
+        exists?(id)
+      end
+
+      def get(id)
+        find_by_id(id) || raise(NotFoundError)
+      end
+
       def global!
         @global_node = load_global_node()
 

@@ -57,7 +57,7 @@ module AccessControl
 
       context "for global node" do
 
-        let(:node) { stub_model(Node, :global? => true) }
+        let(:node) { stub("Node", :global? => true, :id => 12345) }
 
         it "accepts a role if it is global assignable" do
           Assignment.new(:node => node,
@@ -75,7 +75,7 @@ module AccessControl
 
       describe "for local nodes" do
 
-        let(:node) { stub_model(Node, :global? => false) }
+        let(:node) { stub("Node", :global? => false, :id => 12345) }
 
         it "accepts a role if it is local assignable" do
           Assignment.new(:node => node,
@@ -93,7 +93,7 @@ module AccessControl
 
       describe "assignment security" do
 
-        let(:node) { stub_model(Node) }
+        let(:node) { stub("Node", :id => 12345) }
         let(:role) { stub_model(Role, :name => 'some_role', :local => true) }
 
         it "doesn't break the validation when there's no node or role" do
@@ -290,15 +290,22 @@ module AccessControl
             :subject_id => 3
           )
         ]
-        @node = Node.create!(:securable_type => 'SecurableType',
-                             :securable_id => 0)
+
+        @node = stub(:securable_type => 'SecurableType',
+                     :securable_id => 0, :id => 12345)
+        Node.stub(:get).with(@node.id).and_return(@node)
+
         @item1 = Assignment.create!(
           :node => @node, :principal => @principal1, :role => @role1
         )
         @item2 = Assignment.create!(
           :node => @node, :principal => @principal2, :role => @role2
         )
-        Assignment.create!(:node_id => @node.id + 1,
+
+        inexistent_node_id = @node.id + 1
+        Node.stub(:get).with(inexistent_node_id).and_return(nil)
+
+        Assignment.create!(:node_id => inexistent_node_id,
                           :principal => @principal4, :role => @role1)
         @items = Assignment.items_for_management(@node, roles)
       end
