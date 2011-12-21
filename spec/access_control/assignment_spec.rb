@@ -267,7 +267,6 @@ module AccessControl
     describe "assignments for management" do
 
       before do
-        AccessControl.create_global_node!
         roles = [
           @role1 = Role.create!(:name => 'role1'),
           @role2 = Role.create!(:name => 'role2'),

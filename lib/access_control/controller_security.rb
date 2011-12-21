@@ -102,7 +102,7 @@ module AccessControl
       ensure
         AccessControl::Principal.clear_anonymous_principal_cache
         AccessControl.no_manager
-        AccessControl.clear_global_node_cache
+        AccessControl::Node.clear_global_cache
       end
 
     end

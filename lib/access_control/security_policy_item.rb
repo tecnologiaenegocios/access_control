@@ -37,7 +37,7 @@ module AccessControl
             item.save!
           end
         end
-        AccessControl.clear_global_node_cache
+        AccessControl::Node.clear_global_cache
       end
 
       def items_for_management roles

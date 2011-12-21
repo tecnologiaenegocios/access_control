@@ -4,6 +4,7 @@ require 'access_control/configuration'
 require 'access_control/node'
 
 module AccessControl
+
   describe ".Node" do
 
     specify "when the argument is a Node, returns it untouched" do
@@ -32,6 +33,95 @@ module AccessControl
   end
 
   describe Node do
+    describe ".clear_global_cache" do
+      it "clears the global node cache" do
+        prev_node = Node.global
+        Node.clear_global_cache
+        next_node = Node.global
+
+        next_node.should_not be prev_node
+      end
+    end
+
+    describe ".global" do
+
+      it "is a node" do
+        Node.global.should be_a(AccessControl::Node)
+      end
+
+      describe "the node returned" do
+        it "has securable_id == AccessControl::GlobalRecord.instance.id" do
+          Node.global.securable_id.should ==
+            AccessControl::GlobalRecord.instance.id
+        end
+
+        it "has securable_type == AccessControl::GlobalRecord" do
+          Node.global.securable_type.should ==
+            AccessControl::GlobalRecord.name
+        end
+
+        it "is cached" do
+          prev_node = Node.global
+          next_node = Node.global
+
+          next_node.should be prev_node
+        end
+      end
+
+      describe "when there's no global node created" do
+        xit "raises exception" do
+          AccessControl::Node.destroy_all
+          lambda {
+            Node.global
+          }.should raise_exception(AccessControl::NoGlobalNode)
+        end
+      end
+
+      specify "its #securable is the GlobalRecord" do
+        Node.global.securable.should be AccessControl::GlobalRecord.instance
+      end
+    end
+
+    describe ".global!" do
+      describe "the node returned" do
+        before do
+          Node.clear_global_cache
+          Node.global
+        end
+
+        it "has securable_id == AccessControl::GlobalRecord.instance.id" do
+          Node.global!.securable_id.should ==
+            AccessControl::GlobalRecord.instance.id
+        end
+
+        it "has securable_type == AccessControl::GlobalRecord" do
+          Node.global!.securable_type.should ==
+            AccessControl::GlobalRecord.name
+        end
+
+        it "is not cached" do
+          prev_node = Node.global!
+          next_node = Node.global!
+
+          next_node.should_not be prev_node
+        end
+
+        it "updates the cache" do
+          prev_node = Node.global!
+          next_node = Node.global
+
+          next_node.should be prev_node
+        end
+      end
+
+      it "raises an exception if the global node wasn't created yet" do
+        AccessControl::Node.destroy_all
+
+        lambda {
+          Node.global!
+        }.should raise_exception(AccessControl::NoGlobalNode)
+      end
+    end
 
     let(:manager) { Manager.new }
 
@@ -40,7 +130,6 @@ module AccessControl
     end
 
     before do
-      AccessControl.clear_global_node_cache
       AccessControl.stub(:manager).and_return(manager)
       Principal.create_anonymous_principal!
       class Object::SecurableObj < ActiveRecord::Base
@@ -193,8 +282,6 @@ module AccessControl
 
     describe "#assignments" do
 
-      before { AccessControl.create_global_node! }
-
       describe "assignment destruction" do
 
         let(:assignment) do
@@ -305,7 +392,6 @@ module AccessControl
     describe "#principal_roles" do
 
       it "returns only the roles belonging to the current principals" do
-        AccessControl.create_global_node!
         node = Node.create!(:securable_type => 'Foo', :securable_id => 1)
         principal1 = Principal.create!(:subject_type => 'User',
                                        :subject_id => 1)
@@ -490,11 +576,10 @@ module AccessControl
 
       context "on blocked nodes" do
         before do
-          AccessControl.stub(:global_node => global_node)
           subject.block = true
         end
 
-        let(:global_node) { stub("Global Node") }
+        let(:global_node) { Node.global }
 
         describe "#ancestors" do
           it "returns itself and the global node" do

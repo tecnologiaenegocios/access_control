@@ -13,43 +13,20 @@ module AccessControl
     Thread.current[MANAGER_THREAD_KEY] = nil
   end
 
-  def self.create_global_node!
-    clear_global_node_cache
-    Node.create!(:securable_type => global_securable_type,
-                 :securable_id   => global_securable_id)
-  end
-
-  def self.clear_global_node_cache
-    @global_node_cache = nil
-  end
-
   def self.global_node_id
     global_node.id
   end
 
   def self.global_node
-    @global_node_cache ||= load_global_node()
+    Node.global
   end
 
-  class << self
-    private
+  def self.global_securable_type
+    GlobalRecord.name
+  end
 
-    def load_global_node
-      node = Node.first(:conditions => {
-        :securable_type => global_securable_type,
-        :securable_id   => global_securable_id
-      })
-
-      node || raise(NoGlobalNode)
-    end
-
-    def global_securable_type
-      GlobalRecord.name
-    end
-
-    def global_securable_id
-      GlobalRecord.instance.id
-    end
+  def self.global_securable_id
+    GlobalRecord.instance.id
   end
 
   class GlobalRecord

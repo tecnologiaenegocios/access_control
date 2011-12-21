@@ -27,6 +27,40 @@ module AccessControl
       :class_name => 'AccessControl::Assignment'
     )
 
+    class << self
+
+      def global!
+        @global_node = load_global_node()
+
+        @global_node || raise(NoGlobalNode)
+      end
+
+      def global
+        @global_node ||= create_global_node
+      end
+
+      def clear_global_cache
+        @global_node = nil
+      end
+
+      private
+
+      def create_global_node
+        load_global_node || Node.create!(global_node_properties)
+      end
+
+      def load_global_node
+        Node.first(:conditions => global_node_properties)
+      end
+
+      def global_node_properties
+        {
+          :securable_type => AccessControl.global_securable_type,
+          :securable_id   => AccessControl.global_securable_id
+        }
+      end
+    end
+
     reflections[:principal_assignments].instance_eval do
 
       def options
@@ -152,7 +186,7 @@ module AccessControl
 
       if block
         if default_value == :global_node
-          Set[AccessControl.global_node]
+          Set[Node.global]
         else
           default_value
         end

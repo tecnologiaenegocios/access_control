@@ -204,7 +204,7 @@ module AccessControl
       it "clears the global node cache" do
         # Needed to sweep any assignment/role/item attached to the global node.
         SecurityPolicyItem.stub(:find).and_return(item1)
-        AccessControl.should_receive(:clear_global_node_cache).once
+        AccessControl::Node.should_receive(:clear_global_cache).once
         SecurityPolicyItem.mass_manage!([
           {:id => item1.to_param, :role_id => '3'}
         ])

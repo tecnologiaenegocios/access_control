@@ -3,9 +3,8 @@ namespace :db do
 
     desc "Access control seeds"
     task :seed => :environment do
-      if !(AccessControl.global_node rescue nil)
-        AccessControl.create_global_node!
-      end
+      AccessControl::Node.global!
+
       if !AccessControl::Principal.anonymous
         AccessControl::Principal.create_anonymous_principal!
       end

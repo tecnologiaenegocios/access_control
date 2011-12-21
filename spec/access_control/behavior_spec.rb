@@ -8,8 +8,6 @@ describe AccessControl do
   after do
     # Clear the instantiated manager.
     AccessControl.no_manager
-    # Clear global node cache.
-    AccessControl.clear_global_node_cache
   end
 
   describe ".manager" do
@@ -33,54 +31,21 @@ describe AccessControl do
 
   end
 
-  describe ".global_node" do
+  describe ".global_node_id" do
+    it "returns the global node's id" do
+      global = stub(:id => "The global node ID")
+      AccessControl::Node.stub(:global => global)
 
-    before { AccessControl.create_global_node! }
-
-    it "is a node" do
-      AccessControl.global_node.should be_a(AccessControl::Node)
-    end
-
-    it "is cached" do
-      AccessControl.global_node
-      AccessControl::Node.should_not_receive(:find)
-      AccessControl.global_node
-    end
-
-    describe "node returned" do
-      it "has securable_id == AccessControl::GlobalRecord.instance.id" do
-        AccessControl.global_node.securable_id.should ==
-          AccessControl::GlobalRecord.instance.id
-      end
-      it "has securable_type == AccessControl::GlobalRecord" do
-        AccessControl.global_node.securable_type.should ==
-          AccessControl::GlobalRecord.name
-      end
-    end
-
-    describe "when there's no global node created" do
-      it "raises exception" do
-        AccessControl::Node.destroy_all
-        lambda {
-          AccessControl.global_node
-        }.should raise_exception(AccessControl::NoGlobalNode)
-      end
-    end
-
-    specify "its #securable is the GlobalRecord" do
-      AccessControl.global_node.securable.should be AccessControl::GlobalRecord.instance
+      AccessControl.global_node_id.should == "The global node ID"
     end
   end
 
-  describe ".global_node_id" do
-    before { AccessControl.create_global_node! }
-    it "returns the global id" do
-      AccessControl.global_node_id.should == AccessControl::Node.first.id
-    end
-    it "is cached" do
-      AccessControl.global_node_id
-      AccessControl::Node.should_not_receive(:find)
-      AccessControl.global_node_id
+  describe ".global_node" do
+    it "returns the global node" do
+      global = stub
+      AccessControl::Node.stub(:global => global)
+
+      AccessControl.global_node.should == global
     end
   end
 
