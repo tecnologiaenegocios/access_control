@@ -15,31 +15,19 @@ module AccessControl
     end
   end
 
-  class Node < ActiveRecord::Base
-
-    extend AccessControl::Ids
-
-    set_table_name :ac_nodes
-
-    has_many(
-      :principal_assignments,
-      :foreign_key => :node_id,
-      :class_name => 'AccessControl::Assignment'
-    )
+  class Node
 
     class << self
 
       def has?(id)
-        exists?(id)
+        Persistent.exists?(id)
       end
 
       def fetch(id, default_value = marker)
-        found = find_by_id(id)
-        return found if found
+        found = Persistent.find_by_id(id)
+        return wrap(found) if found
 
-        if block_given?
-          return yield
-        end
+        return yield if block_given?
 
         default_value.tap do |value|
           raise NotFoundError if value.eql?(marker)
@@ -48,7 +36,6 @@ module AccessControl
 
       def global!
         @global_node = load_global_node()
-
         @global_node || raise(NoGlobalNode)
       end
 
@@ -60,14 +47,17 @@ module AccessControl
         @global_node = nil
       end
 
-      private
+    private
 
       def create_global_node
-        load_global_node || Node.create!(global_node_properties)
+        load_global_node || Node.wrap(Persistent.create!(global_node_properties))
       end
 
       def load_global_node
-        Node.first(:conditions => global_node_properties)
+        persistent = Persistent.first(:conditions => global_node_properties)
+        if persistent
+          Node.wrap(persistent)
+        end
       end
 
       def global_node_properties
@@ -82,65 +72,41 @@ module AccessControl
       end
     end
 
-    reflections[:principal_assignments].instance_eval do
+    delegate :block, :id, :id=, :securable_type, :securable_type=,
+             :securable_id, :securable_id=, :to => :persistent
 
-      def options
-        principal_ids = AccessControl.manager.principal_ids
-        principal_ids = principal_ids.first if principal_ids.size == 1
-        @options.merge(:conditions => {:principal_id => principal_ids})
+    def self.wrap(object)
+      allocate.tap do |new_node|
+        new_node.instance_variable_set("@persistent", object)
       end
-
-      def sanitized_conditions
-        # Since our options aren't constant in the reflection life cycle, never
-        # cache conditions in this instance (the reflection instance).  So,
-        # options are evaluated always. (The default implementation caches the
-        # options in a instance variable).
-        #
-        # It took me a long time debugging to find out why the specs concerning
-        # the Node class passed when run in isolation but not when all specs
-        # were ran together in a bulk.
-        @sanitized_conditions = klass.send(:sanitize_sql, options[:conditions])
-      end
-
     end
 
-    # This association is not marked as `:dependent => :destroy` because the
-    # dependent destruction is done explicitly in a `before_destroy` callback
-    # below.
-    has_many(
-      :assignments,
-      :foreign_key => :node_id,
-      :class_name => 'AccessControl::Assignment'
-    )
+    def initialize(properties = {})
+      properties.each do |name, value|
+        public_send("#{name}=", value)
+      end
+    end
 
-    accepts_nested_attributes_for :assignments, :allow_destroy => true
+    def self.store(properties)
+      persistent = Node::Persistent.create!(properties)
+      wrap(persistent)
+    end
 
-    has_many(
-      :principal_roles,
-      :through => :principal_assignments,
-      :source => :role
-    )
+    def persistent
+      @persistent ||= Node::Persistent.new
+    end
 
-    named_scope :with_type, lambda {|securable_type| {
-      :conditions => { :securable_type => securable_type }
-    }}
-
-    named_scope :blocked,   :conditions => { :block => true }
-    named_scope :unblocked, :conditions => { :block => false }
+    def ==(other)
+      if other.kind_of?(self.class)
+        other.persistent == persistent
+      else
+        false
+      end
+    end
 
     def block= value
       AccessControl.manager.can!('change_inheritance_blocking', self)
-      self[:block] = value
-    end
-
-    def self.granted_for(securable_type, principal_ids, permissions)
-      with_type(securable_type).with_ids(
-        Assignment.granting_for_principal(permissions, principal_ids).node_ids
-      )
-    end
-
-    def self.blocked_for(securable_type)
-      blocked.with_type(securable_type)
+      persistent.block = value
     end
 
     def assignments_with_roles(filter_roles)
@@ -151,8 +117,8 @@ module AccessControl
       id == AccessControl.global_node_id
     end
 
-    after_create :set_default_roles
-    before_destroy :destroy_dependant_assignments
+    # after_create :set_default_roles
+    # before_destroy :destroy_dependant_assignments
 
     def securable
       @securable ||= securable_class.unrestricted_find(securable_id)
