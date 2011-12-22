@@ -37,6 +37,10 @@ module AccessControl
       { :conditions => { :role_id => ids } }
     }
 
+    named_scope :with_node_id, lambda { |node_id|
+      { :conditions => { :node_id => node_id } }
+    }
+
     def self.granting_for_principal(permission, principal)
       granting(permission).assigned_to(principal)
     end
