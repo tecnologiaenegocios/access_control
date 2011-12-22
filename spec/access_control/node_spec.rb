@@ -43,8 +43,8 @@ module AccessControl
     describe ".store" do
       it "returns a new Node and creates its persistent" do
         properties = {:foo => :bar}
-        persistent = stub
-        Node::Persistent.stub(:create!).with(properties).and_return(persistent)
+        persistent = stub(:new_record? => true, :save! => true)
+        Node::Persistent.stub(:new).with(properties).and_return(persistent)
 
         node = Node.store(properties)
         node.persistent.should == persistent
@@ -323,7 +323,7 @@ module AccessControl
       describe "when the node is already persisted" do
         let(:securable) { FakeSecurable.new }
 
-        subject { Node.store(:securable_type  => securable.class.name,
+        subject { Node.store(:securable_class => securable.class,
                              :securable_id    => securable.id) }
 
         it "is a scope provided by the Assignment class" do
@@ -455,24 +455,29 @@ module AccessControl
 
   describe "automatic role assignment" do
 
-    let(:role1) { Role.create!(:name => 'owner') }
-    let(:role2) { Role.create!(:name => 'manager') }
+    let(:role1) { Role.new(:name => 'owner') }
+    let(:role2) { Role.new(:name => 'manager') }
 
     let(:securable) { FakeSecurable.new }
-    # before do
-    #   manager.stub!(:principal_ids => [1, 2, 3], :can! => nil)
-    #   role1; role2;
-    # end
+
+    let(:manager) { stub("Manager") }
+
+    before do
+      role1.save!
+      role2.save!
+
+      AccessControl.stub(:manager => manager)
+      manager.stub(:principal_ids => [1, 2, 3], :can! => nil)
+    end
 
     describe "when there's one or more default roles" do
 
       it "assigns the default roles to current principals in the node" do
-        pending
         AccessControl.config.stub!(:default_roles_on_create).
           and_return(Set.new(['owner', 'manager']))
 
-        node = Node.create!(:securable_id => securable.id,
-                            :securable_class => securable_class).reload
+        node = Node.store(:securable_id => securable.id,
+                          :securable_class => securable.class)
 
         assignments = node.assignments.map do |a|
           { :node_id => a.node_id, :role_id => a.role_id,
@@ -503,7 +508,6 @@ module AccessControl
 
     describe "when there're no default roles" do
       it "doesn't assigns the node to any role" do
-        pending
         AccessControl.config.stub!(:default_roles_on_create).
           and_return(Set.new)
         node = Node.store(:securable_id => securable.id,

@@ -92,14 +92,25 @@ module AccessControl
         properties[:securable_type] = securable_class.name
       end
 
-      persistent = Node::Persistent.create!(properties)
+      persistent = Node::Persistent.new(properties)
+
       wrap(persistent).tap do |node|
         node.securable_class = securable_class if securable_class
+        node.persist
       end
     end
 
     def persistent
       @persistent ||= Node::Persistent.new
+    end
+
+    def persist
+      should_set_default_roles = (not persisted?)
+      persistent.save!
+
+      if should_set_default_roles
+        set_default_roles
+      end
     end
 
     def ==(other)
@@ -216,20 +227,25 @@ module AccessControl
       end
     end
 
-    def destroy_dependant_assignments
-    end
-
     def set_default_roles
-      AccessControl.config.default_roles_on_create.each do |role_name|
-        next unless role = Role.find_by_name(role_name)
+      principals_ids = AccessControl.manager.principal_ids
 
-        AccessControl.manager.principal_ids.each do |principal_id|
-          r = assignments.build(:role_id => role.id,
-                                :principal_id => principal_id)
-          r.skip_assignment_verification!
-          r.save!
-        end
+      default_roles  = AccessControl.config.default_roles_on_create
+      roles_ids = default_roles.map do |role_name|
+        role = Role.find_by_name(role_name)
+        role && role.id
       end
+      roles_ids.compact!
+
+      roles_ids.product(principals_ids).map do |role_id, principal_id|
+        assignment = Assignment.new(:role_id => role_id,
+                      :principal_id => principal_id, :node_id => self.id)
+
+        assignments << assignment
+        assignment.skip_assignment_verification!
+        assignment.save!
+      end
+
     end
   end
 end
