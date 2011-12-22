@@ -149,6 +149,10 @@ module AccessControl
 
     end
 
+    describe ".with_node_id" do
+      it { pending }
+    end
+
     describe ".with_roles" do
       let(:a1) do
         r = Assignment.new(:principal_id => 0, :node_id => 0, :role_id => 1)

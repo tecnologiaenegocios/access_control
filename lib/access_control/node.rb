@@ -88,8 +88,14 @@ module AccessControl
     end
 
     def self.store(properties)
+      if securable_class = properties.delete(:securable_class)
+        properties[:securable_type] = securable_class.name
+      end
+
       persistent = Node::Persistent.create!(properties)
-      wrap(persistent)
+      wrap(persistent).tap do |node|
+        node.securable_class = securable_class if securable_class
+      end
     end
 
     def persistent
@@ -109,12 +115,36 @@ module AccessControl
       persistent.block = value
     end
 
-    def assignments_with_roles(filter_roles)
-      assignments.with_roles(filter_roles)
+    def assignments_with_roles(roles)
+      if persisted?
+        assignments.with_roles(roles)
+      else
+        assignments.select { |assignment| roles.include?(assignment.role) }
+      end
+    end
+
+    def assignments
+      @assignments ||=
+        if persisted?
+          Assignment.with_node_id(persistent.id)
+        else
+          Array.new
+        end
+    end
+
+    def persisted?
+      not persistent.new_record?
     end
 
     def global?
       id == AccessControl.global_node_id
+    end
+
+    def destroy
+      AccessControl.manager.without_assignment_restriction do
+        persistent.destroy
+        assignments.each(&:destroy)
+      end
     end
 
     # after_create :set_default_roles
@@ -187,9 +217,6 @@ module AccessControl
     end
 
     def destroy_dependant_assignments
-      AccessControl.manager.without_assignment_restriction do
-        assignments.each(&:destroy)
-      end
     end
 
     def set_default_roles
