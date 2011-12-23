@@ -16,7 +16,13 @@ module AccessControl
   end
 
   class Node
+    require 'access_control/node/class_methods'
     extend Node::ClassMethods
+
+    def self.with_type(type)
+      scope = Node::Persistent.with_type(type)
+      Node::WrapperScope.new(scope)
+    end
 
     delegate :block, :id, :id=, :securable_type, :securable_type=,
              :securable_id, :securable_id=, :to => :persistent
@@ -139,6 +145,22 @@ module AccessControl
       guard_against_block(:by_returning => Set.new) do
         Set.new parents.reject(&:block)
       end
+    end
+
+    def inspect
+      id = "id: #{self.id.inspect}"
+      securable_desc = ""
+      if securable_id
+        securable_desc = "securable: #{securable_type}(#{securable_id})"
+      else
+        securable_desc = "securable_type: #{securable_type.inspect}"
+      end
+
+      blocked = block ? "blocked": nil
+
+      body = [id, securable_desc, blocked].compact.join(", ")
+
+      "#<AccessControl::Node #{body}>"
     end
 
   private

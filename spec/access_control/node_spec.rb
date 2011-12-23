@@ -383,7 +383,21 @@ module AccessControl
     end
 
     describe ".with_type" do
-      it { pending }
+      it "delegates to Persistent.with_type and wraps it in a scope" do
+        scope         = stub
+        wrapped_scope = stub
+
+        Node::Persistent.stub(:with_type).and_return(scope)
+        Node::WrapperScope.stub(:new).with(scope).and_return(wrapped_scope)
+
+        Node.with_type("foobar").should == wrapped_scope
+      end
+
+      it "forwards the correct arguments to Persistent.with_type" do
+        type = "foobar"
+        Node::Persistent.should_receive(:with_type).with(type)
+        Node.with_type(type)
+      end
     end
 
     describe ".blocked and .unblocked" do
