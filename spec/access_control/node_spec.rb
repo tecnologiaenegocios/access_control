@@ -43,11 +43,25 @@ module AccessControl
     describe ".store" do
       it "returns a new Node and creates its persistent" do
         properties = {:foo => :bar}
-        persistent = stub
-        Node::Persistent.stub(:create!).with(properties).and_return(persistent)
+        persistent = stub(:new_record? => true, :save! => true)
+        Node::Persistent.stub(:new).with(properties).and_return(persistent)
 
         node = Node.store(properties)
         node.persistent.should == persistent
+      end
+
+      it "accepts the securable_class option correctly" do
+        node = Node.store(:securable_class => Hash, :securable_id => 1234)
+        node.securable_class.should == Hash
+        node.securable_type.should  == 'Hash'
+      end
+
+      it "prefers 'securable_class' over 'securable_type'" do
+        node = Node.store(:securable_class => Hash, :securable_id => 1234,
+                          :securable_type  => "String")
+
+        node.securable_class.should == Hash
+        node.securable_type.should  == 'Hash'
       end
     end
 
@@ -57,6 +71,106 @@ module AccessControl
         node   = Node.wrap(object)
 
         node.persistent.should be object
+      end
+    end
+
+    describe "a node created by using .new" do
+      subject { Node.new }
+
+      it { should_not be_persisted }
+    end
+
+    describe "a node created by using .store" do
+      subject { Node.store(:securable_type => "foo",
+                           :securable_id   => 1234) }
+
+      it { should be_persisted }
+    end
+
+    describe "a node created by using .wrap" do
+      let(:object) { stub(:new_record? => true) }
+      subject { Node.wrap(object) }
+
+      it { should_not be_persisted }
+    end
+
+    describe "#persist" do
+      def stub_persistent(stubs = {})
+        stubs[:save!] ||= true
+        stubs[:id]    ||= 1234
+
+        stub("Persistent node", stubs)
+      end
+
+      def stub_assignment(stubs = {})
+        stubs[:save!] ||= true
+
+        stub("Assignment", stubs).tap do |assignment|
+          assignment.singleton_class.class_eval do
+            attr_accessor :id
+          end
+        end
+      end
+
+      context "when the node is a new record" do
+        let(:persistent) { stub_persistent(:new_record? => true) }
+        subject          { Node.wrap(persistent) }
+
+        it "calls save! on the underlying persistent node" do
+          persistent.should_receive(:save!)
+          subject.persist
+        end
+
+        it "sets the persistent's id into the assignments" do
+          subject.assignments << assignment1 = stub_assignment
+          subject.assignments << assignment2 = stub_assignment
+
+          assignment1.should_receive(:id=).with(persistent.id)
+          assignment2.should_receive(:id=).with(persistent.id)
+
+          subject.persist
+        end
+
+        it "calls save! on each of its assignments" do
+          subject.assignments << assignment1 = stub_assignment
+          subject.assignments << assignment2 = stub_assignment
+
+          assignment1.should_receive(:save!)
+          assignment2.should_receive(:save!)
+
+          subject.persist
+        end
+      end
+
+      context "when the node is a not a new record" do
+        let(:persistent) { stub_persistent(:new_record? => false) }
+        subject          { Node.wrap(persistent) }
+
+        it "calls save! on the underlying persistent node" do
+          persistent.should_receive(:save!)
+          subject.persist
+        end
+
+        it "sets the persistent's id into the assignments" do
+          subject.assignments << assignment1 = stub_assignment
+          subject.assignments << assignment2 = stub_assignment
+
+          assignment1.should_receive(:id=).with(persistent.id)
+          assignment2.should_receive(:id=).with(persistent.id)
+
+          subject.persist
+        end
+
+        it "calls save! on each of its assignments" do
+          subject.assignments << assignment1 = stub_assignment
+          subject.assignments << assignment2 = stub_assignment
+
+          assignment1.should_receive(:save!)
+          assignment2.should_receive(:save!)
+
+          subject.persist
+        end
+
       end
     end
 
@@ -269,7 +383,21 @@ module AccessControl
     end
 
     describe ".with_type" do
-      it { pending }
+      it "delegates to Persistent.with_type and wraps it in a scope" do
+        scope         = stub
+        wrapped_scope = stub
+
+        Node::Persistent.stub(:with_type).and_return(scope)
+        Node::WrapperScope.stub(:new).with(scope).and_return(wrapped_scope)
+
+        Node.with_type("foobar").should == wrapped_scope
+      end
+
+      it "forwards the correct arguments to Persistent.with_type" do
+        type = "foobar"
+        Node::Persistent.should_receive(:with_type).with(type)
+        Node.with_type(type)
+      end
     end
 
     describe ".blocked and .unblocked" do
@@ -286,415 +414,438 @@ module AccessControl
 
     describe "#assignments" do
 
-      describe "assignment destruction" do
+      describe "when the node is already persisted" do
+        let(:securable) { FakeSecurable.new }
 
-        let(:assignment) do
-          stub_model(Assignment, :[]= => true, :save => true)
+        subject { Node.store(:securable_class => securable.class,
+                             :securable_id    => securable.id) }
+
+        it "is a scope provided by the Assignment class" do
+          assignments_scope = stub.as_null_object
+          Assignment.stub(:with_node_id).and_return(assignments_scope)
+
+          subject.assignments.should == assignments_scope
         end
-
-        let(:node) do
-          Node.new(:securable_type => 'Foo', :securable_id => 1)
-        end
-
-        before do
-          Object.const_set('TestPoint', stub('testpoint'))
-          node.assignments << assignment
-        end
-
-        after do
-          Object.send(:remove_const, 'TestPoint')
-        end
-
-        it "destroys the dependant assignments when the node is destroyed" do
-          pending
-          assignment.should_receive(:destroy)
-          node.destroy
-        end
-
-        it "destroys the assignment in a unrestricted block" do
-          pending
-          TestPoint.should_receive(:before_yield).ordered
-          TestPoint.should_receive(:on_destroy).ordered
-          TestPoint.should_receive(:after_yield).ordered
-          manager.instance_eval do
-            def without_assignment_restriction
-              TestPoint.before_yield
-              yield
-              TestPoint.after_yield
-            end
-          end
-          assignment.instance_eval do
-            def destroy
-              TestPoint.on_destroy
-            end
-          end
-          node.destroy
-        end
-
       end
 
-      it "allows destruction of assignments" do
-        pending
-        node = Node.new(:securable_type => 'Foo', :securable_id => 1)
-        assignment = stub_model(Assignment, :[]= => true, :save => true)
-        node.assignments << assignment
-        # A little explanation of the "twice" bit: Rails adds two callbacks for
-        # an autosave association, one for the has_many declaration and
-        # another for the accepts_nested_attributes_for declaration.  This
-        # makes the destroy method being called twice.  If the association
-        # hasn't the accepts_nested_attributes_for stuff, only one callback
-        # would exist and be called, but the method destroy would not if the
-        # association were not autosave.
-        assignment.should_receive(:destroy).twice
-        node.update_attributes(:assignments_attributes => {
-          '0' => {:id => assignment.to_param, :_destroy => '1'}
-        })
-      end
+      describe "when the node wasn't persisted yet" do
+        subject { Node.new }
 
+        it "is an empty collection" do
+          subject.assignments.should be_empty
+        end
+
+        it "keeps its members" do
+          assignment = stub
+          subject.assignments << assignment
+
+          subject.assignments.should include assignment
+        end
+      end
     end
 
-    describe "#securable" do
+    describe "on #destroy" do
+      let(:persistent) { stub(:new_record? => false, :id => 1234,
+                               :destroy => true) }
 
-      # The first version of this method was an association method, which was
-      # public.  Then the association was removed because it could not search
-      # unrestrictly, and this method resurfaced as a private method, which
-      # took its own precautions to not trigger Unauthorized errors.  But it
-      # was too late...  The method was being used elsewhere, in app code and
-      # app specs too...  Now the method was promoted to public, just as it was
-      # when it was an association.
+      subject { Node.wrap(persistent) }
+      let(:assignment)  { stub("Assignment", :destroy => true) }
 
-      let(:model) { Class.new }
-      let(:node) { Node.new(:securable_type => 'SecurableType',
-                            :securable_id => 1000) }
       before do
-        Object.send(:const_set, 'SecurableType', model)
+        Assignment.stub(:with_node_id).with(subject.id).and_return([assignment])
       end
 
-      after do
-        Object.send(:remove_const, 'SecurableType')
-      end
+      def should_receive_without_assignment_restriction(tested_mock, method)
+        manager = stub("Manager")
+        AccessControl.stub(:manager => manager)
 
-      it "gets the record by calling .unrestricted_find in the model" do
-        pending
-        securable = stub('securable')
-        model.should_receive(:unrestricted_find).with(1000).
-          and_return(securable)
-        node.securable.should == securable
-      end
+        tested_mock.should_receive(:_before_block).ordered
+        tested_mock.should_receive(method).ordered
+        tested_mock.should_receive(:_after_block).ordered
 
-    end
-
-    describe "#assignments_with_roles" do
-      it "calls .with_roles named scope on assignments association" do
-        pending
-        node = Node.new
-        roles = 'some roles to filter'
-        node.stub(:assignments => mock('assignments'))
-        node.assignments.should_receive(:with_roles).with(roles).
-          and_return('the filtered assignments')
-        node.assignments_with_roles(roles).should == 'the filtered assignments'
-      end
-    end
-
-    describe "automatic role assignment" do
-
-      let(:role1) { Role.create!(:name => 'owner') }
-      let(:role2) { Role.create!(:name => 'manager') }
-
-      # before do
-      #   manager.stub!(:principal_ids => [1, 2, 3], :can! => nil)
-      #   role1; role2;
-      # end
-
-      describe "when there's one or more default roles" do
-
-        it "assigns the default roles to current principals in the node" do
-          pending
-          AccessControl.config.stub!(:default_roles_on_create).
-            and_return(Set.new(['owner', 'manager']))
-
-          node = Node.create!(:securable_id => securable.id,
-                              :securable_class => securable_class).reload
-
-          assignments = node.assignments.map do |a|
-            { :node_id => a.node_id, :role_id => a.role_id,
-              :principal_id => a.principal_id}
+        manager.define_singleton_method(:without_assignment_restriction) do |&blk|
+          if block_given?
+            tested_mock._before_block
+            blk.call
+            tested_mock._after_block
           end
-
-          assignments.should include(:node_id => node.id,
-                                     :principal_id => 1,
-                                     :role_id => role1.id)
-          assignments.should include(:node_id => node.id,
-                                     :principal_id => 1,
-                                     :role_id => role2.id)
-          assignments.should include(:node_id => node.id,
-                                     :principal_id => 2,
-                                     :role_id => role1.id)
-          assignments.should include(:node_id => node.id,
-                                     :principal_id => 2,
-                                     :role_id => role2.id)
-          assignments.should include(:node_id => node.id,
-                                     :principal_id => 3,
-                                     :role_id => role1.id)
-          assignments.should include(:node_id => node.id,
-                                     :principal_id => 3,
-                                     :role_id => role2.id)
         end
 
+        yield
       end
 
-      describe "when there's no default roles" do
-        it "doesn't assigns the node to any role" do
-          pending
-          AccessControl.config.stub!(:default_roles_on_create).
-            and_return(Set.new)
-          node = Node.create!(:securable_id => securable.id,
-                              :securable_class => securable_class).reload
-          node.assignments.should be_empty
+      it "calls #destroy on the 'persistent'" do
+        persistent.should_receive(:destroy)
+        subject.destroy
+      end
+
+      it "destroys the 'persistent' inside a unrestricted block" do
+        should_receive_without_assignment_restriction(persistent, :destroy) do
+          subject.destroy
+        end
+      end
+
+      describe "the assignments" do
+        it "are destroyed as well" do
+          assignment.should_receive(:destroy)
+          subject.destroy
+        end
+
+        it "are destroyed in a unrestricted block" do
+          should_receive_without_assignment_restriction(assignment, :destroy) do
+            subject.destroy
+          end
         end
       end
 
     end
+  end
 
-    describe "blocking and unblocking" do
+  describe "#securable" do
 
-      let(:node) { Node.new }
+    let(:model) { Class.new }
+    let(:node) { Node.new(:securable_class => model,
+                          :securable_id    => 1000) }
 
-      it "defaults to unblocked (block == false)" do
-        node.block.should be_false
+    it "gets the record by calling .unrestricted_find in the model" do
+      securable = stub('securable')
+      model.stub(:unrestricted_find).with(1000).and_return(securable)
+      node.securable.should == securable
+    end
+
+  end
+
+  describe "#assignments_with_roles" do
+    context "for non-persisted nodes" do
+      subject { Node.new }
+
+      it "returns assignments whose #role is within the arguments" do
+        subject.assignments << assignment1 = stub(:role => "role1")
+        subject.assignments << assignment2 = stub(:role => "role2")
+        subject.assignments << assignment3 = stub(:role => "role3")
+
+        returned_assignments = subject.assignments_with_roles("role1, role3")
+        returned_assignments.should include(assignment1, assignment3)
+        returned_assignments.should_not include(assignment2)
       end
+    end
 
-      describe "when blocking" do
+    context "for persisted nodes" do
+      subject { Node.wrap(stub :id => 1234, :new_record? => false) }
 
-        it "checks if the user has 'change_inheritance_blocking'" do
-          pending
-          manager.should_receive(:can!).
-            with('change_inheritance_blocking', node)
-          node.block = true
+      it "calls the .with_roles named scope on assignments association" do
+        roles = stub
+        assignments = stub
+        filtered_assignments = stub
+
+        Assignment.stub(:with_node_id).with(subject.id).and_return(assignments)
+        assignments.stub(:with_roles).with(roles).and_return(filtered_assignments)
+
+        subject.assignments_with_roles(roles).should == filtered_assignments
+      end
+    end
+  end
+
+  describe "automatic role assignment" do
+
+    let(:role1) { Role.new(:name => 'owner') }
+    let(:role2) { Role.new(:name => 'manager') }
+
+    let(:securable) { FakeSecurable.new }
+
+    let(:manager) { stub("Manager") }
+
+    before do
+      role1.save!
+      role2.save!
+
+      AccessControl.stub(:manager => manager)
+      manager.stub(:principal_ids => [1, 2, 3], :can! => nil)
+    end
+
+    describe "when there's one or more default roles" do
+
+      it "assigns the default roles to current principals in the node" do
+        AccessControl.config.stub!(:default_roles_on_create).
+          and_return(Set.new(['owner', 'manager']))
+
+        node = Node.store(:securable_id => securable.id,
+                          :securable_class => securable.class)
+
+        assignments = node.assignments.map do |a|
+          { :node_id => a.node_id, :role_id => a.role_id,
+            :principal_id => a.principal_id}
         end
 
-      end
-
-      describe "when unblocking" do
-
-        # before do
-        #   manager.stub(:can!)
-        #   node.block = true
-        # end
-
-        it "checks if the user has 'change_inheritance_blocking'" do
-          pending
-          manager.should_receive(:can!).
-            with('change_inheritance_blocking', node)
-          node.block = false
-        end
-
+        assignments.should include(:node_id => node.id,
+                                   :principal_id => 1,
+                                   :role_id => role1.id)
+        assignments.should include(:node_id => node.id,
+                                   :principal_id => 1,
+                                   :role_id => role2.id)
+        assignments.should include(:node_id => node.id,
+                                   :principal_id => 2,
+                                   :role_id => role1.id)
+        assignments.should include(:node_id => node.id,
+                                   :principal_id => 2,
+                                   :role_id => role2.id)
+        assignments.should include(:node_id => node.id,
+                                   :principal_id => 3,
+                                   :role_id => role1.id)
+        assignments.should include(:node_id => node.id,
+                                   :principal_id => 3,
+                                   :role_id => role2.id)
       end
 
     end
 
-    describe "the securable's class" do
-      it "is, by default, deduced from the securable_type string" do
-        subject = Node.new(:securable_type => "Hash")
-        subject.securable_class.should == Hash
-      end
-
-      it "can be set using an accessor" do
-        subject = Node.new(:securable_type => "Hash")
-        subject.securable_class = String
-
-        subject.securable_class.should == String
-      end
-
-      it "overrides the securable_type if explicitly set on instantiation" do
-        subject = Node.new(:securable_type => "Hash",
-                           :securable_class => String)
-
-        subject.securable_class.should == String
-      end
-
-      it "sets the securable_type accordingly" do
-        subject = Node.new(:securable_class => String)
-        subject.securable_type.should == "String"
-      end
-    end
-
-    describe "inheritance-related methods" do
-      subject { Node.new(:inheritance_manager => inheritance_manager) }
-
-      let(:inheritance_manager) { stub("Inheritance manager") }
-
-      context "on blocked nodes" do
-        before do
-          subject.block = true
-        end
-
-        let(:global_node) { Node.global }
-
-        describe "#ancestors" do
-          it "returns itself and the global node" do
-            subject.ancestors.should == Set[subject, global_node]
-          end
-        end
-
-        describe "#strict_ancestors" do
-          it "returns only the global node" do
-            subject.strict_ancestors.should == Set[global_node]
-          end
-        end
-
-        describe "#unblocked_ancestors" do
-          it "returns itself and the global node" do
-            subject.unblocked_ancestors.should == Set[subject, global_node]
-          end
-        end
-
-        describe "#strict_unblocked_ancestors" do
-          it "returns only the global node" do
-            subject.strict_unblocked_ancestors.should == Set[global_node]
-          end
-        end
-
-        describe "#parents" do
-          it "returns an empty Set" do
-            subject.parents.should == Set.new
-          end
-        end
-
-        describe "#unblocked_parents" do
-          it "returns an empty Set" do
-            subject.unblocked_parents.should == Set.new
-          end
-        end
-      end
-
-      context "on non-blocked nodes" do
-        before { subject.block = false }
-
-        describe "#strict_ancestors" do
-          it "returns the Set generated by inheritance_manager" do
-            ancestors_set = Set[stub]
-            inheritance_manager.stub(:ancestors => ancestors_set)
-
-            subject.strict_ancestors.should == ancestors_set
-          end
-        end
-
-        describe "#ancestors" do
-          it "is Set generated by inheritance_manager, plus the node" do
-            ancestor = stub
-            inheritance_manager.stub(:ancestors => Set[ancestor])
-
-            subject.ancestors.should == Set[ancestor, subject]
-          end
-        end
-
-        describe "#strict_unblocked_ancestors" do
-          let(:unblocked_ancestor) { stub("unblocked", :block => false) }
-          let(:blocked_ancestor)   { stub("blocked",   :block => true) }
-
-          before do
-            inheritance_manager.stub(:filtered_ancestors) do |filter|
-              ancestors = [blocked_ancestor, unblocked_ancestor]
-              Set.new(ancestors.select(&filter))
-            end
-          end
-
-          it "returns unblocked ancestors" do
-            returned_set = subject.strict_unblocked_ancestors
-            returned_set.should include(unblocked_ancestor)
-          end
-
-          it "doesn't return blocked ancestors" do
-            returned_set = subject.strict_unblocked_ancestors
-            returned_set.should_not include(blocked_ancestor)
-          end
-
-          it "doesn't add itself to the Set" do
-            returned_set = subject.strict_unblocked_ancestors
-            returned_set.should_not include(subject)
-          end
-        end
-
-        describe "#unblocked_ancestors" do
-          let(:blocked_ancestor)   { stub("blocked",   :block => true)  }
-          let(:unblocked_ancestor) { stub("unblocked", :block => false) }
-
-          before do
-            inheritance_manager.stub(:filtered_ancestors) do |filter|
-              ancestors = [blocked_ancestor, unblocked_ancestor]
-              Set.new(ancestors.select(&filter))
-            end
-          end
-
-          it "returns unblocked ancestors" do
-            returned_set = subject.unblocked_ancestors
-            returned_set.should include(unblocked_ancestor)
-          end
-
-          it "doesn't return blocked ancestors" do
-            returned_set = subject.unblocked_ancestors
-            returned_set.should_not include(blocked_ancestor)
-          end
-
-          it "adds itself to the Set" do
-            returned_set = subject.unblocked_ancestors
-            returned_set.should include(subject)
-          end
-        end
-
-        describe "#parents" do
-          let(:blocked_parent) { stub("blocked", :block => true) }
-          let(:unblocked_parent) { stub("blocked", :unblock => true) }
-
-          before do
-            parents = Set[blocked_parent, unblocked_parent]
-            inheritance_manager.stub(:parents => parents)
-          end
-
-          it "returns unblocked parents" do
-            returned_set = subject.parents
-            returned_set.should include unblocked_parent
-          end
-
-          it "returns blocked parents" do
-            returned_set = subject.parents
-            returned_set.should include blocked_parent
-          end
-
-          it "doesn't return itself" do
-            returned_set = subject.parents
-            returned_set.should_not include subject
-          end
-        end
-
-        describe "#unblocked_parents" do
-          let(:blocked_parent)   { stub("blocked",   :block => true)  }
-          let(:unblocked_parent) { stub("unblocked", :block => false) }
-
-          before do
-            parents = Set[blocked_parent, unblocked_parent]
-            inheritance_manager.stub(:parents => parents)
-          end
-
-          it "returns unblocked parents" do
-            returned_set = subject.unblocked_parents
-            returned_set.should include unblocked_parent
-          end
-
-          it "doesn't return blocked parents" do
-            returned_set = subject.unblocked_parents
-            returned_set.should_not include blocked_parent
-          end
-
-          it "doesn't return itself" do
-            returned_set = subject.unblocked_parents
-            returned_set.should_not include subject
-          end
-        end
-
+    describe "when there're no default roles" do
+      it "doesn't assigns the node to any role" do
+        AccessControl.config.stub!(:default_roles_on_create).
+          and_return(Set.new)
+        node = Node.store(:securable_id => securable.id,
+                          :securable_class => securable.class)
+        node.assignments.should be_empty
       end
     end
 
   end
+
+  describe "blocking and unblocking" do
+    let(:manager) { stub("Manager") }
+    let(:node) { Node.new }
+
+    before do
+      AccessControl.stub(:manager => manager)
+    end
+
+    it "defaults to unblocked (block == false)" do
+      node.block.should be_false
+    end
+
+    describe "when blocking" do
+
+      it "checks if the user has 'change_inheritance_blocking'" do
+        manager.should_receive(:can!).
+          with('change_inheritance_blocking', node)
+        node.block = true
+      end
+
+    end
+
+    describe "when unblocking" do
+
+      it "checks if the user has 'change_inheritance_blocking'" do
+        manager.should_receive(:can!).
+          with('change_inheritance_blocking', node)
+        node.block = false
+      end
+
+    end
+
+  end
+
+  describe "the securable's class" do
+    it "is, by default, deduced from the securable_type string" do
+      subject = Node.new(:securable_type => "Hash")
+      subject.securable_class.should == Hash
+    end
+
+    it "can be set using an accessor" do
+      subject = Node.new(:securable_type => "Hash")
+      subject.securable_class = String
+
+      subject.securable_class.should == String
+    end
+
+    it "overrides the securable_type if explicitly set on instantiation" do
+      subject = Node.new(:securable_type => "Hash",
+                         :securable_class => String)
+
+      subject.securable_class.should == String
+    end
+
+    it "sets the securable_type accordingly" do
+      subject = Node.new(:securable_class => String)
+      subject.securable_type.should == "String"
+    end
+  end
+
+  describe "inheritance-related methods" do
+    subject { Node.new(:inheritance_manager => inheritance_manager) }
+
+    let(:inheritance_manager) { stub("Inheritance manager") }
+
+    context "on blocked nodes" do
+      before do
+        subject.block = true
+      end
+
+      let(:global_node) { Node.global }
+
+      describe "#ancestors" do
+        it "returns itself and the global node" do
+          subject.ancestors.should == Set[subject, global_node]
+        end
+      end
+
+      describe "#strict_ancestors" do
+        it "returns only the global node" do
+          subject.strict_ancestors.should == Set[global_node]
+        end
+      end
+
+      describe "#unblocked_ancestors" do
+        it "returns itself and the global node" do
+          subject.unblocked_ancestors.should == Set[subject, global_node]
+        end
+      end
+
+      describe "#strict_unblocked_ancestors" do
+        it "returns only the global node" do
+          subject.strict_unblocked_ancestors.should == Set[global_node]
+        end
+      end
+
+      describe "#parents" do
+        it "returns an empty Set" do
+          subject.parents.should == Set.new
+        end
+      end
+
+      describe "#unblocked_parents" do
+        it "returns an empty Set" do
+          subject.unblocked_parents.should == Set.new
+        end
+      end
+    end
+
+    context "on non-blocked nodes" do
+      before { subject.block = false }
+
+      describe "#strict_ancestors" do
+        it "returns the Set generated by inheritance_manager" do
+          ancestors_set = Set[stub]
+          inheritance_manager.stub(:ancestors => ancestors_set)
+
+          subject.strict_ancestors.should == ancestors_set
+        end
+      end
+
+      describe "#ancestors" do
+        it "is Set generated by inheritance_manager, plus the node" do
+          ancestor = stub
+          inheritance_manager.stub(:ancestors => Set[ancestor])
+
+          subject.ancestors.should == Set[ancestor, subject]
+        end
+      end
+
+      describe "#strict_unblocked_ancestors" do
+        let(:unblocked_ancestor) { stub("unblocked", :block => false) }
+        let(:blocked_ancestor)   { stub("blocked",   :block => true) }
+
+        before do
+          inheritance_manager.stub(:filtered_ancestors) do |filter|
+            ancestors = [blocked_ancestor, unblocked_ancestor]
+            Set.new(ancestors.select(&filter))
+          end
+        end
+
+        it "returns unblocked ancestors" do
+          returned_set = subject.strict_unblocked_ancestors
+          returned_set.should include(unblocked_ancestor)
+        end
+
+        it "doesn't return blocked ancestors" do
+          returned_set = subject.strict_unblocked_ancestors
+          returned_set.should_not include(blocked_ancestor)
+        end
+
+        it "doesn't add itself to the Set" do
+          returned_set = subject.strict_unblocked_ancestors
+          returned_set.should_not include(subject)
+        end
+      end
+
+      describe "#unblocked_ancestors" do
+        let(:blocked_ancestor)   { stub("blocked",   :block => true)  }
+        let(:unblocked_ancestor) { stub("unblocked", :block => false) }
+
+        before do
+          inheritance_manager.stub(:filtered_ancestors) do |filter|
+            ancestors = [blocked_ancestor, unblocked_ancestor]
+            Set.new(ancestors.select(&filter))
+          end
+        end
+
+        it "returns unblocked ancestors" do
+          returned_set = subject.unblocked_ancestors
+          returned_set.should include(unblocked_ancestor)
+        end
+
+        it "doesn't return blocked ancestors" do
+          returned_set = subject.unblocked_ancestors
+          returned_set.should_not include(blocked_ancestor)
+        end
+
+        it "adds itself to the Set" do
+          returned_set = subject.unblocked_ancestors
+          returned_set.should include(subject)
+        end
+      end
+
+      describe "#parents" do
+        let(:blocked_parent) { stub("blocked", :block => true) }
+        let(:unblocked_parent) { stub("blocked", :unblock => true) }
+
+        before do
+          parents = Set[blocked_parent, unblocked_parent]
+          inheritance_manager.stub(:parents => parents)
+        end
+
+        it "returns unblocked parents" do
+          returned_set = subject.parents
+          returned_set.should include unblocked_parent
+        end
+
+        it "returns blocked parents" do
+          returned_set = subject.parents
+          returned_set.should include blocked_parent
+        end
+
+        it "doesn't return itself" do
+          returned_set = subject.parents
+          returned_set.should_not include subject
+        end
+      end
+
+      describe "#unblocked_parents" do
+        let(:blocked_parent)   { stub("blocked",   :block => true)  }
+        let(:unblocked_parent) { stub("unblocked", :block => false) }
+
+        before do
+          parents = Set[blocked_parent, unblocked_parent]
+          inheritance_manager.stub(:parents => parents)
+        end
+
+        it "returns unblocked parents" do
+          returned_set = subject.unblocked_parents
+          returned_set.should include unblocked_parent
+        end
+
+        it "doesn't return blocked parents" do
+          returned_set = subject.unblocked_parents
+          returned_set.should_not include blocked_parent
+        end
+
+        it "doesn't return itself" do
+          returned_set = subject.unblocked_parents
+          returned_set.should_not include subject
+        end
+      end
+
+    end
+  end
+
 end

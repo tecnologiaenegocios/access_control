@@ -10,6 +10,11 @@ platform :mri_18 do
   gem 'ruby-debug'
 end
 
+platform :mri_19 do
+  gem 'ruby-debug19'
+  gem 'test-unit', '1.2.3'
+end
+
 group :guard do
   gem 'guard'
   gem 'guard-rspec'

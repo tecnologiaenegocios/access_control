@@ -149,24 +149,39 @@ module AccessControl
 
     end
 
+    def build_assignment(properties = {})
+      properties[:principal_id] ||= 0
+      properties[:node_id] ||= 0
+      properties[:role_id] ||= 0
+
+      Assignment.create!(properties)
+    end
+
+    describe ".with_node_id" do
+      let(:assignment_of_node) { build_assignment(:node_id => 1) }
+      let(:assignment_of_other_node) { build_assignment(:node_id => 2) }
+
+      it "contains assignments whose node_id match the parameter" do
+        Assignment.with_node_id(1).should discover(assignment_of_node)
+      end
+
+      it "doesn't contain assignments whose node_id don't match the parameter" do
+        Assignment.with_node_id(1).should_not discover(assignment_of_other_node)
+      end
+    end
+
     describe ".with_roles" do
-      let(:a1) do
-        r = Assignment.new(:principal_id => 0, :node_id => 0, :role_id => 1)
-        r.save(false)
-        r
-      end
-      let(:a2) do
-        r = Assignment.new(:principal_id => 0, :node_id => 0, :role_id => 2)
-        r.save(false)
-        r
-      end
-      before { a1; a2 }
+      let(:a1) { build_assignment(:role_id => 1) }
+      let(:a2) { build_assignment(:role_id => 2) }
+
       it "returns assignments for the given role" do
         Assignment.with_roles(1).should include(a1)
       end
+
       it "rejects assignments for different roles of the specified" do
         Assignment.with_roles(1).should_not include(a2)
       end
+
       it "accepts an array" do
         collection = Assignment.with_roles([1, 2])
         collection.should include(a1)
@@ -175,23 +190,17 @@ module AccessControl
     end
 
     describe ".assigned_to" do
-      let(:a1) do
-        r = Assignment.new(:principal_id => 1, :node_id => 0, :role_id => 0)
-        r.save(false)
-        r
-      end
-      let(:a2) do
-        r = Assignment.new(:principal_id => 2, :node_id => 0, :role_id => 0)
-        r.save(false)
-        r
-      end
-      before { a1; a2 }
+      let(:a1) { build_assignment(:principal_id => 1) }
+      let(:a2) { build_assignment(:principal_id => 2) }
+
       it "returns assignments for the given principal" do
         Assignment.assigned_to(1).should include(a1)
       end
+
       it "rejects assignments for different principals of the specified" do
         Assignment.assigned_to(1).should_not include(a2)
       end
+
       it "accepts an array" do
         collection = Assignment.assigned_to([1, 2])
         collection.should include(a1)
@@ -202,31 +211,12 @@ module AccessControl
     describe ".granting" do
 
       let(:roles_proxy) { stub('roles proxy', :ids => [1]) }
-      let(:a1) do
-        r = Assignment.new(:role_id => 1, :node_id => 1, :principal_id => 1)
-        r.save(false)
-        r
-      end
-      let(:a2) do
-        r = Assignment.new(:role_id => 2, :node_id => 1, :principal_id => 1)
-        r.save(false)
-        r
-      end
+
+      let(:a1) { build_assignment(:role_id => 1) }
+      let(:a2) { build_assignment(:role_id => 2) }
 
       before do
-        a1; a2
         Role.stub(:for_permission).and_return(roles_proxy)
-      end
-
-      it "gets all roles for the specified permission" do
-        Role.should_receive(:for_permission).with('some permission').
-          and_return(roles_proxy)
-        Assignment.granting('some permission')
-      end
-
-      it "gets all role ids from the proxy" do
-        roles_proxy.should_receive(:ids)
-        Assignment.granting('some permission')
       end
 
       it "returns assignments with the relevant role_id" do

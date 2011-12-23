@@ -16,70 +16,16 @@ module AccessControl
   end
 
   class Node
+    require 'access_control/node/class_methods'
+    extend Node::ClassMethods
 
-    class << self
-
-      def has?(id)
-        Persistent.exists?(id)
-      end
-
-      def fetch(id, default_value = marker)
-        found = Persistent.find_by_id(id)
-        return wrap(found) if found
-
-        return yield if block_given?
-
-        default_value.tap do |value|
-          raise NotFoundError if value.eql?(marker)
-        end
-      end
-
-      def global!
-        @global_node = load_global_node()
-        @global_node || raise(NoGlobalNode)
-      end
-
-      def global
-        @global_node ||= create_global_node
-      end
-
-      def clear_global_cache
-        @global_node = nil
-      end
-
-    private
-
-      def create_global_node
-        load_global_node || Node.wrap(Persistent.create!(global_node_properties))
-      end
-
-      def load_global_node
-        persistent = Persistent.first(:conditions => global_node_properties)
-        if persistent
-          Node.wrap(persistent)
-        end
-      end
-
-      def global_node_properties
-        {
-          :securable_type => AccessControl.global_securable_type,
-          :securable_id   => AccessControl.global_securable_id
-        }
-      end
-
-      def marker
-        @marker ||= Object.new
-      end
+    def self.with_type(type)
+      scope = Node::Persistent.with_type(type)
+      Node::WrapperScope.new(scope)
     end
 
     delegate :block, :id, :id=, :securable_type, :securable_type=,
              :securable_id, :securable_id=, :to => :persistent
-
-    def self.wrap(object)
-      allocate.tap do |new_node|
-        new_node.instance_variable_set("@persistent", object)
-      end
-    end
 
     def initialize(properties = {})
       properties.each do |name, value|
@@ -87,13 +33,26 @@ module AccessControl
       end
     end
 
-    def self.store(properties)
-      persistent = Node::Persistent.create!(properties)
-      wrap(persistent)
-    end
-
     def persistent
       @persistent ||= Node::Persistent.new
+    end
+
+    def persist
+      should_set_default_roles = (not persisted?)
+      persistent.save!
+
+      assignments.each do |assignment|
+        assignment.id = self.id
+        assignment.save!
+      end
+
+      if should_set_default_roles
+        set_default_roles
+      end
+    end
+
+    def persisted?
+      not persistent.new_record?
     end
 
     def ==(other)
@@ -109,16 +68,33 @@ module AccessControl
       persistent.block = value
     end
 
-    def assignments_with_roles(filter_roles)
-      assignments.with_roles(filter_roles)
+    def assignments_with_roles(roles)
+      if persisted?
+        assignments.with_roles(roles)
+      else
+        assignments.select { |assignment| roles.include?(assignment.role) }
+      end
+    end
+
+    def assignments
+      @assignments ||=
+        if persisted?
+          Assignment.with_node_id(persistent.id)
+        else
+          Array.new
+        end
     end
 
     def global?
       id == AccessControl.global_node_id
     end
 
-    # after_create :set_default_roles
-    # before_destroy :destroy_dependant_assignments
+    def destroy
+      AccessControl.manager.without_assignment_restriction do
+        persistent.destroy
+        assignments.each(&:destroy)
+      end
+    end
 
     def securable
       @securable ||= securable_class.unrestricted_find(securable_id)
@@ -171,6 +147,22 @@ module AccessControl
       end
     end
 
+    def inspect
+      id = "id: #{self.id.inspect}"
+      securable_desc = ""
+      if securable_id
+        securable_desc = "securable: #{securable_type}(#{securable_id})"
+      else
+        securable_desc = "securable_type: #{securable_type.inspect}"
+      end
+
+      blocked = block ? "blocked": nil
+
+      body = [id, securable_desc, blocked].compact.join(", ")
+
+      "#<AccessControl::Node #{body}>"
+    end
+
   private
     def guard_against_block(arguments = {})
       default_value = arguments.fetch(:by_returning)
@@ -186,23 +178,25 @@ module AccessControl
       end
     end
 
-    def destroy_dependant_assignments
-      AccessControl.manager.without_assignment_restriction do
-        assignments.each(&:destroy)
-      end
-    end
-
     def set_default_roles
-      AccessControl.config.default_roles_on_create.each do |role_name|
-        next unless role = Role.find_by_name(role_name)
+      principals_ids = AccessControl.manager.principal_ids
 
-        AccessControl.manager.principal_ids.each do |principal_id|
-          r = assignments.build(:role_id => role.id,
-                                :principal_id => principal_id)
-          r.skip_assignment_verification!
-          r.save!
-        end
+      default_roles  = AccessControl.config.default_roles_on_create
+      roles_ids = default_roles.map do |role_name|
+        role = Role.find_by_name(role_name)
+        role && role.id
       end
+      roles_ids.compact!
+
+      roles_ids.product(principals_ids).map do |role_id, principal_id|
+        assignment = Assignment.new(:role_id => role_id,
+                      :principal_id => principal_id, :node_id => self.id)
+
+        assignments << assignment
+        assignment.skip_assignment_verification!
+        assignment.save!
+      end
+
     end
   end
 end
