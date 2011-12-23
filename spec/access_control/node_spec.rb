@@ -94,6 +94,86 @@ module AccessControl
       it { should_not be_persisted }
     end
 
+    describe "#persist" do
+      def stub_persistent(stubs = {})
+        stubs[:save!] ||= true
+        stubs[:id]    ||= 1234
+
+        stub("Persistent node", stubs)
+      end
+
+      def stub_assignment(stubs = {})
+        stubs[:save!] ||= true
+
+        stub("Assignment", stubs).tap do |assignment|
+          assignment.singleton_class.class_eval do
+            attr_accessor :id
+          end
+        end
+      end
+
+      context "when the node is a new record" do
+        let(:persistent) { stub_persistent(:new_record? => true) }
+        subject          { Node.wrap(persistent) }
+
+        it "calls save! on the underlying persistent node" do
+          persistent.should_receive(:save!)
+          subject.persist
+        end
+
+        it "sets the persistent's id into the assignments" do
+          subject.assignments << assignment1 = stub_assignment
+          subject.assignments << assignment2 = stub_assignment
+
+          assignment1.should_receive(:id=).with(persistent.id)
+          assignment2.should_receive(:id=).with(persistent.id)
+
+          subject.persist
+        end
+
+        it "calls save! on each of its assignments" do
+          subject.assignments << assignment1 = stub_assignment
+          subject.assignments << assignment2 = stub_assignment
+
+          assignment1.should_receive(:save!)
+          assignment2.should_receive(:save!)
+
+          subject.persist
+        end
+      end
+
+      context "when the node is a not a new record" do
+        let(:persistent) { stub_persistent(:new_record? => false) }
+        subject          { Node.wrap(persistent) }
+
+        it "calls save! on the underlying persistent node" do
+          persistent.should_receive(:save!)
+          subject.persist
+        end
+
+        it "sets the persistent's id into the assignments" do
+          subject.assignments << assignment1 = stub_assignment
+          subject.assignments << assignment2 = stub_assignment
+
+          assignment1.should_receive(:id=).with(persistent.id)
+          assignment2.should_receive(:id=).with(persistent.id)
+
+          subject.persist
+        end
+
+        it "calls save! on each of its assignments" do
+          subject.assignments << assignment1 = stub_assignment
+          subject.assignments << assignment2 = stub_assignment
+
+          assignment1.should_receive(:save!)
+          assignment2.should_receive(:save!)
+
+          subject.persist
+        end
+
+      end
+    end
+
     describe "delegations" do
       delegated_methods = [:block, :id, :securable_type, :securable_id]
 
@@ -327,9 +407,8 @@ module AccessControl
                              :securable_id    => securable.id) }
 
         it "is a scope provided by the Assignment class" do
-          assignments_scope = stub
-          Assignment.stub(:with_node_id).with(subject.id).
-            and_return(assignments_scope)
+          assignments_scope = stub.as_null_object
+          Assignment.stub(:with_node_id).and_return(assignments_scope)
 
           subject.assignments.should == assignments_scope
         end

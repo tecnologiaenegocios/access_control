@@ -108,9 +108,18 @@ module AccessControl
       should_set_default_roles = (not persisted?)
       persistent.save!
 
+      assignments.each do |assignment|
+        assignment.id = self.id
+        assignment.save!
+      end
+
       if should_set_default_roles
         set_default_roles
       end
+    end
+
+    def persisted?
+      not persistent.new_record?
     end
 
     def ==(other)
@@ -141,10 +150,6 @@ module AccessControl
         else
           Array.new
         end
-    end
-
-    def persisted?
-      not persistent.new_record?
     end
 
     def global?
