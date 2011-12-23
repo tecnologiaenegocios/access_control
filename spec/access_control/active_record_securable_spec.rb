@@ -7,46 +7,23 @@ module AccessControl
 
     let(:base) do
       Class.new do
-        def self.primary_key
-          'id'
-        end
-        def id
-          1000
-        end
-      private
         def create
-          run_before_create_callbacks
-          create_without_callbacks
-          run_after_create_callbacks
+          self.class.just_after_callback_chains.execute(self, :create)
         end
-        def update(*args)
-          run_before_update_callbacks
-          update_without_callbacks
-          run_after_update_callbacks
+        def update
+          self.class.just_after_callback_chains.execute(self, :update)
         end
         def destroy
-          do_action
+          self.class.just_after_callback_chains.execute(self, :destroy)
         end
-        def create_without_callbacks; do_action; end
-        def update_without_callbacks; do_action; end
-        def run_before_create_callbacks; end
-        def run_after_create_callbacks; end
-        def run_before_update_callbacks; end
-        def run_after_update_callbacks; end
-        def do_action; end
       end
     end
 
     let(:model) { Class.new(base) }
 
-    before do
-      base.stub(:after_create)
-      base.stub(:has_one)
-    end
-
-    it "includes associator" do
+    it "includes just after callbacks" do
       model.send(:include, ActiveRecordSecurable)
-      model.should include(ActiveRecordAssociator)
+      model.should include(ActiveRecordJustAfterCallback)
     end
 
     it "includes declarations" do
@@ -54,18 +31,31 @@ module AccessControl
       model.should include(Declarations)
     end
 
-    it "configures an association for Node" do
-      Node.should_receive(:name).and_return("Node's class name")
-      model.should_receive(:associate_with_access_control).
-        with(:ac_node, "Node's class name", :securable)
-      model.send(:include, ActiveRecordSecurable)
+    describe "association to Node" do
+      let(:node)     { stub('node') }
+      let(:instance) { model.new }
+
+      before do
+        Node.stub(:for_securable).with(instance).and_return(node)
+        model.send(:include, ActiveRecordSecurable)
+      end
+
+      it "returns a node for the instance" do
+        instance.ac_node.should be node
+      end
+
+      specify "once the node is computed, the node is cached" do
+        old_result = instance.ac_node # should cache
+        Node.should_not_receive(:for_securable)
+        instance.ac_node.should be old_result
+      end
     end
 
     describe "tracking parents" do
 
       before do
         PersistencyProtector.stub(:track_parents)
-        model.extend(ActiveRecordSecurable::ClassMethods)
+        model.send(:include, ActiveRecordSecurable)
       end
 
       # Tracking parents is needed for further calling the persistency
@@ -109,67 +99,50 @@ module AccessControl
         PersistencyProtector.stub(:verify_attachment!)
         PersistencyProtector.stub(:verify_detachment!)
         PersistencyProtector.stub(:verify_update!)
-        instance.extend(ActiveRecordSecurable)
+        PersistencyProtector.stub(:track_parents)
+        ActiveRecordAssociator.stub(:setup_association)
+        model.send(:include, ActiveRecordSecurable)
       end
 
       describe "on create" do
-        it "verify attachment right after all before callbacks have run" do
-          PersistencyProtector.stub(:verify_attachment!) do |instance|
-            instance.verified
-          end
-          instance.should_receive(:run_before_create_callbacks).ordered
-          instance.should_receive(:verified).ordered
-          instance.send(:create)
-        end
-        it "forwards to the super class method" do
-          instance.should_receive(:do_action)
-          instance.send(:create)
+        it "verifies attachment just after create" do
+          # This sounds strange, but without permissions the creation will be
+          # rolled back, thus the user will not succeed in create the object.
+          PersistencyProtector.should_receive(:verify_attachment!).
+            with(instance)
+          instance.create
         end
       end
 
       describe "on update" do
-        it "verify detachment right after all before callbacks have run" do
-          PersistencyProtector.stub(:verify_detachment!) do |instance|
-            instance.verified
-          end
-          instance.should_receive(:run_before_update_callbacks).ordered
-          instance.should_receive(:verified).ordered
-          instance.send(:update, 'some', 'arguments')
+        it "verifies attachment just after update" do
+          PersistencyProtector.should_receive(:verify_attachment!).
+            with(instance)
+          instance.update
         end
-        it "verify attachment right after all before callbacks have run" do
-          PersistencyProtector.stub(:verify_attachment!) do |instance|
-            instance.verified
-          end
-          instance.should_receive(:run_before_update_callbacks).ordered
-          instance.should_receive(:verified).ordered
-          instance.send(:update, 'some', 'arguments')
+
+        it "verifies detachment just after update" do
+          PersistencyProtector.should_receive(:verify_detachment!).
+            with(instance)
+          instance.update
         end
-        it "verify update right after all before callbacks have run" do
-          PersistencyProtector.stub(:verify_update!) do |instance|
-            instance.verified
-          end
-          instance.should_receive(:run_before_update_callbacks).ordered
-          instance.should_receive(:verified).ordered
-          instance.send(:update, 'some', 'arguments')
-        end
-        it "forwards to the super class method" do
-          instance.should_receive(:do_action)
-          instance.send(:update, 'some', 'arguments')
+
+        it "verifies update permissions just after update" do
+          # This sounds strange, but without permissions the update will be
+          # rolled back, thus the user will not succeed in update the object.
+          PersistencyProtector.should_receive(:verify_update!).with(instance)
+          instance.update
         end
       end
 
       describe "on destroy" do
-        it "verify detachment right before doing the destruction" do
-          PersistencyProtector.stub(:verify_detachment!) do |instance|
-            instance.verified
-          end
-          instance.should_receive(:verified).ordered
-          instance.should_receive(:do_action).ordered
-          instance.send(:destroy)
-        end
-        it "forwards to the super class method" do
-          instance.should_receive(:do_action)
-          instance.send(:destroy)
+        it "verifies destroy permissions just after destruction" do
+          # This sounds strange, but without permissions the destruction will
+          # be rolled back, thus the user will not succeed in destroy the
+          # object.
+          PersistencyProtector.should_receive(:verify_detachment!).
+            with(instance)
+          instance.destroy
         end
       end
 

@@ -6,100 +6,68 @@ module AccessControl
     # A Mix-in module for ActiveRecord models for including an association with
     # a model of AccessControl.
 
-    let(:base) do
-      Class.new do
-        def pk
-          1000
+    let(:callbacks) do
+      Module.new do
+        def just_after_create(&block)
+          just_after_create_callbacks << block
         end
-        def self.primary_key
-          'pk'
+        def just_after_destroy(&block)
+          just_after_destroy_callbacks << block
         end
-        def self.name
-          'Model'
+        def just_after_create_callbacks
+          @just_after_create_callbacks ||= []
         end
-      private
-        def create
-          create_without_callbacks
-          run_after_create_callbacks
+        def just_after_destroy_callbacks
+          @just_after_destroy_callbacks ||= []
         end
-        def create_without_callbacks; do_create; end
-        def run_after_create_callbacks; end
-        def do_create; end
       end
     end
 
-    let(:model) { Class.new(base) { include ActiveRecordAssociator } }
+    let(:model) do
+      cls = Class.new do
+        def create
+          self.class.just_after_create_callbacks.each do |block|
+            instance_eval(&block)
+          end
+        end
 
-    describe "#associate_with_access_control" do
+        def destroy
+          self.class.just_after_destroy_callbacks.each do |block|
+            instance_eval(&block)
+          end
+        end
+      end
+      cls
+    end
 
-      it "makes a has_one association with a model of AccessControl" do
-        model.should_receive(:has_one).with(
-          :an_association_name,
-          :as => :a_polymorphic_name,
-          :class_name => "a class name",
-          :dependent => :destroy
-        )
-        model.associate_with_access_control(:an_association_name,
-                                            'a class name',
-                                            :a_polymorphic_name)
+    let(:instance)      { model.new }
+    let(:ac_associated) { stub('object from access control') }
+
+    describe ".setup_association" do
+      before do
+        model.extend(callbacks)
+        instance.stub(:access_control_object => ac_associated)
+        ActiveRecordAssociator.setup_association(:association, model) do
+          access_control_object
+        end
       end
 
-      describe "access control object management" do
+      it "defines a method which returns the access control object" do
+        instance.association.should be ac_associated
+      end
 
-        let(:instance) { model.new }
-        let(:ac_class) { Class.new }
-
-        before do
-          ac_class.stub(:create!)
-          Object.send(:const_set, 'ACClass', ac_class)
-          model.stub(:has_one)
-          model.associate_with_access_control(:ac_class, 'ACClass',
-                                              :ac_class_able)
-          instance.stub(:ac_class)
+      context "when a record is created" do
+        it "persists the associated access control object" do
+          ac_associated.should_receive(:persist)
+          instance.create
         end
+      end
 
-        after do
-          Object.send(:remove_const, 'ACClass')
+      context "when a record is destroyed" do
+        it "destroys the associated access control object" do
+          ac_associated.should_receive(:destroy)
+          instance.destroy
         end
-
-        describe "when application instance is created" do
-
-          it "creates an access control object" do
-            ac_class.should_receive(:create!).
-              with(:ac_class_able_id => instance.pk,
-                   :ac_class_able_type => instance.class.name)
-            instance.send(:create)
-          end
-
-          it "does it right after creating the object" do
-            ac_class.stub(:create!) do |params|
-              instance.created
-            end
-            instance.should_receive(:do_create).ordered
-            instance.should_receive(:created).ordered
-            instance.send(:create)
-          end
-
-          it "does it right before any after callback is called" do
-            ac_class.stub(:create!) do |params|
-              instance.created
-            end
-            instance.should_receive(:created).ordered
-            instance.should_receive(:run_after_create_callbacks).ordered
-            instance.send(:create)
-          end
-
-          it "reloads association after creating the access control object" do
-            ac_class.stub(:create!) do |params|
-              instance.created
-            end
-            instance.should_receive(:created).ordered
-            instance.should_receive(:ac_class).ordered.with(true)
-            instance.send(:create)
-          end
-
-        end
-
       end
     end
   end

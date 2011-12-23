@@ -8,22 +8,29 @@ module AccessControl
     let(:base)  { Class.new }
     let(:model) { Class.new(base) }
 
-    before do
-      base.stub(:after_create)
-      base.stub(:has_one)
-    end
-
-    it "includes associator" do
+    it "includes just after callbacks" do
       model.send(:include, ActiveRecordSubject)
-      model.should include(ActiveRecordAssociator)
+      model.should include(ActiveRecordJustAfterCallback)
     end
 
-    it "configures an association for Principal" do
-      Principal.should_receive(:name).and_return("Principal's class name")
-      model.should_receive(:associate_with_access_control).
-        with(:ac_principal, "Principal's class name", :subject)
-      model.send(:include, ActiveRecordSubject)
-    end
+    describe "association to Principal" do
+      let(:principal) { stub('principal') }
+      let(:instance)  { model.new }
 
+      before do
+        Principal.stub(:for_subject).with(instance).and_return(principal)
+        model.send(:include, ActiveRecordSubject)
+      end
+
+      it "returns a principal for the instance" do
+        instance.ac_principal.should be principal
+      end
+
+      specify "once the principal is computed, the principal is cached" do
+        old_result = instance.ac_principal # should cache
+        Principal.should_not_receive(:for_subject)
+        instance.ac_principal.should be old_result
+      end
+    end
   end
 end
