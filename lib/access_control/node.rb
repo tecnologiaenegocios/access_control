@@ -16,87 +16,14 @@ module AccessControl
   end
 
   class Node
-
-    class << self
-
-      def has?(id)
-        Persistent.exists?(id)
-      end
-
-      def fetch(id, default_value = marker)
-        found = Persistent.find_by_id(id)
-        return wrap(found) if found
-
-        return yield if block_given?
-
-        default_value.tap do |value|
-          raise NotFoundError if value.eql?(marker)
-        end
-      end
-
-      def global!
-        @global_node = load_global_node()
-        @global_node || raise(NoGlobalNode)
-      end
-
-      def global
-        @global_node ||= create_global_node
-      end
-
-      def clear_global_cache
-        @global_node = nil
-      end
-
-    private
-
-      def create_global_node
-        load_global_node || Node.wrap(Persistent.create!(global_node_properties))
-      end
-
-      def load_global_node
-        persistent = Persistent.first(:conditions => global_node_properties)
-        if persistent
-          Node.wrap(persistent)
-        end
-      end
-
-      def global_node_properties
-        {
-          :securable_type => AccessControl.global_securable_type,
-          :securable_id   => AccessControl.global_securable_id
-        }
-      end
-
-      def marker
-        @marker ||= Object.new
-      end
-    end
+    extend Node::ClassMethods
 
     delegate :block, :id, :id=, :securable_type, :securable_type=,
              :securable_id, :securable_id=, :to => :persistent
 
-    def self.wrap(object)
-      allocate.tap do |new_node|
-        new_node.instance_variable_set("@persistent", object)
-      end
-    end
-
     def initialize(properties = {})
       properties.each do |name, value|
         public_send("#{name}=", value)
-      end
-    end
-
-    def self.store(properties)
-      if securable_class = properties.delete(:securable_class)
-        properties[:securable_type] = securable_class.name
-      end
-
-      persistent = Node::Persistent.new(properties)
-
-      wrap(persistent).tap do |node|
-        node.securable_class = securable_class if securable_class
-        node.persist
       end
     end
 
@@ -162,9 +89,6 @@ module AccessControl
         assignments.each(&:destroy)
       end
     end
-
-    # after_create :set_default_roles
-    # before_destroy :destroy_dependant_assignments
 
     def securable
       @securable ||= securable_class.unrestricted_find(securable_id)
