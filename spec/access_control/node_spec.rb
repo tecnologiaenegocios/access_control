@@ -43,7 +43,7 @@ module AccessControl
     describe ".store" do
       it "returns a new Node and creates its persistent" do
         properties = {:foo => :bar}
-        persistent = stub(:new_record? => true, :save! => true)
+        persistent = stub(:new_record? => true, :save! => true, :id => 10)
         Node::Persistent.stub(:new).with(properties).and_return(persistent)
 
         node = Node.store(properties)
