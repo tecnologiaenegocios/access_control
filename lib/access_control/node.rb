@@ -19,11 +19,6 @@ module AccessControl
     require 'access_control/node/class_methods'
     extend Node::ClassMethods
 
-    def self.with_type(type)
-      scope = Node::Persistent.with_type(type)
-      Node::WrapperScope.new(scope)
-    end
-
     delegate :block, :id, :id=, :securable_type, :securable_type=,
              :securable_id, :securable_id=, :to => :persistent
 

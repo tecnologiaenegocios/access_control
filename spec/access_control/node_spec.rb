@@ -221,6 +221,14 @@ module AccessControl
       end
     end
 
+    describe ".all" do
+      it "is delegated to Persistent.all" do
+        all_persistents = double("persistents")
+        Node::Persistent.stub(:all => all_persistents)
+
+        Node.all.should == all_persistents
+      end
+    end
     describe ".fetch" do
       let(:node) { build_node }
 
@@ -384,8 +392,8 @@ module AccessControl
 
     describe ".with_type" do
       it "delegates to Persistent.with_type and wraps it in a scope" do
-        scope         = stub
-        wrapped_scope = stub
+        scope         = stub("Regular scope")
+        wrapped_scope = stub("Wrapped scope")
 
         Node::Persistent.stub(:with_type).and_return(scope)
         Node::WrapperScope.stub(:new).with(scope).and_return(wrapped_scope)
@@ -400,16 +408,52 @@ module AccessControl
       end
     end
 
-    describe ".blocked and .unblocked" do
-      it { pending }
+    describe ".blocked" do
+      it "delegates to Persistent.blocked and wraps it in a scope" do
+        scope         = stub("Regular scope")
+        wrapped_scope = stub("Wrapped scope")
+
+        Node::Persistent.stub(:blocked).and_return(scope)
+        Node::WrapperScope.stub(:new).with(scope).and_return(wrapped_scope)
+
+        Node.blocked.should == wrapped_scope
+      end
+    end
+
+    describe ".unblocked" do
+      it "delegates to Persistent.unblocked and wraps it in a scope" do
+        scope         = stub("Regular scope")
+        wrapped_scope = stub("Wrapped scope")
+
+        Node::Persistent.stub(:unblocked).and_return(scope)
+        Node::WrapperScope.stub(:new).with(scope).and_return(wrapped_scope)
+
+        Node.unblocked.should == wrapped_scope
+      end
     end
 
     describe ".granted_for" do
-      it { pending }
+      it "delegates to Persistent.granted_for and wraps it in a scope" do
+        scope         = stub("Regular scope")
+        wrapped_scope = stub("Wrapped scope")
+
+        Node::Persistent.stub(:granted_for).and_return(scope)
+        Node::WrapperScope.stub(:new).with(scope).and_return(wrapped_scope)
+
+        Node.granted_for.should == wrapped_scope
+      end
     end
 
     describe ".blocked_for" do
-      it { pending }
+      it "delegates to Persistent.blocked_for and wraps it in a scope" do
+        scope         = stub("Regular scope")
+        wrapped_scope = stub("Wrapped scope")
+
+        Node::Persistent.stub(:blocked_for).and_return(scope)
+        Node::WrapperScope.stub(:new).with(scope).and_return(wrapped_scope)
+
+        Node.blocked_for.should == wrapped_scope
+      end
     end
 
     describe "#assignments" do
