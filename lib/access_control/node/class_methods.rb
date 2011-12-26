@@ -5,8 +5,8 @@
 module AccessControl
   module Node::ClassMethods
 
-    delegated_scopes = %w[with_type blocked unblocked granted_for granted_for
-                          blocked_for all]
+    delegated_scopes = %w[with_type blocked unblocked granted_for blocked_for
+                          all]
 
     delegated_scopes.each do |scope_name|
       define_method(scope_name) do |*args|
