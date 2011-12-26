@@ -222,13 +222,17 @@ module AccessControl
     end
 
     describe ".all" do
-      it "is delegated to Persistent.all" do
-        all_persistents = double("persistents")
-        Node::Persistent.stub(:all => all_persistents)
+      it "delegates to Persistent.all and wraps it in a scope" do
+        scope         = stub("Regular scope")
+        wrapped_scope = stub("Wrapped scope")
 
-        Node.all.should == all_persistents
+        Node::Persistent.stub(:all).and_return(scope)
+        Node::WrapperScope.stub(:new).with(scope).and_return(wrapped_scope)
+
+        Node.all.should == wrapped_scope
       end
     end
+
     describe ".fetch" do
       let(:node) { build_node }
 

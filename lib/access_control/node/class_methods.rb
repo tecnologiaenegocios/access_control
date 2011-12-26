@@ -5,33 +5,14 @@
 module AccessControl
   module Node::ClassMethods
 
-    def with_type(type)
-      scope = Node::Persistent.with_type(type)
-      Node::WrapperScope.new(scope)
-    end
+    delegated_scopes = %w[with_type blocked unblocked granted_for granted_for
+                          blocked_for all]
 
-    def blocked
-      scope = Node::Persistent.blocked
-      Node::WrapperScope.new(scope)
-    end
-
-    def unblocked
-      scope = Node::Persistent.unblocked
-      Node::WrapperScope.new(scope)
-    end
-
-    def granted_for
-      scope = Node::Persistent.granted_for
-      Node::WrapperScope.new(scope)
-    end
-
-    def blocked_for
-      scope = Node::Persistent.blocked_for
-      Node::WrapperScope.new(scope)
-    end
-
-    def all
-      Node::Persistent.all
+    delegated_scopes.each do |scope_name|
+      define_method(scope_name) do |*args|
+        scope = Node::Persistent.public_send(scope_name, *args)
+        Node::WrapperScope.new(scope)
+      end
     end
 
     def fetch(id, default_value = marker)
