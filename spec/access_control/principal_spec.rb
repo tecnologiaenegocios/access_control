@@ -32,6 +32,41 @@ module AccessControl
       Assignment.count.should == 0
     end
 
+    describe ".with_assignments" do
+      def build_assignment(principal_id = nil)
+        principal_id  ||= 0
+
+        @counter ||= 0
+        @counter += 1
+
+        Assignment.create!(:principal_id => principal_id,
+          :role_id => @counter, :node_id => @counter)
+      end
+
+      def build_principal
+        Principal.create!(:subject_type => "foo", :subject_id => 1234)
+      end
+
+      it "returns principals that have at least one assignment" do
+        principal = build_principal()
+        build_assignment(principal.id)
+
+        Principal.with_assignments.should include principal
+      end
+
+      it "doesn't return principals that have no assignments" do
+        principal = build_principal()
+        Principal.with_assignments.should_not include principal
+      end
+
+      it "doesn't return duplicated principals" do
+        principal = build_principal()
+        build_assignment(principal.id)
+        build_assignment(principal.id)
+
+        Principal.with_assignments.count.should == 1
+      end
+    end
     describe "anonymous principal" do
 
       let(:anonymous_principal) do

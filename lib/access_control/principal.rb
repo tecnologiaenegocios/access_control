@@ -18,6 +18,12 @@ module AccessControl
       anonymous.id
     end
 
+    def self.with_assignments
+      ids_with_assignments = Assignment.all.map(&:principal_id).uniq
+
+      scoped(:conditions => {:id => ids_with_assignments})
+    end
+
     def anonymous?
       subject_type == self.class.anonymous_subject_type &&
         subject_id == self.class.anonymous_subject_id
