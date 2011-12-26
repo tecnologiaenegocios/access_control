@@ -2,6 +2,7 @@ require 'access_control/exceptions'
 require 'access_control/ids'
 require 'access_control/inheritance'
 require 'access_control/configuration'
+require 'access_control/persistable'
 
 module AccessControl
 
@@ -17,20 +18,11 @@ module AccessControl
 
   class Node
     require 'access_control/node/class_methods'
+    include AccessControl::Persistable
     extend Node::ClassMethods
 
-    delegate :block, :id, :id=, :securable_type, :securable_type=,
-             :securable_id, :securable_id=, :to => :persistent
-
-    def initialize(properties = {})
-      properties.each do |name, value|
-        public_send("#{name}=", value)
-      end
-    end
-
-    def persistent
-      @persistent ||= Node::Persistent.new
-    end
+    delegate_scopes :with_type, :blocked, :unblocked,
+                    :granted_for, :blocked_for
 
     def persist
       should_set_default_roles = (not persisted?)
@@ -43,18 +35,6 @@ module AccessControl
 
       if should_set_default_roles
         set_default_roles
-      end
-    end
-
-    def persisted?
-      not persistent.new_record?
-    end
-
-    def ==(other)
-      if other.kind_of?(self.class)
-        other.persistent == persistent
-      else
-        false
       end
     end
 

@@ -5,25 +5,8 @@
 module AccessControl
   module Node::ClassMethods
 
-    delegated_scopes = %w[with_type blocked unblocked granted_for granted_for
-                          blocked_for all]
-
-    delegated_scopes.each do |scope_name|
-      define_method(scope_name) do |*args|
-        scope = Node::Persistent.public_send(scope_name, *args)
-        Node::WrapperScope.new(scope)
-      end
-    end
-
-    def fetch(id, default_value = marker)
-      found = Node::Persistent.find_by_id(id)
-      return wrap(found) if found
-
-      return yield if block_given?
-
-      default_value.tap do |value|
-        raise NotFoundError if value.eql?(marker)
-      end
+    def persistent_model
+      Node::Persistent
     end
 
     def store(properties)
@@ -31,22 +14,7 @@ module AccessControl
         properties[:securable_type] = securable_class.name
       end
 
-      persistent = Node::Persistent.new(properties)
-
-      wrap(persistent).tap do |node|
-        node.securable_class = securable_class if securable_class
-        node.persist
-      end
-    end
-
-    def has?(id)
-      Node::Persistent.exists?(id)
-    end
-
-    def wrap(object)
-      allocate.tap do |new_node|
-        new_node.instance_variable_set("@persistent", object)
-      end
+      super(properties)
     end
 
     def global!
@@ -81,10 +49,5 @@ module AccessControl
         :securable_id   => AccessControl.global_securable_id
       }
     end
-
-    def marker
-      @marker ||= Object.new
-    end
-
   end
 end

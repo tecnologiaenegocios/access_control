@@ -42,9 +42,10 @@ module AccessControl
 
     describe ".store" do
       it "returns a new Node and creates its persistent" do
-        properties = {:foo => :bar}
-        persistent = stub(:new_record? => true, :save! => true)
-        Node::Persistent.stub(:new).with(properties).and_return(persistent)
+        properties = {:securable_type => 'Foo'}
+        persistent = stub(:new_record? => true,
+                          :save! => true, :securable_type= => nil)
+        Node::Persistent.stub(:new).and_return(persistent)
 
         node = Node.store(properties)
         node.persistent.should == persistent
@@ -63,35 +64,6 @@ module AccessControl
         node.securable_class.should == Hash
         node.securable_type.should  == 'Hash'
       end
-    end
-
-    describe ".wrap" do
-      it "creates a new Node whose 'persistent' is the given object" do
-        object = stub
-        node   = Node.wrap(object)
-
-        node.persistent.should be object
-      end
-    end
-
-    describe "a node created by using .new" do
-      subject { Node.new }
-
-      it { should_not be_persisted }
-    end
-
-    describe "a node created by using .store" do
-      subject { Node.store(:securable_type => "foo",
-                           :securable_id   => 1234) }
-
-      it { should be_persisted }
-    end
-
-    describe "a node created by using .wrap" do
-      let(:object) { stub(:new_record? => true) }
-      subject { Node.wrap(object) }
-
-      it { should_not be_persisted }
     end
 
     describe "#persist" do
@@ -117,11 +89,13 @@ module AccessControl
         subject          { Node.wrap(persistent) }
 
         it "calls save! on the underlying persistent node" do
+          pending('reimplement #persist to return true or false')
           persistent.should_receive(:save!)
           subject.persist
         end
 
         it "sets the persistent's id into the assignments" do
+          pending('reimplement #persist to return true or false')
           subject.assignments << assignment1 = stub_assignment
           subject.assignments << assignment2 = stub_assignment
 
@@ -132,6 +106,7 @@ module AccessControl
         end
 
         it "calls save! on each of its assignments" do
+          pending('reimplement #persist to return true or false')
           subject.assignments << assignment1 = stub_assignment
           subject.assignments << assignment2 = stub_assignment
 
@@ -147,11 +122,13 @@ module AccessControl
         subject          { Node.wrap(persistent) }
 
         it "calls save! on the underlying persistent node" do
+          pending('reimplement #persist to return true or false')
           persistent.should_receive(:save!)
           subject.persist
         end
 
         it "sets the persistent's id into the assignments" do
+          pending('reimplement #persist to return true or false')
           subject.assignments << assignment1 = stub_assignment
           subject.assignments << assignment2 = stub_assignment
 
@@ -162,6 +139,7 @@ module AccessControl
         end
 
         it "calls save! on each of its assignments" do
+          pending('reimplement #persist to return true or false')
           subject.assignments << assignment1 = stub_assignment
           subject.assignments << assignment2 = stub_assignment
 
@@ -171,125 +149,6 @@ module AccessControl
           subject.persist
         end
 
-      end
-    end
-
-    describe "delegations" do
-      delegated_methods = [:block, :id, :securable_type, :securable_id]
-
-      delegated_methods.each do |method_name|
-        it "delegates '#{method_name}' to the persistent" do
-          object = stub(method_name => 1234)
-          node   = Node.wrap(object)
-
-          node.public_send(method_name).should == 1234
-        end
-      end
-
-      delegated_setters = [:id, :securable_type, :securable_id]
-
-      delegated_setters.each do |property_name|
-        it "delegates the '#{property_name}' setter to the persistent" do
-          object = mock
-          node   = Node.wrap(object)
-
-          setter_name = "#{property_name}="
-          object.should_receive(setter_name).with(1234)
-          node.public_send(setter_name, 1234)
-        end
-      end
-    end
-
-    describe "equality comparison" do
-      specify "two Nodes are equal if their persistents are equal" do
-        p1 = "a persistent"
-        p2 = "a persistent"
-
-        node1 = Node.wrap(p1)
-        node2 = Node.wrap(p2)
-
-        node1.should == node2
-      end
-
-      specify "a node is never equal to an object that isn't a Node" do
-        persistent = stub
-
-        fake_node = stub(:persistent => persistent)
-        node = Node.wrap(persistent)
-
-        node.should_not == fake_node
-      end
-    end
-
-    describe ".all" do
-      it "delegates to Persistent.all and wraps it in a scope" do
-        scope         = stub("Regular scope")
-        wrapped_scope = stub("Wrapped scope")
-
-        Node::Persistent.stub(:all).and_return(scope)
-        Node::WrapperScope.stub(:new).with(scope).and_return(wrapped_scope)
-
-        Node.all.should == wrapped_scope
-      end
-    end
-
-    describe ".fetch" do
-      let(:node) { build_node }
-
-      it "returns the node that has the passed id" do
-        node_id = node.id
-        Node.fetch(node_id).should == node
-      end
-
-      context "when no node is found" do
-        context "and no block is given" do
-          it "raises AccessControl::NotFoundError if no default is given" do
-            inexistent_id = -1
-            lambda {
-              Node.fetch(inexistent_id)
-            }.should raise_exception(AccessControl::NotFoundError)
-          end
-
-          it "returns the default given" do
-            inexistent_id = -1
-            default = stub
-            Node.fetch(inexistent_id, default).should be default
-          end
-        end
-
-        context "and a block is given" do
-          it "uses the block if no value is given" do
-            inexistent_id = -1
-            default = stub
-            returned_value = Node.fetch(inexistent_id) { default }
-            returned_value.should be default
-          end
-
-          it "uses the block even if a value is given" do
-            inexistent_id = -1
-            value_default = stub('value')
-            block_default = stub('from block')
-            returned_value = Node.fetch(inexistent_id, value_default) do
-              block_default
-            end
-
-            returned_value.should be block_default
-          end
-        end
-      end
-    end
-
-    describe ".has?" do
-      let(:node) { build_node }
-
-      it "returns true if the node with the passed ID exists" do
-        node_id = node.id
-        Node.has?(node_id).should be_true
-      end
-
-      it "returns false if the ID doesn't correspond to any node" do
-        inexistent_id = -1
-        Node.has?(inexistent_id).should be_false
       end
     end
 
@@ -375,7 +234,6 @@ module AccessControl
     end
 
     describe "#global?" do
-
       let(:node) { Node.new }
       let(:global_id) { 1 }
       before { AccessControl.stub(:global_node_id).and_return(global_id) }
@@ -391,72 +249,14 @@ module AccessControl
         before { node.stub(:id).and_return('any other id') }
         it { should_not be_global }
       end
-
     end
 
-    describe ".with_type" do
-      it "delegates to Persistent.with_type and wraps it in a scope" do
-        scope         = stub("Regular scope")
-        wrapped_scope = stub("Wrapped scope")
-
-        Node::Persistent.stub(:with_type).and_return(scope)
-        Node::WrapperScope.stub(:new).with(scope).and_return(wrapped_scope)
-
-        Node.with_type("foobar").should == wrapped_scope
-      end
-
-      it "forwards the correct arguments to Persistent.with_type" do
-        type = "foobar"
-        Node::Persistent.should_receive(:with_type).with(type)
-        Node.with_type(type)
-      end
-    end
-
-    describe ".blocked" do
-      it "delegates to Persistent.blocked and wraps it in a scope" do
-        scope         = stub("Regular scope")
-        wrapped_scope = stub("Wrapped scope")
-
-        Node::Persistent.stub(:blocked).and_return(scope)
-        Node::WrapperScope.stub(:new).with(scope).and_return(wrapped_scope)
-
-        Node.blocked.should == wrapped_scope
-      end
-    end
-
-    describe ".unblocked" do
-      it "delegates to Persistent.unblocked and wraps it in a scope" do
-        scope         = stub("Regular scope")
-        wrapped_scope = stub("Wrapped scope")
-
-        Node::Persistent.stub(:unblocked).and_return(scope)
-        Node::WrapperScope.stub(:new).with(scope).and_return(wrapped_scope)
-
-        Node.unblocked.should == wrapped_scope
-      end
-    end
-
-    describe ".granted_for" do
-      it "delegates to Persistent.granted_for and wraps it in a scope" do
-        scope         = stub("Regular scope")
-        wrapped_scope = stub("Wrapped scope")
-
-        Node::Persistent.stub(:granted_for).and_return(scope)
-        Node::WrapperScope.stub(:new).with(scope).and_return(wrapped_scope)
-
-        Node.granted_for.should == wrapped_scope
-      end
-    end
-
-    describe ".blocked_for" do
-      it "delegates to Persistent.blocked_for and wraps it in a scope" do
-        scope         = stub("Regular scope")
-        wrapped_scope = stub("Wrapped scope")
-
-        Node::Persistent.stub(:blocked_for).and_return(scope)
-        Node::WrapperScope.stub(:new).with(scope).and_return(wrapped_scope)
-
-        Node.blocked_for.should == wrapped_scope
+    describe "scope delegation" do
+      [ :with_type, :blocked, :unblocked,
+        :granted_for, :blocked_for].each do |delegated_scope|
+        it "delegates scope .#{delegated_scope} to the persistent model" do
+          Node.delegated_scopes.should include(delegated_scope)
+        end
       end
     end
 
