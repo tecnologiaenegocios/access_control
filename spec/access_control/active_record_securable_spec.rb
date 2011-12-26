@@ -26,11 +26,6 @@ module AccessControl
       model.should include(ActiveRecordJustAfterCallback)
     end
 
-    it "includes declarations" do
-      model.send(:include, ActiveRecordSecurable)
-      model.should include(Declarations)
-    end
-
     describe "association to Node" do
       let(:node)     { stub('node') }
       let(:instance) { model.new }

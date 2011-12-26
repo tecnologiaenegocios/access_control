@@ -9,7 +9,6 @@ module AccessControl
     def self.included(base)
       base.class_eval do
         include ActiveRecordJustAfterCallback
-        include Declarations
         extend ClassMethods
       end
 

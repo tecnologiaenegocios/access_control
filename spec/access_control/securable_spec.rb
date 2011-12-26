@@ -22,20 +22,12 @@ module AccessControl
 
       let(:model) { Class.new(ActiveRecord::Base) }
 
-      before do
-        model.stub(:has_one)
-      end
-
       it "includes ActiveRecordSecurable" do
         model.should include(ActiveRecordSecurable)
       end
 
       it "includes Inheritance" do
         model.should include(Inheritance)
-      end
-
-      it "includes ModelSecurity" do
-        model.should include(ModelSecurity)
       end
 
       it "includes Restriction" do
