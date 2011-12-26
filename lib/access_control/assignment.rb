@@ -70,16 +70,20 @@ module AccessControl
     end
 
     def self.items_for_management(node, roles)
-      all(
-        :conditions => {:node_id => node.id, :role_id => roles.map(&:id)}
-      ).group_by{|a| a.principal_id}.inject({}) do |r, (p_id, assigns)|
-        r[p_id] = roles.map do |role|
-          if assignment = assigns.detect{|a| a.role_id == role.id}
-            next assignment
+      all_assignments = Assignment.with_node_id(node.id).all
+      principal_ids   = all_assignments.map(&:principal_id).uniq
+      role_ids        = roles.map(&:id)
+
+      principal_ids.each_with_object({}) do |principal_id, hash|
+
+        hash[principal_id] = role_ids.map do |role_id|
+          existing_assignment = all_assignments.detect do |a|
+            a.principal_id == principal_id && a.role_id == role_id
           end
-          new(:role_id => role.id, :node_id => node.id, :principal_id => p_id)
+
+          existing_assignment || new({:role_id => role_id, :node_id => node.id,
+                                      :principal_id => principal_id})
         end
-        r
       end
     end
 
