@@ -12,4 +12,5 @@ module AccessControl
   class InvalidSubject               < Error; end
   class UnrecognizedSecurable        < Error; end
   class NotFoundError                < Error; end
+  class RecordNotPersisted           < Error; end
 end
