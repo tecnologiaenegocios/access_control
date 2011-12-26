@@ -53,6 +53,24 @@ module AccessControl
         should have(:no).errors_on(:role_id)
     end
 
+    describe "#overlaps?" do
+      let(:properties) { {:node_id => 1, :role_id => 3, :principal_id => 2} }
+
+      subject { Assignment.new(properties) }
+
+      it "is true if the other assignment has the same properties" do
+        assignment = Assignment.new(properties)
+        subject.overlaps?(assignment).should be_true
+      end
+
+      it "is false if the other assignment has not the same properties" do
+        different_properties = properties.merge(:node_id => -1)
+
+        assignment = Assignment.new(different_properties)
+        subject.overlaps?(assignment).should be_false
+      end
+    end
+
     describe "role validation" do
 
       context "for global node" do
@@ -311,26 +329,9 @@ module AccessControl
       end
 
       it "returns assignments that already exist for the node" do
-        @items[@principal1.id].first.should == @item1
-        @items[@principal2.id].second.should == @item2
+        @items[@principal1.id].should include @item1
+        @items[@principal2.id].should include @item2
       end
-
-      it "returns new assignments when there's no assignment created" do
-        @items[@principal1.id].second.should be_new_record
-        @items[@principal1.id].second.node_id.should == @node.id
-        @items[@principal1.id].second.role_id.should == @role2.id
-        @items[@principal1.id].third.should be_new_record
-        @items[@principal1.id].third.node_id.should == @node.id
-        @items[@principal1.id].third.role_id.should == @role3.id
-
-        @items[@principal2.id].first.should be_new_record
-        @items[@principal2.id].first.node_id.should == @node.id
-        @items[@principal2.id].first.role_id.should == @role1.id
-        @items[@principal2.id].third.should be_new_record
-        @items[@principal2.id].third.node_id.should == @node.id
-        @items[@principal2.id].third.role_id.should == @role3.id
-      end
-
     end
 
   end

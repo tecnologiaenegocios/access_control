@@ -69,22 +69,27 @@ module AccessControl
       errors.add(:role_id, :unassignable) unless can_assign_or_unassign?
     end
 
+    def overlaps?(other)
+      other.node_id == node_id && other.role_id == role_id &&
+        other.principal_id == principal_id
+    end
+
     def self.items_for_management(node, roles)
-      all_assignments = Assignment.with_node_id(node.id).all
-      principal_ids   = all_assignments.map(&:principal_id).uniq
-      role_ids        = roles.map(&:id)
+      existing_assignments = Assignment.with_node_id(node.id).all
+      principals_ids       = existing_assignments.map(&:principal_id)
+      role_ids             = roles.map(&:id)
 
-      principal_ids.each_with_object({}) do |principal_id, hash|
+      combination = AssignmentCombination.new(:node => node, :roles => roles)
+      combination.principals_ids = principals_ids
 
-        hash[principal_id] = role_ids.map do |role_id|
-          existing_assignment = all_assignments.detect do |a|
-            a.principal_id == principal_id && a.role_id == role_id
-          end
-
-          existing_assignment || new({:role_id => role_id, :node_id => node.id,
-                                      :principal_id => principal_id})
+      assignments = combination.map do |new_assignment|
+        existing_assignment = existing_assignments.detect do |existing|
+          new_assignment.overlaps?(existing)
         end
+        existing_assignment || new_assignment
       end
+
+      assignments.group_by(&:principal_id)
     end
 
     def skip_assignment_verification!
