@@ -98,8 +98,17 @@ module AccessControl
           readers.delete_if { |name| method_defined?(name) }
           writers.delete_if { |name| method_defined?(name) }
 
-          delegate(*readers.push(:to => :persistent)) if readers.any?
-          delegate(*writers.push(:to => :persistent)) if writers.any?
+          readers.each do |reader|
+            define_method(reader) do
+              persistent.public_send(reader)
+            end
+          end
+
+          writers.each do |writer|
+            define_method(writer) do |value|
+              persistent.public_send(writer, value)
+            end
+          end
 
           mark_as_delegated
         end
