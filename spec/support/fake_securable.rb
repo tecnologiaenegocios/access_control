@@ -103,7 +103,7 @@ module AccessControl
       end
 
       variables_desc = variables_list.join(" ")
-      hex_object_id = sprintf '0x%x', object_id
+      hex_object_id = sprintf '0x%x', 2 * object_id
 
       "#<FakeSecurable:#{hex_object_id} #{variables_desc}>"
     end
