@@ -60,26 +60,19 @@ module AccessControl
       end
 
       describe ".granted_for" do
-        let(:node_ids)    { [1, 2] }
-        let(:assignments) { stub('assignments', :node_ids => node_ids) }
         let(:nodes) do
-          count = 0 # This variable makes securable_id unique.
-          [
-            [node_ids.first,      'RightType'],
-            [node_ids.second,     'WrongType'],
-            [node_ids.second + 1, 'RightType'],
-            [node_ids.second + 2, 'WrongType'],
-          ].map do |id, type|
-              count += 1
-              node = Persistent.create!(:securable_type => type, :securable_id => count)
-              Persistent.connection.execute(
-                "UPDATE #{Persistent.quoted_table_name} "\
-                "SET `id` = #{id} WHERE id = #{node.id}"
-              )
-              node.stub(:id).and_return(id)
-              node
-            end
+          securable_types = %w[RightType WrongType].cycle
+          securable_ids   = [0, 1, 2, 3]
+
+          securable_ids.map do |securable_id|
+            securable_type = securable_types.next
+            Persistent.create!(:securable_type => securable_type,
+                               :securable_id   => securable_id)
+          end
         end
+
+        let(:node_ids)    { nodes.map(&:id) }
+        let(:assignments) { stub('assignments', :node_ids => node_ids) }
 
         let(:nodes_with_the_right_attributes) do
           items_from(nodes).with(:securable_type => 'RightType',
@@ -89,8 +82,6 @@ module AccessControl
         before do
           Assignment.stub(:granting_for_principal).and_return(assignments)
         end
-
-        subject { get_granted_nodes }
 
         def get_granted_nodes
           Persistent.granted_for('RightType', 'principal ids', 'permissions')
@@ -107,8 +98,10 @@ module AccessControl
           get_granted_nodes
         end
 
+        subject { get_granted_nodes }
+
         it { should discover(*nodes_with_the_right_attributes) }
-        it { subject.respond_to?(:sql).should be_true }
+        it { should respond_to(:sql) }
       end
 
       describe ".blocked_for" do
