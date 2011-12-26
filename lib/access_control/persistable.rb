@@ -39,7 +39,7 @@ module AccessControl
       end
 
       def store(properties)
-        persistable = wrap(persistent_model.new(properties))
+        persistable = new(properties)
         raise RecordNotPersisted unless persistable.persist
         persistable
       end

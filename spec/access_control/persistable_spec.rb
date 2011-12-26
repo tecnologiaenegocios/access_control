@@ -78,30 +78,40 @@ module AccessControl
 
       describe ".store" do
         before do
-          persistent_model.stub(:new).with(:foo => :bar).and_return(persistent)
-        end
-
-        context "when persistent is saved" do
-          before do
-            model.class_eval do
-              def persist
-                true
-              end
+          persistent_model.stub(:column_names).and_return(['foo'])
+          persistent.stub(:foo=).with(:bar)
+          model.class_eval do
+            def persist
+              true
             end
           end
+        end
 
-          it "saves the persistent using the implementation of #persist" do
-            persistent.should_not_receive(:save)
-            model.store(:foo => :bar)
+        it "should set each property" do
+          persistent.should_receive(:foo=).with(:bar)
+          model.store(:foo => :bar)
+        end
+
+        it "saves the persistent using the implementation of #persist" do
+          model.class_eval do
+            def persist
+              persistent.make_it_persist!
+              true
+            end
           end
+          persistent.should_not_receive(:save)
+          persistent.should_receive(:make_it_persist!)
+          model.store(:foo => :bar)
+        end
 
+        context "when persistent is successfully saved" do
           it "returns a wrapped persistent" do
             persistable = model.store(:foo => :bar)
             persistable.persistent.should be persistent
           end
         end
 
-        context "when persistent is not saved" do
+        context "when persistent fails to be saved" do
           before do
             model.class_eval do
               def persist
