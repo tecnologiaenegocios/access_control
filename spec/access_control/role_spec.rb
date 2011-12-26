@@ -24,8 +24,7 @@ module AccessControl
     end
 
     it "is extended with AccessControl::Ids" do
-      singleton_class = (class << Role; self; end)
-      singleton_class.should include(AccessControl::Ids)
+      Role.singleton_class.should include(AccessControl::Ids)
     end
 
     describe "assignment destruction" do
