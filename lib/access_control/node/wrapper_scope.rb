@@ -17,6 +17,11 @@ module AccessControl
       @wrapped_nodes ||= original_scope.map { |item| Node.wrap(item) }
     end
 
+    def inspect
+      hex_object_id = sprintf '0x%x', self.object_id
+      "#<#{self.class.name}:#{hex_object_id}>"
+    end
+
   private
     attr_reader :original_scope
 
