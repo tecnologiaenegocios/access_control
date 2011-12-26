@@ -89,8 +89,14 @@ module AccessControl
         unless delegated?
           readers = persistent_model.column_names
           writers = readers.map { |name| "#{name}=" }
-          delegate(*readers.push(:to => :persistent))
-          delegate(*writers.push(:to => :persistent))
+
+          readers.delete_if { |name| method_defined?(name) }
+          writers.delete_if { |name| method_defined?(name) }
+
+          delegate(*readers.push(:to => :persistent)) if readers.any?
+          delegate(*writers.push(:to => :persistent)) if writers.any?
+
+          mark_as_delegated
         end
       end
 

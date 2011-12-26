@@ -35,8 +35,36 @@ module AccessControl
         end
 
         it "delegates writers to all columns" do
-          model.wrap(persistent).property = 'different value'
-          model.wrap(persistent).property.should == 'different value'
+          persistable = model.wrap(persistent)
+          persistable.property = 'different value'
+          persistable.property.should == 'different value'
+        end
+
+        context "when a reader with the name of a column is already defined" do
+          it "uses the method defined" do
+            model.class_eval do
+              def property
+                'different value'
+              end
+            end
+
+            persistable = model.wrap(persistent)
+            persistable.property.should == 'different value'
+          end
+        end
+
+        context "when a writer with the name of a column is already defined" do
+          it "uses the method defined" do
+            model.class_eval do
+              def property= value
+                persistent.property = value.upcase
+              end
+            end
+
+            persistable = model.wrap(persistent)
+            persistable.property = 'different value'
+            persistable.property.should == 'DIFFERENT VALUE'
+          end
         end
       end
 
@@ -50,6 +78,31 @@ module AccessControl
         it "delegates writers to all columns" do
           persistable.property = 'different value'
           persistent.property.should == 'different value'
+        end
+
+        context "when a reader with the name of a column is already defined" do
+          it "uses the method defined" do
+            model.class_eval do
+              def property
+                'different value'
+              end
+            end
+
+            persistable.property.should == 'different value'
+          end
+        end
+
+        context "when a writer with the name of a column is already defined" do
+          it "uses the method defined" do
+            model.class_eval do
+              def property= value
+                persistent.property = value.upcase
+              end
+            end
+
+            persistable.property = 'different value'
+            persistable.property.should == 'DIFFERENT VALUE'
+          end
         end
 
         context "setting properties when calling constructor" do
