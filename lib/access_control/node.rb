@@ -42,7 +42,7 @@ module AccessControl
       end
 
       if should_set_default_roles
-        set_default_roles
+        assignments.concat(default_roles)
       end
     end
 
@@ -173,25 +173,14 @@ module AccessControl
       end
     end
 
-    def set_default_roles
+    def default_roles
       principals_ids = AccessControl.manager.principal_ids
+      roles_ids  = Role.with_names_in(AccessControl.config.default_roles_on_create).ids
 
-      default_roles  = AccessControl.config.default_roles_on_create
-      roles_ids = default_roles.map do |role_name|
-        role = Role.find_by_name(role_name)
-        role && role.id
-      end
-      roles_ids.compact!
+      combination = AssignmentCombination.new(:node => self,
+                      :roles_ids => roles_ids, :principals_ids => principals_ids)
 
-      roles_ids.product(principals_ids).map do |role_id, principal_id|
-        assignment = Assignment.new(:role_id => role_id,
-                      :principal_id => principal_id, :node_id => self.id)
-
-        assignments << assignment
-        assignment.skip_assignment_verification!
-        assignment.save!
-      end
-
+      combination.each(&:skip_assignment_verification!).to_a
     end
   end
 end
