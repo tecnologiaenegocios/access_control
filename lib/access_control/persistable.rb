@@ -5,6 +5,7 @@ module AccessControl
   module Persistable
     def self.included(base)
       base.extend(ClassMethods)
+      base.class_eval { undef_method(:id) }
     end
 
     def initialize(properties={})
@@ -28,6 +29,10 @@ module AccessControl
       else
         false
       end
+    end
+
+    def to_param
+      persistent.to_param
     end
 
     module ClassMethods

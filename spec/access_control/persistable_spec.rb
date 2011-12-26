@@ -12,6 +12,10 @@ module AccessControl
       model.stub(:persistent_model).and_return(persistent_model)
     end
 
+    it "undefines #id" do
+      model.new.should_not respond_to(:id)
+    end
+
     describe ".wrap" do
       it "creates a persistable whose 'persistent' is the given object" do
         object = stub
@@ -21,94 +25,69 @@ module AccessControl
       end
     end
 
-    describe "properties" do
+    describe "property delegation" do
       before do
         persistent_model.stub(:column_names => ['property'])
         meta = (class << persistent; self; end)
-        meta.class_eval { attr_accessor :property; }
+        meta.class_eval { attr_accessor :property }
         persistent.instance_eval { @property = 'value' }
       end
 
-      context "on wrapped objects" do
-        it "delegates readers to all columns" do
-          model.wrap(persistent).property.should == 'value'
-        end
+      it "delegates #to_param" do
+        persistent.stub(:to_param).and_return('parameter')
+        model.new.to_param.should == 'parameter'
+      end
 
-        it "delegates writers to all columns" do
-          persistable = model.wrap(persistent)
-          persistable.property = 'different value'
-          persistable.property.should == 'different value'
-        end
-
-        context "when a reader with the name of a column is already defined" do
-          it "uses the method defined" do
-            model.class_eval do
-              def property
-                'different value'
-              end
-            end
-
-            persistable = model.wrap(persistent)
-            persistable.property.should == 'different value'
-          end
-        end
-
-        context "when a writer with the name of a column is already defined" do
-          it "uses the method defined" do
-            model.class_eval do
-              def property= value
-                persistent.property = value.upcase
-              end
-            end
-
-            persistable = model.wrap(persistent)
-            persistable.property = 'different value'
-            persistable.property.should == 'DIFFERENT VALUE'
-          end
+      context "when calling constructor" do
+        it "sets properties in the persistent object" do
+          model.new(:property => 'different value')
+          persistent.property.should == 'different value'
         end
       end
 
-      context "on initialized objects" do
-        let(:persistable) { model.new }
+      method1_desc = "on wrapped objects"
+      method2_desc = "on initialized objects"
 
-        it "delegates readers to all columns" do
-          persistable.property.should == 'value'
-        end
+      method1 = lambda { model.wrap(persistent) }
+      method2 = lambda { model.new }
 
-        it "delegates writers to all columns" do
-          persistable.property = 'different value'
-          persistent.property.should == 'different value'
-        end
+      [ [method1, method1_desc],
+        [method2, method2_desc] ].each do |meth, desc|
+        context(desc) do
+          let(:persistable, &meth)
 
-        context "when a reader with the name of a column is already defined" do
-          it "uses the method defined" do
-            model.class_eval do
-              def property
-                'different value'
-              end
-            end
-
-            persistable.property.should == 'different value'
+          it "delegates readers to all columns" do
+            persistable.property.should == 'value'
           end
-        end
 
-        context "when a writer with the name of a column is already defined" do
-          it "uses the method defined" do
-            model.class_eval do
-              def property= value
-                persistent.property = value.upcase
-              end
-            end
-
+          it "delegates writers to all columns" do
             persistable.property = 'different value'
-            persistable.property.should == 'DIFFERENT VALUE'
-          end
-        end
-
-        context "setting properties when calling constructor" do
-          it "sets the property in the persistent object" do
-            model.new(:property => 'different value')
             persistent.property.should == 'different value'
+          end
+
+          context "when reader with the name of a column is already defined" do
+            it "uses the method defined" do
+              model.class_eval do
+                def property
+                  'different value'
+                end
+              end
+
+              persistable.property.should == 'different value'
+            end
+          end
+
+          context "when writer with the name of a column is already defined" do
+            it "uses the method defined" do
+              model.class_eval do
+                def property= value
+                  persistent.property = value.upcase
+                end
+              end
+
+              persistable.property = 'different value'
+              persistent.property.should == 'DIFFERENT VALUE'
+            end
           end
         end
       end
