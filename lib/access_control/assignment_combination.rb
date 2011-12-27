@@ -23,7 +23,7 @@ module AccessControl
     properties.each do |property|
       singular = property.singularize
 
-      class_eval(<<-CODE)
+      class_eval(<<-CODE, __FILE__, __LINE__+1)
         attr_reader :#{property}_ids         #  attr_reader :roles_ids
                                              #
         def #{property}_ids=(ids)            #  def roles_ids=(ids)
