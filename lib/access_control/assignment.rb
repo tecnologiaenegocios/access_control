@@ -24,22 +24,25 @@ module AccessControl
 
     before_destroy :verify_security_restrictions!
 
-    named_scope :with_roles, lambda {|role|
-      { :conditions => { :role_id => role } }
-    }
-
-    named_scope :assigned_to, lambda {|principal|
-      { :conditions => { :principal_id => principal } }
-    }
-
     named_scope :granting, lambda {|permission|
       ids = Role.for_permission(permission).ids
       { :conditions => { :role_id => ids } }
     }
 
-    named_scope :with_node_id, lambda { |node_id|
-      { :conditions => { :node_id => node_id } }
-    }
+    def self.with_roles(roles)
+      roles = Util.ids_for_hash_condition(roles)
+      scoped(:conditions => { :role_id => roles })
+    end
+
+    def self.assigned_to(principal)
+      principal = Util.ids_for_hash_condition(principal)
+      scoped(:conditions => { :principal_id => principal })
+    end
+
+    def self.with_node_id(node_id)
+      node_id = Util.ids_for_hash_condition(node_id)
+      scoped(:conditions => { :node_id => node_id })
+    end
 
     def self.granting_for_principal(permission, principal)
       granting(permission).assigned_to(principal)
