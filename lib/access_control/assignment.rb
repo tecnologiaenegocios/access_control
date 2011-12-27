@@ -8,7 +8,6 @@ module AccessControl
 
     set_table_name :ac_assignments
 
-    belongs_to :principal, :class_name => 'AccessControl::Principal'
     belongs_to :role, :class_name => 'AccessControl::Role'
 
     has_many :security_policy_items, :through => :role
@@ -61,6 +60,15 @@ module AccessControl
 
     def node
       @node ||= Node.fetch(node_id, nil)
+    end
+
+    def principal=(principal)
+      self.principal_id = principal.id
+      @principal        = principal
+    end
+
+    def principal
+      @principal ||= Principal.fetch(principal_id, nil)
     end
 
     def validate_role_locality
