@@ -44,6 +44,18 @@ module AccessControl
         Node.should_not_receive(:for_securable)
         instance.ac_node.should be old_result
       end
+
+      it "persists the node when the record is saved" do
+        PersistencyProtector.stub(:verify_attachment!)
+        node.should_receive(:persist!)
+        instance.create
+      end
+
+      it "destroys the node when the record is destroyed" do
+        PersistencyProtector.stub(:verify_detachment!)
+        node.should_receive(:destroy)
+        instance.destroy
+      end
     end
 
     describe "tracking parents" do

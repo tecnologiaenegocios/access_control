@@ -5,7 +5,20 @@ module AccessControl
   describe ActiveRecordSubject do
     # A Mix-in module for User-like ActiveRecord models.
 
-    let(:base)  { Class.new }
+    let(:base) do
+      Class.new do
+        def create
+          self.class.just_after_callback_chains.execute(self, :create)
+        end
+        def update
+          self.class.just_after_callback_chains.execute(self, :update)
+        end
+        def destroy
+          self.class.just_after_callback_chains.execute(self, :destroy)
+        end
+      end
+    end
+
     let(:model) { Class.new(base) }
 
     it "includes just after callbacks" do
@@ -30,6 +43,16 @@ module AccessControl
         old_result = instance.ac_principal # should cache
         Principal.should_not_receive(:for_subject)
         instance.ac_principal.should be old_result
+      end
+
+      it "persists the principal when the record is saved" do
+        principal.should_receive(:persist!)
+        instance.create
+      end
+
+      it "destroys the principal when the record is destroyed" do
+        principal.should_receive(:destroy)
+        instance.destroy
       end
     end
   end
