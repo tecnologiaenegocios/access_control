@@ -316,6 +316,13 @@ module AccessControl
         end
       end
 
+      describe ".count" do
+        it "delegates to persistent_model.count" do
+          persistent_model.stub(:count).and_return('the total number of items')
+          model.count.should == 'the total number of items'
+        end
+      end
+
       describe ".delegate_scope" do
         let(:scope_result) { stub('scope result') }
 

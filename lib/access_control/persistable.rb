@@ -76,6 +76,10 @@ module AccessControl
         persistent_model.exists?(id)
       end
 
+      def count
+        persistent_model.count
+      end
+
       def delegate_scope(*scope_names)
         meta = (class << self; self; end)
 
