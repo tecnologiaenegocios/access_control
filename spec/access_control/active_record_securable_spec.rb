@@ -84,7 +84,7 @@ module AccessControl
           node.should_receive(:persist!).ordered
           node.should_receive(:called_on_assignment).ordered
 
-          default_roles.define_singleton_method(:assign_all_to) do |n, p|
+          default_roles.define_singleton_method(:assign_all_to) do |p, n|
             n.called_on_assignment
           end
 
