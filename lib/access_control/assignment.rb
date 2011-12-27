@@ -83,22 +83,14 @@ module AccessControl
         other.principal_id == principal_id
     end
 
-    def self.items_for_management(node, roles)
-      existing_assignments = Assignment.with_node_id(node.id).all
-      principals_ids       = existing_assignments.map(&:principal_id)
-      role_ids             = roles.map(&:id)
+    def self.items_for_management(node, roles, combination = AssignmentCombination.new)
+      principals = Principal.with_assignments
 
-      combination = AssignmentCombination.new(:node => node, :roles => roles)
-      combination.principals_ids = principals_ids
+      combination.node       = node
+      combination.roles      = roles
+      combination.principals = principals
 
-      assignments = combination.map do |new_assignment|
-        existing_assignment = existing_assignments.detect do |existing|
-          new_assignment.overlaps?(existing)
-        end
-        existing_assignment || new_assignment
-      end
-
-      assignments.group_by(&:principal_id)
+      combination.group_by(&:principal_id)
     end
 
     def skip_assignment_verification!

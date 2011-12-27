@@ -311,65 +311,47 @@ module AccessControl
       end
     end
 
-    describe "assignments for management" do
-
-      before do
-        roles = [
-          @role1 = Role.create!(:name => 'role1'),
-          @role2 = Role.create!(:name => 'role2'),
-          @role3 = Role.create!(:name => 'role3')
-        ]
-        principals = [
-          @principal1 = Principal.create!(
-            :subject_type => 'SubjectType',
-            :subject_id => 0
-          ),
-          @principal2 = Principal.create!(
-            :subject_type => 'SubjectType',
-            :subject_id => 1
-          ),
-          @principal3 = Principal.create!(
-            :subject_type => 'SubjectType',
-            :subject_id => 2
-          ),
-          @principal4 = Principal.create!(
-            :subject_type => 'SubjectType',
-            :subject_id => 3
-          )
-        ]
-
-        @node = stub(:securable_type => 'SecurableType',
-                     :securable_id => 0, :id => 12345)
-        Node.stub(:fetch).with(@node.id, nil).and_return(@node)
-
-        @item1 = Assignment.create!(
-          :node => @node, :principal => @principal1, :role => @role1
-        )
-        @item2 = Assignment.create!(
-          :node => @node, :principal => @principal2, :role => @role2
-        )
-
-        inexistent_node_id = @node.id + 1
-        Node.stub(:fetch).with(inexistent_node_id, nil).and_return(nil)
-
-        Assignment.create!(:node_id => inexistent_node_id,
-                          :principal => @principal4, :role => @role1)
-        @items = Assignment.items_for_management(@node, roles)
+    describe ".items_for_management" do
+      let(:combination) do
+        Array.new.tap do |combination|
+          combination.stub(:node=)
+          combination.stub(:principals=)
+          combination.stub(:roles=)
+        end
       end
 
-      it "return one key for each different principal id with some role "\
-        "assigned to the node" do
-        @items.size.should == 2
+      let(:node)  { stub("Node") }
+      let(:roles) { stub("Roles collection") }
+
+      it "sets up the nodes of the combination using its parameter" do
+        combination.should_receive(:node=).with(node)
+        Assignment.items_for_management(node, roles, combination)
       end
 
-      it "returns one value for each role passed in" do
-        @items[@principal1.id].size.should == 3
-        @items[@principal2.id].size.should == 3
+      it "sets up the roles of the combination using its parameter" do
+        combination.should_receive(:roles=).with(roles)
+        Assignment.items_for_management(node, roles, combination)
       end
 
-      it "returns assignments that already exist for the node" do
-        @items[@principal1.id].should include @item1
-        @items[@principal2.id].should include @item2
+      it "uses all the principals with assignments" do
+        principals = stub
+        Principal.stub(:with_assignments => principals)
+
+        combination.should_receive(:principals=).with(principals)
+
+        Assignment.items_for_management(node, roles, combination)
+      end
+
+      it "returns the generated assignments grouped by principal_id" do
+        combination << a1 = stub("assignment1", :principal_id => 1)
+        combination << a2 = stub("assignment2", :principal_id => 1)
+        combination << a3 = stub("assignment3", :principal_id => 2)
+
+        return_value =
+          Assignment.items_for_management(node, roles, combination)
+
+        return_value[1].should include(a1,a2)
+        return_value[2].should include(a3)
       end
     end
 
