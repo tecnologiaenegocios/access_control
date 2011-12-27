@@ -27,6 +27,52 @@ module AccessControl
       Role.singleton_class.should include(AccessControl::Ids)
     end
 
+    describe ".assign_all_to" do
+      let(:combination) do
+        stub("Combination").tap do |combination|
+          combination.stub(:nodes=)
+          combination.stub(:principals=)
+          combination.stub(:roles=)
+          combination.stub(:each)
+        end
+      end
+
+      let(:nodes)      { stub("Nodes collection")      }
+      let(:principals) { stub("Principals collection") }
+
+      it "sets up the nodes of the combination using its parameter" do
+        combination.should_receive(:nodes=).with(nodes)
+        Role.assign_all_to(nodes,principals,combination)
+      end
+
+      it "sets up the nodes of the combination using its parameter" do
+        combination.should_receive(:principals=).with(principals)
+        Role.assign_all_to(nodes,principals,combination)
+      end
+
+      it "sets the combination's 'roles' as being all roles" do
+        roles = [Role.create!(:name => "foobar")]
+        combination.should_receive(:roles=).with(roles)
+
+        Role.assign_all_to(nodes,principals,combination)
+      end
+
+      it "calls save on the assignments returned by the combination" do
+        assignment1 = stub("assignment1")
+        assignment2 = stub("assignment2")
+
+        assignment1.should_receive(:save!)
+        assignment2.should_receive(:save!)
+
+        assignments = [assignment1, assignment2]
+        combination.define_singleton_method(:each) do |&block|
+          assignments.each(&block)
+        end
+
+        Role.assign_all_to(nodes,principals,combination)
+      end
+    end
+
     describe ".default" do
       let(:roles_names) { ["owner"] }
       before do

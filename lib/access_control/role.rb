@@ -32,6 +32,14 @@ module AccessControl
       { :conditions => { :id => ids } }
     }
 
+    def self.assign_all_to(nodes, principals, combination = AssignmentCombination.new)
+      combination.nodes      = nodes
+      combination.principals = principals
+      combination.roles      = all
+
+      combination.each(&:save!)
+    end
+
     def self.default
       with_names_in(AccessControl.config.default_roles)
     end
