@@ -214,16 +214,46 @@ module AccessControl
       Assignment.create!(properties)
     end
 
-    describe ".with_node_id" do
-      let(:assignment_of_node) { build_assignment(:node_id => 1) }
-      let(:assignment_of_other_node) { build_assignment(:node_id => 2) }
-
-      it "contains assignments whose node_id match the parameter" do
-        Assignment.with_node_id(1).should discover(assignment_of_node)
+    describe ".with_nodes" do
+      let(:node)         { stub(:id => 1) }
+      let(:other_node)   { stub(:id => 2) }
+      let(:another_node) { stub(:id => 3) }
+      let(:assignment_of_node) { build_assignment(:node_id => node.id) }
+      let(:assignment_of_other_node) do
+        build_assignment(:node_id => other_node.id)
+      end
+      let(:assignment_of_another_node) do
+        build_assignment(:node_id => another_node.id)
       end
 
-      it "doesn't contain assignments whose node_id don't match the parameter" do
-        Assignment.with_node_id(1).should_not discover(assignment_of_other_node)
+      subject { Assignment.with_nodes(1) }
+
+      it { should     discover(assignment_of_node) }
+      it { should_not discover(assignment_of_other_node) }
+      it { should_not discover(assignment_of_another_node) }
+
+      describe "using actual nodes" do
+        subject { Assignment.with_nodes(node) }
+
+        it { should     discover(assignment_of_node) }
+        it { should_not discover(assignment_of_other_node) }
+        it { should_not discover(assignment_of_another_node) }
+      end
+
+      describe "using an array" do
+        subject { Assignment.with_nodes([node, other_node]) }
+
+        it { should     discover(assignment_of_node) }
+        it { should     discover(assignment_of_other_node) }
+        it { should_not discover(assignment_of_another_node) }
+      end
+
+      describe "using a set" do
+        subject { Assignment.with_nodes(Set[node, other_node]) }
+
+        it { should     discover(assignment_of_node) }
+        it { should     discover(assignment_of_other_node) }
+        it { should_not discover(assignment_of_another_node) }
       end
     end
 

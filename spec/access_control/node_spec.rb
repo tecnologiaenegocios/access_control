@@ -191,7 +191,8 @@ module AccessControl
 
         it "is a scope provided by the Assignment class" do
           assignments_scope = stub.as_null_object
-          Assignment.stub(:with_node_id).and_return(assignments_scope)
+          Assignment.stub(:with_nodes).with(subject).
+            and_return(assignments_scope)
 
           subject.assignments.should == assignments_scope
         end
@@ -221,7 +222,7 @@ module AccessControl
       let(:assignment)  { stub("Assignment", :destroy => true) }
 
       before do
-        Assignment.stub(:with_node_id).with(subject.id).and_return([assignment])
+        Assignment.stub(:with_nodes).with(subject).and_return([assignment])
       end
 
       def should_receive_without_assignment_restriction(tested_mock, method)
@@ -307,7 +308,7 @@ module AccessControl
         assignments = stub
         filtered_assignments = stub
 
-        Assignment.stub(:with_node_id).with(subject.id).and_return(assignments)
+        Assignment.stub(:with_nodes).with(subject).and_return(assignments)
         assignments.stub(:with_roles).with(roles).and_return(filtered_assignments)
 
         subject.assignments_with_roles(roles).should == filtered_assignments

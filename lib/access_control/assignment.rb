@@ -39,8 +39,8 @@ module AccessControl
       scoped(:conditions => { :principal_id => principal })
     end
 
-    def self.with_node_id(node_id)
-      node_id = Util.ids_for_hash_condition(node_id)
+    def self.with_nodes(nodes)
+      node_id = Util.ids_for_hash_condition(nodes)
       scoped(:conditions => { :node_id => node_id })
     end
 
@@ -51,7 +51,7 @@ module AccessControl
     def self.overlapping(roles_ids, principals_ids, nodes_ids)
       with_roles(roles_ids).
         assigned_to(principals_ids).
-        with_node_id(nodes_ids)
+        with_nodes(nodes_ids)
     end
 
     def node=(node)

@@ -45,7 +45,7 @@ module AccessControl
     def assignments
       @assignments ||=
         if persisted?
-          Assignment.with_node_id(persistent.id)
+          Assignment.with_nodes(self)
         else
           Array.new
         end
