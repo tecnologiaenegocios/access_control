@@ -66,7 +66,7 @@ module AccessControl
 
     end
 
-    describe "#principal_ids" do
+    describe "#principals" do
 
       describe "when there's no subject set" do
         describe "in web requests" do
@@ -74,9 +74,9 @@ module AccessControl
             manager.use_anonymous!
           end
           it "returns the anonymous principal id" do
-            Principal.should_receive(:anonymous_id).
-              and_return("the anonymous' id")
-            manager.principal_ids.should == ["the anonymous' id"]
+            Principal.should_receive(:anonymous).
+              and_return("the anonymous principal")
+            manager.principals.should == ["the anonymous principal"]
           end
         end
         describe "outside web requests" do
@@ -84,7 +84,7 @@ module AccessControl
             manager.do_not_use_anonymous!
           end
           it "returns the unrestricted principal id" do
-            manager.principal_ids.should == [UnrestrictablePrincipal::ID]
+            manager.principals.should == [UnrestrictablePrincipal.instance]
           end
         end
       end
@@ -92,10 +92,10 @@ module AccessControl
       describe "when there's a subject set" do
         before { manager.current_subjects = [subject] }
         it "gets the principal from the user" do
-          manager.principal_ids.should include(principal.id)
+          manager.principals.map(&:id).should include(principal.id)
         end
-        it "doesn't include the anonymous principal id" do
-          manager.principal_ids.size.should == 1
+        it "doesn't include the anonymous principal" do
+          manager.principals.size.should == 1
         end
       end
 
@@ -106,16 +106,16 @@ module AccessControl
         end
 
         it "smartly caches stuff" do
-          manager.principal_ids
+          manager.principals
           subject.should_not_receive(:ac_principal)
-          manager.principal_ids
+          manager.principals
         end
 
         it "clears the cache if current_subjects is set" do
-          manager.principal_ids
+          manager.principals
           subject.should_receive(:ac_principal)
           manager.current_subjects = [subject]
-          manager.principal_ids
+          manager.principals
         end
 
       end

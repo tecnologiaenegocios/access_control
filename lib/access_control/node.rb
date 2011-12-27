@@ -130,6 +130,7 @@ module AccessControl
     end
 
   private
+
     def guard_against_block(arguments = {})
       default_value = arguments.fetch(:by_returning)
 
@@ -142,16 +143,6 @@ module AccessControl
       else
         yield
       end
-    end
-
-    def default_roles
-      principals_ids = AccessControl.manager.principal_ids
-      roles_ids  = Role.with_names_in(AccessControl.config.default_roles).ids
-
-      combination = AssignmentCombination.new(:node => self,
-                      :roles_ids => roles_ids, :principals_ids => principals_ids)
-
-      combination.each(&:skip_assignment_verification!).to_a
     end
   end
 end

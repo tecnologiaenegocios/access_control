@@ -11,20 +11,20 @@ module AccessControl
     end
 
     def ids_with(permissions)
-      nodes = Node.granted_for(orm.name, principal_ids, permissions)
+      nodes = Node.granted_for(orm.name, principals, permissions)
       Set.new(nodes.select_values_of_column(:securable_id) - [0])
     end
 
     def from_class?(permissions)
-      Node.granted_for(orm.name, principal_ids, permissions).any? do |node|
+      Node.granted_for(orm.name, principals, permissions).any? do |node|
         node.securable_id == 0
       end
     end
 
   private
 
-    def principal_ids
-      AccessControl.manager.principal_ids
+    def principals
+      AccessControl.manager.principals
     end
 
   end

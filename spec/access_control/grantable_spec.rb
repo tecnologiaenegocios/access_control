@@ -4,13 +4,13 @@ require 'access_control/grantable'
 module AccessControl
   describe Grantable do
 
-    let(:orm_class)     { Class.new }
-    let(:grantable)     { Grantable.new(orm_class) }
-    let(:principal_ids) { stub('principal ids') }
-    let(:permissions)   { stub('permissions') }
-    let(:node1)         { stub('node1', :securable_id => 0) }
-    let(:node2)         { stub('node2', :securable_id => 13238) }
-    let(:manager)       { mock('manager', :principal_ids => principal_ids) }
+    let(:orm_class)   { Class.new }
+    let(:grantable)   { Grantable.new(orm_class) }
+    let(:principals)  { stub('principals') }
+    let(:permissions) { stub('permissions') }
+    let(:node1)       { stub('node1', :securable_id => 0) }
+    let(:node2)       { stub('node2', :securable_id => 13238) }
+    let(:manager)     { mock('manager', :principals => principals) }
 
     before do
       orm_class.stub(:name).and_return('Record')
@@ -33,14 +33,14 @@ module AccessControl
         Node.stub(:granted_for).and_return(scoped)
       end
 
-      it "gets the current principal ids" do
-        manager.should_receive(:principal_ids).and_return(principal_ids)
+      it "gets the current principals" do
+        manager.should_receive(:principals).and_return(principals)
         grantable.ids_with(permissions)
       end
 
       it "finds all nodes grantable for the current principals" do
         Node.should_receive(:granted_for).
-          with('Record', principal_ids, permissions).
+          with('Record', principals, permissions).
           and_return(scoped)
         grantable.ids_with(permissions)
       end
@@ -74,14 +74,14 @@ module AccessControl
         Node.stub(:granted_for).and_return([node1, node2])
       end
 
-      it "gets the current principal ids" do
-        manager.should_receive(:principal_ids).and_return(principal_ids)
+      it "gets the current principals" do
+        manager.should_receive(:principals).and_return(principals)
         grantable.from_class?(permissions)
       end
 
       it "finds nodes grantable for the current principals for securable 0" do
         Node.should_receive(:granted_for).
-          with('Record', principal_ids, permissions).
+          with('Record', principals, permissions).
           and_return([])
         grantable.from_class?(permissions)
       end

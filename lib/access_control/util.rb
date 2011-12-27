@@ -173,9 +173,9 @@ module AccessControl
       end
 
       def format_unauthorized_message missing_permissions, current_roles
-        principals = AccessControl.manager.principal_ids
-        msg = "Access denied for principal(s) #{
-          principals.to_sentence(:locale => 'en')
+        principal_ids = AccessControl.manager.principals.map(&:id)
+        msg = "Access denied for principal id(s) #{
+          principal_ids.to_sentence(:locale => 'en')
         } (roles: #{current_roles}): missing #{missing_permissions}"
         if ActiveRecord::Base.colorize_logging
           return "  \e[31;1m#{msg}\e[0m\n"

@@ -35,9 +35,9 @@ module AccessControl
       @current_principals ||= Set.new
     end
 
-    def principal_ids
-      return [default_principal_id] if current_principals.empty?
-      current_principals.map(&:id)
+    def principals
+      return [default_principal] if current_principals.empty?
+      current_principals
     end
 
     def can? permissions, nodes
@@ -117,8 +117,8 @@ module AccessControl
 
   private
 
-    def default_principal_id
-      use_anonymous? ? Principal.anonymous_id : UnrestrictablePrincipal::ID
+    def default_principal
+      use_anonymous? ? Principal.anonymous : UnrestrictablePrincipal.instance
     end
 
     def permissions_in_context *args
@@ -134,12 +134,12 @@ module AccessControl
     end
 
     def unrestrictable_user_logged_in?
-      principal_ids.include?(UnrestrictablePrincipal::ID)
+      principals.include?(UnrestrictablePrincipal.instance)
     end
 
-    def current_user_principal_id
-      current_user ? current_user.principal.id : Principal.anonymous_id
-    end
+    # def current_user_principal_id
+    #   current_user ? current_user.principal.id : Principal.anonymous_id
+    # end
 
     def really_restrict_queries?
       @restrict_queries

@@ -21,8 +21,8 @@ module AccessControl
 
     reflections[:principal_assignments].instance_eval do
       def options
-        principal_ids = AccessControl.manager.principal_ids
-        principal_ids = principal_ids.first if principal_ids.size == 1
+        principals    = AccessControl.manager.principals
+        principal_ids = Util.ids_for_hash_condition(principals)
         @options.merge(:conditions => {:principal_id => principal_ids})
       end
 
@@ -55,9 +55,9 @@ module AccessControl
       :source => :role
     )
 
-    def self.granted_for(securable_type, principal_ids, permissions)
+    def self.granted_for(securable_type, principals, permissions)
       with_type(securable_type).with_ids(
-        Assignment.granting_for_principal(permissions, principal_ids).node_ids
+        Assignment.granting_for_principal(permissions, principals).node_ids
       )
     end
 
