@@ -12,8 +12,25 @@ module AccessControl
       model.stub(:persistent_model).and_return(persistent_model)
     end
 
-    it "undefines #id" do
-      model.new.should_not respond_to(:id)
+    it "undefines #id if it is defined" do
+      model = Class.new do
+        def id; end
+        include Persistable
+      end
+
+      model.instance_methods.map(&:to_sym).should_not include(:id)
+    end
+
+    it "doesn't raise exceptions if #id wasn't defined on inclusion" do
+      model = Class.new do
+        undef_method :id
+      end
+
+      inclusion = lambda do
+        model.class_eval { include Persistable }
+      end
+
+      inclusion.should_not raise_error
     end
 
     describe ".wrap" do

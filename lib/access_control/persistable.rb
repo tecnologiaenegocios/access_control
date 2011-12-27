@@ -5,7 +5,7 @@ module AccessControl
   module Persistable
     def self.included(base)
       base.extend(ClassMethods)
-      base.class_eval { undef_method(:id) }
+      base.class_eval { undef_method(:id) if method_defined?(:id) }
     end
 
     def initialize(properties={})
