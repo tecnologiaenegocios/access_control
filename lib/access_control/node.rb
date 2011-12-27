@@ -155,7 +155,7 @@ module AccessControl
 
     def default_roles
       principals_ids = AccessControl.manager.principal_ids
-      roles_ids  = Role.with_names_in(AccessControl.config.default_roles_on_create).ids
+      roles_ids  = Role.with_names_in(AccessControl.config.default_roles).ids
 
       combination = AssignmentCombination.new(:node => self,
                       :roles_ids => roles_ids, :principals_ids => principals_ids)

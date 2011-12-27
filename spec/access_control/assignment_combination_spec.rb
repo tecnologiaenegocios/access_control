@@ -7,6 +7,31 @@ module AccessControl
       subject.should be_kind_of Enumerable
     end
 
+    describe "results generation" do
+      subject { AssignmentCombination.new(:node_id => 1, :principal_id => 2,
+                                          :role_id => 3) }
+      let!(:results) { subject.all }
+
+      it "doesn't occur if no property was modified" do
+        subject.all.should == results
+      end
+
+      it "occurs if the 'node_id' was modified" do
+        subject.node_id = -1
+        subject.all.should_not == results
+      end
+
+      it "occurs if the 'role_id' was modified" do
+        subject.role_id = -1
+        subject.all.should_not == results
+      end
+
+      it "occurs if the 'principal_id' was modified" do
+        subject.principal_id = -1
+        subject.all.should_not == results
+      end
+    end
+
     properties = %w[roles_ids principals_ids nodes_ids]
 
     properties.each do |property|

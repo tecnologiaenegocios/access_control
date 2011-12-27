@@ -7,10 +7,11 @@ module AccessControl
     end
 
     def all
-      Util.flat_set(combinations) do |role_id, principal_id, node_id|
-        Assignment.new(:role_id => role_id, :node_id => node_id,
-                       :principal_id => principal_id)
-      end
+      @results ||=
+        Util.flat_set(combinations) do |role_id, principal_id, node_id|
+          Assignment.new(:role_id => role_id, :node_id => node_id,
+                         :principal_id => principal_id)
+        end
     end
 
     def initialize(properties = {})
@@ -27,15 +28,19 @@ module AccessControl
         attr_reader :#{property}_ids         #  attr_reader :roles_ids
                                              #
         def #{property}_ids=(ids)            #  def roles_ids=(ids)
+          @results = nil                     #    @results = nil
           @#{property}_ids = normalize(ids)  #    @roles_ids = normalize(ids)
         end                                  #  end
+                                             #
         alias_method :#{singular}_id=,       #  alias_method :role_id=,
                        :#{property}_ids=     #                 :role_ids=
                                              #
         def #{property}=(values)             #  def roles=(values)
+          @results = nil                     #    @results = nil
           @#{property}_ids =                 #    @roles_ids =
             normalize_instances(values)      #      normalize_instances(values)
         end                                  #  end
+                                             #
         alias_method :#{singular}=,          #  alias_method :role=,
                        :#{property}=         #                 :roles=
       CODE

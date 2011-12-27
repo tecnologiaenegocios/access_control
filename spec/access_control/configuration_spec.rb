@@ -92,30 +92,30 @@ module AccessControl
 
     end
 
-    describe "default roles on create" do
+    describe "default roles" do
 
       it "is 'owner' by default" do
-        config.default_roles_on_create.should == Set.new(['owner'])
+        config.default_roles.should == Set['owner']
       end
 
       it "accepts a single string" do
-        config.default_roles_on_create = 'other_role'
-        config.default_roles_on_create.should == Set.new(['other_role'])
+        config.default_roles = 'other_role'
+        config.default_roles.should == Set['other_role']
       end
 
       it "accepts a list of strings" do
-        config.send(:default_roles_on_create=, 'role1', 'role2')
-        config.default_roles_on_create.should == Set.new(['role1', 'role2'])
+        config.send(:default_roles=, 'role1', 'role2')
+        config.default_roles.should == Set['role1', 'role2']
       end
 
       it "accepts a single enumerable argument" do
-        config.default_roles_on_create = ['role1', 'role2']
-        config.default_roles_on_create.should == Set.new(['role1', 'role2'])
+        config.default_roles = ['role1', 'role2']
+        config.default_roles.should == Set['role1', 'role2']
       end
 
       it "accepts `nil`" do
-        config.default_roles_on_create = nil
-        config.default_roles_on_create.should == Set.new
+        config.default_roles = nil
+        config.default_roles.should == Set.new
       end
 
     end

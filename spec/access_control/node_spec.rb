@@ -415,7 +415,7 @@ module AccessControl
     describe "when there's one or more default roles" do
 
       it "assigns the default roles to current principals in the node" do
-        AccessControl.config.stub!(:default_roles_on_create).
+        AccessControl.config.stub!(:default_roles).
           and_return(Set.new(['owner', 'manager']))
 
         node = Node.store(:securable_id => securable.id,
@@ -450,7 +450,7 @@ module AccessControl
 
     describe "when there're no default roles" do
       it "doesn't assigns the node to any role" do
-        AccessControl.config.stub!(:default_roles_on_create).
+        AccessControl.config.stub!(:default_roles).
           and_return(Set.new)
         node = Node.store(:securable_id => securable.id,
                           :securable_class => securable.class)

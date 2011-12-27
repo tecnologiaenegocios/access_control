@@ -12,7 +12,7 @@ module AccessControl
     let(:manager) { Manager.new }
 
     before do
-      AccessControl.config.stub(:default_roles_on_create).and_return(Set.new)
+      AccessControl.config.stub(:default_roles).and_return(Set.new)
       AccessControl.stub(:manager).and_return(manager)
     end
 
