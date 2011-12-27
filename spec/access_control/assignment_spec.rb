@@ -53,6 +53,45 @@ module AccessControl
         should have(:no).errors_on(:role_id)
     end
 
+    describe ".overlapping" do
+      let(:assignment) do
+        Assignment.new do |assignment|
+          assignment.role_id      = 1
+          assignment.principal_id = 2
+          assignment.node_id      = 3
+          assignment.save!
+        end
+      end
+
+      it "returns assignments whose properties overlap the parameters" do
+        Assignment.overlapping(1,2,3).should include assignment
+      end
+
+      it "doesn't return assignments whose properties don't overlap the parameters" do
+        Assignment.overlapping(3,2,1).should_not include assignment
+      end
+
+      it "works as a non-deterministic query as well" do
+        roles      = [1,3]
+        principals = [2,5]
+        nodes      = [3,1]
+
+        Assignment.overlapping(roles,principals,nodes).
+          should include assignment
+      end
+
+      it "doesn't suffer from the 'Set' bug on queries" do
+        roles      = Set[1,3]
+        principals = Set[2,5]
+        nodes      = Set[3,1]
+
+        using_the_collection = lambda do
+          Assignment.overlapping(roles,principals,nodes).any?
+        end
+        using_the_collection.should_not raise_error
+      end
+    end
+
     describe "#overlaps?" do
       let(:properties) { {:node_id => 1, :role_id => 3, :principal_id => 2} }
 

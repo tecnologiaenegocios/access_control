@@ -48,6 +48,12 @@ module AccessControl
       granting(permission).assigned_to(principal)
     end
 
+    def self.overlapping(roles_ids, principals_ids, nodes_ids)
+      with_roles(roles_ids).
+        assigned_to(principals_ids).
+        with_node_id(nodes_ids)
+    end
+
     def node=(node)
       self.node_id = node.id
       @node        = node
