@@ -329,6 +329,10 @@ module AccessControl
       end
     end
 
+    describe "#assigned_to" do
+      it "returns roles associated with the principal provided"
+    end
+
     describe "#assigned_to?" do
 
       let(:association_proxy) { stub('association proxy') }
@@ -348,6 +352,7 @@ module AccessControl
       end
 
       it "gets the principal of the user" do
+        pending("use principal instead of user, don't use options")
         user.should_receive(:ac_principal)
         test_assignment
       end
@@ -355,11 +360,13 @@ module AccessControl
       context "without specifying a context" do
 
         it "gets the global node" do
+          pending("use principal instead of user, don't use options")
           AccessControl.should_receive(:global_node).and_return(global_node)
           test_assignment
         end
 
         it "should test the existence of the role by principal and node" do
+          pending("use principal instead of user, don't use options")
           association_proxy.should_receive(:exists?).with(
             :principal_id => principal,
             :node_id => global_node
@@ -384,16 +391,19 @@ module AccessControl
         end
 
         it "initializes a Context object using the context provided" do
+          pending("use principal instead of user, don't use options")
           Context.should_receive(:new).with(context).and_return(contextualizer)
           test_assignment
         end
 
         it "gets the nodes from the contextualizer" do
+          pending("use principal instead of user, don't use options")
           contextualizer.should_receive(:nodes).and_return(Set[node])
           test_assignment
         end
 
         it "should test the existence of the role by principal and node" do
+          pending("use principal instead of user, don't use options")
           association_proxy.should_receive(:exists?).with(
             :principal_id => principal,
             :node_id => node
@@ -403,6 +413,10 @@ module AccessControl
 
       end
 
+    end
+
+    describe "#unassign_from" do
+      it "unassigns a principal from the role"
     end
 
     describe "#assign_permission" do
