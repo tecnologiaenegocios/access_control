@@ -304,6 +304,33 @@ module AccessControl
         end
       end
 
+      describe ".fetch_all" do
+        before do
+          persistent_model.stub(:all).
+            with(:conditions => {:id => [1,2,3]}).
+            and_return(['item1', 'item2', 'item3'])
+        end
+
+        it "finds persistents with id included in the list given" do
+          persistent_results = model.fetch_all([1,2,3]).map(&:persistent)
+          persistent_results.should == ['item1', 'item2', 'item3']
+        end
+
+        context "when one or more of the ids aren't found" do
+          before do
+            persistent_model.stub(:all).
+              with(:conditions => {:id => [1,2,3]}).
+              and_return(['item1', 'item3'])
+          end
+
+          it "raises AccessControl::NotFoundError" do
+            lambda {
+              model.fetch_all([1,2,3])
+            }.should raise_exception(AccessControl::NotFoundError)
+          end
+        end
+      end
+
       describe ".has?" do
         it "returns true if there's a persistent with the id provided" do
           persistent_model.stub(:exists?).with('the id').and_return(true)
