@@ -112,16 +112,42 @@ module AccessControl
 
     describe "persistency" do
 
-      # Implementors should provide #persist, which must return true or false.
-      #
-      # Returning true means OK, whilst false means that the persistent object
-      # couldn't be saved at all.  This triggers an exception in .store.
+      describe "#persist" do
+        # Implementors can override #persist, which must return true or false.
+        #
+        # Returning true means OK, whilst false means that the persistent
+        # object couldn't be saved at all.
+        #
+        # However, a default implementation is provided.
 
-      before do
-        model.class_eval do
-          def persist
-            persistent.save
+        it "delegates to persistent.save" do
+          persistent.stub(:save).and_return('the result of saving persistent')
+          persistable = model.new
+          persistable.persist.should == 'the result of saving persistent'
+        end
+      end
+
+      describe "#persist!" do
+        subject { model.new }
+
+        it "returns the instance if #persist returns true" do
+          model.class_eval do
+            def persist
+              true
+            end
           end
+
+          subject.persist!.should be subject
+        end
+
+        it "raises RecordNotPersisted if #persist returns false" do
+          model.class_eval do
+            def persist
+              false
+            end
+          end
+
+          lambda{ subject.persist! }.should raise_exception(RecordNotPersisted)
         end
       end
 
@@ -190,30 +216,6 @@ module AccessControl
           before { persistent.stub(:new_record? => true) }
 
           it { should_not be_persisted }
-        end
-      end
-
-      describe "#persist!" do
-        subject { model.new }
-
-        it "returns the instance if #persist returns true" do
-          model.class_eval do
-            def persist
-              true
-            end
-          end
-
-          subject.persist!.should be subject
-        end
-
-        it "raises RecordNotPersisted if #persist returns false" do
-          model.class_eval do
-            def persist
-              false
-            end
-          end
-
-          lambda{ subject.persist! }.should raise_exception(RecordNotPersisted)
         end
       end
     end

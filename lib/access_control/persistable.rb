@@ -23,6 +23,10 @@ module AccessControl
       !persistent.new_record?
     end
 
+    def persist
+      persistent.save
+    end
+
     def persist!
       raise RecordNotPersisted unless persist
       self
