@@ -18,7 +18,7 @@ module AccessControl
 
     def select_values_of_column(column_name)
       connection.select_values(scoped(
-        :select => "#{quoted_table_name}.#{column_name}"
+        :select => "DISTINCT #{quoted_table_name}.#{column_name}"
       ).sql)
     end
 

@@ -8,37 +8,24 @@ module AccessControl
     let(:model)      { mock('model', :connection => connection) }
 
     before do
-      model.stub(:scoped).and_return(scoped)
       model.stub(:quoted_table_name).and_return('the_table_name')
+      model.stub(:scoped).
+        with(:select => "DISTINCT #{model.quoted_table_name}.column").
+        and_return(scoped)
+      scoped.stub(:sql).and_return('the resulting sql')
       model.extend(Ids)
     end
 
     describe ".select_values_of_column" do
       before do
-        connection.stub(:select_values).and_return(['some value'])
+        connection.stub(:select_values).
+          with('the resulting sql').
+          and_return(['some value'])
         scoped.stub(:sql).and_return('the resulting sql')
       end
 
       def call_method
         model.select_values_of_column(:column)
-      end
-
-      it "gets the scoped model with a select involving only the column" do
-        model.should_receive(:scoped).with(
-          :select => "#{model.quoted_table_name}.column"
-        ).and_return(scoped)
-        call_method
-      end
-
-      it "gets the sql from the scoped" do
-        scoped.should_receive(:sql).and_return('the resulting sql')
-        call_method
-      end
-
-      it "does a select for only the id column using the driver" do
-        connection.should_receive(:select_values).
-          with('the resulting sql').and_return([])
-        call_method
       end
 
       it "returns the array returned by the driver" do
@@ -47,34 +34,23 @@ module AccessControl
     end
 
     describe ".ids" do
-      before do
-        model.stub(:select_values_of_column).and_return('result')
-      end
-
       def call_method
         model.ids
       end
 
       it "forwards the call to select_values_of_column using :id" do
-        model.should_receive(:select_values_of_column).
-          with(:id).and_return([])
-        call_method
-      end
-
-      it "returns whatever is returned by that method" do
-        call_method.should == 'result'
+        model.stub(:select_values_of_column).
+          with(:id).and_return('whatever is returned')
+        call_method.should == 'whatever is returned'
       end
     end
 
     describe ".with_ids" do
       it "issues an anonymous scope querying by ids" do
-        model.should_receive(:scoped).
-          with(:conditions => { :id => 'the ids' })
-        model.with_ids('the ids')
-      end
-
-      it "returns the resulting scope" do
-        model.with_ids('the ids').should == scoped
+        model.stub(:scoped).
+          with(:conditions => { :id => 'the ids' }).
+          and_return('the records with the ids')
+        model.with_ids('the ids').should == 'the records with the ids'
       end
     end
 
@@ -86,6 +62,9 @@ module AccessControl
       before do
         model.stub(:reflections).and_return(reflections)
         model.stub(:all).and_return([result])
+        model.stub(:scoped).with(
+          :select => "DISTINCT #{model.quoted_table_name}.the_parent_id_key_name"
+        ).and_return(scoped)
         reflections[:parent] = stub(
           :belongs_to? => true,
           :primary_key_name => 'the_parent_id_key_name'
@@ -98,31 +77,14 @@ module AccessControl
         context "corresponding to a belongs_to association" do
 
           before do
-            connection.stub(:select_values).and_return(['some id'])
+            connection.stub(:select_values).
+              with('the resulting sql').
+              and_return(['some id'])
             scoped.stub(:sql).and_return('the resulting sql')
           end
 
           def call_method
             model.parent_ids
-          end
-
-          it "gets the scoped model with a select involving only the "\
-             "association key" do
-            model.should_receive(:scoped).with(
-              :select => "#{model.quoted_table_name}.the_parent_id_key_name"
-            ).and_return(scoped)
-            call_method
-          end
-
-          it "gets the sql from the scoped" do
-            scoped.should_receive(:sql).and_return('the resulting sql')
-            call_method
-          end
-
-          it "does a select for only the association key using the driver" do
-            connection.should_receive(:select_values).
-              with('the resulting sql').and_return([])
-            call_method
           end
 
           it "return the array returned by the driver" do
