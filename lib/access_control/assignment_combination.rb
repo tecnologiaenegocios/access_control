@@ -3,19 +3,22 @@ module AccessControl
     include Enumerable
 
     def each(&block)
-      all.each(&block)
+      if block_given?
+        combinations.each do |combination|
+          block.call instance_for(combination)
+        end
+        @instances.values_at(*combinations)
+      else
+        Enumerator.new do |yielder|
+          combinations.each do |combination|
+            yielder.yield instance_for(combination)
+          end
+        end
+      end
     end
 
     def all
-      @results ||= Util.flat_set(combinations) do |combination|
-        new_assignment = new_assignment(*combination)
-
-        existing_assignment = existing_assignments.detect do |assignment|
-          assignment.overlaps?(new_assignment)
-        end
-
-        existing_assignment || new_assignment
-      end
+      each.to_a
     end
 
     def initialize(properties = {})
@@ -32,7 +35,7 @@ module AccessControl
         attr_reader :#{property}_ids         #  attr_reader :roles_ids
                                              #
         def #{property}_ids=(ids)            #  def roles_ids=(ids)
-          @results = nil                     #    @results = nil
+          @instances = nil                   #    @instances = nil
           @#{property}_ids = normalize(ids)  #    @roles_ids = normalize(ids)
         end                                  #  end
                                              #
@@ -40,7 +43,7 @@ module AccessControl
                        :#{property}_ids=     #                 :role_ids=
                                              #
         def #{property}=(values)             #  def roles=(values)
-          @results = nil                     #    @results = nil
+          @instances = nil                   #    @instances = nil
           @#{property}_ids =                 #    @roles_ids =
             normalize_instances(values)      #      normalize_instances(values)
         end                                  #  end
@@ -50,11 +53,29 @@ module AccessControl
       CODE
     end
 
+    attr_writer :include_existing_assignments
+    def include_existing_assignments
+      if @include_existing_assignments.nil?
+        true
+      else
+        @include_existing_assignments
+      end
+    end
+
     private
 
+    def instance_for(combination)
+      @instances ||= {}
+      @instances[combination] ||= begin
+        existing_assignments[combination] || new_assignment(*combination)
+      end
+    end
+
     def existing_assignments
-      @existing_assignments ||=
-        Assignment.overlapping(roles_ids, principals_ids, nodes_ids)
+      @existing_assignments ||= begin
+        assignments = Assignment.overlapping(roles_ids, principals_ids, nodes_ids)
+        assignments.index_by { |a| [a.role_id, a.principal_id, a.node_id] }
+      end
     end
 
     def new_assignment(role_id, principal_id, node_id)
@@ -67,7 +88,13 @@ module AccessControl
       principals = principals_ids.to_a
       nodes      = nodes_ids.to_a
 
-      roles.product(principals, nodes)
+      combinations = roles.product(principals, nodes)
+      if include_existing_assignments
+        combinations
+      else
+        old_combinations = existing_assignments.keys
+        combinations.reject { |c| old_combinations.include?(c) }
+      end
     end
 
     def normalize(value)

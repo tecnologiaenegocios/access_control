@@ -101,8 +101,8 @@ module AccessControl
     end
 
     describe "#all" do
-      it "returns a Set" do
-        subject.all.should be_kind_of Set
+      it "returns an Array" do
+        subject.all.should be_kind_of Array
       end
 
       it "doesn't raise exceptions if the properties are not arrays" do
@@ -122,12 +122,14 @@ module AccessControl
 
         Assignment.stub(:new) { |*args| args }
 
-        yielded_values = Set.new
+        yielded_values = Array.new
         subject.each do |value|
           yielded_values << value
         end
 
-        yielded_values.should == subject.all
+        all_assignments = subject.all
+        yielded_values.should include(*all_assignments)
+        yielded_values.length.should == all_assignments.length
       end
     end
 
@@ -152,8 +154,9 @@ module AccessControl
         new_assignment = stub("new assignment")
         Assignment.stub(:new).and_return(new_assignment)
 
-        expected_result = Set.new [new_assignment]*combinations_count
-        returned_instances.should == expected_result
+        expected_result = [new_assignment]*combinations_count
+        returned_instances.should include(*expected_result)
+        returned_instances.length.should == expected_result.length
       end
 
       specify "cover all the roles_ids" do
@@ -181,8 +184,8 @@ module AccessControl
 
     context "when an overlapping assignment exists" do
       let(:roles_ids)      { [1,2] }
-      let(:principals_ids) { [3,4] }
-      let(:nodes_ids)      { [5,6,7] }
+      let(:principals_ids) { [3] }
+      let(:nodes_ids)      { [5] }
 
       subject do
         AssignmentCombination.new.tap do |combination|
@@ -192,14 +195,46 @@ module AccessControl
         end
       end
 
-      it "prefers the existing over the new one" do
-        existing_assignment = stub("Existing Assignment")
-        existing_assignment.stub(:overlaps? => true)
+      let(:existing_assignment) do
+        stub("Existing Assignment", :role_id => 1, :principal_id => 3, :node_id => 5)
+      end
 
+      let(:new_assignment) do
+        stub("New Assignment", :role_id => 2, :principal_id => 3, :node_id => 5)
+      end
+
+      before do
+        Assignment.stub(:new => new_assignment)
         Assignment.stub(:overlapping).with(roles_ids, principals_ids, nodes_ids).
           and_return(Set[existing_assignment])
+      end
 
-        subject.all.should == Set[existing_assignment]
+      context "and 'include_existing_assignments' is true" do
+        before { subject.include_existing_assignments = true }
+
+        let(:return_value) { subject.all }
+
+        it "returns the existing assignment" do
+          return_value.should include(existing_assignment)
+        end
+
+        it "returns new assignments" do
+          return_value.should include(new_assignment)
+        end
+      end
+
+      context "and 'include_existing_assignments' is false" do
+        before { subject.include_existing_assignments = false }
+
+        let(:return_value) { subject.all }
+
+        it "doesn't return exising assignments" do
+          return_value.should_not include(existing_assignment)
+        end
+
+        it "returns new assignments" do
+          return_value.should include(new_assignment)
+        end
       end
     end
 

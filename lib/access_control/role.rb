@@ -33,9 +33,10 @@ module AccessControl
     }
 
     def self.assign_all_to(principals, nodes, combination = AssignmentCombination.new)
-      combination.nodes      = nodes
-      combination.principals = principals
-      combination.roles      = all
+      combination.nodes                        = nodes
+      combination.principals                   = principals
+      combination.roles                        = all
+      combination.include_existing_assignments = false
 
       combination.each(&:save!)
     end

@@ -29,11 +29,11 @@ module AccessControl
 
     describe ".assign_all_to" do
       let(:combination) do
-        stub("Combination").tap do |combination|
+        Array.new.tap do |combination|
           combination.stub(:nodes=)
           combination.stub(:principals=)
           combination.stub(:roles=)
-          combination.stub(:each)
+          combination.stub(:include_existing_assignments=)
         end
       end
 
@@ -57,18 +57,16 @@ module AccessControl
         Role.assign_all_to(principals,nodes,combination)
       end
 
-      it "calls save on the assignments returned by the combination" do
-        assignment1 = stub("assignment1")
-        assignment2 = stub("assignment2")
+      it "sets the combination's 'include_existing_assignments' to false" do
+        combination.should_receive(:include_existing_assignments=).with(false)
+        Role.assign_all_to(principals,nodes,combination)
+      end
 
-        assignment1.should_receive(:save!)
-        assignment2.should_receive(:save!)
+      it "saves each returned assignment" do
+        new_assignment = stub("New assignment")
+        combination << new_assignment
 
-        assignments = [assignment1, assignment2]
-        combination.define_singleton_method(:each) do |&block|
-          assignments.each(&block)
-        end
-
+        new_assignment.should_receive(:save!)
         Role.assign_all_to(principals,nodes,combination)
       end
     end
