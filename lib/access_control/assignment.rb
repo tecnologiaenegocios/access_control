@@ -92,7 +92,7 @@ module AccessControl
     end
 
     def self.items_for_management(node, roles, combination = AssignmentCombination.new)
-      principals = Principal.with_assignments
+      principals = Principal.fetch_all(Assignment.principal_ids)
 
       combination.node       = node
       combination.roles      = roles

@@ -350,8 +350,16 @@ module AccessControl
         end
       end
 
-      let(:node)  { stub("Node") }
-      let(:roles) { stub("Roles collection") }
+      let(:node)       { stub("Node") }
+      let(:roles)      { stub("Roles collection") }
+      let(:principals) { stub('principals') }
+
+      before do
+        # Assignment.principal_ids comes for free from AccessControl::Ids.
+        Assignment.stub(:principal_ids).and_return('principal ids')
+
+        Principal.stub(:fetch_all).with('principal ids').and_return(principals)
+      end
 
       it "sets up the nodes of the combination using its parameter" do
         combination.should_receive(:node=).with(node)
@@ -364,11 +372,7 @@ module AccessControl
       end
 
       it "uses all the principals with assignments" do
-        principals = stub
-        Principal.stub(:with_assignments => principals)
-
         combination.should_receive(:principals=).with(principals)
-
         Assignment.items_for_management(node, roles, combination)
       end
 
