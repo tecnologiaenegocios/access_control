@@ -32,7 +32,7 @@ module AccessControl
       { :conditions => { :id => ids } }
     }
 
-    def self.assign_all_to(nodes, principals, combination = AssignmentCombination.new)
+    def self.assign_all_to(principals, nodes, combination = AssignmentCombination.new)
       combination.nodes      = nodes
       combination.principals = principals
       combination.roles      = all

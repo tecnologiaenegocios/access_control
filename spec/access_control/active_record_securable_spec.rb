@@ -76,7 +76,7 @@ module AccessControl
         end
 
         it "sets default roles by assigning them to the node and principals" do
-          default_roles.should_receive(:assign_all_to).with(node, principals)
+          default_roles.should_receive(:assign_all_to).with(principals, node)
           instance.create
         end
 

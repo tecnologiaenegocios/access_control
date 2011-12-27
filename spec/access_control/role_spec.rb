@@ -42,19 +42,19 @@ module AccessControl
 
       it "sets up the nodes of the combination using its parameter" do
         combination.should_receive(:nodes=).with(nodes)
-        Role.assign_all_to(nodes,principals,combination)
+        Role.assign_all_to(principals,nodes,combination)
       end
 
       it "sets up the nodes of the combination using its parameter" do
         combination.should_receive(:principals=).with(principals)
-        Role.assign_all_to(nodes,principals,combination)
+        Role.assign_all_to(principals,nodes,combination)
       end
 
       it "sets the combination's 'roles' as being all roles" do
         roles = [Role.create!(:name => "foobar")]
         combination.should_receive(:roles=).with(roles)
 
-        Role.assign_all_to(nodes,principals,combination)
+        Role.assign_all_to(principals,nodes,combination)
       end
 
       it "calls save on the assignments returned by the combination" do
@@ -69,7 +69,7 @@ module AccessControl
           assignments.each(&block)
         end
 
-        Role.assign_all_to(nodes,principals,combination)
+        Role.assign_all_to(principals,nodes,combination)
       end
     end
 

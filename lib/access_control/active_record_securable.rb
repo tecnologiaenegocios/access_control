@@ -17,7 +17,7 @@ module AccessControl
       end
 
       base.just_after_create do
-        Role.default.assign_all_to(ac_node, AccessControl.manager.principals)
+        Role.default.assign_all_to(AccessControl.manager.principals, ac_node)
       end
 
       setup_persistency_protection_callbacks(base)
