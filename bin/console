@@ -5,7 +5,7 @@ if [ -z "$RAILS_ENV" ]; then
 fi
 
 echo "Loading AccessControl console on '$RAILS_ENV'"
-bundle exec pry -I'lib' -r'access_control'         \
-                -r'spec/app/config/environment.rb' \
-                -r'console_app'                    \
+bundle exec pry -I'lib' -I'spec' -r'access_control' \
+                -r'app/config/environment.rb'       \
+                -r'console_app'                     \
                 -c 'AccessControl' --simple-prompt $*
