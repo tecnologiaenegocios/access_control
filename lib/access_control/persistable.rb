@@ -23,6 +23,11 @@ module AccessControl
       !persistent.new_record?
     end
 
+    def persist!
+      raise RecordNotPersisted unless persist
+      self
+    end
+
     def == other
       if other.kind_of?(self.class)
         other.persistent == persistent
@@ -45,8 +50,7 @@ module AccessControl
 
       def store(properties)
         persistable = new(properties)
-        raise RecordNotPersisted unless persistable.persist
-        persistable
+        persistable.persist!
       end
 
       def all

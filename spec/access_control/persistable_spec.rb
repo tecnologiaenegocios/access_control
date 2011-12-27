@@ -169,7 +169,7 @@ module AccessControl
             end
           end
 
-          it "raises exception" do
+          it "raises RecordNotPersisted" do
             lambda {
               model.store(:foo => :bar)
             }.should raise_exception(RecordNotPersisted)
@@ -190,6 +190,30 @@ module AccessControl
           before { persistent.stub(:new_record? => true) }
 
           it { should_not be_persisted }
+        end
+      end
+
+      describe "#persist!" do
+        subject { model.new }
+
+        it "returns the instance if #persist returns true" do
+          model.class_eval do
+            def persist
+              true
+            end
+          end
+
+          subject.persist!.should be subject
+        end
+
+        it "raises RecordNotPersisted if #persist returns false" do
+          model.class_eval do
+            def persist
+              false
+            end
+          end
+
+          lambda{ subject.persist! }.should raise_exception(RecordNotPersisted)
         end
       end
     end
