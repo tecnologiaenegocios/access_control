@@ -55,14 +55,18 @@ module AccessControl
       Util.flat_set(security_policy_items, &:permission)
     end
 
-    def assign_to(user, options={})
-      principal, node = assignment_parameters(user, options)
-      assignments.find_or_create_by_principal_id_and_node_id(principal.id,
-                                                             node.id)
+    def assign_to(principal, context=nil)
+      node = resolv_node_for_assignment(context)
+      if found = assignments.find_by_principal_id_and_node_id(principal.id,
+                                                              node.id)
+        return found
+      end
+      assignments.create!(:principal_id => principal.id, :node_id => node.id)
     end
 
     def assigned_to?(user, options={})
-      principal, node = assignment_parameters(user, options)
+      principal = user.ac_principal
+      node = resolv_node_for_assignment(options[:at])
       assignments.exists?(:principal_id => principal, :node_id => node)
     end
 
@@ -82,14 +86,12 @@ module AccessControl
       end
     end
 
-    def assignment_parameters(user, options)
-      principal = user.ac_principal
-      if context = options[:at]
-        node = Context.new(context).nodes.first
+    def resolv_node_for_assignment(context)
+      if context
+        Context.new(context).nodes.first
       else
-        node = AccessControl.global_node
+        AccessControl.global_node
       end
-      [principal, node]
     end
   end
 end

@@ -247,7 +247,6 @@ module AccessControl
       let(:association_proxy) { stub('association proxy') }
       let(:global_node) { stub_model(Node) }
       let(:principal) { stub_model(Principal) }
-      let(:user) { stub('user object', :ac_principal => principal) }
       let(:role) { Role.new }
 
       before do
@@ -257,29 +256,36 @@ module AccessControl
       end
 
       def make_assignment
-        role.assign_to(user)
-      end
-
-      it "gets the principal of the user" do
-        user.should_receive(:ac_principal)
-        make_assignment
+        role.assign_to(principal)
       end
 
       context "without specifying a context" do
+        context "when an assignment already exists" do
+          before do
+            association_proxy.stub(:find_by_principal_id_and_node_id).
+              with(principal.id, global_node.id).
+              and_return('existing assignment')
+          end
 
-        it "gets the global node" do
-          AccessControl.should_receive(:global_node).and_return(global_node)
-          make_assignment
+          it "returns the assignment" do
+            role.assign_to(principal).should == 'existing assignment'
+          end
         end
 
-        it "creates an assignment in the global node or finds one if it "\
-           "already exists" do
-          association_proxy.
-            should_receive(:find_or_create_by_principal_id_and_node_id).
-            with(principal.id, global_node.id)
-          make_assignment
-        end
+        context "when no assignment exists" do
+          before do
+            association_proxy.stub(:find_by_principal_id_and_node_id).
+              with(principal.id, global_node.id).
+              and_return(nil)
+          end
 
+          it "creates a new assignment" do
+            association_proxy.stub(:create!).
+              with(:principal_id => principal.id, :node_id => global_node.id).
+              and_return('created assignment')
+            make_assignment.should == 'created assignment'
+          end
+        end
       end
 
       context "specifying a context" do
@@ -289,33 +295,38 @@ module AccessControl
         let(:contextualizer) { stub('contextualizer', :nodes => Set[node]) }
 
         def make_assignment
-          role.assign_to(user, :at => context)
+          role.assign_to(principal, context)
         end
 
-        before do
-          Context.stub(:new).and_return(contextualizer)
+        before { Context.stub(:new).with(context).and_return(contextualizer) }
+
+        context "when an assignment already exists" do
+          before do
+            association_proxy.stub(:find_by_principal_id_and_node_id).
+              with(principal.id, node.id).
+              and_return('existing assignment')
+          end
+
+          it "returns the assignment" do
+            role.assign_to(principal, context).should == 'existing assignment'
+          end
         end
 
-        it "initializes a Context object using the context provided" do
-          Context.should_receive(:new).with(context).and_return(contextualizer)
-          make_assignment
-        end
+        context "when no assignment exists" do
+          before do
+            association_proxy.stub(:find_by_principal_id_and_node_id).
+              with(principal.id, node.id).
+              and_return(nil)
+          end
 
-        it "gets the nodes from the contextualizer" do
-          contextualizer.should_receive(:nodes).and_return(Set[node])
-          make_assignment
+          it "creates a new assignment" do
+            association_proxy.stub(:create!).
+              with(:principal_id => principal.id, :node_id => node.id).
+              and_return('created assignment')
+            make_assignment.should == 'created assignment'
+          end
         end
-
-        it "creates an assignment using the node of the context or finds one "\
-           "if it already exists" do
-          association_proxy.
-            should_receive(:find_or_create_by_principal_id_and_node_id).
-            with(principal.id, node.id)
-          make_assignment
-        end
-
       end
-
     end
 
     describe "#assigned_to?" do
