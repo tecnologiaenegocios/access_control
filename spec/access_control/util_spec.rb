@@ -64,5 +64,44 @@ module AccessControl
       end
     end
 
+    describe ".ids_for_hash_condition" do
+      def self.item(id)
+        o = Object.new
+        o.instance_eval { @id = id; def self.id; @id; end }
+        o
+      end
+
+      test_cases = {
+        # Single element                 Expected result
+        1                                => 1,
+        item(1)                          => 1,
+
+        # Empty collection
+        []                               => nil,
+        Set.new                          => nil,
+
+        # Single element in a container  Expected result
+        [1]                              => 1,
+        Set[1]                           => 1,
+        [item(1)]                        => 1,
+        Set[item(1)]                     => 1,
+
+        # Collections                    Expected result
+        [1, 2]                           => [1, 2],
+        Set[1, 2]                        => [1, 2],
+        [item(1), item(2)]               => [1, 2],
+        Set[item(1), item(2)]            => [1, 2],
+      }
+
+      test_cases.each do |argument, expected_result|
+        it "returns #{expected_result.inspect} if given #{argument.inspect}" do
+          expected_class = expected_result.class
+          result = Util.ids_for_hash_condition(argument)
+
+          result.should be_a(expected_class)
+          Set[*result].should == Set[*expected_result]
+        end
+      end
+    end
   end
 end

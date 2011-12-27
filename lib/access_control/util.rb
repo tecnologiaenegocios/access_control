@@ -48,6 +48,40 @@ module AccessControl
         set
       end
 
+      # Return one or more ids suitable for a hash condition, or nil if
+      # argument is empty.  Example:
+      #
+      # Util.ids_for_hash_condition(1)
+      # => 1
+      #
+      # Util.ids_for_hash_condition([1])
+      # => 1
+      #
+      # Util.ids_for_hash_condition([1, 2])
+      # => [1, 2]
+      #
+      # Util.ids_for_hash_condition([])
+      # => nil
+      #
+      # Also works with sets instead of arrays.
+
+      def ids_for_hash_condition(items)
+        items = Array(items)
+        items = items.map do |item|
+          if item.is_a?(Fixnum)
+            item
+          else
+            item.id
+          end
+        end
+
+        case items.size
+        when 0 then nil
+        when 1 then items.first
+        else items
+        end
+      end
+
       def log_missing_permissions requirements, current, roles, trace
         AccessControl::Logger.log_missing_permissions(
           make_set_from_args(requirements),
