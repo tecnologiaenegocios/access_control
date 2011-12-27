@@ -45,14 +45,14 @@ module AccessControl
     end
 
     def self.with_names_in(names)
-      unless names.kind_of?(String) || names.kind_of?(Array)
+      if names.kind_of?(Enumerable)
         names = names.to_a
       end
       scoped_by_name(names)
     end
 
     def permissions
-      Set.new(security_policy_items.map(&:permission))
+      Util.flat_set(security_policy_items, &:permission)
     end
 
     def assign_to(user, options={})

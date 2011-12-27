@@ -224,13 +224,21 @@ module AccessControl
     end
 
     describe "#permissions" do
+      subject { Role.new }
+      let(:permissions) { ['other permission', 'some permission'] }
+
+      before do
+        subject.security_policy_items = permissions.map do |perm|
+          stub_model(SecurityPolicyItem, :permission => perm)
+        end
+      end
+
       it "returns the permissions from its security policy items" do
-        r = Role.new
-        r.security_policy_items = [
-          SecurityPolicyItem.new(:permission => 'some permission'),
-          SecurityPolicyItem.new(:permission => 'other permission')
-        ]
-        r.permissions.should == Set.new(['other permission', 'some permission'])
+        subject.permissions.should include(*permissions)
+      end
+
+      it "doesn't return duplicated permissions" do
+        subject.permissions.length.should == permissions.length
       end
     end
 
