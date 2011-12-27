@@ -23,8 +23,7 @@ module AccessControl
 
     let(:manager)       { stub('manager') }
     let(:principals)    { ['principal1', 'principal2'] }
-    let(:default_roles) { stub('default roles scope',
-                               :assign_all_to => nil) }
+    let(:default_roles) { stub('default roles scope', :assign_all_to => nil) }
 
     before do
       AccessControl.stub(:manager).and_return(manager)
