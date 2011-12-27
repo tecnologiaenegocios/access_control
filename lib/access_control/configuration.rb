@@ -13,7 +13,7 @@ module AccessControl
     attr_reader :default_update_permissions_metadata
     attr_reader :default_destroy_permissions_metadata
 
-    attr_reader :default_roles_on_create
+    attr_reader :default_roles
 
     # By default, belongs_to associations are seen as ordinary attributes of an
     # instance, that is, they're not restricted by default.  Setting this to
@@ -34,7 +34,7 @@ module AccessControl
       @default_update_permissions_metadata = {}
       @default_destroy_permissions_metadata = {}
 
-      @default_roles_on_create = Set.new(['owner'])
+      @default_roles = Set.new(['owner'])
 
       @restrict_belongs_to_association = false
     end
@@ -50,9 +50,9 @@ module AccessControl
       end
     end
 
-    def default_roles_on_create= *args
+    def default_roles= *args
       args = args.compact
-      @default_roles_on_create = Util.make_set_from_args(*args)
+      @default_roles = Util.make_set_from_args(*args)
     end
 
     def register_permissions
