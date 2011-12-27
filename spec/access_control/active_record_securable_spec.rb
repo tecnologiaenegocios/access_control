@@ -21,13 +21,24 @@ module AccessControl
 
     let(:model) { Class.new(base) }
 
+    let(:manager)       { stub('manager') }
+    let(:principals)    { ['principal1', 'principal2'] }
+    let(:default_roles) { stub('default roles scope',
+                               :assign_all_to => nil) }
+
+    before do
+      AccessControl.stub(:manager).and_return(manager)
+      manager.stub(:principals).and_return(principals)
+      Role.stub(:default).and_return(default_roles)
+    end
+
     it "includes just after callbacks" do
       model.send(:include, ActiveRecordSecurable)
       model.should include(ActiveRecordJustAfterCallback)
     end
 
-    describe "association to Node" do
-      let(:node)     { stub('node') }
+    describe "associated node" do
+      let(:node)     { stub('node', :persist! => nil) }
       let(:instance) { model.new }
 
       before do
@@ -45,16 +56,41 @@ module AccessControl
         instance.ac_node.should be old_result
       end
 
-      it "persists the node when the record is saved" do
-        PersistencyProtector.stub(:verify_attachment!)
-        node.should_receive(:persist!)
-        instance.create
+      describe "persistency and removal of the node" do
+        it "persists the node when the record is saved" do
+          PersistencyProtector.stub(:verify_attachment!)
+          node.should_receive(:persist!)
+          instance.create
+        end
+
+        it "destroys the node when the record is destroyed" do
+          PersistencyProtector.stub(:verify_detachment!)
+          node.should_receive(:destroy)
+          instance.destroy
+        end
       end
 
-      it "destroys the node when the record is destroyed" do
-        PersistencyProtector.stub(:verify_detachment!)
-        node.should_receive(:destroy)
-        instance.destroy
+      describe "setting default roles on the node created" do
+        before do
+          PersistencyProtector.stub(:verify_attachment!)
+          instance.stub(:ac_node).and_return(node)
+        end
+
+        it "sets default roles by assigning them to the node and principals" do
+          default_roles.should_receive(:assign_all_to).with(node, principals)
+          instance.create
+        end
+
+        it "does that after persisting the node" do
+          node.should_receive(:persist!).ordered
+          node.should_receive(:called_on_assignment).ordered
+
+          default_roles.define_singleton_method(:assign_all_to) do |n, p|
+            n.called_on_assignment
+          end
+
+          instance.create
+        end
       end
     end
 
@@ -109,6 +145,7 @@ module AccessControl
         PersistencyProtector.stub(:track_parents)
         ActiveRecordAssociator.stub(:setup_association)
         model.send(:include, ActiveRecordSecurable)
+        instance.stub(:ac_node)
       end
 
       describe "on create" do

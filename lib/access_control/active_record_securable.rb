@@ -16,6 +16,10 @@ module AccessControl
         @__ac_node__ ||= Node.for_securable(self)
       end
 
+      base.just_after_create do
+        Role.default.assign_all_to(ac_node, AccessControl.manager.principals)
+      end
+
       setup_persistency_protection_callbacks(base)
     end
 
