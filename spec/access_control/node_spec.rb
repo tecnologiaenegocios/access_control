@@ -40,116 +40,43 @@ module AccessControl
       Node.store(properties)
     end
 
-    describe ".store" do
-      it "returns a new Node and creates its persistent" do
-        pending('review stub when #persist is reimplemented')
-        properties = {:securable_type => 'Foo'}
-        persistent = stub(:new_record? => true,
-                          :save! => nil, :securable_type= => nil, :id => 10)
-        Node::Persistent.stub(:new).and_return(persistent)
-
-        node = Node.store(properties)
-        node.persistent.should == persistent
-      end
-
-      it "accepts the securable_class option correctly" do
-        node = Node.store(:securable_class => Hash, :securable_id => 1234)
+    describe "initialization" do
+      it "accepts :securable_class" do
+        node = Node.new(:securable_class => Hash)
         node.securable_class.should == Hash
         node.securable_type.should  == 'Hash'
       end
 
-      it "prefers 'securable_class' over 'securable_type'" do
-        node = Node.store(:securable_class => Hash, :securable_id => 1234,
-                          :securable_type  => "String")
+      describe ":securable_class over :securable_type" do
+        let(:properties) do
+          props = ActiveSupport::OrderedHash.new
+          props[:securable_class] = Hash
+          props[:securable_type]  = 'String'
+          props
+        end
 
-        node.securable_class.should == Hash
-        node.securable_type.should  == 'Hash'
-      end
-    end
+        let(:reversed_properties) do
+          props = ActiveSupport::OrderedHash.new
+          props[:securable_type]  = 'String'
+          props[:securable_class] = Hash
+          props
+        end
 
-    describe "#persist" do
-      def stub_persistent(stubs = {})
-        stubs[:save!] ||= true
-        stubs[:id]    ||= 1234
-
-        stub("Persistent node", stubs)
-      end
-
-      def stub_assignment(stubs = {})
-        stubs[:save!] ||= true
-
-        stub("Assignment", stubs).tap do |assignment|
-          assignment.singleton_class.class_eval do
-            attr_accessor :id
+        describe "when :securable_class is set before :securable_type" do
+          it "prefers :securable_class" do
+            node = Node.new(properties)
+            node.securable_class.should == Hash
+            node.securable_type.should  == 'Hash'
           end
         end
-      end
 
-      context "when the node is a new record" do
-        let(:persistent) { stub_persistent(:new_record? => true) }
-        subject          { Node.wrap(persistent) }
-
-        it "calls save! on the underlying persistent node" do
-          pending('reimplement #persist to return true or false')
-          persistent.should_receive(:save!)
-          subject.persist
+        describe "when :securable_class is set after :securable_type" do
+          it "prefers :securable_class" do
+            node = Node.new(reversed_properties)
+            node.securable_class.should == Hash
+            node.securable_type.should  == 'Hash'
+          end
         end
-
-        it "sets the persistent's id into the assignments" do
-          pending('reimplement #persist to return true or false')
-          subject.assignments << assignment1 = stub_assignment
-          subject.assignments << assignment2 = stub_assignment
-
-          assignment1.should_receive(:id=).with(persistent.id)
-          assignment2.should_receive(:id=).with(persistent.id)
-
-          subject.persist
-        end
-
-        it "calls save! on each of its assignments" do
-          pending('reimplement #persist to return true or false')
-          subject.assignments << assignment1 = stub_assignment
-          subject.assignments << assignment2 = stub_assignment
-
-          assignment1.should_receive(:save!)
-          assignment2.should_receive(:save!)
-
-          subject.persist
-        end
-      end
-
-      context "when the node is a not a new record" do
-        let(:persistent) { stub_persistent(:new_record? => false) }
-        subject          { Node.wrap(persistent) }
-
-        it "calls save! on the underlying persistent node" do
-          pending('reimplement #persist to return true or false')
-          persistent.should_receive(:save!)
-          subject.persist
-        end
-
-        it "sets the persistent's id into the assignments" do
-          pending('reimplement #persist to return true or false')
-          subject.assignments << assignment1 = stub_assignment
-          subject.assignments << assignment2 = stub_assignment
-
-          assignment1.should_receive(:id=).with(persistent.id)
-          assignment2.should_receive(:id=).with(persistent.id)
-
-          subject.persist
-        end
-
-        it "calls save! on each of its assignments" do
-          pending('reimplement #persist to return true or false')
-          subject.assignments << assignment1 = stub_assignment
-          subject.assignments << assignment2 = stub_assignment
-
-          assignment1.should_receive(:save!)
-          assignment2.should_receive(:save!)
-
-          subject.persist
-        end
-
       end
     end
 
@@ -393,71 +320,6 @@ module AccessControl
         subject.assignments_with_roles(roles).should == filtered_assignments
       end
     end
-  end
-
-  describe "automatic role assignment" do
-
-    let(:role1) { Role.new(:name => 'owner') }
-    let(:role2) { Role.new(:name => 'manager') }
-
-    let(:securable) { FakeSecurable.new }
-
-    let(:manager) { stub("Manager") }
-
-    before do
-      role1.save!
-      role2.save!
-
-      AccessControl.stub(:manager => manager)
-      manager.stub(:principal_ids => [1, 2, 3], :can! => nil)
-    end
-
-    describe "when there's one or more default roles" do
-
-      it "assigns the default roles to current principals in the node" do
-        AccessControl.config.stub!(:default_roles).
-          and_return(Set.new(['owner', 'manager']))
-
-        node = Node.store(:securable_id => securable.id,
-                          :securable_class => securable.class)
-
-        assignments = node.assignments.map do |a|
-          { :node_id => a.node_id, :role_id => a.role_id,
-            :principal_id => a.principal_id}
-        end
-
-        assignments.should include(:node_id => node.id,
-                                   :principal_id => 1,
-                                   :role_id => role1.id)
-        assignments.should include(:node_id => node.id,
-                                   :principal_id => 1,
-                                   :role_id => role2.id)
-        assignments.should include(:node_id => node.id,
-                                   :principal_id => 2,
-                                   :role_id => role1.id)
-        assignments.should include(:node_id => node.id,
-                                   :principal_id => 2,
-                                   :role_id => role2.id)
-        assignments.should include(:node_id => node.id,
-                                   :principal_id => 3,
-                                   :role_id => role1.id)
-        assignments.should include(:node_id => node.id,
-                                   :principal_id => 3,
-                                   :role_id => role2.id)
-      end
-
-    end
-
-    describe "when there're no default roles" do
-      it "doesn't assigns the node to any role" do
-        AccessControl.config.stub!(:default_roles).
-          and_return(Set.new)
-        node = Node.store(:securable_id => securable.id,
-                          :securable_class => securable.class)
-        node.assignments.should be_empty
-      end
-    end
-
   end
 
   describe "blocking and unblocking" do

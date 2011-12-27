@@ -9,14 +9,6 @@ module AccessControl
       Node::Persistent
     end
 
-    def store(properties)
-      if securable_class = properties.delete(:securable_class)
-        properties[:securable_type] = securable_class.name
-      end
-
-      super(properties)
-    end
-
     def global!
       @global_node = load_global_node()
       @global_node || raise(NoGlobalNode)

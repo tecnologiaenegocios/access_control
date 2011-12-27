@@ -24,18 +24,9 @@ module AccessControl
     delegate_scopes :with_type, :blocked, :unblocked,
                     :granted_for, :blocked_for
 
-    def persist
-      should_set_default_roles = (not persisted?)
-      persistent.save!
-
-      assignments.each do |assignment|
-        assignment.id = self.id
-        assignment.save!
-      end
-
-      if should_set_default_roles
-        assignments.concat(default_roles)
-      end
+    def initialize(properties={})
+      properties.delete(:securable_type) if properties[:securable_class]
+      super(properties)
     end
 
     def block= value
