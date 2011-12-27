@@ -129,52 +129,52 @@ module AccessControl
 
         yielded_values.should == subject.all
       end
+    end
 
-      describe "returns assignments" do
-        let(:roles_ids)      { [1,2,3] }
-        let(:principals_ids) { [4,5,6] }
-        let(:nodes_ids)      { [7,8,9] }
+    describe "the returned assignments" do
+      let(:roles_ids)      { [1,2,3] }
+      let(:principals_ids) { [4,5,6] }
+      let(:nodes_ids)      { [7,8,9] }
 
-        subject do
-          AssignmentCombination.new.tap do |combination|
-            combination.roles_ids      = roles_ids
-            combination.principals_ids = principals_ids
-            combination.nodes_ids      = nodes_ids
-          end
+      subject do
+        AssignmentCombination.new.tap do |combination|
+          combination.roles_ids      = roles_ids
+          combination.principals_ids = principals_ids
+          combination.nodes_ids      = nodes_ids
         end
-        let(:returned_instances) { subject.all }
+      end
+      let(:returned_instances) { subject.all }
 
-        specify "created using Assignment.new" do
-          combinations_count = [roles_ids,principals_ids,nodes_ids].
-                                 map(&:length).inject(:*)
+      specify "are created using Assignment.new" do
+        combinations_count = [roles_ids,principals_ids,nodes_ids].
+                               map(&:length).inject(:*)
 
-          new_assignment = stub("new assignment")
-          Assignment.stub(:new).and_return(new_assignment)
+        new_assignment = stub("new assignment")
+        Assignment.stub(:new).and_return(new_assignment)
 
-          expected_result = Set.new [new_assignment]*combinations_count
-          returned_instances.should == expected_result
+        expected_result = Set.new [new_assignment]*combinations_count
+        returned_instances.should == expected_result
+      end
+
+      specify "cover all the roles_ids" do
+        returned_instances.map(&:role_id).should include(*roles_ids)
+      end
+
+      specify "cover all the principals_ids" do
+        returned_instances.map(&:principal_id).
+          should include(*principals_ids)
+      end
+
+      specify "cover all the nodes_ids" do
+        returned_instances.map(&:node_id).should include(*nodes_ids)
+      end
+
+      specify "have unique combinations of role, principal and node ids" do
+        combinations = returned_instances.map do |assignment|
+          [assignment.role_id, assignment.principal_id, assignment.node_id]
         end
 
-        specify "for all the roles_ids" do
-          returned_instances.map(&:role_id).should include(*roles_ids)
-        end
-
-        specify "for all the principals_ids" do
-          returned_instances.map(&:principal_id).
-            should include(*principals_ids)
-        end
-
-        specify "for all the nodes_ids" do
-          returned_instances.map(&:node_id).should include(*nodes_ids)
-        end
-
-        specify "with unique combinations of role, principal and node ids" do
-          combinations = returned_instances.map do |assignment|
-            [assignment.role_id, assignment.principal_id, assignment.node_id]
-          end
-
-          combinations.uniq.length.should == combinations.length
-        end
+        combinations.uniq.length.should == combinations.length
       end
     end
 
