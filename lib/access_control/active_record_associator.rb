@@ -34,7 +34,7 @@ module AccessControl
     end
 
     def persist
-      @names.each { |name| @instance.send(name).persist }
+      @names.each { |name| @instance.send(name).persist! }
     end
 
     def destroy

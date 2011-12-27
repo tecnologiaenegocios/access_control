@@ -58,7 +58,7 @@ module AccessControl
 
       context "when a record is created" do
         it "persists the associated access control object" do
-          ac_associated.should_receive(:persist)
+          ac_associated.should_receive(:persist!)
           instance.create
         end
       end
