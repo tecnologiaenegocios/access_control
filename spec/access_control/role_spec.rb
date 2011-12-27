@@ -27,6 +27,31 @@ module AccessControl
       Role.singleton_class.should include(AccessControl::Ids)
     end
 
+    describe ".default" do
+      let(:roles_names) { ["owner"] }
+      before do
+        AccessControl.config.stub(:default_roles => roles_names)
+      end
+
+      it "contains roles whose name is in config.default_roles" do
+        role = Role.create!(:name => "owner")
+        Role.default.should include role
+      end
+
+      it "doesn't contain roles whose name isn't in config.default_roles" do
+        role = Role.create!(:name => "user")
+        Role.default.should_not include role
+      end
+
+      it "doesn't blow up when config returns a Set with multiple values" do
+        AccessControl.config.stub(:default_roles => Set["owner", "manager"])
+        role = Role.create!(:name => "owner")
+
+        accessing_the_results = lambda { Role.default.include?(role) }
+        accessing_the_results.should_not raise_error
+      end
+    end
+
     describe ".with_names" do
       let!(:role) { Role.create!(:name => "foo") }
 

@@ -32,6 +32,10 @@ module AccessControl
       { :conditions => { :id => ids } }
     }
 
+    def self.default
+      with_names_in(AccessControl.config.default_roles)
+    end
+
     def self.with_names_in(names)
       unless names.kind_of?(String) || names.kind_of?(Array)
         names = names.to_a
