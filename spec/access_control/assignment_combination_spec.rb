@@ -176,6 +176,31 @@ module AccessControl
 
         combinations.uniq.length.should == combinations.length
       end
+
+    end
+
+    context "when an overlapping assignment exists" do
+      let(:roles_ids)      { [1,2] }
+      let(:principals_ids) { [3,4] }
+      let(:nodes_ids)      { [5,6,7] }
+
+      subject do
+        AssignmentCombination.new.tap do |combination|
+          combination.roles_ids      = roles_ids
+          combination.principals_ids = principals_ids
+          combination.nodes_ids      = nodes_ids
+        end
+      end
+
+      it "prefers the existing over the new one" do
+        existing_assignment = stub("Existing Assignment")
+        existing_assignment.stub(:overlaps? => true)
+
+        Assignment.stub(:overlapping).with(roles_ids, principals_ids, nodes_ids).
+          and_return(Set[existing_assignment])
+
+        subject.all.should == Set[existing_assignment]
+      end
     end
 
   end

@@ -7,11 +7,15 @@ module AccessControl
     end
 
     def all
-      @results ||=
-        Util.flat_set(combinations) do |role_id, principal_id, node_id|
-          Assignment.new(:role_id => role_id, :node_id => node_id,
-                         :principal_id => principal_id)
+      @results ||= Util.flat_set(combinations) do |combination|
+        new_assignment = new_assignment(*combination)
+
+        existing_assignment = existing_assignments.detect do |assignment|
+          assignment.overlaps?(new_assignment)
         end
+
+        existing_assignment || new_assignment
+      end
     end
 
     def initialize(properties = {})
@@ -47,6 +51,16 @@ module AccessControl
     end
 
     private
+
+    def existing_assignments
+      @existing_assignments ||=
+        Assignment.overlapping(roles_ids, principals_ids, nodes_ids)
+    end
+
+    def new_assignment(role_id, principal_id, node_id)
+      Assignment.new(:role_id => role_id, :node_id => node_id,
+                     :principal_id => principal_id)
+    end
 
     def combinations
       roles      = roles_ids.to_a
