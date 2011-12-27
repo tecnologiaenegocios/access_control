@@ -33,13 +33,6 @@ module AccessControl
   end
 
   describe Node do
-    def build_node(properties = {})
-      properties[:securable_type] ||= "AccessControl::GlobalRecord"
-      properties[:securable_id]   ||= 1
-
-      Node.store(properties)
-    end
-
     describe "initialization" do
       it "accepts :securable_class" do
         node = Node.new(:securable_class => Hash)
