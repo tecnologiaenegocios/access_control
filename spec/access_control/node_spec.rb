@@ -274,13 +274,32 @@ module AccessControl
     let(:model) { Class.new }
     let(:node) { Node.new(:securable_class => model,
                           :securable_id    => 1000) }
+    def build_securable
+      # Strings compare char by char, but each time object_id changes.
+      'securable'
+    end
+
+    before do
+      model.stub(:unrestricted_find) do |id|
+        if id == node.securable_id
+          build_securable()
+        else
+          fail
+        end
+      end
+    end
 
     it "gets the record by calling .unrestricted_find in the model" do
-      securable = stub('securable')
-      model.stub(:unrestricted_find).with(1000).and_return(securable)
+      securable = build_securable
       node.securable.should == securable
     end
 
+    it "is cached" do
+      prev_securable = node.securable
+      next_securable = node.securable
+
+      next_securable.should be prev_securable
+    end
   end
 
   describe "blocking and unblocking" do
