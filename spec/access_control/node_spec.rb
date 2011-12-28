@@ -283,37 +283,6 @@ module AccessControl
 
   end
 
-  describe "#assignments_with_roles" do
-    context "for non-persisted nodes" do
-      subject { Node.new }
-
-      it "returns assignments whose #role is within the arguments" do
-        subject.assignments << assignment1 = stub(:role => "role1")
-        subject.assignments << assignment2 = stub(:role => "role2")
-        subject.assignments << assignment3 = stub(:role => "role3")
-
-        returned_assignments = subject.assignments_with_roles("role1, role3")
-        returned_assignments.should include(assignment1, assignment3)
-        returned_assignments.should_not include(assignment2)
-      end
-    end
-
-    context "for persisted nodes" do
-      subject { Node.wrap(stub :id => 1234, :new_record? => false) }
-
-      it "calls the .with_roles named scope on assignments association" do
-        roles = stub
-        assignments = stub
-        filtered_assignments = stub
-
-        Assignment.stub(:with_nodes).with(subject).and_return(assignments)
-        assignments.stub(:with_roles).with(roles).and_return(filtered_assignments)
-
-        subject.assignments_with_roles(roles).should == filtered_assignments
-      end
-    end
-  end
-
   describe "blocking and unblocking" do
     let(:manager) { stub("Manager") }
     let(:node) { Node.new }

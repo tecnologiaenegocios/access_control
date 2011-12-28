@@ -34,14 +34,6 @@ module AccessControl
       persistent.block = value
     end
 
-    def assignments_with_roles(roles)
-      if persisted?
-        assignments.with_roles(roles)
-      else
-        assignments.select { |assignment| roles.include?(assignment.role) }
-      end
-    end
-
     def assignments
       @assignments ||=
         if persisted?
