@@ -218,6 +218,23 @@ module AccessControl
           it { should_not be_persisted }
         end
       end
+
+      describe "#destroy" do
+        # Implementors can override #destroy, which must at some point call
+        # super or destroy the persistent manually.
+        #
+        # After being destroyed, the instance should not accept modifications,
+        # since they can't be persisted.  At this point we rely on ActiveRecord
+        # implementation of #destroy, which cares about freezing the instance.
+
+        it "delegates to persistent.destroy" do
+          persistent.stub(:destroy).
+            and_return('the result of destroying persistent')
+          persistable = model.wrap(persistent)
+          persistable.destroy.should == 'the result of destroying persistent'
+        end
+      end
+
     end
 
     describe "equality comparison" do

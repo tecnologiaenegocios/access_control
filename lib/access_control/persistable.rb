@@ -32,6 +32,10 @@ module AccessControl
       self
     end
 
+    def destroy
+      persistent.destroy
+    end
+
     def == other
       if other.kind_of?(self.class)
         other.persistent == persistent
