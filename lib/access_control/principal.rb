@@ -82,7 +82,7 @@ module AccessControl
       AccessControl.manager.without_assignment_restriction do
         Role.all.each { |role| role.unassign_from(self) }
       end
-      persistent.destroy
+      super
     end
   end
 
