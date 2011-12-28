@@ -29,10 +29,10 @@ module AccessControl
 
     describe ".assigned_to" do
       let(:principal) { stub("Principal", :id => 123) }
+      let(:node)      { stub("Node",      :id => -1)  }
       let(:role)      { Role.create!(:name => "Foo")  }
 
       before do
-        node = stub("Node", :id => -1)
         AccessControl.stub(:Node).with(node).and_return(node)
         role.assign_to(principal, node)
       end
@@ -45,16 +45,27 @@ module AccessControl
         other_role = Role.create!(:name => "Bar")
         Role.assigned_to(principal).should_not include other_role
       end
+
+      context "when a node is provided" do
+        it "includes roles assigned to the principal on the node" do
+          Role.assigned_to(principal, node).should include role
+        end
+
+        it "doesn't include roles assigned to the principal on other nodes" do
+          other_node = stub("Other node", :id => -2)
+          Role.assigned_to(principal, other_node).should_not include role
+        end
+      end
     end
 
     describe ".assigned_at" do
-      let(:node) { stub("Node", :id => 123)     }
-      let(:role) { Role.create!(:name => "Foo") }
+      let(:node)      { stub("Node",      :id => -1) }
+      let(:principal) { stub("Principal", :id => -1) }
+      let(:role)      { Role.create!(:name => "Foo") }
 
       before do
         AccessControl.stub(:Node).with(node).and_return(node)
 
-        principal = stub("Principal", :id => -1)
         role.assign_to(principal, node)
       end
 
@@ -65,6 +76,17 @@ module AccessControl
       it "doesn't include roles that not assigned at the given node" do
         other_role = Role.create!(:name => "Bar")
         Role.assigned_at(node).should_not include other_role
+      end
+
+      context "when a principal is provided" do
+        it "includes roles assigned on the node to the principal" do
+          Role.assigned_at(node, principal).should include role
+        end
+
+        it "doesn't include roles assigned on the node to other principals" do
+          other_principal = stub("Other principal", :id => -2)
+          Role.assigned_at(node, other_principal).should_not include role
+        end
       end
     end
 

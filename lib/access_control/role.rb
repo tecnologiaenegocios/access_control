@@ -32,13 +32,19 @@ module AccessControl
       { :conditions => { :id => ids } }
     }
 
-    def self.assigned_to(principal)
+    def self.assigned_to(principal, node = nil)
       related_assignments = Assignment.assigned_to(principal)
+      if node
+        related_assignments = related_assignments.with_nodes(node)
+      end
       scoped(:conditions => { :id => related_assignments.role_ids })
     end
 
-    def self.assigned_at(nodes)
+    def self.assigned_at(nodes, principal = nil)
       related_assignments = Assignment.with_nodes(nodes)
+      if principal
+        related_assignments = related_assignments.assigned_to(principal)
+      end
       scoped(:conditions => { :id => related_assignments.role_ids })
     end
 
