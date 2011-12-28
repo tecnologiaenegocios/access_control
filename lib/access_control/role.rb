@@ -41,10 +41,9 @@ module AccessControl
     end
 
     def self.assigned_at(nodes, principal = nil)
+      return assigned_to(principal, nodes) if principal
+
       related_assignments = Assignment.with_nodes(nodes)
-      if principal
-        related_assignments = related_assignments.assigned_to(principal)
-      end
       scoped(:conditions => { :id => related_assignments.role_ids })
     end
 
