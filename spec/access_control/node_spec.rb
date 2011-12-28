@@ -4,23 +4,21 @@ require 'access_control/configuration'
 require 'access_control/node'
 
 module AccessControl
-
   describe ".Node" do
-
     specify "when the argument is a Node, returns it untouched" do
-      node = stub_model(Node)
-      return_value = AccessControl::Node(node)
+      node = Node.new
+      return_value = AccessControl.Node(node)
 
-      return_value.should == node
+      return_value.should be node
     end
 
-    specify "when the argument is a Securable, returns its .ac_node" do
-      node = stub_model(Node)
+    specify "when the argument responds to .ac_node, its return value "\
+            "is returned" do
+      node = Node.new
       securable = stub("Securable", :ac_node => node)
-      securable.extend(Securable)
 
       return_value = AccessControl::Node(securable)
-      return_value.should == node
+      return_value.should be node
     end
 
     specify "launches Exception for non-recognized argument types" do

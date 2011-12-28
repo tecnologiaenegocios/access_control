@@ -9,7 +9,7 @@ module AccessControl
   def AccessControl.Node(object)
     if object.kind_of?(AccessControl::Node)
       object
-    elsif object.kind_of?(AccessControl::Securable)
+    elsif object.respond_to?(:ac_node)
       object.ac_node
     else
       raise(UnrecognizedSecurable)
