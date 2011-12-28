@@ -93,10 +93,9 @@ module AccessControl
     describe "on #destroy" do
       let(:persistent) { stub('persistent', :destroy => nil) }
       let(:principal) { Principal.wrap(persistent) }
-      let(:role) { stub('role', :unassign_from => nil) }
 
       before do
-        Role.stub(:assigned_to).with(principal).and_return([role])
+        Role.stub(:unassign_all_from).with(principal)
       end
 
       def should_receive_without_assignment_restriction(tested_mock, method)
@@ -119,12 +118,12 @@ module AccessControl
       end
 
       it "destroys all role assignments associated when it is destroyed" do
-        role.should_receive(:unassign_from).with(principal)
+        Role.should_receive(:unassign_all_from).with(principal)
         principal.destroy
       end
 
       it "does so by disabling assignment restriction" do
-        should_receive_without_assignment_restriction(role, :unassign_from) do
+        should_receive_without_assignment_restriction(Role, :unassign_all_from) do
           principal.destroy
         end
       end
@@ -135,7 +134,7 @@ module AccessControl
       end
 
       it "does so after unassigning roles" do
-        role.stub(:unassign_from) do
+        Role.stub(:unassign_all_from) do
           persistent.already_unassigned_roles
         end
         persistent.should_receive(:already_unassigned_roles).ordered
