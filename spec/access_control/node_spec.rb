@@ -204,48 +204,13 @@ module AccessControl
       end
     end
 
-    describe "#assignments" do
-
-      describe "when the node is already persisted" do
-        let(:securable) { FakeSecurable.new }
-
-        subject { Node.store(:securable_class => securable.class,
-                             :securable_id    => securable.id) }
-
-        it "is a scope provided by the Assignment class" do
-          assignments_scope = stub.as_null_object
-          Assignment.stub(:with_nodes).with(subject).
-            and_return(assignments_scope)
-
-          subject.assignments.should == assignments_scope
-        end
-      end
-
-      describe "when the node wasn't persisted yet" do
-        subject { Node.new }
-
-        it "is an empty collection" do
-          subject.assignments.should be_empty
-        end
-
-        it "keeps its members" do
-          assignment = stub
-          subject.assignments << assignment
-
-          subject.assignments.should include assignment
-        end
-      end
-    end
-
     describe "on #destroy" do
-      let(:persistent) { stub(:new_record? => false, :id => 1234,
-                               :destroy => true) }
-
-      subject { Node.wrap(persistent) }
-      let(:assignment)  { stub("Assignment", :destroy => true) }
+      let(:persistent) { Node::Persistent.new }
+      let(:node)       { Node.wrap(persistent) }
 
       before do
-        Assignment.stub(:with_nodes).with(subject).and_return([assignment])
+        Role.stub(:unassign_all_at).with(node)
+        persistent.stub(:destroy)
       end
 
       def should_receive_without_assignment_restriction(tested_mock, method)
@@ -267,30 +232,31 @@ module AccessControl
         yield
       end
 
+      it "destroys all role assignments associated when it is destroyed" do
+        Role.should_receive(:unassign_all_at).with(node)
+        node.destroy
+      end
+
+      it "does so by disabling assignment restriction" do
+        should_receive_without_assignment_restriction(Role, :unassign_all_at) do
+          node.destroy
+        end
+      end
+
       it "calls #destroy on the 'persistent'" do
         persistent.should_receive(:destroy)
-        subject.destroy
+        node.destroy
       end
 
-      it "destroys the 'persistent' inside a unrestricted block" do
-        should_receive_without_assignment_restriction(persistent, :destroy) do
-          subject.destroy
+      it "does so after unassigning roles" do
+        Role.stub(:unassign_all_at) do
+          persistent.already_unassigned_roles
         end
+        persistent.should_receive(:already_unassigned_roles).ordered
+        persistent.should_receive(:destroy).ordered
+
+        node.destroy
       end
-
-      describe "the assignments" do
-        it "are destroyed as well" do
-          assignment.should_receive(:destroy)
-          subject.destroy
-        end
-
-        it "are destroyed in a unrestricted block" do
-          should_receive_without_assignment_restriction(assignment, :destroy) do
-            subject.destroy
-          end
-        end
-      end
-
     end
   end
 

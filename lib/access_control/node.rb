@@ -34,24 +34,15 @@ module AccessControl
       persistent.block = value
     end
 
-    def assignments
-      @assignments ||=
-        if persisted?
-          Assignment.with_nodes(self)
-        else
-          Array.new
-        end
-    end
-
     def global?
       id == AccessControl.global_node_id
     end
 
     def destroy
       AccessControl.manager.without_assignment_restriction do
-        persistent.destroy
-        assignments.each(&:destroy)
+        Role.unassign_all_at(self)
       end
+      super
     end
 
     def securable

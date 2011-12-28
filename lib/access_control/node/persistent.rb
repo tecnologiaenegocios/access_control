@@ -13,48 +13,6 @@ module AccessControl
     named_scope :blocked,   :conditions => { :block => true }
     named_scope :unblocked, :conditions => { :block => false }
 
-    has_many(
-      :principal_assignments,
-      :foreign_key => :node_id,
-      :class_name => 'AccessControl::Assignment'
-    )
-
-    reflections[:principal_assignments].instance_eval do
-      def options
-        principals    = AccessControl.manager.principals
-        principal_ids = Util.ids_for_hash_condition(principals)
-        @options.merge(:conditions => {:principal_id => principal_ids})
-      end
-
-      def sanitized_conditions
-        # Since our options aren't constant in the reflection life cycle, never
-        # cache conditions in this instance (the reflection instance).  So,
-        # options are evaluated always. (The default implementation caches the
-        # options in a instance variable).
-        #
-        # It took me a long time debugging to find out why the specs concerning
-        # the Node class passed when run in isolation but not when all specs
-        # were ran together in a bulk.
-        @sanitized_conditions = klass.send(:sanitize_sql, options[:conditions])
-      end
-
-    end
-
-    # This association is not marked as `:dependent => :destroy` because the
-    # dependent destruction is done explicitly in a `before_destroy` callback
-    # below.
-    has_many(
-      :assignments,
-      :foreign_key => :node_id,
-      :class_name => 'AccessControl::Assignment'
-    )
-
-    has_many(
-      :principal_roles,
-      :through => :principal_assignments,
-      :source => :role
-    )
-
     def self.granted_for(securable_type, principals, permissions)
       with_type(securable_type).with_ids(
         Assignment.granting_for_principal(permissions, principals).node_ids
