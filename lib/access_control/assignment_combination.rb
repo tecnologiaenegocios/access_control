@@ -50,13 +50,14 @@ module AccessControl
       CODE
     end
 
-    attr_writer :include_existing_assignments
-    def include_existing_assignments
-      if @include_existing_assignments.nil?
-        true
-      else
-        @include_existing_assignments
-      end
+    attr_writer :skip_existing_assigments
+    def skip_existing_assigments
+      !!@skip_existing_assigments
+    end
+
+    attr_writer :only_existing_assigments
+    def only_existing_assigments
+      !!@only_existing_assigments
     end
 
   private
@@ -64,6 +65,7 @@ module AccessControl
     def clear_memoizations
       @instances = nil
       @existing_assignments = nil
+      @existing_combinations = nil
       @combinations = nil
     end
 
@@ -72,13 +74,8 @@ module AccessControl
     end
 
     def instance_for(combination)
-      instances[combination] ||= begin
-        if include_existing_assignments
-          existing_assignments[combination] || new_assignment(*combination)
-        else
-          new_assignment(*combination)
-        end
-      end
+      instances[combination] ||=
+        existing_assignments[combination] || new_assignment(*combination)
     end
 
     def existing_assignments
@@ -94,19 +91,24 @@ module AccessControl
     end
 
     def combinations
-      @combinations ||= begin
-        roles      = roles_ids.to_a
-        principals = principals_ids.to_a
-        nodes      = nodes_ids.to_a
+      @combinations ||=
+        begin
+          roles      = roles_ids.to_a
+          principals = principals_ids.to_a
+          nodes      = nodes_ids.to_a
 
-        combinations = Set.new(roles.product(principals, nodes))
-        if include_existing_assignments
+          combinations = Set.new(roles.product(principals, nodes))
+
+          if skip_existing_assigments
+            combinations.subtract(existing_combinations)
+          end
+
+          if only_existing_assigments
+            combinations.delete_if { |o| !existing_combinations.include?(o) }
+          end
+
           combinations
-        else
-          old_combinations = Set.new(existing_assignments.keys)
-          combinations.subtract(old_combinations)
         end
-      end
     end
 
     def normalize(value)
@@ -127,5 +129,8 @@ module AccessControl
       Util.compact_flat_set(value, &:id)
     end
 
+    def existing_combinations
+      @existing_combinations ||= Set.new(existing_assignments.keys)
+    end
   end
 end

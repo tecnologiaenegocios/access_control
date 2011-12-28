@@ -100,6 +100,20 @@ module AccessControl
 
     end
 
+    describe "flags" do
+      describe "#skip_existing_assigments" do
+        it "defaults to false" do
+          AssignmentCombination.new.skip_existing_assigments.should be_false
+        end
+      end
+
+      describe "#only_existing_assigments" do
+        it "defaults to false" do
+          AssignmentCombination.new.only_existing_assigments.should be_false
+        end
+      end
+    end
+
     describe "#all" do
       it "returns an Array" do
         subject.all.should be_kind_of Array
@@ -209,31 +223,57 @@ module AccessControl
           and_return(Set[existing_assignment])
       end
 
-      context "and 'include_existing_assignments' is true" do
-        before { subject.include_existing_assignments = true }
-
-        let(:return_value) { subject.all }
-
-        it "returns the existing assignment" do
-          return_value.should include(existing_assignment)
-        end
-
-        it "returns new assignments" do
-          return_value.should include(new_assignment)
-        end
-      end
-
-      context "and 'include_existing_assignments' is false" do
-        before { subject.include_existing_assignments = false }
+      context "and 'skip_existing_assigments' is true" do
+        before { subject.skip_existing_assigments = true }
 
         let(:return_value) { subject.all }
 
         it "doesn't return exising assignments" do
           return_value.should_not include(existing_assignment)
         end
+      end
+
+      context "and 'skip_existing_assigments' is false" do
+        before { subject.skip_existing_assigments = false }
+
+        let(:return_value) { subject.all }
+
+        it "returns the existing assignment" do
+          return_value.should include(existing_assignment)
+        end
+      end
+
+      context "and 'only_existing_assigments' is true" do
+        before { subject.only_existing_assigments = true }
+
+        let(:return_value) { subject.all }
+
+        it "doesn't return new assignments" do
+          return_value.should_not include(new_assignment)
+        end
+      end
+
+      context "and 'only_existing_assigments' is false" do
+        before { subject.only_existing_assigments = false }
+
+        let(:return_value) { subject.all }
 
         it "returns new assignments" do
           return_value.should include(new_assignment)
+        end
+      end
+
+      context "and both 'skip_existing_assigments' and "\
+              "'only_existing_assigments' are true" do
+        before do
+          subject.skip_existing_assigments = true
+          subject.only_existing_assigments = true
+        end
+
+        let(:return_value) { subject.all }
+
+        it "returns empty collection" do
+          return_value.should be_empty
         end
       end
     end
