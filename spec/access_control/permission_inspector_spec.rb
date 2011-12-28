@@ -3,14 +3,6 @@ require 'spec_helper'
 module AccessControl
   describe PermissionInspector do
 
-    def stub_node(*roles)
-      stubs = roles.extract_options!
-
-      stub("Node", stubs).tap do |node|
-        node.stub(:roles => roles)
-      end
-    end
-
     def stub_role(*permissions)
       stubs = permissions.extract_options!
 
@@ -19,9 +11,9 @@ module AccessControl
       end
     end
 
-    let(:node_ancestors) { [stub_node, stub_node] }
-    let(:node)           { stub_node(:unblocked_ancestors => node_ancestors)}
+    let(:node)           { stub(:unblocked_ancestors => node_ancestors)}
     let(:principals)     { stub("Current principals") }
+    let(:node_ancestors) { stub("Node ancestors") }
 
     subject { PermissionInspector.new(node, principals) }
 
