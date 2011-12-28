@@ -1,99 +1,91 @@
-require 'access_control/permission_inspector'
-require 'active_support'
+require 'spec_helper'
 
 module AccessControl
   describe PermissionInspector do
 
-    let(:parent_node) { stub_node('parent node') }
-    let(:node)        { stub_node('node', :ancestors => parent_node) }
+    def stub_node(*roles)
+      stubs = roles.extract_options!
 
-    def stub_node(name, *args)
-      properties = args.extract_options!
-
-      ancestors = Set.new Array(properties[:ancestors])
-      roles     = Set.new Array(properties[:roles])
-
-      stub(name, *args).tap do |node|
-        ancestors.add(node)
-        node.stub(:unblocked_ancestors => ancestors)
-        node.stub(:principal_roles     => roles)
+      stub("Node", stubs).tap do |node|
+        node.stub(:roles => roles)
       end
     end
 
-    def next_role_index
-      @roles_count ||= 0
-      @roles_count  += 1
+    def stub_role(*permissions)
+      stubs = permissions.extract_options!
+
+      stub("Role", stubs).tap do |role|
+        role.stub(:permissions => permissions)
+      end
     end
 
-    def role_with_permissions(*permissions)
-      index = next_role_index
-      stub("Role #{index}", :permissions => permissions)
-    end
+    let(:node_ancestors) { [stub_node, stub_node] }
+    let(:node)           { stub_node(:unblocked_ancestors => node_ancestors)}
+    let(:principals)     { stub("Current principals") }
 
-    subject { PermissionInspector.new(node) }
+    subject { PermissionInspector.new(node, principals) }
+
+    describe "on initialization" do
+      it "asks manager for the current principals when none is provided" do
+        current_principals = stub
+        AccessControl.manager.stub(:principals => current_principals)
+
+        subject = PermissionInspector.new(node)
+        subject.principals.should == current_principals
+      end
+
+      it "accepts a collection of principals" do
+        subject = PermissionInspector.new(node, principals)
+        subject.principals.should == principals
+      end
+    end
 
     describe "#current_roles" do
-      it "returns the roles that are assigned to the current principal" do
-        roles = [role_with_permissions('p1'), role_with_permissions('p2')]
-        node.stub(:principal_roles => roles)
 
-        subject.current_roles.should include *roles
-      end
+      it "returns roles assigned to the principals @ the node's ancestors" do
+        roles = [stub_role, stub_role]
+        Role.stub(:assigned_to).with(principals, node_ancestors).
+          and_return(roles)
 
-      it "returns roles that are assigned to the node's ancestors principal" do
-        roles = [role_with_permissions('p1'), role_with_permissions('p2')]
-        parent_node.stub(:principal_roles => roles)
-
-        subject.current_roles.should include *roles
+        subject.current_roles.should include(*roles)
+        subject.current_roles.count.should == roles.count
       end
     end
 
     describe "#permissions" do
-      it "returns the permissions in the node for the current principal" do
-        roles = [role_with_permissions('p1', 'p2'),
-                 role_with_permissions('p2', 'p3', 'p4')]
-        node.stub(:principal_roles => roles)
-
-        subject.permissions.should include('p1', 'p2', 'p3', 'p4')
+      def set_current_roles_as(roles)
+        Role.stub(:assigned_to).with(principals, node_ancestors).
+          and_return(roles)
       end
 
-      it "returns the permissions in ancestors nodes" do
-        roles = [role_with_permissions('p1', 'p2'),
-                 role_with_permissions('p2', 'p3', 'p4')]
-        parent_node.stub(:principal_roles => roles)
+      it "returns the permissions granted by the current roles" do
+        roles = [stub_role('p1', 'p2'), stub_role('p2', 'p3', 'p4')]
+        set_current_roles_as(roles)
 
         subject.permissions.should include('p1', 'p2', 'p3', 'p4')
       end
     end
 
     describe "#has_permission?" do
-      before do
-        roles = [role_with_permissions('p1', 'p2'),
-                 role_with_permissions('p2')]
-        node.stub(:principal_roles => roles)
-
-        parent_roles = [role_with_permissions('a1', 'a2'),
-                 role_with_permissions('a2')]
-        parent_node.stub(:principal_roles => parent_roles)
+      def set_current_roles_as(roles)
+        Role.stub(:assigned_to).with(principals, node_ancestors).
+          and_return(roles)
       end
 
-      it "returns true when all of the node's roles grant the permission" do
+      before do
+        roles = [stub_role('p1', 'p2'), stub_role('p2')]
+        set_current_roles_as(roles)
+      end
+
+      it "returns true when all of the current roles grant the permission" do
         subject.has_permission?('p2').should be_true
       end
 
-      it "returns true when one of the node's roles grant the permission" do
+      it "returns true when one of the current roles grant the permission" do
         subject.has_permission?('p1').should be_true
       end
 
-      it "returns true when all of the ancestor roles grant the permission" do
-        subject.has_permission?('a2').should be_true
-      end
-
-      it "returns true when one of the ancestor roles grant the permission" do
-        subject.has_permission?('a1').should be_true
-      end
-
-      it "returns false when none of the node's roles grant the permission" do
+      it "returns false when none of the current roles grant the permission" do
         subject.has_permission?('p5').should be_false
       end
     end

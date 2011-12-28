@@ -1,10 +1,10 @@
-require 'access_control/util'
-
 module AccessControl
   class PermissionInspector
 
-    def initialize(node)
-      @node = node
+    attr_reader :principals, :node
+    def initialize(node, principals = AccessControl.manager.principals)
+      @node       = node
+      @principals = principals
     end
 
     def has_permission?(permission)
@@ -16,7 +16,7 @@ module AccessControl
     end
 
     def current_roles
-      Util.compact_flat_set(@node.unblocked_ancestors, &:principal_roles)
+      Role.assigned_to(principals, node.unblocked_ancestors)
     end
 
   end
