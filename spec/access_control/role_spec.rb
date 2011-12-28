@@ -241,88 +241,45 @@ module AccessControl
     end
 
     describe "#assign_to" do
-
       let(:association_proxy) { stub('association proxy') }
-      let(:global_node) { stub_model(Node) }
       let(:principal) { stub_model(Principal) }
       let(:role) { Role.new }
 
+      let(:node) { stub_model(Node) }
+      let(:securable) { stub('securable object', :ac_node => node) }
+
       before do
-        AccessControl.stub(:global_node).and_return(global_node)
         role.stub(:assignments).and_return(association_proxy)
-        association_proxy.stub(:find_or_create_by_principal_id_and_node_id)
       end
 
       def make_assignment
-        role.assign_to(principal)
+        role.assign_to(principal, securable)
       end
 
-      context "without specifying a context" do
-        context "when an assignment already exists" do
-          before do
-            association_proxy.stub(:find_by_principal_id_and_node_id).
-              with(principal.id, global_node.id).
-              and_return('existing assignment')
-          end
-
-          it "returns the assignment" do
-            role.assign_to(principal).should == 'existing assignment'
-          end
+      context "when an assignment already exists" do
+        before do
+          association_proxy.stub(:find_by_principal_id_and_node_id).
+            with(principal.id, node.id).
+            and_return('existing assignment')
         end
 
-        context "when no assignment exists" do
-          before do
-            association_proxy.stub(:find_by_principal_id_and_node_id).
-              with(principal.id, global_node.id).
-              and_return(nil)
-          end
-
-          it "creates a new assignment" do
-            association_proxy.stub(:create!).
-              with(:principal_id => principal.id, :node_id => global_node.id).
-              and_return('created assignment')
-            make_assignment.should == 'created assignment'
-          end
+        it "returns the assignment" do
+          make_assignment.should == 'existing assignment'
         end
       end
 
-      context "specifying a context" do
-
-        let(:context) { stub('context object') }
-        let(:node) { stub_model(Node) }
-        let(:contextualizer) { stub('contextualizer', :nodes => Set[node]) }
-
-        def make_assignment
-          role.assign_to(principal, context)
+      context "when no assignment exists" do
+        before do
+          association_proxy.stub(:find_by_principal_id_and_node_id).
+            with(principal.id, node.id).
+            and_return(nil)
         end
 
-        before { Context.stub(:new).with(context).and_return(contextualizer) }
-
-        context "when an assignment already exists" do
-          before do
-            association_proxy.stub(:find_by_principal_id_and_node_id).
-              with(principal.id, node.id).
-              and_return('existing assignment')
-          end
-
-          it "returns the assignment" do
-            role.assign_to(principal, context).should == 'existing assignment'
-          end
-        end
-
-        context "when no assignment exists" do
-          before do
-            association_proxy.stub(:find_by_principal_id_and_node_id).
-              with(principal.id, node.id).
-              and_return(nil)
-          end
-
-          it "creates a new assignment" do
-            association_proxy.stub(:create!).
-              with(:principal_id => principal.id, :node_id => node.id).
-              and_return('created assignment')
-            make_assignment.should == 'created assignment'
-          end
+        it "creates a new assignment" do
+          association_proxy.stub(:create!).
+            with(:principal_id => principal.id, :node_id => node.id).
+            and_return('created assignment')
+          make_assignment.should == 'created assignment'
         end
       end
     end
@@ -336,85 +293,86 @@ module AccessControl
       let(:association_proxy) { stub('association proxy') }
       let(:global_node) { stub_model(Node) }
       let(:principal) { stub_model(Principal) }
-      let(:user) { stub('user object', :ac_principal => principal) }
       let(:role) { Role.new }
 
+      let(:securable) { stub('securable', :ac_node => node) }
+      let(:node) { stub_model(Node) }
+
       before do
-        AccessControl.stub(:global_node).and_return(global_node)
         role.stub(:assignments).and_return(association_proxy)
         association_proxy.stub(:exists?)
       end
 
       def test_assignment
-        role.assigned_to?(user)
+        role.assigned_to?(principal, securable)
       end
 
-      it "gets the principal of the user" do
-        pending("use principal instead of user, don't use options")
-        user.should_receive(:ac_principal)
-        test_assignment
+      it "should test the existence of the role by principal and node" do
+        association_proxy.stub(:exists?).with(
+          :principal_id => principal,
+          :node_id => node
+        ).and_return('the result of the query')
+        test_assignment.should == 'the result of the query'
       end
-
-      context "without specifying a context" do
-
-        it "gets the global node" do
-          pending("use principal instead of user, don't use options")
-          AccessControl.should_receive(:global_node).and_return(global_node)
-          test_assignment
-        end
-
-        it "should test the existence of the role by principal and node" do
-          pending("use principal instead of user, don't use options")
-          association_proxy.should_receive(:exists?).with(
-            :principal_id => principal,
-            :node_id => global_node
-          )
-          test_assignment
-        end
-
-      end
-
-      context "specifying a context" do
-
-        let(:context) { stub('context object') }
-        let(:node) { stub_model(Node) }
-        let(:contextualizer) { stub('contextualizer', :nodes => Set[node]) }
-
-        def test_assignment
-          role.assigned_to?(user, :at => context)
-        end
-
-        before do
-          Context.stub(:new).and_return(contextualizer)
-        end
-
-        it "initializes a Context object using the context provided" do
-          pending("use principal instead of user, don't use options")
-          Context.should_receive(:new).with(context).and_return(contextualizer)
-          test_assignment
-        end
-
-        it "gets the nodes from the contextualizer" do
-          pending("use principal instead of user, don't use options")
-          contextualizer.should_receive(:nodes).and_return(Set[node])
-          test_assignment
-        end
-
-        it "should test the existence of the role by principal and node" do
-          pending("use principal instead of user, don't use options")
-          association_proxy.should_receive(:exists?).with(
-            :principal_id => principal,
-            :node_id => node
-          )
-          test_assignment
-        end
-
-      end
-
     end
 
     describe "#unassign_from" do
-      it "unassigns a principal from the role"
+      let(:association_proxy) { stub('association proxy') }
+      let(:principal) { stub_model(Principal) }
+      let(:role) { Role.new }
+      let(:existing_assignment) { stub('assignment') }
+
+      before do
+        role.stub(:assignments).and_return(association_proxy)
+      end
+
+      def make_unassignment(securable=nil)
+        if securable
+          role.unassign_from(principal, securable)
+        else
+          role.unassign_from(principal)
+        end
+      end
+
+      context "when a securable is specified" do
+        let(:node) { stub_model(Node) }
+        let(:securable) { stub('securable object', :ac_node => node) }
+
+        context "when an assignment already exists" do
+          before do
+            association_proxy.stub(:find_by_principal_id_and_node_id).
+              with(principal.id, node.id).and_return(existing_assignment)
+          end
+
+          it "destroys the existing assignments" do
+            existing_assignment.should_receive(:destroy)
+            make_unassignment(securable)
+          end
+        end
+
+        context "when an assignment doesn't exists yet" do
+          before do
+            association_proxy.stub(:find_by_principal_id_and_node_id).
+              with(principal.id, node.id).and_return(nil)
+          end
+
+          it "does nothing" do
+            make_unassignment(securable)
+          end
+        end
+      end
+
+      context "when no securable is specified" do
+        before do
+          association_proxy.stub(:find_all_by_principal_id).
+            with(principal.id).and_return([existing_assignment])
+        end
+
+        it "destroys all the existing assignments of the principal" do
+          existing_assignment.should_receive(:destroy)
+          make_unassignment
+        end
+      end
     end
 
     describe "#assign_permission" do

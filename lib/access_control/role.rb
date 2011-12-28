@@ -56,8 +56,8 @@ module AccessControl
       Util.flat_set(security_policy_items, &:permission)
     end
 
-    def assign_to(principal, context=nil)
-      node = resolv_node_for_assignment(context)
+    def assign_to(principal, securable)
+      node = AccessControl::Node(securable)
       if found = assignments.find_by_principal_id_and_node_id(principal.id,
                                                               node.id)
         return found
@@ -65,10 +65,22 @@ module AccessControl
       assignments.create!(:principal_id => principal.id, :node_id => node.id)
     end
 
-    def assigned_to?(user, options={})
-      principal = user.ac_principal
-      node = resolv_node_for_assignment(options[:at])
+    def assigned_to?(principal, securable)
+      node = AccessControl::Node(securable)
       assignments.exists?(:principal_id => principal, :node_id => node)
+    end
+
+    def unassign_from(principal, securable=nil)
+      if securable
+        node = AccessControl::Node(securable)
+        item = assignments.find_by_principal_id_and_node_id(principal.id,
+                                                            node.id)
+        item.destroy if item
+      else
+        assignments.find_all_by_principal_id(principal.id).each do |item|
+          item.destroy
+        end
+      end
     end
 
     def assign_permission(permission)
@@ -84,14 +96,6 @@ module AccessControl
         assignments.each do |assignment|
           assignment.destroy
         end
-      end
-    end
-
-    def resolv_node_for_assignment(context)
-      if context
-        Context.new(context).nodes.first
-      else
-        AccessControl.global_node
       end
     end
   end
