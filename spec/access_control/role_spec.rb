@@ -73,8 +73,8 @@ module AccessControl
         Array.new.tap do |combination|
           combination.stub(:nodes=)
           combination.stub(:principals=)
-          combination.stub(:roles=)
-          combination.stub(:include_existing_assignments=)
+          combination.stub(:role_ids=)
+          combination.stub(:skip_existing_assigments=)
         end
       end
 
@@ -83,24 +83,24 @@ module AccessControl
 
       it "sets up the nodes of the combination using its parameter" do
         combination.should_receive(:nodes=).with(nodes)
-        Role.assign_all_to(principals,nodes,combination)
+        Role.assign_all_to(principals, nodes, combination)
       end
 
       it "sets up the nodes of the combination using its parameter" do
         combination.should_receive(:principals=).with(principals)
-        Role.assign_all_to(principals,nodes,combination)
+        Role.assign_all_to(principals, nodes, combination)
       end
 
-      it "sets the combination's 'roles' as being all roles" do
+      it "sets the combination's 'role_ids' as being all role ids" do
         roles = [Role.create!(:name => "foobar")]
-        combination.should_receive(:roles=).with(roles)
+        combination.should_receive(:role_ids=).with(roles.map(&:id))
 
-        Role.assign_all_to(principals,nodes,combination)
+        Role.assign_all_to(principals, nodes, combination)
       end
 
-      it "sets the combination's 'include_existing_assignments' to false" do
-        combination.should_receive(:include_existing_assignments=).with(false)
-        Role.assign_all_to(principals,nodes,combination)
+      it "sets the combination's 'skip_existing_assigments' to true" do
+        combination.should_receive(:skip_existing_assigments=).with(true)
+        Role.assign_all_to(principals, nodes, combination)
       end
 
       it "saves each returned assignment" do
@@ -108,7 +108,85 @@ module AccessControl
         combination << new_assignment
 
         new_assignment.should_receive(:save!)
-        Role.assign_all_to(principals,nodes,combination)
+        Role.assign_all_to(principals, nodes, combination)
+      end
+    end
+
+    describe ".unassign_all_from" do
+      let(:combination) do
+        Array.new.tap do |combination|
+          combination.stub(:nodes=)
+          combination.stub(:principals=)
+          combination.stub(:role_ids=)
+          combination.stub(:only_existing_assigments=)
+        end
+      end
+
+      let(:nodes)      { stub("Nodes collection")      }
+      let(:principals) { stub("Principals collection") }
+
+      def should_receive_without_assignment_restriction(tested_mock, method_name)
+        manager = stub('manager')
+        AccessControl.stub(:manager).and_return(manager)
+
+        tested_mock.should_receive(:_before_block).ordered
+        tested_mock.should_receive(method_name).ordered
+        tested_mock.should_receive(:_after_block).ordered
+
+        manager.define_singleton_method(:without_assignment_restriction) do |&b|
+          if block_given?
+            tested_mock._before_block
+            b.call
+            tested_mock._after_block
+          end
+        end
+
+        yield
+      end
+
+      it "sets up the nodes of the combination using its parameter" do
+        combination.should_receive(:nodes=).with(nodes)
+        Role.unassign_all_from(principals, nodes, true, combination)
+      end
+
+      it "sets up the nodes of the combination using its parameter" do
+        combination.should_receive(:principals=).with(principals)
+        Role.unassign_all_from(principals, nodes, true, combination)
+      end
+
+      it "sets the combination's 'role_ids' as being all role ids" do
+        roles = [Role.create!(:name => "foobar")]
+        combination.should_receive(:role_ids=).with(roles.map(&:id))
+
+        Role.unassign_all_from(principals, nodes, true, combination)
+      end
+
+      it "sets the combination's 'only_existing_assigments' to true" do
+        combination.should_receive(:only_existing_assigments=).with(true)
+        Role.unassign_all_from(principals, nodes, true, combination)
+      end
+
+      context "if restriction is enforced" do
+        it "destroys each returned assignment" do
+          # Assignment destruction itself will care about restriction.
+          new_assignment = stub("New assignment")
+          combination << new_assignment
+
+          new_assignment.should_receive(:destroy)
+          Role.unassign_all_from(principals, nodes, true, combination)
+        end
+      end
+
+      context "if restriction is not wanted" do
+        it "destroys each returned assignment in a unrestricted block" do
+          new_assignment = stub("New assignment")
+          combination << new_assignment
+
+          should_receive_without_assignment_restriction(new_assignment,
+                                                        :destroy) do
+            Role.unassign_all_from(principals, nodes, false, combination)
+          end
+        end
       end
     end
 

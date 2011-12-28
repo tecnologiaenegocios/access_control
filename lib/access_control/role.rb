@@ -43,12 +43,28 @@ module AccessControl
     end
 
     def self.assign_all_to(principals, nodes, combination = AssignmentCombination.new)
-      combination.nodes                        = nodes
-      combination.principals                   = principals
-      combination.roles                        = all
-      combination.include_existing_assignments = false
+      combination.nodes                    = nodes
+      combination.principals               = principals
+      combination.role_ids                 = ids
+      combination.skip_existing_assigments = true
 
       combination.each(&:save!)
+    end
+
+    def self.unassign_all_from(principals, nodes, restrict=true,
+                               combination=AssignmentCombination.new)
+      combination.nodes                    = nodes
+      combination.principals               = principals
+      combination.role_ids                 = ids
+      combination.only_existing_assigments = true
+
+      if restrict
+        combination.each(&:destroy)
+      else
+        AccessControl.manager.without_assignment_restriction do
+          combination.each(&:destroy)
+        end
+      end
     end
 
     def self.default
