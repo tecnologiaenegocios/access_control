@@ -71,6 +71,31 @@ module AccessControl
       end
     end
 
+    describe ".for_securable" do
+      let(:securable_class) { FakeSecurable }
+      let(:securable)       { securable_class.new }
+
+      context "when a corresponding node exists" do
+        let!(:node) do
+          Node.store(:securable_class => securable.class,
+                     :securable_id    => securable.id)
+        end
+
+        it "returns the existing node" do
+          returned_node = Node.for_securable(securable)
+          returned_node.should == node
+        end
+      end
+
+      context "when a corresponding node doesn't exist" do
+        it "returns a new Node with the correct properties set" do
+          node = Node.for_securable(securable)
+          node.securable_id.should    == securable.id
+          node.securable_class.should == securable.class
+        end
+      end
+    end
+
     describe ".clear_global_cache" do
       it "clears the global node cache" do
         prev_node = Node.global

@@ -9,6 +9,21 @@ module AccessControl
       Node::Persistent
     end
 
+    def for_securable(securable)
+      securable_id    = securable.id
+      securable_class = securable.class
+      type            = securable_class.name
+
+      persistent = Node::Persistent.with_type(type).
+                                    find_by_securable_id(securable_id)
+      if persistent
+        wrap(persistent)
+      else
+        new(:securable_id    => securable_id,
+            :securable_class => securable_class)
+      end
+    end
+
     def global!
       @global_node = load_global_node()
       @global_node || raise(NoGlobalNode)
