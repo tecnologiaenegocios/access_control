@@ -23,7 +23,7 @@ module AccessControl
 
     let(:manager)       { stub('manager') }
     let(:principals)    { ['principal1', 'principal2'] }
-    let(:default_roles) { stub('default roles scope', :assign_all_to => nil) }
+    let(:default_roles) { stub('default roles scope', :assign_all => nil) }
 
     before do
       AccessControl.stub(:manager).and_return(manager)
@@ -76,7 +76,7 @@ module AccessControl
         end
 
         it "sets default roles by assigning them to the node and principals" do
-          default_roles.should_receive(:assign_all_to).with(principals, node)
+          default_roles.should_receive(:assign_all).with(principals, node)
           instance.create
         end
 
@@ -84,7 +84,7 @@ module AccessControl
           node.should_receive(:persist!).ordered
           node.should_receive(:called_on_assignment).ordered
 
-          default_roles.define_singleton_method(:assign_all_to) do |p, n|
+          default_roles.define_singleton_method(:assign_all) do |p, n|
             n.called_on_assignment
           end
 

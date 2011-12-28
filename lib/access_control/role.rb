@@ -47,7 +47,7 @@ module AccessControl
       scoped(:conditions => { :id => related_assignments.role_ids })
     end
 
-    def self.assign_all_to(principals, nodes, combination = AssignmentCombination.new)
+    def self.assign_all(principals, nodes, combination = AssignmentCombination.new)
       combination.nodes                    = nodes
       combination.principals               = principals
       combination.role_ids                 = ids
@@ -56,19 +56,24 @@ module AccessControl
       combination.each(&:save!)
     end
 
-    def self.unassign_all_from(principals, nodes, restrict=true,
-                               combination=AssignmentCombination.new)
+    def self.unassign_all(principals, nodes, combination=AssignmentCombination.new)
       combination.nodes                    = nodes
       combination.principals               = principals
       combination.role_ids                 = ids
       combination.only_existing_assigments = true
 
-      if restrict
-        combination.each(&:destroy)
-      else
-        AccessControl.manager.without_assignment_restriction do
-          combination.each(&:destroy)
-        end
+      combination.each(&:destroy)
+    end
+
+    def self.unassign_all_from(principal)
+      assigned_to(principal).each do |role|
+        role.unassign_from(principal)
+      end
+    end
+
+    def self.unassign_all_at(node)
+      assigned_at(node).each do |role|
+        role.unassign_at(node)
       end
     end
 
@@ -87,18 +92,15 @@ module AccessControl
       Util.flat_set(security_policy_items, &:permission)
     end
 
-    def assign_to(principal, securable)
-      node = AccessControl::Node(securable)
-      if found = assignments.find_by_principal_id_and_node_id(principal.id,
-                                                              node.id)
+    def assign_to(principal, node)
+      if found = find_assignments_of(principal, node)
         return found
       end
       assignments.create!(:principal_id => principal.id, :node_id => node.id)
     end
 
-    def assigned_to?(principal, securable)
-      node = AccessControl::Node(securable)
-      assignments.exists?(:principal_id => principal, :node_id => node)
+    def assigned_to?(principal, node)
+      assignments.exists?(:principal_id => principal.id, :node_id => node.id)
     end
 
     def unassign_from(principal, node=nil)
@@ -109,6 +111,17 @@ module AccessControl
           item.destroy
         end
       end
+    end
+
+    def assign_at(node, principal)
+      if found = find_assignments_of(principal, node)
+        return found
+      end
+      assignments.create!(:principal_id => principal.id, :node_id => node.id)
+    end
+
+    def assigned_at?(node, principal)
+      assignments.exists?(:principal_id => principal.id, :node_id => node.id)
     end
 
     def unassign_at(node, principal=nil)
@@ -126,6 +139,10 @@ module AccessControl
     end
 
   private
+
+    def find_assignments_of(principal, node)
+      assignments.find_by_principal_id_and_node_id(principal.id, node.id)
+    end
 
     def destroy_existing_assignment_of(principal, node)
       if item = assignments.

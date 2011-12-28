@@ -6,6 +6,25 @@ module AccessControl
 
     let(:manager) { Manager.new }
 
+    def should_receive_without_assignment_restriction(tested_mock, method_name)
+      manager = stub('manager')
+      AccessControl.stub(:manager).and_return(manager)
+
+      tested_mock.should_receive(:_before_block).ordered
+      tested_mock.should_receive(method_name).ordered
+      tested_mock.should_receive(:_after_block).ordered
+
+      manager.define_singleton_method(:without_assignment_restriction) do |&b|
+        if block_given?
+          tested_mock._before_block
+          b.call
+          tested_mock._after_block
+        end
+      end
+
+      yield
+    end
+
     before do
       AccessControl.stub(:manager).and_return(manager)
     end
@@ -90,7 +109,7 @@ module AccessControl
       end
     end
 
-    describe ".assign_all_to" do
+    describe ".assign_all" do
       let(:combination) do
         Array.new.tap do |combination|
           combination.stub(:nodes=)
@@ -105,24 +124,24 @@ module AccessControl
 
       it "sets up the nodes of the combination using its parameter" do
         combination.should_receive(:nodes=).with(nodes)
-        Role.assign_all_to(principals, nodes, combination)
+        Role.assign_all(principals, nodes, combination)
       end
 
       it "sets up the nodes of the combination using its parameter" do
         combination.should_receive(:principals=).with(principals)
-        Role.assign_all_to(principals, nodes, combination)
+        Role.assign_all(principals, nodes, combination)
       end
 
       it "sets the combination's 'role_ids' as being all role ids" do
         roles = [Role.create!(:name => "foobar")]
         combination.should_receive(:role_ids=).with(roles.map(&:id))
 
-        Role.assign_all_to(principals, nodes, combination)
+        Role.assign_all(principals, nodes, combination)
       end
 
       it "sets the combination's 'skip_existing_assigments' to true" do
         combination.should_receive(:skip_existing_assigments=).with(true)
-        Role.assign_all_to(principals, nodes, combination)
+        Role.assign_all(principals, nodes, combination)
       end
 
       it "saves each returned assignment" do
@@ -130,11 +149,11 @@ module AccessControl
         combination << new_assignment
 
         new_assignment.should_receive(:save!)
-        Role.assign_all_to(principals, nodes, combination)
+        Role.assign_all(principals, nodes, combination)
       end
     end
 
-    describe ".unassign_all_from" do
+    describe ".unassign_all" do
       let(:combination) do
         Array.new.tap do |combination|
           combination.stub(:nodes=)
@@ -147,68 +166,65 @@ module AccessControl
       let(:nodes)      { stub("Nodes collection")      }
       let(:principals) { stub("Principals collection") }
 
-      def should_receive_without_assignment_restriction(tested_mock, method_name)
-        manager = stub('manager')
-        AccessControl.stub(:manager).and_return(manager)
-
-        tested_mock.should_receive(:_before_block).ordered
-        tested_mock.should_receive(method_name).ordered
-        tested_mock.should_receive(:_after_block).ordered
-
-        manager.define_singleton_method(:without_assignment_restriction) do |&b|
-          if block_given?
-            tested_mock._before_block
-            b.call
-            tested_mock._after_block
-          end
-        end
-
-        yield
-      end
-
       it "sets up the nodes of the combination using its parameter" do
         combination.should_receive(:nodes=).with(nodes)
-        Role.unassign_all_from(principals, nodes, true, combination)
+        Role.unassign_all(principals, nodes, combination)
       end
 
       it "sets up the nodes of the combination using its parameter" do
         combination.should_receive(:principals=).with(principals)
-        Role.unassign_all_from(principals, nodes, true, combination)
+        Role.unassign_all(principals, nodes, combination)
       end
 
       it "sets the combination's 'role_ids' as being all role ids" do
         roles = [Role.create!(:name => "foobar")]
         combination.should_receive(:role_ids=).with(roles.map(&:id))
 
-        Role.unassign_all_from(principals, nodes, true, combination)
+        Role.unassign_all(principals, nodes, combination)
       end
 
       it "sets the combination's 'only_existing_assigments' to true" do
         combination.should_receive(:only_existing_assigments=).with(true)
-        Role.unassign_all_from(principals, nodes, true, combination)
+        Role.unassign_all(principals, nodes, combination)
       end
 
-      context "if restriction is enforced" do
-        it "destroys each returned assignment" do
-          # Assignment destruction itself will care about restriction.
-          new_assignment = stub("New assignment")
-          combination << new_assignment
+      it "destroys each returned assignment" do
+        # Assignment destruction itself will care about restriction.
+        new_assignment = stub("New assignment")
+        combination << new_assignment
 
-          new_assignment.should_receive(:destroy)
-          Role.unassign_all_from(principals, nodes, true, combination)
-        end
+        new_assignment.should_receive(:destroy)
+        Role.unassign_all(principals, nodes, combination)
+      end
+    end
+
+    describe ".unassign_all_from" do
+      let(:principal) { stub("Principal", :id => 123) }
+      let(:role)      { Role.create!(:name => "Foo")  }
+
+      before do
+        node = stub("Node", :id => -1)
+        role.assign_to(principal, node)
       end
 
-      context "if restriction is not wanted" do
-        it "destroys each returned assignment in a unrestricted block" do
-          new_assignment = stub("New assignment")
-          combination << new_assignment
+      it "unassigns all roles from the principals given" do
+        Role.unassign_all_from(principal)
+        Role.assigned_to(principal).should be_empty
+      end
+    end
 
-          should_receive_without_assignment_restriction(new_assignment,
-                                                        :destroy) do
-            Role.unassign_all_from(principals, nodes, false, combination)
-          end
-        end
+    describe ".unassign_all_at" do
+      let(:node) { stub("Node", :id => 123) }
+      let(:role) { Role.create!(:name => "Foo")  }
+
+      before do
+        principal = stub("Principal", :id => -1)
+        role.assign_at(node, principal)
+      end
+
+      it "unassigns all roles from the principals given" do
+        Role.unassign_all_at(node)
+        Role.assigned_at(node).should be_empty
       end
     end
 
@@ -381,190 +397,104 @@ module AccessControl
       end
     end
 
-    describe "#assign_to" do
-      let(:association_proxy) { stub('association proxy') }
+    describe "role assignment in principals and nodes" do
+      let(:role) { Role.create!(:name => 'role') }
       let(:principal) { stub_model(Principal) }
-      let(:role) { Role.new }
-
       let(:node) { stub_model(Node) }
-      let(:securable) { stub('securable object', :ac_node => node) }
+      let(:other_node) { stub_model(Node) }
 
-      before do
-        role.stub(:assignments).and_return(association_proxy)
+      specify "roles are not initially assigned" do
+        role.should_not be_assigned_to(principal, node)
       end
 
-      def make_assignment
-        role.assign_to(principal, securable)
+      it "assigns a role to a principal in the given node" do
+        role.assign_to(principal, node)
+        role.should be_assigned_to(principal, node)
       end
 
-      context "when an assignment already exists" do
-        before do
-          association_proxy.stub(:find_by_principal_id_and_node_id).
-            with(principal.id, node.id).
-            and_return('existing assignment')
-        end
-
-        it "returns the assignment" do
-          make_assignment.should == 'existing assignment'
-        end
+      it "doesn't cause trouble if assigned more than once" do
+        role.assign_to(principal, node)
+        role.assign_to(principal, node)
       end
 
-      context "when no assignment exists" do
-        before do
-          association_proxy.stub(:find_by_principal_id_and_node_id).
-            with(principal.id, node.id).
-            and_return(nil)
-        end
-
-        it "creates a new assignment" do
-          association_proxy.stub(:create!).
-            with(:principal_id => principal.id, :node_id => node.id).
-            and_return('created assignment')
-          make_assignment.should == 'created assignment'
-        end
-      end
-    end
-
-    describe "#assigned_to?" do
-
-      let(:association_proxy) { stub('association proxy') }
-      let(:global_node) { stub_model(Node) }
-      let(:principal) { stub_model(Principal) }
-      let(:role) { Role.new }
-
-      let(:securable) { stub('securable', :ac_node => node) }
-      let(:node) { stub_model(Node) }
-
-      before do
-        role.stub(:assignments).and_return(association_proxy)
-        association_proxy.stub(:exists?)
-      end
-
-      def test_assignment
-        role.assigned_to?(principal, securable)
-      end
-
-      it "should test the existence of the role by principal and node" do
-        association_proxy.stub(:exists?).with(
-          :principal_id => principal,
-          :node_id => node
-        ).and_return('the result of the query')
-        test_assignment.should == 'the result of the query'
-      end
-    end
-
-    describe "#unassign_from" do
-      let(:association_proxy) { stub('association proxy') }
-      let(:principal) { stub_model(Principal) }
-      let(:role) { Role.new }
-      let(:existing_assignment) { stub('assignment') }
-
-      before do
-        role.stub(:assignments).and_return(association_proxy)
-      end
-
-      def make_unassignment(node=nil)
-        if node
+      describe "unassignment" do
+        it "unassigns a role from a principal in the given node" do
+          role.assign_to(principal, node)
           role.unassign_from(principal, node)
-        else
+
+          role.should_not be_assigned_to(principal, node)
+        end
+
+        specify "if node is not assigned, doesn't cause error" do
+          role.unassign_from(principal, other_node)
+        end
+
+        specify "if node is not assigned, other nodes are still assigned" do
+          role.assign_to(principal, node)
+          role.unassign_from(principal, other_node)
+
+          role.should be_assigned_to(principal, node)
+        end
+
+        specify "when node is not specified, all nodes are unassigned" do
+          role.assign_to(principal, node)
+          role.assign_to(principal, other_node)
+
           role.unassign_from(principal)
-        end
-      end
 
-      context "when a node is specified" do
-        let(:node) { stub_model(Node) }
-
-        context "when an assignment already exists" do
-          before do
-            association_proxy.stub(:find_by_principal_id_and_node_id).
-              with(principal.id, node.id).and_return(existing_assignment)
-          end
-
-          it "destroys the existing assignments" do
-            existing_assignment.should_receive(:destroy)
-            make_unassignment(node)
-          end
-        end
-
-        context "when an assignment doesn't exists yet" do
-          before do
-            association_proxy.stub(:find_by_principal_id_and_node_id).
-              with(principal.id, node.id).and_return(nil)
-          end
-
-          it "does nothing" do
-            make_unassignment(node)
-          end
-        end
-      end
-
-      context "when no node is specified" do
-        before do
-          association_proxy.stub(:find_all_by_principal_id).
-            with(principal.id).and_return([existing_assignment])
-        end
-
-        it "destroys all the existing assignments of the principal" do
-          existing_assignment.should_receive(:destroy)
-          make_unassignment
+          role.should_not be_assigned_to(principal, node)
+          role.should_not be_assigned_to(principal, other_node)
         end
       end
     end
 
-    describe "#unassign_at" do
-      let(:association_proxy) { stub('association proxy') }
+    describe "role assignment in nodes and principals" do
+      let(:role) { Role.create!(:name => 'role') }
+      let(:principal) { stub_model(Principal) }
+      let(:other_principal) { stub_model(Principal) }
       let(:node) { stub_model(Node) }
-      let(:role) { Role.new }
-      let(:existing_assignment) { stub('assignment') }
 
-      before do
-        role.stub(:assignments).and_return(association_proxy)
+      specify "roles are not initially assigned" do
+        role.should_not be_assigned_at(node, principal)
       end
 
-      def make_unassignment(principal=nil)
-        if principal
+      it "assigns a role in the given node to a principal" do
+        role.assign_at(node, principal)
+        role.should be_assigned_at(node, principal)
+      end
+
+      it "doesn't cause trouble if assigned more than once" do
+        role.assign_at(node, principal)
+        role.assign_at(node, principal)
+      end
+
+      describe "unassignment" do
+        it "unassigns a role from a principal in the given node" do
+          role.assign_at(node, principal)
           role.unassign_at(node, principal)
-        else
+
+          role.should_not be_assigned_at(node, principal)
+        end
+
+        specify "if principal is not assigned, doesn't cause error" do
+          role.unassign_at(node, other_principal)
+        end
+
+        specify "if node is not assigned, other nodes are still assigned" do
+          role.assign_at(node, principal)
+          role.unassign_at(node, other_principal)
+
+          role.should be_assigned_at(node, principal)
+        end
+
+        specify "when node is not specified, all nodes are unassigned" do
+          role.assign_at(node, principal)
+          role.assign_at(node, other_principal)
+
           role.unassign_at(node)
-        end
-      end
 
-      context "when a principal is specified" do
-        let(:principal) { stub_model(Principal) }
-
-        context "when an assignment already exists" do
-          before do
-            association_proxy.stub(:find_by_principal_id_and_node_id).
-              with(principal.id, node.id).and_return(existing_assignment)
-          end
-
-          it "destroys the existing assignments" do
-            existing_assignment.should_receive(:destroy)
-            make_unassignment(principal)
-          end
-        end
-
-        context "when an assignment doesn't exists yet" do
-          before do
-            association_proxy.stub(:find_by_principal_id_and_node_id).
-              with(principal.id, node.id).and_return(nil)
-          end
-
-          it "does nothing" do
-            make_unassignment(principal)
-          end
-        end
-      end
-
-      context "when no principal is specified" do
-        before do
-          association_proxy.stub(:find_all_by_node_id).
-            with(node.id).and_return([existing_assignment])
-        end
-
-        it "destroys all the existing assignments of the principal" do
-          existing_assignment.should_receive(:destroy)
-          make_unassignment
+          role.should_not be_assigned_at(node, principal)
+          role.should_not be_assigned_at(node, other_principal)
         end
       end
     end
