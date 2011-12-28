@@ -80,7 +80,7 @@ module AccessControl
 
     def destroy
       AccessControl.manager.without_assignment_restriction do
-        Role.all.each { |role| role.unassign_from(self) }
+        Role.assigned_to(self).each { |role| role.unassign_from(self) }
       end
       super
     end

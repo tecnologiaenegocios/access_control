@@ -96,7 +96,7 @@ module AccessControl
       let(:role) { stub('role', :unassign_from => nil) }
 
       before do
-        Role.stub(:all).and_return([role])
+        Role.stub(:assigned_to).with(principal).and_return([role])
       end
 
       def should_receive_without_assignment_restriction(tested_mock, method)
