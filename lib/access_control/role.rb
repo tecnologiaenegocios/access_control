@@ -32,6 +32,16 @@ module AccessControl
       { :conditions => { :id => ids } }
     }
 
+    def self.assigned_to(principal)
+      related_assignments = Assignment.assigned_to(principal)
+      scoped(:conditions => { :id => related_assignments.role_ids })
+    end
+
+    def self.assigned_at(nodes)
+      related_assignments = Assignment.with_nodes(nodes)
+      scoped(:conditions => { :id => related_assignments.role_ids })
+    end
+
     def self.assign_all_to(principals, nodes, combination = AssignmentCombination.new)
       combination.nodes                        = nodes
       combination.principals                   = principals

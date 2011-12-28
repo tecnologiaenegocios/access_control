@@ -27,6 +27,47 @@ module AccessControl
       Role.singleton_class.should include(AccessControl::Ids)
     end
 
+    describe ".assigned_to" do
+      let(:principal) { stub("Principal", :id => 123) }
+      let(:role)      { Role.create!(:name => "Foo")  }
+
+      before do
+        node = stub("Node", :id => -1)
+        AccessControl.stub(:Node).with(node).and_return(node)
+        role.assign_to(principal, node)
+      end
+
+      it "includes roles that were assigned to the given principal" do
+        Role.assigned_to(principal).should include role
+      end
+
+      it "doesn't include roles that not assigned to the given principal" do
+        other_role = Role.create!(:name => "Bar")
+        Role.assigned_to(principal).should_not include other_role
+      end
+    end
+
+    describe ".assigned_at" do
+      let(:node) { stub("Node", :id => 123)     }
+      let(:role) { Role.create!(:name => "Foo") }
+
+      before do
+        AccessControl.stub(:Node).with(node).and_return(node)
+
+        principal = stub("Principal", :id => -1)
+        role.assign_to(principal, node)
+      end
+
+      it "includes roles that were assigned on the given node" do
+        Role.assigned_at(node).should include role
+      end
+
+      it "doesn't include roles that not assigned at the given node" do
+        other_role = Role.create!(:name => "Bar")
+        Role.assigned_at(node).should_not include other_role
+      end
+    end
+
     describe ".assign_all_to" do
       let(:combination) do
         Array.new.tap do |combination|
@@ -282,10 +323,6 @@ module AccessControl
           make_assignment.should == 'created assignment'
         end
       end
-    end
-
-    describe "#assigned_to" do
-      it "returns roles associated with the principal provided"
     end
 
     describe "#assigned_to?" do
