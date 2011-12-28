@@ -100,7 +100,7 @@ module AccessControl
         AccessControl.manager.use_anonymous!
         yield
       ensure
-        AccessControl::Principal.clear_anonymous_principal_cache
+        AccessControl::Principal.clear_anonymous_cache
         AccessControl.no_manager
         AccessControl::Node.clear_global_cache
       end

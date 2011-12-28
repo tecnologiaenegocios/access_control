@@ -332,7 +332,7 @@ module AccessControl
         it "clears the anonymous principal cache" do
           AccessControl::Principal.should_receive(:block_called).ordered
           AccessControl::Principal.
-            should_receive(:clear_anonymous_principal_cache).ordered
+            should_receive(:clear_anonymous_cache).ordered
           records_controller.process do
             AccessControl::Principal.block_called
           end

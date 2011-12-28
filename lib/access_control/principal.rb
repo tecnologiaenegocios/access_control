@@ -1,78 +1,96 @@
+require 'access_control/persistable'
+
 module AccessControl
+  def AccessControl.Principal(object)
+    if object.kind_of?(AccessControl::Principal)
+      object
+    elsif object.respond_to?(:ac_principal)
+      object.ac_principal
+    else
+      raise UnrecognizedSubject
+    end
+  end
 
-  class Principal < ActiveRecord::Base
-    set_table_name :ac_principals
-    belongs_to :subject, :polymorphic => true
-    has_many :assignments,
-             :class_name => 'AccessControl::Assignment',
-             :dependent => :destroy
+  class Principal
+    include Persistable
 
-    def self.anonymous
-      @anonymous ||= find_by_subject_type_and_subject_id(
-        anonymous_subject_type,
-        anonymous_subject_id
-      )
+    class Persistent < ActiveRecord::Base
+      set_table_name :ac_principals
     end
 
-    def self.anonymous_id
-      anonymous.id
+    class << self
+      def persistent_model
+        Persistent
+      end
+
+      def anonymous!
+        @anonymous = load_anonymous_principal
+        @anonymous || raise(NoAnonymousPrincipal)
+      end
+
+      def anonymous
+        @anonymous ||= create_anonymous_principal
+      end
+
+      def clear_anonymous_cache
+        @anonymous = nil
+      end
+
+    private
+
+      def create_anonymous_principal
+        load_anonymous_principal ||
+          wrap(Persistent.create!(anonymous_properties))
+      end
+
+      def load_anonymous_principal
+        persistent = Persistent.first(:conditions => anonymous_properties)
+        wrap(persistent) if persistent
+      end
+
+      def anonymous_properties
+        {
+          :subject_type => AccessControl.anonymous_subject_type,
+          :subject_id   => AccessControl.anonymous_subject_id
+        }
+      end
     end
 
-    def self.with_assignments
-      ids_with_assignments = Assignment.all.map(&:principal_id).uniq
+    def initialize(properties={})
+      properties.delete(:subject_type) if properties[:subject_class]
+      super(properties)
+    end
 
-      scoped(:conditions => {:id => ids_with_assignments})
+    def subject_class= klass
+      self.subject_type = klass.name
+      @subject_class    = klass
+    end
+
+    def subject_class
+      @subject_class ||= subject_type.constantize
+    end
+
+    def subject
+      @subject ||= subject_class.unrestricted_find(subject_id)
     end
 
     def anonymous?
-      subject_type == self.class.anonymous_subject_type &&
-        subject_id == self.class.anonymous_subject_id
+      id == AccessControl.anonymous_id
     end
 
-    def self.create_anonymous_principal!
-      create!(
-        :subject_type => anonymous_subject_type,
-        :subject_id => anonymous_subject_id
-      )
+    def destroy
+      AccessControl.manager.without_assignment_restriction do
+        Role.all.each { |role| role.unassign_from(self) }
+      end
+      persistent.destroy
     end
-
-    def self.anonymous_subject_type
-      AnonymousUser.name
-    end
-
-    def self.anonymous_subject_id
-      0
-    end
-
-    def self.clear_anonymous_principal_cache
-      @anonymous = nil
-    end
-
-  end
-
-  class AnonymousUser
-
-    include Singleton
-
-    def self.find(*args)
-      return instance
-    end
-
-    def ac_principal
-      Principal.anonymous
-    end
-
-    def id
-      Principal.anonymous_subject_id
-    end
-
   end
 
   class UnrestrictablePrincipal
 
     include Singleton
 
-    ID = Object.new
+    ID = Object.new.object_id
 
     def id
       ID
@@ -89,5 +107,4 @@ module AccessControl
     end
 
   end
-
 end

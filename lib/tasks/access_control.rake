@@ -4,10 +4,7 @@ namespace :db do
     desc "Access control seeds"
     task :seed => :environment do
       AccessControl::Node.global!
-
-      if !AccessControl::Principal.anonymous
-        AccessControl::Principal.create_anonymous_principal!
-      end
+      AccessControl::Principal.anonymous!
     end
 
     desc "Generate access control migration"

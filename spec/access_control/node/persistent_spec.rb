@@ -14,7 +14,6 @@ module AccessControl
 
       before do
         AccessControl.stub(:manager).and_return(manager)
-        Principal.create_anonymous_principal!
       end
 
       describe ".with_type" do
