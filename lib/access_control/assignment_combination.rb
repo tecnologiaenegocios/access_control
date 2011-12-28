@@ -14,6 +14,10 @@ module AccessControl
       each.to_a
     end
 
+    def size
+      combinations.size
+    end
+
     def initialize(properties = {})
       properties.each do |property, value|
         public_send("#{property}=", value)
