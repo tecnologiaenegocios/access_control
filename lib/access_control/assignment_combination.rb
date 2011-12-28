@@ -2,18 +2,11 @@ module AccessControl
   class AssignmentCombination
     include Enumerable
 
-    def each(&block)
-      if block_given?
-        combinations.each do |combination|
-          block.call instance_for(combination)
-        end
-        @instances.values_at(*combinations)
-      else
-        Enumerator.new do |yielder|
-          combinations.each do |combination|
-            yielder.yield instance_for(combination)
-          end
-        end
+    def each
+      return to_enum(:each) unless block_given?
+
+      combinations.map do |combination|
+        instance_for(combination).tap { |i| yield i }
       end
     end
 
@@ -35,7 +28,7 @@ module AccessControl
         attr_reader :#{property}_ids         #  attr_reader :roles_ids
                                              #
         def #{property}_ids=(ids)            #  def roles_ids=(ids)
-          @instances = nil                   #    @instances = nil
+          clear_memoizations                 #    clear_memoizations
           @#{property}_ids = normalize(ids)  #    @roles_ids = normalize(ids)
         end                                  #  end
                                              #
@@ -43,7 +36,7 @@ module AccessControl
                        :#{property}_ids=     #                 :role_ids=
                                              #
         def #{property}=(values)             #  def roles=(values)
-          @instances = nil                   #    @instances = nil
+          clear_memoizations                 #    clear_memoizations
           @#{property}_ids =                 #    @roles_ids =
             normalize_instances(values)      #      normalize_instances(values)
         end                                  #  end
@@ -62,12 +55,25 @@ module AccessControl
       end
     end
 
-    private
+  private
+
+    def clear_memoizations
+      @instances = nil
+      @existing_assignments = nil
+      @combinations = nil
+    end
+
+    def instances
+      @instances ||= {}
+    end
 
     def instance_for(combination)
-      @instances ||= {}
-      @instances[combination] ||= begin
-        existing_assignments[combination] || new_assignment(*combination)
+      instances[combination] ||= begin
+        if include_existing_assignments
+          existing_assignments[combination] || new_assignment(*combination)
+        else
+          new_assignment(*combination)
+        end
       end
     end
 
@@ -84,16 +90,18 @@ module AccessControl
     end
 
     def combinations
-      roles      = roles_ids.to_a
-      principals = principals_ids.to_a
-      nodes      = nodes_ids.to_a
+      @combinations ||= begin
+        roles      = roles_ids.to_a
+        principals = principals_ids.to_a
+        nodes      = nodes_ids.to_a
 
-      combinations = roles.product(principals, nodes)
-      if include_existing_assignments
-        combinations
-      else
-        old_combinations = existing_assignments.keys
-        combinations.reject { |c| old_combinations.include?(c) }
+        combinations = Set.new(roles.product(principals, nodes))
+        if include_existing_assignments
+          combinations
+        else
+          old_combinations = Set.new(existing_assignments.keys)
+          combinations.subtract(old_combinations)
+        end
       end
     end
 
