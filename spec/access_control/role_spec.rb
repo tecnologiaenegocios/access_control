@@ -363,17 +363,16 @@ module AccessControl
         role.stub(:assignments).and_return(association_proxy)
       end
 
-      def make_unassignment(securable=nil)
-        if securable
-          role.unassign_from(principal, securable)
+      def make_unassignment(node=nil)
+        if node
+          role.unassign_from(principal, node)
         else
           role.unassign_from(principal)
         end
       end
 
-      context "when a securable is specified" do
+      context "when a node is specified" do
         let(:node) { stub_model(Node) }
-        let(:securable) { stub('securable object', :ac_node => node) }
 
         context "when an assignment already exists" do
           before do
@@ -383,7 +382,7 @@ module AccessControl
 
           it "destroys the existing assignments" do
             existing_assignment.should_receive(:destroy)
-            make_unassignment(securable)
+            make_unassignment(node)
           end
         end
 
@@ -394,15 +393,73 @@ module AccessControl
           end
 
           it "does nothing" do
-            make_unassignment(securable)
+            make_unassignment(node)
           end
         end
       end
 
-      context "when no securable is specified" do
+      context "when no node is specified" do
         before do
           association_proxy.stub(:find_all_by_principal_id).
             with(principal.id).and_return([existing_assignment])
+        end
+
+        it "destroys all the existing assignments of the principal" do
+          existing_assignment.should_receive(:destroy)
+          make_unassignment
+        end
+      end
+    end
+
+    describe "#unassign_at" do
+      let(:association_proxy) { stub('association proxy') }
+      let(:node) { stub_model(Node) }
+      let(:role) { Role.new }
+      let(:existing_assignment) { stub('assignment') }
+
+      before do
+        role.stub(:assignments).and_return(association_proxy)
+      end
+
+      def make_unassignment(principal=nil)
+        if principal
+          role.unassign_at(node, principal)
+        else
+          role.unassign_at(node)
+        end
+      end
+
+      context "when a principal is specified" do
+        let(:principal) { stub_model(Principal) }
+
+        context "when an assignment already exists" do
+          before do
+            association_proxy.stub(:find_by_principal_id_and_node_id).
+              with(principal.id, node.id).and_return(existing_assignment)
+          end
+
+          it "destroys the existing assignments" do
+            existing_assignment.should_receive(:destroy)
+            make_unassignment(principal)
+          end
+        end
+
+        context "when an assignment doesn't exists yet" do
+          before do
+            association_proxy.stub(:find_by_principal_id_and_node_id).
+              with(principal.id, node.id).and_return(nil)
+          end
+
+          it "does nothing" do
+            make_unassignment(principal)
+          end
+        end
+      end
+
+      context "when no principal is specified" do
+        before do
+          association_proxy.stub(:find_all_by_node_id).
+            with(node.id).and_return([existing_assignment])
         end
 
         it "destroys all the existing assignments of the principal" do

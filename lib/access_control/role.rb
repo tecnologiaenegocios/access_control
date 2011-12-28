@@ -80,16 +80,21 @@ module AccessControl
       assignments.exists?(:principal_id => principal, :node_id => node)
     end
 
-    def unassign_from(principal, securable=nil)
-      if securable
-        node = AccessControl::Node(securable)
-        item = assignments.find_by_principal_id_and_node_id(principal.id,
-                                                            node.id)
-        item.destroy if item
+    def unassign_from(principal, node=nil)
+      if node
+        destroy_existing_assignment_of(principal, node)
       else
         assignments.find_all_by_principal_id(principal.id).each do |item|
           item.destroy
         end
+      end
+    end
+
+    def unassign_at(node, principal=nil)
+      if principal
+        destroy_existing_assignment_of(principal, node)
+      else
+        assignments.find_all_by_node_id(node.id).each { |item| item.destroy }
       end
     end
 
@@ -100,6 +105,13 @@ module AccessControl
     end
 
   private
+
+    def destroy_existing_assignment_of(principal, node)
+      if item = assignments.
+          find_by_principal_id_and_node_id(principal.id, node.id)
+        item.destroy
+      end
+    end
 
     def destroy_dependant_assignments
       AccessControl.manager.without_assignment_restriction do
