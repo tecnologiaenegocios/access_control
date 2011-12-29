@@ -429,23 +429,33 @@ module AccessControl
     describe "a role's permissions" do
       subject { Role.new(:name => "Irrelevant") }
 
-      specify "are added through the #assign_permissions method" do
-        subject.assign_permission("p1")
+      specify "are added through the #add_permissions method" do
+        subject.add_permissions("p1")
         subject.permissions.should include("p1")
       end
 
-      specify "can be many" do
-        subject.assign_permission("p1")
-        subject.assign_permission("p2")
+      specify "can be added in bulk" do
+        subject.add_permissions("p1", "p2", "p3")
+        subject.permissions.should include("p1", "p2", "p3")
+      end
 
-        subject.permissions.should include("p1", "p2")
+      specify "are removed through the #remove_permissions method" do
+        subject.add_permissions("p1", "p2")
+        subject.remove_permissions("p2")
+
+        subject.permissions.should_not include("p2")
+      end
+
+      specify "can be removed in bulk" do
+        subject.add_permissions("p1", "p2", "p3")
+        subject.remove_permissions("p2", "p1")
+
+        subject.permissions.should_not include("p1", "p2")
       end
 
       it "doesn't include duplicates" do
-        subject.assign_permission("p1")
-        subject.assign_permission("p1")
-
-        subject.permissions.size.should == 1
+        subject.add_permissions("p1", "p1", "p2")
+        subject.permissions.count.should == 2
       end
 
       context "after a role is persisted" do
@@ -453,9 +463,7 @@ module AccessControl
 
         before do
           subject.save!
-
-          persisted_role.assign_permission("p1")
-          persisted_role.assign_permission("p2")
+          persisted_role.add_permissions("p1", "p2")
         end
 
         specify "are persisted as well" do

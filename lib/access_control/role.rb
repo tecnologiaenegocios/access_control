@@ -89,7 +89,28 @@ module AccessControl
     end
 
     def permissions
-      Util.flat_set(security_policy_items, &:permission)
+      permissions_set.to_enum
+    end
+
+    def add_permissions(*names)
+      new_permissions = names.to_set - permissions_set
+      return unless new_permissions.any?
+
+      attributes = new_permissions.map { |p| {:permission => p} }
+      security_policy_items.build(attributes)
+      flush_permissions()
+    end
+
+    def remove_permissions(*names)
+      valid_names = names.to_set & permissions_set
+      return unless valid_names.any?
+
+      items = valid_names.map do |name|
+        security_policy_items.detect { |item| item.permission == name }
+      end
+
+      self.security_policy_items -= items
+      flush_permissions()
     end
 
     def assign_to(principal, node)
@@ -120,13 +141,14 @@ module AccessControl
       destroy_existing_assignments(:node => node, :principal => principal)
     end
 
-    def assign_permission(permission)
-      unless security_policy_items.exists?(:permission => permission)
-        security_policy_items.build(:permission => permission)
-      end
+  private
+    def flush_permissions
+      @permissions_set = nil
     end
 
-  private
+    def permissions_set
+      @permissions_set ||= Set.new(security_policy_items, &:permission)
+    end
 
     def find_assignments_of(principal, node)
       assignments.find_by_principal_id_and_node_id(principal.id, node.id)
