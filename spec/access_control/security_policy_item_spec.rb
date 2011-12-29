@@ -11,20 +11,23 @@ module AccessControl
     end
 
     describe ".with_permission" do
-      let(:item1) do
+      let!(:item1) do
         SecurityPolicyItem.create!(:role_id => 0, :permission => 'permission 1')
       end
-      let(:item2) do
+
+      let!(:item2) do
         SecurityPolicyItem.create!(:role_id => 0, :permission => 'permission 2')
       end
-      before { item1; item2 }
+
       it "returns items for the specified permission" do
         SecurityPolicyItem.with_permission('permission 1').should include(item1)
       end
+
       it "rejects items for not specified permissions" do
         SecurityPolicyItem.with_permission('permission 1').
           should_not include(item2)
       end
+
       it "accepts an array" do
         collection = SecurityPolicyItem.
           with_permission(['permission 1', 'permission 2'])
@@ -86,6 +89,7 @@ module AccessControl
           end
 
           before do
+            pending "Waiting for review"
             do_mass_manage
           end
 
@@ -215,6 +219,7 @@ module AccessControl
     describe "items for management" do
 
       before do
+        pending "Waiting for review"
         roles = [
           @role1 = Role.create!(:name => 'role1'),
           @role2 = Role.create!(:name => 'role2')
