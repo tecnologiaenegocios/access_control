@@ -20,14 +20,8 @@ module AccessControl
         when :all, :last, :first
           permissions = permissions_required_to_index
           adapted = ORM.adapt_class(self)
-          condition = Restricter.new(adapted).sql_condition(permissions)
-          if condition == '0'
-            return [] if args.first == :all
-          else
-            with_scope(:find => { :conditions => condition }) do
-              super
-            end
-          end
+          joins = Restricter.new(adapted).sql_join_expression(permissions)
+          with_scope(:find => { :joins => joins }) { super }
         else
           permissions = permissions_required_to_show
           results = super(*args)

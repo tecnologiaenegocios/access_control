@@ -44,10 +44,10 @@ module AccessControl
           # :all, :first and :last options triggers this behavior: using the
           # query permissions to filter records.
 
-          let(:restricter)    { mock('restricter') }
-          let(:sql_condition) { stub('sql condition') }
-          let(:global_node)   { stub('global node') }
-          let(:adapted)       { stub('adapted') }
+          let(:restricter)  { mock('restricter') }
+          let(:sql_join)    { stub('sql join expression') }
+          let(:global_node) { stub('global node') }
+          let(:adapted)     { stub('adapted') }
 
           before do
             model.stub(:permissions_required_to_index).
@@ -60,7 +60,9 @@ module AccessControl
           [:all, :first, :last].each do |option|
             context "when conditions from restricter are not falsy" do
               before do
-                restricter.stub(:sql_condition).and_return(sql_condition)
+                restricter.stub(:sql_join_expression).
+                  with('the index permissions').
+                  and_return(sql_join)
 
                 base.class_eval do
                   def self.with_scope(*args)
@@ -77,7 +79,7 @@ module AccessControl
               it "runs a .with_scope with the find options from the "\
                   "restricter" do
                 model.should_receive(:with_scope).
-                  with(:find => {:conditions => sql_condition})
+                  with(:find => {:joins => sql_join})
                 model.find(option, 'find arguments')
               end
 
@@ -98,25 +100,7 @@ module AccessControl
                 model.find(option, 'find arguments')
               end
             end
-
-            context "when conditions from restricter are falsy" do
-              before { restricter.stub(:sql_condition).and_return('0') }
-
-              it "doesn't hit the database" do
-                model.should_not_receive(:with_scope)
-                model.find(option, 'find arguments')
-              end
-
-              it "returns an empty result" do
-                if option == :all
-                  model.find(option, 'find arguments').should == []
-                else
-                  model.find(option, 'find arguments').should be_nil
-                end
-              end
-            end
           end
-
         end
 
         describe "finding one" do
