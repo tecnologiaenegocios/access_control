@@ -1,4 +1,4 @@
-# vim: fdm=marker
+# vim: fdm=marker fdl=0
 
 require 'active_support/core_ext/module'
 require 'active_support/core_ext/class'
@@ -96,17 +96,26 @@ module AccessControl
       end
     end
 
+    def ==(other)
+      other.class == self.class && other.id == self.id
+    end
+
     def inspect
       variables_list = instance_variables.map do |variable_name|
         variable_value = instance_variable_get(variable_name)
         [variable_name, variable_value.inspect].join("=")
       end
 
-      variables_desc = variables_list.join(" ")
       hex_object_id = sprintf '0x%x', 2 * object_id
 
-      "#<FakeSecurable:#{hex_object_id} #{variables_desc}>"
+      if variables_list.empty?
+        "#<FakeSecurable:#{hex_object_id}>"
+      else
+        variables_desc = variables_list.join(" ")
+        "#<FakeSecurable:#{hex_object_id} #{variables_desc}>"
+      end
     end
+
     alias_method :to_s, :inspect
   end
 
@@ -119,10 +128,12 @@ module AccessControl
     alias_method :name, :to_s
 
     def new(*args, &block)
-      new_instance = super(*args, &block)
       options = args.extract_options!
+      new_instance_id = options.delete(:id) || increment_instance_counter()
 
-      new_instance_id = options[:id] || increment_instance_counter()
+      forwarded_options = args.push(options)
+      new_instance = super(*forwarded_options, &block)
+
       new_instance.instance_variable_set("@id", new_instance_id)
 
       store_instance(new_instance_id, new_instance)
