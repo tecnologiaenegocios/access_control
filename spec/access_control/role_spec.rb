@@ -261,22 +261,11 @@ module AccessControl
     end
 
     describe "assignment destruction" do
-
-      let(:assignment) do
-        stub_model(Assignment, :[]= => true, :save => true)
-      end
-
-      let(:role) do
-        Role.new(:name => 'the role name')
-      end
+      let(:assignment) { stub_model(Assignment, :save => true) }
+      let(:role)       { Role.new(:name => 'irrelevant') }
 
       before do
-        Object.const_set('TestPoint', stub('testpoint'))
         role.assignments << assignment
-      end
-
-      after do
-        Object.send(:remove_const, 'TestPoint')
       end
 
       it "destroys assignments when it is destroyed" do
@@ -285,24 +274,10 @@ module AccessControl
       end
 
       it "destroys the assignment in a unrestricted block" do
-        TestPoint.should_receive(:before_yield).ordered
-        TestPoint.should_receive(:on_destroy).ordered
-        TestPoint.should_receive(:after_yield).ordered
-        manager.instance_eval do
-          def without_assignment_restriction
-            TestPoint.before_yield
-            yield
-            TestPoint.after_yield
-          end
+        assignment.should_receive_without_assignment_restriction(:destroy) do
+          role.destroy
         end
-        assignment.instance_eval do
-          def destroy
-            TestPoint.on_destroy
-          end
-        end
-        role.destroy
       end
-
     end
 
     it "destroys security policy items when it is destroyed" do
@@ -334,22 +309,12 @@ module AccessControl
     end
 
     describe ".for_permission" do
-      let(:item) { stub('security policy item', :role_id => 'some id') }
+      let(:item)  { stub('security policy item', :role_id => 'some id') }
       let(:proxy) { stub('security policy items proxy') }
+
       before do
         SecurityPolicyItem.stub(:with_permission).and_return(proxy)
         proxy.stub(:role_ids).and_return('role ids')
-      end
-
-      it "gets all relevant security policy items" do
-        SecurityPolicyItem.should_receive(:with_permission).
-          with('some permission').and_return(proxy)
-        Role.for_permission('some permission')
-      end
-
-      it "gets all role ids from them" do
-        proxy.should_receive(:role_ids)
-        Role.for_permission('some permission')
       end
 
       it "returns a condition over the ids" do
