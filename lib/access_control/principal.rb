@@ -36,6 +36,19 @@ module AccessControl
         @anonymous = nil
       end
 
+      def for_subject(subject)
+        persistent = persistent_model.find(
+          :first,
+          :conditions => {
+            :subject_type => subject.class.name,
+            :subject_id   => subject.id,
+          }
+        )
+
+        return wrap(persistent) if persistent
+        new(:subject_class => subject.class, :subject_id => subject.id)
+      end
+
     private
 
       def create_anonymous_principal

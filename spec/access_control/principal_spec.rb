@@ -69,6 +69,33 @@ module AccessControl
       end
     end
 
+    describe ".for_subject" do
+      let(:subject_class) do
+        Class.new { def self.name; 'Foo'; end; def id; 123; end }
+      end
+      let(:subject)       { subject_class.new }
+
+      context "when a corresponding principal exists" do
+        let!(:principal) do
+          Principal.store(:subject_class => subject_class,
+                          :subject_id    => subject.id)
+        end
+
+        it "returns the existing principal" do
+          returned_principal = Principal.for_subject(subject)
+          returned_principal.should == principal
+        end
+      end
+
+      context "when a corresponding principal doesn't exist" do
+        it "returns a new Principal with the correct properties set" do
+          principal = Principal.for_subject(subject)
+          principal.subject_id.should == 123
+          principal.subject_class.should == subject_class
+        end
+      end
+    end
+
     describe "the subject's class" do
       it "is, by default, deduced from the subject_type string" do
         principal = Principal.new(:subject_type => "Hash")
