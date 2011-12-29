@@ -324,25 +324,6 @@ module AccessControl
       end
     end
 
-    describe "#permissions" do
-      subject { Role.new }
-      let(:permissions) { ['other permission', 'some permission'] }
-
-      before do
-        subject.security_policy_items = permissions.map do |perm|
-          stub_model(SecurityPolicyItem, :permission => perm)
-        end
-      end
-
-      it "returns the permissions from its security policy items" do
-        subject.permissions.should include(*permissions)
-      end
-
-      it "doesn't return duplicated permissions" do
-        subject.permissions.length.should == permissions.length
-      end
-    end
-
     describe "role assignment in principals and nodes" do
       let(:role) { Role.create!(:name => 'role') }
       let(:principal) { stub_model(Principal) }
@@ -445,50 +426,42 @@ module AccessControl
       end
     end
 
-    describe "#assign_permission" do
+    describe "a role's permissions" do
+      subject { Role.new(:name => "Irrelevant") }
 
-      let(:association_proxy) { stub('association proxy') }
-      let(:permission) { 'a permission' }
-      let(:role) { Role.new }
-
-      before do
-        role.stub(:security_policy_items).and_return(association_proxy)
-        association_proxy.stub(:find_by_permission).and_return(nil)
-        association_proxy.stub(:create!)
+      specify "are added through the #assign_permissions method" do
+        subject.assign_permission("p1")
+        subject.permissions.should include("p1")
       end
 
-      def make_assignment
-        role.assign_permission(permission)
+      specify "can be many" do
+        subject.assign_permission("p1")
+        subject.assign_permission("p2")
+
+        subject.permissions.should include("p1", "p2")
       end
 
-      it "finds the permission at first" do
-        association_proxy.should_receive(:find_by_permission).
-          with(permission).and_return(nil)
-        make_assignment
+      it "doesn't include duplicates" do
+        subject.assign_permission("p1")
+        subject.assign_permission("p1")
+
+        subject.permissions.size.should == 1
       end
 
-      context "the permission doesn't exist" do
-        it "creates a new security policy item from the assoc. proxy" do
-          association_proxy.should_receive(:create!).with(
-            :permission => permission
-          )
-          make_assignment
-        end
-      end
-
-      context "the permission already exists" do
-        let(:item) { stub('security policy item') }
+      context "after a role is persisted" do
+        let(:persisted_role) { Role.find(subject.id) }
 
         before do
-          association_proxy.stub(:find_by_permission).and_return(item)
+          subject.save!
+
+          persisted_role.assign_permission("p1")
+          persisted_role.assign_permission("p2")
         end
 
-        it "does nothing" do
-          association_proxy.should_not_receive(:create!)
-          make_assignment
+        specify "are persisted as well" do
+          persisted_role.permissions.should include("p1", "p2")
         end
       end
-
     end
 
   end

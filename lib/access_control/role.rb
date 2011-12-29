@@ -94,47 +94,35 @@ module AccessControl
 
     def assign_to(principal, node)
       if found = find_assignments_of(principal, node)
-        return found
+        found
+      else
+        assignments.create!(:principal_id => principal.id, :node_id => node.id)
       end
-      assignments.create!(:principal_id => principal.id, :node_id => node.id)
+    end
+
+    def assign_at(node, principal)
+      assign_to(principal, node)
     end
 
     def assigned_to?(principal, node)
       assignments.exists?(:principal_id => principal.id, :node_id => node.id)
     end
 
-    def unassign_from(principal, node=nil)
-      if node
-        destroy_existing_assignment_of(principal, node)
-      else
-        assignments.find_all_by_principal_id(principal.id).each do |item|
-          item.destroy
-        end
-      end
-    end
-
-    def assign_at(node, principal)
-      if found = find_assignments_of(principal, node)
-        return found
-      end
-      assignments.create!(:principal_id => principal.id, :node_id => node.id)
-    end
-
     def assigned_at?(node, principal)
-      assignments.exists?(:principal_id => principal.id, :node_id => node.id)
+      assigned_to?(principal, node)
+    end
+
+    def unassign_from(principal, node=nil)
+      destroy_existing_assignments(:principal => principal, :node => node)
     end
 
     def unassign_at(node, principal=nil)
-      if principal
-        destroy_existing_assignment_of(principal, node)
-      else
-        assignments.find_all_by_node_id(node.id).each { |item| item.destroy }
-      end
+      destroy_existing_assignments(:node => node, :principal => principal)
     end
 
     def assign_permission(permission)
-      unless security_policy_items.find_by_permission(permission)
-        security_policy_items.create!(:permission => permission)
+      unless security_policy_items.exists?(:permission => permission)
+        security_policy_items.build(:permission => permission)
       end
     end
 
@@ -144,11 +132,20 @@ module AccessControl
       assignments.find_by_principal_id_and_node_id(principal.id, node.id)
     end
 
-    def destroy_existing_assignment_of(principal, node)
-      if item = assignments.
-          find_by_principal_id_and_node_id(principal.id, node.id)
-        item.destroy
+    def destroy_existing_assignments(arguments)
+      principal = arguments.delete(:principal)
+      node      = arguments.delete(:node)
+
+      items = []
+      if principal && node
+        items = [find_assignments_of(principal, node)].compact
+      elsif  principal && !node
+        items = assignments.find_all_by_principal_id(principal.id)
+      elsif !principal && node
+        items = assignments.find_all_by_node_id(node.id)
       end
+
+      items.each(&:destroy)
     end
 
     def destroy_dependant_assignments
