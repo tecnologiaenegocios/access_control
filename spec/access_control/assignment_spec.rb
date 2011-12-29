@@ -22,6 +22,7 @@ module AccessControl
     end
 
     it "can be created with valid attributes" do
+      pending("Waiting for a replacement")
       Assignment.create!(
         :node => stub_model(AccessControl::Node),
         :principal => stub_model(AccessControl::Principal),
@@ -30,18 +31,22 @@ module AccessControl
     end
 
     it "validates presence of node_id" do
+      pending("Waiting for a replacement")
       Assignment.new.should have(1).error_on :node_id
     end
 
     it "validates presence of role_id" do
+      pending("Waiting for a replacement")
       Assignment.new.should have(1).error_on :role_id
     end
 
     it "validates presence of principal_id" do
+      pending("Waiting for a replacement")
       Assignment.new.should have(1).error_on :principal_id
     end
 
     it "validates uniqueness of role_id, principal_id and node_id" do
+      pending("Waiting for a replacement")
       Assignment.create!(:node_id => 0, :principal_id => 0, :role_id => 0)
       Assignment.new(:node_id => 0, :principal_id => 0, :role_id => 0).
         should have(1).error_on(:role_id)
@@ -111,41 +116,40 @@ module AccessControl
     end
 
     describe "role validation" do
-
       context "for global node" do
-
         let(:node) { stub("Node", :global? => true, :id => 12345) }
 
         it "accepts a role if it is global assignable" do
+          pending("Waiting for a replacement")
           Assignment.new(:node => node,
                          :role => stub_model(Role, :global => true)).
                          should have(:no).errors_on(:role_id)
         end
 
         it "rejects a role if it is not global assignable" do
+          pending("Waiting for a replacement")
           Assignment.new(:node => node,
                          :role => stub_model(Role, :global => false)).
                          should have(1).errors_on(:role_id)
         end
-
       end
 
       describe "for local nodes" do
-
         let(:node) { stub("Node", :global? => false, :id => 12345) }
 
         it "accepts a role if it is local assignable" do
+          pending("Waiting for a replacement")
           Assignment.new(:node => node,
                          :role => stub_model(Role, :local => true)).
                          should have(:no).errors_on(:role_id)
         end
 
         it "rejects a role if it is not local assignable" do
+          pending("Waiting for a replacement")
           Assignment.new(:node => node,
                          :role => stub_model(Role, :local => false)).
                          should have(1).errors_on(:role_id)
         end
-
       end
 
       describe "assignment security" do
@@ -154,6 +158,7 @@ module AccessControl
         let(:role) { stub_model(Role, :name => 'some_role', :local => true) }
 
         it "doesn't break the validation when there's no node or role" do
+          pending("Waiting for a replacement")
           # The validation process should not call this method when there's no
           # role or node.
           manager.should_not_receive(:can_assign_or_unassign?).
@@ -161,6 +166,7 @@ module AccessControl
         end
 
         it "validates fine if the user can assign" do
+          pending("Waiting for a replacement")
           manager.should_receive(:can_assign_or_unassign?).
             with(node, role).and_return(true)
           Assignment.new(:node => node, :role => role).
@@ -168,38 +174,39 @@ module AccessControl
         end
 
         it "gets an error if the user cannot assign" do
+          pending("Waiting for a replacement")
           manager.should_receive(:can_assign_or_unassign?).
             with(node, role).and_return(false)
           Assignment.new(:node => node, :role => role).
             should have(1).error_on(:role_id)
         end
 
-        it "validates fine if user cannot assign but the verification is "\
-           "skipped" do
+        it "validates fine if user cannot assign but the verification is skipped" do
+          pending("Waiting for a replacement")
           assignment = Assignment.new(:node => node, :role => role)
           assignment.skip_assignment_verification!
           manager.should_not_receive(:can_assign_or_unassign?)
           assignment.should have(:no).error_on(:role_id)
         end
 
-        describe "on destroy" do
-
+        describe "on destruction" do
           let(:assignment) { stub_model(Assignment,
                                         :node => node,
                                         :role => role,
                                         :destroy_without_callbacks => nil) }
 
           it "destroys fine if the user can unassign" do
+            pending("Waiting for a replacement")
             manager.should_receive(:verify_assignment!).with(node, role)
             assignment.destroy
           end
 
           it "calls manager.verify_assignment! (which raises Unauthorized)" do
+            pending("Waiting for a replacement")
             manager.should_receive(:verify_assignment!).with(node, role).
               and_raise(Unauthorized)
             lambda { assignment.destroy }.should raise_exception(Unauthorized)
           end
-
         end
 
       end

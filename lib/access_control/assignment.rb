@@ -12,17 +12,6 @@ module AccessControl
 
     has_many :security_policy_items, :through => :role
 
-    validates_presence_of :node_id
-    validates_presence_of :role_id
-    validates_presence_of :principal_id
-
-    validates_uniqueness_of :role_id, :scope => [:node_id, :principal_id]
-
-    validate :validate_role_locality
-    validate :validate_assignment_security
-
-    before_destroy :verify_security_restrictions!
-
     named_scope :granting, lambda {|permission|
       ids = Role.for_permission(permission).ids
       { :conditions => { :role_id => ids } }
@@ -71,21 +60,6 @@ module AccessControl
       @principal ||= Principal.fetch(principal_id, nil)
     end
 
-    def validate_role_locality
-      return unless role && node
-      if !role.global && node.global?
-        errors.add(:role_id, :invalid)
-      elsif !role.local && !node.global?
-        errors.add(:role_id, :invalid)
-      end
-    end
-
-    def validate_assignment_security
-      return unless role && node
-      return if skip_assignment_verification?
-      errors.add(:role_id, :unassignable) unless can_assign_or_unassign?
-    end
-
     def overlaps?(other)
       other.node_id == node_id && other.role_id == role_id &&
         other.principal_id == principal_id
@@ -99,14 +73,6 @@ module AccessControl
       combination.principals = principals
 
       combination.group_by(&:principal_id)
-    end
-
-    def skip_assignment_verification!
-      @skip_assignment_verification = true
-    end
-
-    def skip_assignment_verification?
-      !!@skip_assignment_verification
     end
 
   private
