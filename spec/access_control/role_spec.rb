@@ -6,25 +6,6 @@ module AccessControl
 
     let(:manager) { Manager.new }
 
-    def should_receive_without_assignment_restriction(tested_mock, method_name)
-      manager = stub('manager')
-      AccessControl.stub(:manager).and_return(manager)
-
-      tested_mock.should_receive(:_before_block).ordered
-      tested_mock.should_receive(method_name).ordered
-      tested_mock.should_receive(:_after_block).ordered
-
-      manager.define_singleton_method(:without_assignment_restriction) do |&b|
-        if block_given?
-          tested_mock._before_block
-          b.call
-          tested_mock._after_block
-        end
-      end
-
-      yield
-    end
-
     before do
       AccessControl.stub(:manager).and_return(manager)
     end

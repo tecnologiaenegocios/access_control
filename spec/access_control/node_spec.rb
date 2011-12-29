@@ -213,32 +213,13 @@ module AccessControl
         persistent.stub(:destroy)
       end
 
-      def should_receive_without_assignment_restriction(tested_mock, method)
-        manager = stub("Manager")
-        AccessControl.stub(:manager => manager)
-
-        tested_mock.should_receive(:_before_block).ordered
-        tested_mock.should_receive(method).ordered
-        tested_mock.should_receive(:_after_block).ordered
-
-        manager.define_singleton_method(:without_assignment_restriction) do |&blk|
-          if block_given?
-            tested_mock._before_block
-            blk.call
-            tested_mock._after_block
-          end
-        end
-
-        yield
-      end
-
       it "destroys all role assignments associated when it is destroyed" do
         Role.should_receive(:unassign_all_at).with(node)
         node.destroy
       end
 
       it "does so by disabling assignment restriction" do
-        should_receive_without_assignment_restriction(Role, :unassign_all_at) do
+        Role.should_receive_without_assignment_restriction(:unassign_all_at) do
           node.destroy
         end
       end
