@@ -1,94 +1,7 @@
 require 'spec_helper'
-require 'access_control/role'
 
 module AccessControl
   describe Role do
-
-    let(:manager) { Manager.new }
-
-    before do
-      AccessControl.stub(:manager).and_return(manager)
-    end
-
-    it "validates presence of name" do
-      Role.new.should have(1).error_on(:name)
-    end
-
-    it "validates uniqueness of name" do
-      Role.create!(:name => 'the role name')
-      Role.new(:name => 'the role name').should have(1).error_on(:name)
-    end
-
-    it "can be created with valid attributes" do
-      Role.create!(:name => 'the role name')
-    end
-
-    it "is extended with AccessControl::Ids" do
-      Role.singleton_class.should include(AccessControl::Ids)
-    end
-
-    describe ".assigned_to" do
-      let(:principal) { stub("Principal", :id => 123) }
-      let(:node)      { stub("Node",      :id => -1)  }
-      let(:role)      { Role.create!(:name => "Foo")  }
-
-      before do
-        AccessControl.stub(:Node).with(node).and_return(node)
-        role.assign_to(principal, node)
-      end
-
-      it "includes roles that were assigned to the given principal" do
-        Role.assigned_to(principal).should include role
-      end
-
-      it "doesn't include roles that not assigned to the given principal" do
-        other_role = Role.create!(:name => "Bar")
-        Role.assigned_to(principal).should_not include other_role
-      end
-
-      context "when a node is provided" do
-        it "includes roles assigned to the principal on the node" do
-          Role.assigned_to(principal, node).should include role
-        end
-
-        it "doesn't include roles assigned to the principal on other nodes" do
-          other_node = stub("Other node", :id => -2)
-          Role.assigned_to(principal, other_node).should_not include role
-        end
-      end
-    end
-
-    describe ".assigned_at" do
-      let(:node)      { stub("Node",      :id => -1) }
-      let(:principal) { stub("Principal", :id => -1) }
-      let(:role)      { Role.create!(:name => "Foo") }
-
-      before do
-        AccessControl.stub(:Node).with(node).and_return(node)
-
-        role.assign_to(principal, node)
-      end
-
-      it "includes roles that were assigned on the given node" do
-        Role.assigned_at(node).should include role
-      end
-
-      it "doesn't include roles that not assigned at the given node" do
-        other_role = Role.create!(:name => "Bar")
-        Role.assigned_at(node).should_not include other_role
-      end
-
-      context "when a principal is provided" do
-        it "includes roles assigned on the node to the principal" do
-          Role.assigned_at(node, principal).should include role
-        end
-
-        it "doesn't include roles assigned on the node to other principals" do
-          other_principal = stub("Other principal", :id => -2)
-          Role.assigned_at(node, other_principal).should_not include role
-        end
-      end
-    end
 
     describe ".assign_all" do
       let(:combination) do
@@ -114,7 +27,7 @@ module AccessControl
       end
 
       it "sets the combination's 'role_ids' as being all role ids" do
-        roles = [Role.create!(:name => "foobar")]
+        roles = [Role.store(:name => "foobar")]
         combination.should_receive(:role_ids=).with(roles.map(&:id))
 
         Role.assign_all(principals, nodes, combination)
@@ -158,7 +71,7 @@ module AccessControl
       end
 
       it "sets the combination's 'role_ids' as being all role ids" do
-        roles = [Role.create!(:name => "foobar")]
+        roles = [Role.store(:name => "foobar")]
         combination.should_receive(:role_ids=).with(roles.map(&:id))
 
         Role.unassign_all(principals, nodes, combination)
@@ -181,7 +94,7 @@ module AccessControl
 
     describe ".unassign_all_from" do
       let(:principal) { stub("Principal", :id => 123) }
-      let(:role)      { Role.create!(:name => "Foo")  }
+      let(:role)      { Role.store(:name => "Foo")  }
 
       before do
         node = stub("Node", :id => -1)
@@ -196,7 +109,7 @@ module AccessControl
 
     describe ".unassign_all_at" do
       let(:node) { stub("Node", :id => 123) }
-      let(:role) { Role.create!(:name => "Foo")  }
+      let(:role) { Role.store(:name => "Foo")  }
 
       before do
         principal = stub("Principal", :id => -1)
@@ -209,62 +122,13 @@ module AccessControl
       end
     end
 
-    describe ".default" do
-      let(:roles_names) { ["owner"] }
-      before do
-        AccessControl.config.stub(:default_roles => roles_names)
-      end
-
-      it "contains roles whose name is in config.default_roles" do
-        role = Role.create!(:name => "owner")
-        Role.default.should include role
-      end
-
-      it "doesn't contain roles whose name isn't in config.default_roles" do
-        role = Role.create!(:name => "user")
-        Role.default.should_not include role
-      end
-
-      it "doesn't blow up when config returns a Set with multiple values" do
-        AccessControl.config.stub(:default_roles => Set["owner", "manager"])
-        role = Role.create!(:name => "owner")
-
-        accessing_the_results = lambda { Role.default.include?(role) }
-        accessing_the_results.should_not raise_error
-      end
-    end
-
-    describe ".with_names" do
-      let!(:role) { Role.create!(:name => "foo") }
-
-      context "for string arguments" do
-        it "returns roles whose name is the argument" do
-          Role.with_names_in("foo").should include role
-        end
-
-        it "doesn't return roles whose name isn't argument" do
-          Role.with_names_in("bar").should_not include role
-        end
-      end
-
-      context "for set arguments" do
-        it "returns roles whose name is included in the set" do
-          names = Set["foo", "bar"]
-          Role.with_names_in(names).should include role
-        end
-
-        it "doesn't return roles whose name isn't included in the set" do
-          names = Set["baz", "bar"]
-          Role.with_names_in(names).should_not include role
-        end
-      end
-    end
 
     describe "assignment destruction" do
       let(:assignment) { stub_model(Assignment, :save => true) }
       let(:role)       { Role.new(:name => 'irrelevant') }
 
       before do
+        pending("Still no assignment persistency!")
         role.assignments << assignment
       end
 
@@ -281,53 +145,18 @@ module AccessControl
     end
 
     it "destroys security policy items when it is destroyed" do
-      role = Role.create!(:name => 'the role name')
+      pending
+      role = Role.store(:name => 'the role name')
       SecurityPolicyItem.create!(:role => role,
                                  :permission => 'some permission')
       role.destroy
       SecurityPolicyItem.count.should == 0
     end
 
-    describe ".local_assignables" do
-
-      it "returns only roles with local = true" do
-        r1 = Role.create!(:name => 'local unassignable', :local => false)
-        r2 = Role.create!(:name => 'local assignable', :local => true)
-        Role.local_assignables.should == [r2]
-      end
-
-    end
-
-    describe ".global_assignables" do
-
-      it "returns only roles with global = true" do
-        r1 = Role.create!(:name => 'global unassignable', :global => false)
-        r2 = Role.create!(:name => 'global assignable', :global => true)
-        Role.global_assignables.should == [r2]
-      end
-
-    end
-
-    describe ".for_permission" do
-      let(:item)  { stub('security policy item', :role_id => 'some id') }
-      let(:proxy) { stub('security policy items proxy') }
-
-      before do
-        SecurityPolicyItem.stub(:with_permission).and_return(proxy)
-        proxy.stub(:role_ids).and_return('role ids')
-      end
-
-      it "returns a condition over the ids" do
-        Role.for_permission('some permission').proxy_options.should == {
-          :conditions => { :id => 'role ids' }
-        }
-      end
-    end
-
     describe "role assignment in principals and nodes" do
-      let(:role) { Role.create!(:name => 'role') }
-      let(:principal) { stub_model(Principal) }
-      let(:node) { stub_model(Node) }
+      let(:role)       { Role.store(:name => 'role') }
+      let(:principal)  { stub_model(Principal) }
+      let(:node)       { stub_model(Node) }
       let(:other_node) { stub_model(Node) }
 
       specify "roles are not initially assigned" do
@@ -376,10 +205,10 @@ module AccessControl
     end
 
     describe "role assignment in nodes and principals" do
-      let(:role) { Role.create!(:name => 'role') }
-      let(:principal) { stub_model(Principal) }
+      let(:role)            { Role.store(:name => 'role') }
+      let(:principal)       { stub_model(Principal) }
       let(:other_principal) { stub_model(Principal) }
-      let(:node) { stub_model(Node) }
+      let(:node)            { stub_model(Node) }
 
       specify "roles are not initially assigned" do
         role.should_not be_assigned_at(node, principal)
@@ -407,14 +236,14 @@ module AccessControl
           role.unassign_at(node, other_principal)
         end
 
-        specify "if node is not assigned, other nodes are still assigned" do
+        specify "if principal is unassigned, other principals are still assigned" do
           role.assign_at(node, principal)
           role.unassign_at(node, other_principal)
 
           role.should be_assigned_at(node, principal)
         end
 
-        specify "when node is not specified, all nodes are unassigned" do
+        specify "when principal is not specified, all nodes are unassigned" do
           role.assign_at(node, principal)
           role.assign_at(node, other_principal)
 
@@ -426,47 +255,69 @@ module AccessControl
       end
     end
 
-    describe "a role's permissions" do
+    context "permissions management" do
       subject { Role.new(:name => "Irrelevant") }
 
-      specify "are added through the #add_permissions method" do
-        subject.add_permissions("p1")
-        subject.permissions.should include("p1")
+      describe "#add_permissions" do
+        it "can be used to add one permissions at a time" do
+          subject.add_permissions("p1")
+          subject.permissions.should include("p1")
+        end
+
+        it "can be used to add many permissions at once" do
+          subject.add_permissions("p1", "p2", "p3")
+          subject.permissions.should include("p1", "p2", "p3")
+        end
+
+        it "doesn't include duplicates" do
+          subject.add_permissions("p1", "p1", "p2")
+          subject.permissions.count.should == 2
+        end
+
+        it "returns only the added permissions" do
+          subject.add_permissions("p1", "p2")
+
+          return_value = subject.add_permissions("p1", "p2", "p3")
+          return_value.should     include("p3")
+          return_value.should_not include("p1", "p2")
+        end
       end
 
-      specify "can be added in bulk" do
-        subject.add_permissions("p1", "p2", "p3")
-        subject.permissions.should include("p1", "p2", "p3")
-      end
+      describe "#remove_permissions" do
+        it "can be used to remove one permission at time" do
+          subject.add_permissions("p1", "p2")
+          subject.remove_permissions("p2")
 
-      specify "are removed through the #remove_permissions method" do
-        subject.add_permissions("p1", "p2")
-        subject.remove_permissions("p2")
+          subject.permissions.should_not include("p2")
+        end
 
-        subject.permissions.should_not include("p2")
-      end
+        it "can be used to removed many permissions at once" do
+          subject.add_permissions("p1", "p2", "p3")
+          subject.remove_permissions("p2", "p1")
 
-      specify "can be removed in bulk" do
-        subject.add_permissions("p1", "p2", "p3")
-        subject.remove_permissions("p2", "p1")
+          subject.permissions.should_not include("p1", "p2")
+        end
 
-        subject.permissions.should_not include("p1", "p2")
-      end
+        it "returns only the removed permissions" do
+          subject.add_permissions("p1", "p2", "p3")
+          subject.remove_permissions("p1", "p2")
 
-      it "doesn't include duplicates" do
-        subject.add_permissions("p1", "p1", "p2")
-        subject.permissions.count.should == 2
+          return_value = subject.remove_permissions("p1", "p2", "p3")
+          return_value.should     include("p3")
+          return_value.should_not include("p1", "p2")
+        end
       end
 
       context "after a role is persisted" do
-        let(:persisted_role) { Role.find(subject.id) }
+        let(:persisted_role) { Role.fetch(subject.id) }
 
         before do
-          subject.save!
-          persisted_role.add_permissions("p1", "p2")
+          subject.add_permissions("p1", "p2")
+          subject.persist
         end
 
         specify "are persisted as well" do
+          pending("Still no permission persistency!")
           persisted_role.permissions.should include("p1", "p2")
         end
       end
