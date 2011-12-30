@@ -120,9 +120,38 @@ module AccessControl
         end
       end
 
-      def build_role(properties = {})
-        properties[:name] ||= "irrelevant"
-        Persistent.create!(properties)
+      describe ".for_all_permissions" do
+        context "when given only one permission" do
+          it "returns roles that have such permission" do
+            role = build_role(:permissions => ["p1"])
+            Role::Persistent.for_all_permissions("p1").should include(role)
+          end
+
+          it "doesn't return roles that doesn't have the permission" do
+            role = build_role(:permissions => [])
+            Role::Persistent.for_all_permissions("p1").should_not include(role)
+          end
+        end
+
+        context "when given multiple permissions" do
+          it "returns roles that have all the permissions" do
+            role = build_role(:permissions => ["p1", "p2"])
+            returned = Role::Persistent.for_all_permissions(["p1", "p2"])
+            returned.should include(role)
+          end
+
+          it "doesn't return roles that don't have one of the permissions" do
+            role = build_role(:permissions => ["p1"])
+            returned = Role::Persistent.for_all_permissions(["p1", "p2"])
+            returned.should_not include(role)
+          end
+
+          it "doesn't return roles that don't have any of the permissions" do
+            role = build_role(:permissions => [])
+            returned = Role::Persistent.for_all_permissions(["p1", "p2"])
+            returned.should_not include(role)
+          end
+        end
       end
 
       describe ".local_assignables" do

@@ -22,10 +22,18 @@ module AccessControl
                   :conditions => {:global => true}
 
       def self.for_all_permissions(permissions)
-        SecurityPolicyItem.with_permission(permissions).
-          group_by(&:permission).
-          values.map(&:role_ids).
-          inject(&:&)
+        items = SecurityPolicyItem.with_permission(permissions)
+        items_by_role = items.group_by(&:role_id)
+
+        permissions_set = Set.new(permissions)
+        accepted_combinations = items_by_role.select do |_, role_items|
+          role_permissions = Set.new(role_items, &:permission)
+
+          role_permissions.superset?(permissions_set)
+        end
+        accepted_ids = Hash[accepted_combinations].keys
+
+        scoped(:conditions => {:id => accepted_ids})
       end
 
       def self.assigned_to(principal, node = nil)
