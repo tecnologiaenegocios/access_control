@@ -11,7 +11,7 @@ module AccessControl
       has_many :assignments, :foreign_key => 'role_id',
                :class_name => 'AccessControl::Assignment'
 
-      has_many :security_policy_items,
+      has_many :security_policy_items, :foreign_key => 'role_id',
                :dependent => :destroy,
                :class_name => 'AccessControl::SecurityPolicyItem'
 
@@ -20,11 +20,6 @@ module AccessControl
 
       named_scope :global_assignables,
                   :conditions => {:global => true}
-
-      def self.for_permission(permission)
-        ids = SecurityPolicyItem.with_permission(permission).role_ids
-        scoped(:conditions => {:id => ids})
-      end
 
       def self.for_all_permissions(permissions)
         SecurityPolicyItem.with_permission(permissions).
@@ -59,6 +54,21 @@ module AccessControl
         scoped_by_name(names)
       end
 
+      def permissions=(permissions)
+        permissions = Set.new(permissions)
+        return if permissions == self.permissions
+
+        missing_permissions = permissions - self.permissions
+        add_permissions(missing_permissions)
+
+        extra_permissions = self.permissions - permissions
+        remove_permissions(extra_permissions)
+      end
+
+      def permissions
+        Set.new(security_policy_items, &:permission)
+      end
+
       # def assign_to(principal, node)
       #   if found = find_assignments_of(principal, node)
       #     found
@@ -88,6 +98,19 @@ module AccessControl
       # end
 
     private
+
+      def add_permissions(permissions)
+        permissions.each do |permission|
+          security_policy_items.build(:permission => permission)
+        end
+      end
+
+      def remove_permissions(permissions)
+        permissions.each do |permission|
+          item = security_policy_items.find_by_permission(permission)
+          security_policy_items.delete(item)
+        end
+      end
 
       def find_assignments_of(principal, node)
         assignments.find_by_principal_id_and_node_id(principal.id, node.id)

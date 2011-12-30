@@ -91,19 +91,32 @@ module AccessControl
         end
       end
 
-      describe ".for_permission" do
-        let(:item)  { stub('security policy item', :role_id => 'some id') }
-        let(:proxy) { stub('security policy items proxy') }
+      def build_role(properties = {})
+        properties[:name] ||= "irrelevant"
+        Persistent.create!(properties)
+      end
 
-        before do
-          SecurityPolicyItem.stub(:with_permission).and_return(proxy)
-          proxy.stub(:role_ids).and_return('role ids')
+      describe "the permissions" do
+        specify "can be set as a Set" do
+          subject.permissions = Set["p1", "p2"]
+          subject.permissions.should include("p1", "p2")
         end
 
-        it "returns a condition over the ids" do
-          Persistent.for_permission('some permission').proxy_options.should == {
-            :conditions => { :id => 'role ids' }
-          }
+        specify "can be set as any Enumerable" do
+          subject.permissions = ('a'..'d')
+          subject.permissions.should include *('a'..'d')
+        end
+
+        specify "don't contain duplicates" do
+          subject.permissions = %w[p1 p1 p1 p2]
+          subject.permissions.length.should == 2
+        end
+
+        specify "are persisted when the record is saved" do
+          subject = build_role(:permissions => %w[p1 p2])
+
+          persisted_subject = Persistent.find(subject.id)
+          persisted_subject.permissions.should include("p1", "p2")
         end
       end
 
