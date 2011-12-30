@@ -46,6 +46,16 @@ module AccessControl
         it { should == 'ModelName' }
       end
 
+      describe "#pk" do
+        subject { orm.pk }
+        it { should == 'pk' }
+      end
+
+      describe "#quoted_table_name" do
+        subject { orm.quoted_table_name }
+        it { should == '`table_name`' }
+      end
+
       describe "#full_pk" do
         subject { orm.full_pk }
         it { should == "`table_name`.pk" }

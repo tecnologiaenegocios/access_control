@@ -1,54 +1,25 @@
-require 'access_control/blockable'
-require 'access_control/exceptions'
-require 'access_control/grantable'
-require 'access_control/inheritable'
 require 'access_control/orm'
 
 module AccessControl
-
   class Restricter
-
-    attr_reader :model
-
-    def initialize(model)
-      @model = model
+    def initialize(orm_class)
+      @orm_class = orm_class
     end
 
-    def permitted_ids(permissions, filter=nil)
-      granted_ids = grantable.ids_with(permissions)
-      inherited_ids = Inheritable.new(model).ids_with(permissions)
-      ids = (inherited_ids - blocked_ids) | granted_ids
-      ids = (Set.new(filter) & ids) if filter
-      ids
-    end
-
-    def sql_condition(permissions, filter=nil)
-      return '1' if manager.can?(permissions, global_node)
-      if grantable.from_class?(permissions)
-        if blocked_ids.any?
-          ids = blocked_ids - grantable.ids_with(permissions)
-          ids.any? ? "#{table_id} NOT IN (#{quote(ids)})" : '1'
-        else
-          filter ? "#{table_id} IN (#{quote(filter)})" : '1'
-        end
+    def sql_query_for(permissions)
+      if manager.can?(permissions, global_node)
+        "SELECT #{orm_class.pk} FROM #{orm_class.quoted_table_name}"
       else
-        ids = permitted_ids(permissions, filter)
-        if ids.any?
-          "#{table_id} IN (#{quote(ids)})"
-        else
-          '0'
-        end
+        "SELECT node_id FROM `ac_effective_assignments` "\
+          "WHERE role_id IN (#{sql_role_ids(permissions)}) AND "\
+          "principal_id IN (#{sql_principal_ids})"
       end
     end
 
   private
 
-    def grantable
-      @grantable ||= Grantable.new(model)
-    end
-
-    def blocked_ids
-      @blocked_ids ||= Blockable.new(model).ids
+    def orm_class
+      @orm_class
     end
 
     def manager
@@ -59,14 +30,16 @@ module AccessControl
       AccessControl.global_node
     end
 
-    def table_id
-      @table_id ||= model.full_pk
+    def sql_role_ids(permissions)
+      sql_ids(Role.for_all_permissions(permissions))
     end
 
-    def quote(values)
-      model.quote_values(values.to_a)
+    def sql_principal_ids
+      sql_ids(manager.principals)
     end
 
+    def sql_ids(collection)
+      collection.map(&:id).map(&:to_s).join(',')
+    end
   end
-
 end

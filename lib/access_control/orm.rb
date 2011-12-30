@@ -1,6 +1,12 @@
 module AccessControl
   module ORM
 
+    class Base
+      def full_pk
+        "#{quoted_table_name}.#{pk}"
+      end
+    end
+
     class << self
       def adapt_class(object)
         # We only support ActiveRecord::Base by now.
@@ -8,7 +14,7 @@ module AccessControl
       end
     end
 
-    class ActiveRecordClass
+    class ActiveRecordClass < Base
 
       attr_reader :object
 
@@ -21,9 +27,14 @@ module AccessControl
         object.name
       end
 
-      # The fully qualified primary key.
-      def full_pk
-        "#{object.quoted_table_name}.#{object.primary_key}"
+      # The primary key name, as string.
+      def pk
+        object.primary_key
+      end
+
+      # The quoted table name, as string.
+      def quoted_table_name
+        object.quoted_table_name
       end
 
       # Given an array of values, return it as a string suitable for a IN or
