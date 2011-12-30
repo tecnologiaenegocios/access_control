@@ -45,9 +45,9 @@ module AccessControl
           # query permissions to filter records.
 
           let(:restricter)  { mock('restricter') }
-          let(:sql_join)    { stub('sql join expression') }
+          let(:subquery)    { 'the id subquery expression' }
           let(:global_node) { stub('global node') }
-          let(:adapted)     { stub('adapted') }
+          let(:adapted)     { stub('adapted', :full_pk => '`table`.id') }
 
           before do
             model.stub(:permissions_required_to_index).
@@ -58,11 +58,11 @@ module AccessControl
           end
 
           [:all, :first, :last].each do |option|
-            context "when conditions from restricter are not falsy" do
+            context "when doing find(:#{option})" do
               before do
-                restricter.stub(:sql_join_expression).
+                restricter.stub(:sql_query_for).
                   with('the index permissions').
-                  and_return(sql_join)
+                  and_return(subquery)
 
                 base.class_eval do
                   def self.with_scope(*args)
@@ -79,7 +79,7 @@ module AccessControl
               it "runs a .with_scope with the find options from the "\
                   "restricter" do
                 model.should_receive(:with_scope).
-                  with(:find => {:joins => sql_join})
+                  with(:find => {:conditions => "`table`.id IN (#{subquery})"})
                 model.find(option, 'find arguments')
               end
 
@@ -108,21 +108,23 @@ module AccessControl
           # Passing a single id causes a permission test with the record
           # returned.
 
+          let(:single_result) { stub }
+
           before do
             model.stub(:permissions_required_to_show).
               and_return('the show permissions')
-            base.stub(:find).with(23, 'options').and_return('some result')
+            base.stub(:find).with(23, 'options').and_return(single_result)
             manager.stub(:can!)
           end
 
           it "test the record returned with the manager" do
             manager.should_receive(:can!).
-              with('the show permissions', 'some result')
+              with('the show permissions', single_result)
             model.find(23, 'options')
           end
 
           it "returns the result" do
-            model.find(23, 'options').should == 'some result'
+            model.find(23, 'options').should be single_result
           end
 
         end
@@ -133,21 +135,25 @@ module AccessControl
           # permission test with each record returned.  Basically it happens
           # always when the first argument is not :all, :first or :last.
 
+          let(:result1) { stub }
+          let(:result2) { stub }
+          let(:all_results) { [result1, result2] }
+
           before do
             model.stub(:permissions_required_to_show).
               and_return('the show permissions')
-            base.stub(:find).with('args').and_return(['result 1', 'result 2'])
+            base.stub(:find).with('args').and_return(all_results)
             manager.stub(:can!)
           end
 
           it "test each record returned with the manager" do
-            manager.should_receive(:can!).
-              with('the show permissions', 'result 1')
+            manager.should_receive(:can!).with('the show permissions', result1)
+            manager.should_receive(:can!).with('the show permissions', result2)
             model.find('args')
           end
 
           it "returns the results" do
-            model.find('args').should == ['result 1', 'result 2']
+            model.find('args').should be all_results
           end
         end
       end
