@@ -323,5 +323,14 @@ module AccessControl
       end
     end
 
+    describe "scope delegation" do
+      delegated_scopes = [:assigned_to, :assigned_at, :for_all_permissions]
+
+      delegated_scopes.each do |delegated_scope|
+        it "delegates the scope .#{delegated_scope} to the persistent model" do
+          Role.delegated_scopes.should include(delegated_scope)
+        end
+      end
+    end
   end
 end

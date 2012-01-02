@@ -25,7 +25,7 @@ module AccessControl
       combination.each(&:destroy)
     end
 
-    delegate_scopes :assigned_to, :assigned_at
+    delegate_scopes :assigned_to, :assigned_at, :for_all_permissions
 
     def self.unassign_all_from(principal)
       assigned_to(principal).each do |role|
