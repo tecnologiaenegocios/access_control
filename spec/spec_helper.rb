@@ -1,6 +1,9 @@
 ENV["RAILS_ENV"] ||= 'test'
 ENV["RAILS_ROOT"] = File.join(File.dirname(__FILE__), 'app')
 require File.expand_path(File.join(ENV['RAILS_ROOT'],'config','environment'))
+
+load File.join(ENV['RAILS_ROOT'],'db','schema.rb')
+
 require 'spec/autorun'
 require 'spec/rails'
 require 'discover'
