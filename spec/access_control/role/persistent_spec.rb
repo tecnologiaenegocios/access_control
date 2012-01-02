@@ -9,19 +9,6 @@ module AccessControl
         AccessControl.stub(:manager).and_return(manager)
       end
 
-      it "validates presence of name" do
-        Persistent.new.should have(1).error_on(:name)
-      end
-
-      it "validates uniqueness of name" do
-        Persistent.create!(:name => 'the role name')
-        Persistent.new(:name => 'the role name').should have(1).error_on(:name)
-      end
-
-      it "can be created with valid attributes" do
-        Persistent.create!(:name => 'the role name')
-      end
-
       it "is extended with AccessControl::Ids" do
         Persistent.singleton_class.should include(AccessControl::Ids)
       end

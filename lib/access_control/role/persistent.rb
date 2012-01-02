@@ -5,15 +5,12 @@ module AccessControl
 
       extend AccessControl::Ids
 
-      validates_presence_of :name
-      validates_uniqueness_of :name
-
       has_many :persisted_assignments, :foreign_key => 'role_id',
                :class_name => 'AccessControl::Assignment',
                :dependent => :delete_all
 
       has_many :security_policy_items, :foreign_key => 'role_id',
-               :dependent => :destroy,
+               :dependent => :delete_all,
                :class_name => 'AccessControl::SecurityPolicyItem'
       private :security_policy_items
 
@@ -128,27 +125,6 @@ module AccessControl
           security_policy_items.delete(item)
         end
       end
-
-      def find_assignments_of(principal, node)
-        assignments.find_by_principal_id_and_node_id(principal.id, node.id)
-      end
-
-      def destroy_existing_assignments(arguments)
-        principal = arguments.delete(:principal)
-        node      = arguments.delete(:node)
-
-        items = []
-        if principal && node
-          items = [find_assignments_of(principal, node)].compact
-        elsif  principal && !node
-          items = assignments.find_all_by_principal_id(principal.id)
-        elsif !principal && node
-          items = assignments.find_all_by_node_id(node.id)
-        end
-
-        items.each(&:destroy)
-      end
-
     end
   end
 end
