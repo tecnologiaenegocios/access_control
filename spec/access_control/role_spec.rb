@@ -83,7 +83,6 @@ module AccessControl
       end
 
       it "destroys each returned assignment" do
-        # Assignment destruction itself will care about restriction.
         new_assignment = stub("New assignment")
         combination << new_assignment
 
@@ -120,37 +119,6 @@ module AccessControl
         Role.unassign_all_at(node)
         Role.assigned_at(node).should be_empty
       end
-    end
-
-
-    describe "assignment destruction" do
-      let(:assignment) { stub_model(Assignment, :save => true) }
-      let(:role)       { Role.new(:name => 'irrelevant') }
-
-      before do
-        pending("Still no assignment persistency!")
-        role.assignments << assignment
-      end
-
-      it "destroys assignments when it is destroyed" do
-        assignment.should_receive(:destroy)
-        role.destroy
-      end
-
-      it "destroys the assignment in a unrestricted block" do
-        assignment.should_receive_without_assignment_restriction(:destroy) do
-          role.destroy
-        end
-      end
-    end
-
-    it "destroys security policy items when it is destroyed" do
-      pending
-      role = Role.store(:name => 'the role name')
-      SecurityPolicyItem.create!(:role => role,
-                                 :permission => 'some permission')
-      role.destroy
-      SecurityPolicyItem.count.should == 0
     end
 
     describe "role assignment in principals and nodes" do
@@ -202,6 +170,13 @@ module AccessControl
           role.should_not be_assigned_to(principal, other_node)
         end
       end
+
+      specify "are persisted" do
+        role.assign_to(principal, node)
+
+        persisted_role = Role.fetch(role.id)
+        persisted_role.should be_assigned_to(principal, node)
+      end
     end
 
     describe "role assignment in nodes and principals" do
@@ -252,6 +227,13 @@ module AccessControl
           role.should_not be_assigned_at(node, principal)
           role.should_not be_assigned_at(node, other_principal)
         end
+      end
+
+      specify "are persisted" do
+        role.assign_at(node, principal)
+
+        persisted_role = Role.fetch(role.id)
+        persisted_role.should be_assigned_at(node, principal)
       end
     end
 
@@ -319,29 +301,6 @@ module AccessControl
         specify "are persisted as well" do
           persisted_role.permissions.should include("p1", "p2")
         end
-      end
-    end
-
-    describe "#persist" do
-      let(:persistent) do
-        mock.tap do |persistent|
-          persistent.stub(:save)
-          persistent.stub(:permissions => Set.new)
-          persistent.stub(:permissions=)
-        end
-      end
-
-      subject { Role.wrap(persistent) }
-
-      it "feeds the persitent with its permissions" do
-        subject.add_permissions("p1", "p2", "p3")
-        persistent.should_receive(:permissions=).with(["p1", "p2", "p3"])
-        subject.persist
-      end
-
-      it "commands the persistent to be saved" do
-        persistent.should_receive(:save)
-        subject.persist
       end
     end
 

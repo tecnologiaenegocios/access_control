@@ -30,11 +30,11 @@ module AccessControl
         let(:principal) { stub("Principal", :id => 123) }
         let(:node)      { stub("Node",      :id => -1)  }
         let(:role)      { Persistent.create!(:name => "Foo")  }
+        let(:assignment) { stub(:node => node, :principal => principal) }
 
         before do
-          pending("Waiting for completion of Role")
           AccessControl.stub(:Node).with(node).and_return(node)
-          role.assign_to(principal, node)
+          role.assignments = [assignment]
         end
 
         it "includes roles that were assigned to the given principal" do
@@ -62,12 +62,11 @@ module AccessControl
         let(:node)      { stub("Node",      :id => -1) }
         let(:principal) { stub("Principal", :id => -1) }
         let(:role)      { Persistent.create!(:name => "Foo") }
+        let(:assignment) { stub(:node => node, :principal => principal) }
 
         before do
           AccessControl.stub(:Node).with(node).and_return(node)
-
-          pending("Waiting for completion of Role")
-          role.assign_to(principal, node)
+          role.assignments = [assignment]
         end
 
         it "includes roles that were assigned on the given node" do
@@ -94,6 +93,106 @@ module AccessControl
       def build_role(properties = {})
         properties[:name] ||= "irrelevant"
         Persistent.create!(properties)
+      end
+
+      describe "the assignments" do
+        def stub_assignment(node = nodes[0], principal = principals[0])
+          OpenStruct.new(:node => node, :principal => principal)
+        end
+
+        let(:nodes) do
+          Hash.new do |hash, id|
+            node = stub("Node #{id}", :id => id)
+            Node.stub(:fetch).with(id, anything).and_return(node)
+            hash[id] = node
+          end
+        end
+
+        let(:principals) do
+          Hash.new do |hash, id|
+            principal = stub("Principal #{id}", :id => id)
+            Principal.stub(:fetch).with(id, anything).
+              and_return(principal)
+            hash[id] = principal
+          end
+        end
+
+        specify "can be set as an Array" do
+          assignments = [stub_assignment]
+          setting_the_assignments = lambda do
+            subject.assignments = assignments
+          end
+
+          setting_the_assignments.should_not raise_error
+        end
+
+        specify "can be set as a Set" do
+          assignments = Set[stub_assignment]
+          setting_the_assignments = lambda do
+            subject.assignments = assignments
+          end
+
+          setting_the_assignments.should_not raise_error
+        end
+
+        specify "don't contain duplicated entries" do
+          assignments = [stub_assignment]*2
+
+          subject.assignments = assignments
+          subject.assignments.count.should == 1
+        end
+
+        context "two assignments" do
+          specify "are duplicated with the same #node and #principal" do
+            a1 = stub_assignment(nodes[0], principals[0])
+            a2 = stub_assignment(nodes[0], principals[0])
+            subject.assignments = [a1, a2]
+
+            accepted_assignments = subject.assignments
+            accepted_assignments.count.should == 1
+          end
+
+          specify "aren't duplicated with different #node and #principal" do
+            a1 = stub_assignment(nodes[0], principals[0])
+            a2 = stub_assignment(nodes[1], principals[1])
+
+            subject.assignments = [a1, a2]
+
+            accepted_assignments = subject.assignments
+            accepted_assignments.count.should == 2
+          end
+
+          specify "aren't duplicated with different #node but same #principal" do
+            a1 = stub_assignment(nodes[0], principals[0])
+            a2 = stub_assignment(nodes[1], principals[0])
+
+            subject.assignments = [a1, a2]
+
+            accepted_assignments = subject.assignments
+            accepted_assignments.count.should == 2
+          end
+
+          specify "aren't duplicated with same #node but different #principal" do
+            a1 = stub_assignment(nodes[0], principals[0])
+            a2 = stub_assignment(nodes[0], principals[1])
+
+            subject.assignments = [a1, a2]
+
+            accepted_assignments = subject.assignments
+            accepted_assignments.count.should == 2
+          end
+        end
+
+        specify "are persisted" do
+          assignments = [stub_assignment(nodes[0], principals[0])]
+          subject = build_role(:assignments => assignments)
+
+          persisted_subject = Role::Persistent.find(subject.id)
+          persisted_assignments = persisted_subject.assignments
+
+          persisted_assignments.map(&:node).should == [nodes[0]]
+          persisted_assignments.map(&:principal).should == [principals[0]]
+        end
       end
 
       describe "the permissions" do

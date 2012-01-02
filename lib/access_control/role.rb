@@ -60,15 +60,21 @@ module AccessControl
     end
 
     def assign_to(principal, node)
-      assignments[principal] << node
+      unless assigned_to?(principal, node)
+        new_assignment = assignments_by_principal[principal].build(:node => node)
+        real_assignments << new_assignment
+      end
     end
 
     def assign_at(node, principal)
-      assign_to(principal, node)
+      unless assigned_at?(node, principal)
+        new_assignment = assignments_by_node[node].build(:principal => principal)
+        real_assignments << new_assignment
+      end
     end
 
     def assigned_to?(principal, node)
-      assignments[principal].include?(node)
+      !assignment_on(node, principal).nil?
     end
 
     def assigned_at?(node, principal)
@@ -76,20 +82,24 @@ module AccessControl
     end
 
     def unassign_from(principal, node = nil)
-      if node
-        assignments[principal].delete(node)
-      else
-        assignments[principal].clear
+      unassign_from_node = node      && assigned_to?(principal, node)
+      unassign_from_all  = node.nil? && assignments_by_principal[principal].any?
+
+      if unassign_from_node
+        real_assignments.delete assignment_on(node, principal)
+      elsif unassign_from_all
+        real_assignments.delete assignments_by_principal[principal]
       end
     end
 
     def unassign_at(node, principal = nil)
-      if principal
-        assignments[principal].delete(node)
-      else
-        assignments.values.each do |nodes|
-          nodes.delete(node)
-        end
+      unassign_from_principal = principal && assigned_at?(node, principal)
+      unassign_from_all       = principal.nil? && assignments_by_node[node].any?
+
+      if unassign_from_principal
+        real_assignments.delete assignment_on(node, principal)
+      elsif unassign_from_all
+        real_assignments.delete assignments_by_node[node]
       end
     end
 
@@ -99,8 +109,24 @@ module AccessControl
     end
   private
 
-    def assignments
-      @assignments ||= Hash.new { |hash, key| hash[key] = Set.new }
+    def assignment_on(node, principal)
+      real_assignments.find_by_node_id_and_principal_id(node.id, principal.id)
+    end
+
+    def assignments_by_principal
+      @assignments_by_principal ||= Hash.new do |hash, principal|
+        hash[principal] = real_assignments.scoped_by_principal_id(principal.id)
+      end
+    end
+
+    def assignments_by_node
+      @assignments_by_node ||= Hash.new do |hash, node|
+        hash[node] = real_assignments.scoped_by_node_id(node.id)
+      end
+    end
+
+    def real_assignments
+      persistent.persisted_assignments
     end
 
     def permissions_set

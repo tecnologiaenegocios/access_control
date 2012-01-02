@@ -8,12 +8,14 @@ module AccessControl
       validates_presence_of :name
       validates_uniqueness_of :name
 
-      has_many :assignments, :foreign_key => 'role_id',
-               :class_name => 'AccessControl::Assignment'
+      has_many :persisted_assignments, :foreign_key => 'role_id',
+               :class_name => 'AccessControl::Assignment',
+               :dependent => :delete_all
 
       has_many :security_policy_items, :foreign_key => 'role_id',
                :dependent => :destroy,
                :class_name => 'AccessControl::SecurityPolicyItem'
+      private :security_policy_items
 
       named_scope :local_assignables,
                   :conditions => {:local => true}
@@ -62,6 +64,17 @@ module AccessControl
         scoped_by_name(names)
       end
 
+      def assignments=(assignments)
+        assignments.each do |assignment|
+          hash = hash_assignment(assignment)
+          hashed_assignments[hash] ||= build_assignment(assignment)
+        end
+      end
+
+      def assignments
+        current_assignments.to_enum(:each)
+      end
+
       def permissions=(permissions)
         permissions = Set.new(permissions)
         return if permissions == self.permissions
@@ -77,35 +90,31 @@ module AccessControl
         Set.new(security_policy_items, &:permission)
       end
 
-      # def assign_to(principal, node)
-      #   if found = find_assignments_of(principal, node)
-      #     found
-      #   else
-      #     assignments.create!(:principal_id => principal.id, :node_id => node.id)
-      #   end
-      # end
-
-      # def assign_at(node, principal)
-      #   assign_to(principal, node)
-      # end
-
-      # def assigned_to?(principal, node)
-      #   assignments.exists?(:principal_id => principal.id, :node_id => node.id)
-      # end
-
-      # def assigned_at?(node, principal)
-      #   assigned_to?(principal, node)
-      # end
-
-      # def unassign_from(principal, node=nil)
-      #   destroy_existing_assignments(:principal => principal, :node => node)
-      # end
-
-      # def unassign_at(node, principal=nil)
-      #   destroy_existing_assignments(:node => node, :principal => principal)
-      # end
-
     private
+
+      def hashed_assignments
+        @hashed_assignments ||=
+          persisted_assignments.each_with_object(Hash.new) do |assignment, hash|
+            hash.store(hash_assignment(assignment), assignment)
+          end
+      end
+
+      def hash_assignment(assignment)
+        [assignment.node, assignment.principal].hash
+      end
+
+      def current_assignments
+        if new_record?
+          @current_assignments ||= Array.new
+        else
+          @current_assignments ||= persisted_assignments
+        end
+      end
+
+      def build_assignment(struct)
+        properties = {:node => struct.node, :principal => struct.principal}
+        current_assignments << persisted_assignments.build(properties)
+      end
 
       def add_permissions(permissions)
         permissions.each do |permission|
