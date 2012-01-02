@@ -305,7 +305,9 @@ module AccessControl
     end
 
     describe "scope delegation" do
-      delegated_scopes = [:assigned_to, :assigned_at, :for_all_permissions]
+      delegated_scopes = [:assigned_to, :assigned_at, :for_all_permissions,
+                          :default, :with_names_in, :local_assignables,
+                          :global_assignables]
 
       delegated_scopes.each do |delegated_scope|
         it "delegates the scope .#{delegated_scope} to the persistent model" do
