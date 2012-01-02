@@ -1,181 +1,253 @@
 # vim: fdm=marker
 require 'spec_helper'
+require 'access_control/node/inheritance_manager'
 
 module AccessControl
-  describe Node::InheritanceManager do
+  class Node
+    describe InheritanceManager do
 
-    # Helper methods (to improve readability) {{{
-    def stub_node(name, *args)
-      stub(name, *args).tap do |node|
-        securable = stub("#{name} Securable")
-        node.stub(:securable => securable)
-        node.stub(:ancestors => Set[node])
-      end
-    end
-
-    def turn_on_inheritance_for(*nodes)
-      nodes.each do |node|
-        Inheritance.stub(:recognizes?).with(node.securable).and_return(true)
-      end
-    end
-
-    def turn_off_inheritance_for(*nodes)
-      nodes.each do |node|
-        Inheritance.stub(:recognizes?).with(node.securable).and_return(false)
-      end
-    end
-
-    def set_parent_nodes_of(node, options)
-      parents = options.fetch(:as)
-
-      turn_on_inheritance_for(node)
-      node.stub(:parents => parents)
-      Parenter.stub(:parent_nodes_of).with(node.securable).
-        and_return parents
-    end
-
-    def set_parents_of_the_securable_of(node, options)
-      parents = options.fetch(:as)
-
-      turn_on_inheritance_for(node)
-      Parenter.stub(:parents_of).with(node.securable).
-        and_return parents
-    end
-    # }}}
-
-    before { Inheritance.stub(:recognizes? => false) }
-
-    let(:securable) { stub("Node's securable") }
-    let(:node) { stub("Underlying node", :securable => securable) }
-
-    subject { Node::InheritanceManager.new(node) }
-
-    describe "#parents" do
-
-      context "when the securable is recognized by Inheritance" do
-        let(:parent_nodes) { stub("A parent nodes collection") }
-
-        it "uses parenter to fetch the 'parents_nodes_of' the securable" do
-          set_parent_nodes_of(node, :as => parent_nodes)
-          subject.parents.should == parent_nodes
-        end
+      def make_node
+        node = stub_model(Node)
+        all_nodes[node.id] = node
       end
 
-
-      context "when the securable isn't recognized by Inheritance" do
-        before { turn_off_inheritance_for(node) }
-
-        it "returns an empty set" do
-          subject.parents.should == Set[]
-        end
-      end
-    end
-
-    describe "#securable_parents" do
-
-      context "when the securable is recognized by Inheritance" do
-        let(:parents_set) { stub("Parents set") }
-
-        it "uses parenter to fetch the 'parents_of' the securable" do
-          set_parents_of_the_securable_of(node, :as => parents_set)
-          subject.securable_parents.should == parents_set
-        end
-      end
-
-      context "when the securable isn't recognized by Inheritance" do
-        before { turn_off_inheritance_for(node) }
-
-        it "returns an empty set" do
-          subject.securable_parents.should == Set[]
-        end
-      end
-    end
-
-    describe "#ancestors" do
-      before { Inheritance.stub(:recognizes?) }
-
-      context "when the securable isn't recognized by Inheritance" do
-        before { turn_off_inheritance_for(node) }
-
-        it "returns an empty set" do
-          subject.ancestors.should == Set[]
-        end
-      end
-
-      context "when the securable is recognized by Inheritance" do
-        let(:parent1) { stub_node("Parent1") }
-        let(:parent2) { stub_node("Parent2") }
-        let(:ancestor1) { stub_node("Ancestor 1") }
-        let(:ancestor2) { stub_node("Ancestor 2") }
-
-        before do
-          set_parent_nodes_of(node, :as => [parent1, parent2])
-
-          parent1.stub(:ancestors => Set[ancestor1, parent1])
-          parent2.stub(:ancestors => Set[ancestor2, parent2])
-        end
-
-        it "contains the node's parents" do
-          subject.ancestors.should include(parent1, parent2)
-        end
-
-        it "contain each of the parent nodes ancestors" do
-          subject.ancestors.should include(ancestor1, ancestor2)
-        end
-
-        let(:global_node) { stub("Global Node") }
-
-        before do
-          AccessControl.stub(:global_node => global_node)
-        end
-
-        it "includes the GlobalNode" do
-          subject.ancestors.should include(global_node)
-        end
-
-      end
-
-    end
-
-    describe "#filtered_ancestors" do
-      let(:parent1)   { stub_node("Parent 1", :recursable? => true) }
-      let(:parent2)   { stub_node("Parent 2", :recursable? => false) }
-      let(:ancestor1) { stub_node("Ancestor 1") }
-      let(:ancestor2) { stub_node("Ancestor 2") }
+      let(:all_nodes) { {} }
+      let(:node) { make_node }
+      let(:global_node) { stub("Global Node") }
 
       before do
-        set_parent_nodes_of(node, :as => Set[parent1, parent2])
-
-        set_parent_nodes_of(parent1, :as => Set[ancestor1])
-        set_parent_nodes_of(parent2, :as => Set[ancestor2])
+        Node.stub(:fetch_all) { |ids| ids.map{|id| all_nodes[id]} }
+        AccessControl.stub(:global_node => global_node)
       end
 
-      let(:returned_set) { subject.filtered_ancestors(:recursable?) }
+      after { AccessControl.ac_parents.delete }
 
-      it "returns recursable parents" do
-        returned_set.should include parent1
+      describe "immediate parents and children API" do
+        it "can add a new parent and persist it" do
+          parent = make_node()
+          same_node = stub(:id => node.id)
+          InheritanceManager.new(node).add_parent(parent)
+
+          InheritanceManager.new(same_node).parent_ids.
+            should include(parent.id)
+        end
+
+        it "can add a new child and persist it" do
+          child = make_node()
+          same_node = stub(:id => node.id)
+          InheritanceManager.new(node).add_child(child)
+
+          InheritanceManager.new(same_node).child_ids.should include(child.id)
+        end
+
+        it "can remove an existing parent and persist it" do
+          parent = make_node()
+          other_parent = make_node()
+          same_node = stub(:id => node.id)
+
+          parenter = InheritanceManager.new(node)
+          parenter.add_parent(parent)
+          parenter.add_parent(other_parent)
+
+          parenter = InheritanceManager.new(node)
+          parenter.del_parent(parent)
+
+          ids = InheritanceManager.new(same_node).parent_ids
+          ids.should include(other_parent.id)
+          ids.should_not include(parent.id)
+        end
+
+        it "can remove existing child and persist it" do
+          child = make_node()
+          other_child = make_node()
+          same_node = stub(:id => node.id)
+
+          parenter = InheritanceManager.new(node)
+          parenter.add_child(child)
+          parenter.add_child(other_child)
+
+          parenter = InheritanceManager.new(node)
+          parenter.del_child(child)
+
+          ids = InheritanceManager.new(same_node).child_ids
+          ids.should include(other_child.id)
+          ids.should_not include(child.id)
+        end
+
+        it "can remove all parents" do
+          parent = make_node()
+          other_parent = make_node()
+          same_node = stub(:id => node.id)
+
+          parenter = InheritanceManager.new(node)
+          parenter.add_parent(parent)
+          parenter.add_parent(other_parent)
+
+          parenter = InheritanceManager.new(node)
+          parenter.del_all_parents
+
+          parenter = InheritanceManager.new(same_node)
+          parenter.parent_ids.should be_empty
+        end
+
+        it "can return actual Node parent instances" do
+          parent = make_node()
+          InheritanceManager.new(node).add_parent(parent)
+          InheritanceManager.new(node).parents.should include(parent)
+        end
+
+        it "can return actual Node child instances" do
+          child = make_node()
+          InheritanceManager.new(node).add_child(child)
+          InheritanceManager.new(node).children.should include(child)
+        end
+
+        describe ".parents_of" do
+          it "works in the same way as InheritanceManager.new(foo).parents" do
+            parent = make_node()
+            InheritanceManager.new(node).add_parent(parent)
+            InheritanceManager.parents_of(node).should ==
+              InheritanceManager.new(node).parents
+          end
+        end
+
+        describe ".parent_ids_of" do
+          it "works in the same way as InheritanceManager.new(foo).parent_ids" do
+            parent = make_node()
+            InheritanceManager.new(node).add_parent(parent)
+            InheritanceManager.parent_ids_of(node).should ==
+              InheritanceManager.new(node).parent_ids
+          end
+        end
+
+        describe ".children_of" do
+          it "works in the same way as InheritanceManager.new(foo).children" do
+            child = make_node()
+            InheritanceManager.new(node).add_child(child)
+            InheritanceManager.children_of(node).should ==
+              InheritanceManager.new(node).children
+          end
+        end
+
+        describe ".parent_ids_of" do
+          it "works in the same way as InheritanceManager.new(foo).parent_ids" do
+            child = make_node()
+            InheritanceManager.new(node).add_child(child)
+            InheritanceManager.child_ids(node).should ==
+              InheritanceManager.new(node).child_ids
+          end
+        end
       end
 
-      it "returns non-recursable parents" do
-        returned_set.should include parent2
-      end
+      describe "ancestors and descendants API" do
 
-      it "returns the ancestors of recursable parents" do
-        returned_set.should include ancestor1
-      end
+        def set_parent_nodes_of(node, options)
+          parents = options.fetch(:as)
+          parents.each do |parent|
+            InheritanceManager.new(node).add_parent(parent)
+          end
+        end
 
-      it "doesn't return the ancestors non-recursable parents" do
-        returned_set.should_not include ancestor2
-      end
+        def set_child_nodes_of(node, options)
+          children = options.fetch(:as)
+          children.each do |child|
+            InheritanceManager.new(node).add_child(child)
+          end
+        end
 
-      it "works with bigger hierarchies" do
-        far_away_ancestor = stub_node("Far away ancestor")
-        set_parent_nodes_of(ancestor1, :as => Set[far_away_ancestor])
-        ancestor1.stub(:recursable? => true)
+        subject { InheritanceManager.new(node) }
 
-        returned_set.should include far_away_ancestor
+        describe "#ancestor_ids" do
+          let(:parent1)   { make_node() }
+          let(:parent2)   { make_node() }
+          let(:ancestor1) { make_node() }
+          let(:ancestor2) { make_node() }
+          let(:ancestor3) { make_node() }
+
+          before do
+            set_parent_nodes_of(node, :as => [parent1, parent2])
+            set_parent_nodes_of(parent1, :as => [ancestor1, ancestor2])
+            set_parent_nodes_of(parent2, :as => [ancestor3, ancestor2])
+          end
+
+          it "contains the node's parents" do
+            subject.ancestor_ids.should include(parent1.id, parent2.id)
+          end
+
+          it "contain each of the parent nodes ancestors" do
+            subject.ancestor_ids.should include(ancestor1.id, ancestor2.id,
+                                                ancestor3.id)
+          end
+
+          it "includes the GlobalNode" do
+            subject.ancestor_ids.should include(global_node)
+          end
+
+          it "doesn't repeat elements" do
+            ancestor_ids = subject.ancestor_ids
+            ancestor_ids.to_a.uniq.size.should == ancestor_ids.size
+          end
+        end
+
+        describe "#descendant_ids" do
+          let(:child1)      { make_node() }
+          let(:child2)      { make_node() }
+          let(:descendant1) { make_node() }
+          let(:descendant2) { make_node() }
+          let(:descendant3) { make_node() }
+
+          let(:global_node) { stub("Global Node") }
+
+          before do
+            set_child_nodes_of(node, :as => [child1, child2])
+            set_child_nodes_of(child1, :as => [descendant1, descendant2])
+            set_child_nodes_of(child2, :as => [descendant3, descendant2])
+
+            AccessControl.stub(:global_node => global_node)
+          end
+
+          it "contains the node's children" do
+            subject.descendant_ids.should include(child1.id, child2.id)
+          end
+
+          it "contain each of the child nodes descendants" do
+            subject.descendant_ids.should include(descendant1.id,
+                                                  descendant2.id,
+                                                  descendant3.id)
+          end
+
+          it "doesn't include the GlobalNode" do
+            subject.descendant_ids.should_not include(global_node)
+          end
+
+          it "doesn't repeat elements" do
+            descendant_ids = subject.descendant_ids
+            descendant_ids.to_a.uniq.size.should == descendant_ids.size
+          end
+        end
+
+        describe "#ancestors" do
+          it "returns Node instances" do
+            parent = make_node()
+            ancestor = make_node()
+            set_parent_nodes_of(node, :as => [parent])
+            set_parent_nodes_of(parent, :as => [ancestor])
+
+            subject.ancestors.should include(parent, ancestor)
+          end
+        end
+
+        describe "#descendants" do
+          it "returns Node instances" do
+            child = make_node()
+            descendant = make_node()
+            set_child_nodes_of(node, :as => [child])
+            set_child_nodes_of(child, :as => [descendant])
+
+            subject.descendants.should include(child, descendant)
+          end
+        end
       end
     end
-
   end
 end

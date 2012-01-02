@@ -1,5 +1,3 @@
-require 'access_control/parenter'
-
 module AccessControl
   module PersistencyProtector
     class << self
