@@ -1,9 +1,4 @@
 require 'spec_helper'
-require 'access_control/assignment'
-require 'access_control/behavior'
-require 'access_control/configuration'
-require 'access_control/node'
-require 'access_control/role'
 
 module AccessControl
 
@@ -19,43 +14,6 @@ module AccessControl
     it "is extended with AccessControl::Ids" do
       singleton_class = (class << Assignment; self; end)
       singleton_class.should include(AccessControl::Ids)
-    end
-
-    it "can be created with valid attributes" do
-      pending("Waiting for a replacement")
-      Assignment.create!(
-        :node => stub_model(AccessControl::Node),
-        :principal => stub_model(AccessControl::Principal),
-        :role => stub_model(AccessControl::Role)
-      )
-    end
-
-    it "validates presence of node_id" do
-      pending("Waiting for a replacement")
-      Assignment.new.should have(1).error_on :node_id
-    end
-
-    it "validates presence of role_id" do
-      pending("Waiting for a replacement")
-      Assignment.new.should have(1).error_on :role_id
-    end
-
-    it "validates presence of principal_id" do
-      pending("Waiting for a replacement")
-      Assignment.new.should have(1).error_on :principal_id
-    end
-
-    it "validates uniqueness of role_id, principal_id and node_id" do
-      pending("Waiting for a replacement")
-      Assignment.create!(:node_id => 0, :principal_id => 0, :role_id => 0)
-      Assignment.new(:node_id => 0, :principal_id => 0, :role_id => 0).
-        should have(1).error_on(:role_id)
-      Assignment.new(:node_id => 0, :principal_id => 0, :role_id => 1).
-        should have(:no).errors_on(:role_id)
-      Assignment.new(:node_id => 0, :principal_id => 1, :role_id => 0).
-        should have(:no).errors_on(:role_id)
-      Assignment.new(:node_id => 1, :principal_id => 0, :role_id => 0).
-        should have(:no).errors_on(:role_id)
     end
 
     describe ".overlapping" do
@@ -113,104 +71,6 @@ module AccessControl
         assignment = Assignment.new(different_properties)
         subject.overlaps?(assignment).should be_false
       end
-    end
-
-    describe "role validation" do
-      context "for global node" do
-        let(:node) { stub("Node", :global? => true, :id => 12345) }
-
-        it "accepts a role if it is global assignable" do
-          pending("Waiting for a replacement")
-          Assignment.new(:node => node,
-                         :role => stub_model(Role, :global => true)).
-                         should have(:no).errors_on(:role_id)
-        end
-
-        it "rejects a role if it is not global assignable" do
-          pending("Waiting for a replacement")
-          Assignment.new(:node => node,
-                         :role => stub_model(Role, :global => false)).
-                         should have(1).errors_on(:role_id)
-        end
-      end
-
-      describe "for local nodes" do
-        let(:node) { stub("Node", :global? => false, :id => 12345) }
-
-        it "accepts a role if it is local assignable" do
-          pending("Waiting for a replacement")
-          Assignment.new(:node => node,
-                         :role => stub_model(Role, :local => true)).
-                         should have(:no).errors_on(:role_id)
-        end
-
-        it "rejects a role if it is not local assignable" do
-          pending("Waiting for a replacement")
-          Assignment.new(:node => node,
-                         :role => stub_model(Role, :local => false)).
-                         should have(1).errors_on(:role_id)
-        end
-      end
-
-      describe "assignment security" do
-
-        let(:node) { stub("Node", :id => 12345) }
-        let(:role) { stub_model(Role, :name => 'some_role', :local => true) }
-
-        it "doesn't break the validation when there's no node or role" do
-          pending("Waiting for a replacement")
-          # The validation process should not call this method when there's no
-          # role or node.
-          manager.should_not_receive(:can_assign_or_unassign?).
-            with(nil, nil)
-        end
-
-        it "validates fine if the user can assign" do
-          pending("Waiting for a replacement")
-          manager.should_receive(:can_assign_or_unassign?).
-            with(node, role).and_return(true)
-          Assignment.new(:node => node, :role => role).
-            should have(:no).error_on(:role_id)
-        end
-
-        it "gets an error if the user cannot assign" do
-          pending("Waiting for a replacement")
-          manager.should_receive(:can_assign_or_unassign?).
-            with(node, role).and_return(false)
-          Assignment.new(:node => node, :role => role).
-            should have(1).error_on(:role_id)
-        end
-
-        it "validates fine if user cannot assign but the verification is skipped" do
-          pending("Waiting for a replacement")
-          assignment = Assignment.new(:node => node, :role => role)
-          assignment.skip_assignment_verification!
-          manager.should_not_receive(:can_assign_or_unassign?)
-          assignment.should have(:no).error_on(:role_id)
-        end
-
-        describe "on destruction" do
-          let(:assignment) { stub_model(Assignment,
-                                        :node => node,
-                                        :role => role,
-                                        :destroy_without_callbacks => nil) }
-
-          it "destroys fine if the user can unassign" do
-            pending("Waiting for a replacement")
-            manager.should_receive(:verify_assignment!).with(node, role)
-            assignment.destroy
-          end
-
-          it "calls manager.verify_assignment! (which raises Unauthorized)" do
-            pending("Waiting for a replacement")
-            manager.should_receive(:verify_assignment!).with(node, role).
-              and_raise(Unauthorized)
-            lambda { assignment.destroy }.should raise_exception(Unauthorized)
-          end
-        end
-
-      end
-
     end
 
     def build_assignment(properties = {})
@@ -345,54 +205,6 @@ module AccessControl
       it "returns whatever .assigned_to returns" do
         Assignment.granting_for_principal('permission', 'principal').should ==
           assignment_proxy
-      end
-    end
-
-    describe ".items_for_management" do
-      let(:combination) do
-        Array.new.tap do |combination|
-          combination.stub(:node=)
-          combination.stub(:principals=)
-          combination.stub(:roles=)
-        end
-      end
-
-      let(:node)       { stub("Node") }
-      let(:roles)      { stub("Roles collection") }
-      let(:principals) { stub('principals') }
-
-      before do
-        # Assignment.principal_ids comes for free from AccessControl::Ids.
-        Assignment.stub(:principal_ids).and_return('principal ids')
-
-        Principal.stub(:fetch_all).with('principal ids').and_return(principals)
-      end
-
-      it "sets up the nodes of the combination using its parameter" do
-        combination.should_receive(:node=).with(node)
-        Assignment.items_for_management(node, roles, combination)
-      end
-
-      it "sets up the roles of the combination using its parameter" do
-        combination.should_receive(:roles=).with(roles)
-        Assignment.items_for_management(node, roles, combination)
-      end
-
-      it "uses all the principals with assignments" do
-        combination.should_receive(:principals=).with(principals)
-        Assignment.items_for_management(node, roles, combination)
-      end
-
-      it "returns the generated assignments grouped by principal_id" do
-        combination << a1 = stub("assignment1", :principal_id => 1)
-        combination << a2 = stub("assignment2", :principal_id => 1)
-        combination << a3 = stub("assignment3", :principal_id => 2)
-
-        return_value =
-          Assignment.items_for_management(node, roles, combination)
-
-        return_value[1].should include(a1,a2)
-        return_value[2].should include(a3)
       end
     end
 

@@ -65,25 +65,5 @@ module AccessControl
         other.principal_id == principal_id
     end
 
-    def self.items_for_management(node, roles, combination = AssignmentCombination.new)
-      principals = Principal.fetch_all(Assignment.principal_ids)
-
-      combination.node       = node
-      combination.roles      = roles
-      combination.principals = principals
-
-      combination.group_by(&:principal_id)
-    end
-
-  private
-
-    def can_assign_or_unassign?
-      AccessControl.manager.can_assign_or_unassign?(node, role)
-    end
-
-    def verify_security_restrictions!
-      AccessControl.manager.verify_assignment!(node, role)
-    end
-
   end
 end
