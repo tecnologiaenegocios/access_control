@@ -10,7 +10,7 @@ class CreateAccessControl < ActiveRecord::Migration
           { :options => 'ENGINE=InnoDB DEFAULT CHARSET=utf8' } : {}
       end
 
-      def id_to_limit_8_sql(executor, table)
+      def id_to_limit_8(executor, table)
         case adapter
         when 'mysql'
           executor.execute(
@@ -46,11 +46,8 @@ class CreateAccessControl < ActiveRecord::Migration
         @adapter ||=
           begin
             adapter = ActiveRecord::Base.configurations[Rails.env]['adapter']
-            if adapter == 'mysql' || adapter == 'mysql2'
-              'mysql'
-            else
-              adapter
-            end
+            adapter = 'mysql' if adapter == 'mysql2'
+            adapter
           end
       end
     end
@@ -65,7 +62,7 @@ class CreateAccessControl < ActiveRecord::Migration
       t.boolean :block, :default => false, :null => false
       t.integer :lock_version, :default => 0
     end
-    Helper.id_to_limit_8_sql(self, :ac_nodes)
+    Helper.id_to_limit_8(self, :ac_nodes)
     add_index :ac_nodes, [:securable_type, :securable_id], :unique => true
 
     create_table(:ac_parents,
