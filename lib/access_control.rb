@@ -1,7 +1,7 @@
 require 'rubygems'
-require 'active_record'
-require 'action_controller'
+require 'access_control/db'
 require 'access_control/behavior'
+require 'action_controller'
 
 # Models
 require 'access_control/assignment'

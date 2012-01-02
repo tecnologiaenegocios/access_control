@@ -1,287 +1,121 @@
-# vim: fdm=marker
-
 require 'spec_helper'
 require 'access_control/parenter'
 
 module AccessControl
   describe Parenter do
 
-    # Verbose setup {{{
-    let(:model) do
-      Class.new(Struct.new(:parent1, :parent2, :node)) do
-        include Inheritance
-        inherits_permissions_from  :parent1, :parent2
-      end
+    def make_node
+      node = stub_model(Node)
+      all_nodes[node.id] = node
     end
+
+    let(:all_nodes) { {} }
+    let(:node) { make_node }
 
     before do
-      Inheritance.stub(:recognizes?) do |object|
-        object.kind_of?(model)
-      end
+      Node.stub(:fetch_all) { |ids| ids.map{|id| all_nodes[id]} }
     end
 
-    let(:node_class) do
-      Class.new do
-        attr_reader :name, :index
-        def initialize(index)
-          @index = index
-          @name  = "Node #{index}"
-        end
-      end
-    end
+    after { AccessControl.db[:ac_parents].delete }
 
-    let(:nodes) do
-      Hash.new do |hash, index|
-        hash[index] = node_class.new(index)
-      end
-    end
-
-    let(:parents) do
-      Hash.new do |hash, index|
-        hash[index] = model.new
-      end
-    end
-
-    before do
-      AccessControl.stub(:Node) do |obj|
-        obj.kind_of?(node_class) ? obj : obj.node
-      end
-    end
-    # }}}
-
-    let(:root_node) { nodes[0] }
-    let(:record) { model.new }
-
-    it "takes a record as a the only obligatory parameter" do
+    it "takes a node as the only obligatory parameter" do
       lambda {
-        Parenter.new(record)
+        Parenter.new(node)
       }.should_not raise_exception(ArgumentError)
     end
 
-    it "complains if the record is not an Inheritance" do
-      non_inheritance_record = stub
+    it "can add a new parent and persist it" do
+      parent = make_node()
+      same_node = stub(:id => node.id)
+      Parenter.new(node).add_parent(parent)
 
-      lambda {
-        Parenter.new(non_inheritance_record, [:foo, :bar])
-      }.should raise_exception(InvalidInheritage)
+      Parenter.new(same_node).parents.should include(parent)
     end
 
-    it "may take a list of associations as the second argument" do
-      lambda {
-        Parenter.new(record, [:foo, :bar])
-      }.should_not raise_exception(ArgumentError)
+    it "can add a new child and persist it" do
+      child = make_node()
+      same_node = stub(:id => node.id)
+      Parenter.new(node).add_child(child)
+
+      Parenter.new(same_node).children.should include(child)
     end
 
-    it "may use the record's class associations as default" do
-      model.inherits_permissions_from [:foo, :bar]
+    it "can remove an existing parent and persist it" do
+      parent = make_node()
+      other_parent = make_node()
+      same_node = stub(:id => node.id)
 
-      lambda {
-        Parenter.new(record)
-      }.should_not raise_exception(ArgumentError)
+      parenter = Parenter.new(node)
+      parenter.add_parent(parent)
+      parenter.add_parent(other_parent)
+
+      parenter = Parenter.new(node)
+      parenter.del_parent(parent)
+
+      parenter = Parenter.new(same_node)
+      parenter.parents.should include(other_parent)
+      parenter.parents.should_not include(parent)
     end
 
-    describe "the convenience method Parenter.parents_of" do
-      it "may take a list of associations as the second argument" do
-        lambda {
-          Parenter.parents_of(record, [:parent1, :parent2])
-        }.should_not raise_exception(ArgumentError)
-      end
+    it "can remove existing child and persist it" do
+      child = make_node()
+      other_child = make_node()
+      same_node = stub(:id => node.id)
 
-      it "may use the record's class associations as default" do
-        lambda {
-          Parenter.parents_of(record)
-        }.should_not raise_exception(ArgumentError)
-      end
+      parenter = Parenter.new(node)
+      parenter.add_child(child)
+      parenter.add_child(other_child)
 
-      it "works in the same way as Parenter.new(foo).parent_records" do
-        Parenter.parents_of(record).should ==
-          Parenter.new(record).parent_records
-      end
+      parenter = Parenter.new(node)
+      parenter.del_child(child)
+
+      parenter = Parenter.new(same_node)
+      parenter.children.should include(other_child)
+      parenter.children.should_not include(child)
     end
 
-    describe "the convenicence method Parenter.parent_nodes_of" do
-      before do
-        record.parent1 = parents[1]
-      end
-
-      it "may take a list of associations as the second argument" do
-        lambda {
-          Parenter.parent_nodes_of(record, [:parent1, :parent2])
-        }.should_not raise_exception(ArgumentError)
-      end
-
-      it "may use the record's class associations as default" do
-        lambda {
-          Parenter.parent_nodes_of(record)
-        }.should_not raise_exception(ArgumentError)
-      end
-
-      it "works in the same way as Parenter.new(foo).parent_nodes" do
-        Parenter.parent_nodes_of(record).should ==
-          Parenter.new(record).parent_nodes
-      end
+    it "can return only parent ids" do
+      parent = make_node()
+      Parenter.new(node).add_parent(parent)
+      Parenter.new(node).parent_ids.should include(parent.id)
     end
 
-    describe "when the record has inheritance" do
+    it "can return only child ids" do
+      child = make_node()
+      Parenter.new(node).add_child(child)
+      Parenter.new(node).child_ids.should include(child.id)
+    end
 
-      let(:global_record) { AccessControl::GlobalRecord.instance }
-      subject { Parenter.new(record) }
-
-      describe "#parent_records" do
-
-        it "gets the record parents" do
-          record.parent1 = parents[1]
-          record.parent2 = parents[2]
-
-          subject.parent_records.should == Set[parents[1], parents[2]]
-        end
-
-        it "doesn't break if the some of the parents are nil" do
-          record.parent1 = parents[1]
-          record.parent2 = nil
-
-          subject.parent_records.should == Set[parents[1]]
-        end
-
-        it "merges collection associations" do
-          parents[3] = [parents[1], parents[2]]
-
-          record.parent1 = parents[3]
-          record.parent2 = parents[4]
-
-          subject.parent_records.should == Set[parents[1], parents[2], parents[4]]
-        end
-
-        context "when the record has no parents" do
-          before do
-            record.parent1 = nil
-            record.parent2 = nil
-          end
-
-          it "returns the global record" do
-            subject.parent_records.should == Set[global_record]
-          end
-        end
-      end
-
-      describe "#parent_nodes" do
-
-        before do
-          record.parent1 = parents[1]
-          record.parent2 = parents[2]
-        end
-
-        it "includes the immediate parent node of a record" do
-          parents[1].node = parents[2].node = root_node
-
-          parenter = Parenter.new record
-          result   =  parenter.parent_nodes
-
-          result.should include root_node
-        end
-
-        it "includes all the immediate parent nodes of a record" do
-          parents[1].node = nodes[1]
-          parents[2].node = nodes[2]
-
-          parenter = Parenter.new record
-          result   =  parenter.parent_nodes
-
-          result.should include(nodes[1], nodes[2])
-        end
-
-        it "doesn't include 'nil' values" do
-          parents[1].node = nodes[1]
-          parents[2].node = nil
-
-          parenter = Parenter.new record
-          result   =  parenter.parent_nodes
-
-          result.should_not include nil
-        end
-
-        context "when the record has no parents" do
-          it "returns the global node" do
-            record.parent1 = nil
-            record.parent2 = nil
-
-            AccessControl.stub(:Node) do |obj|
-              root_node if obj == GlobalRecord.instance
-            end
-
-            parenter = Parenter.new record
-            result   =  parenter.parent_nodes
-
-            result.should == Set[root_node]
-          end
-        end
-      end
-
-      describe "#ancestor_records" do
-        let(:first_parent)  { parents[1] }
-        let(:second_parent) { parents[2] }
-
-        let(:first_ancestor)  { parents[3] }
-        let(:second_ancestor) { parents[4] }
-
-        before do
-          record.parent1 = first_parent
-          record.parent2 = second_parent
-
-          first_parent.parent1  = first_ancestor
-          second_parent.parent2 = second_ancestor
-        end
-
-        it "contains the immediate parents of the record" do
-          parenter = Parenter.new(record)
-          parenter.ancestor_records.should include first_parent, second_parent
-        end
-
-        it "contains the grandparents of the record" do
-          parenter = Parenter.new(record)
-          parenter.ancestor_records.
-            should include first_ancestor, second_ancestor
-        end
-
-        it "works with arbritarily big hierarchies" do
-          parent_chain = []
-
-          1.upto(10) do |order|
-            parent_chain << (parents[order].parent1 = parents[order+1])
-          end
-
-          parenter = Parenter.new(record)
-          parenter.ancestor_records.should include *parent_chain
-        end
-
-        it "doesn't include nil parents" do
-          record.parent2 = nil
-
-          parenter = Parenter.new(record)
-          parenter.ancestor_records.should_not include nil
-        end
-
-        it "doesn't include nil grandparents" do
-          first_parent.parent1 = nil
-
-          parenter = Parenter.new(record)
-          parenter.ancestor_records.should_not include nil
-        end
-
-        it "doesn't try to get the ancestors of 'orphan' parents" do
-          orphan_parent_class = Class.new
-          orphan_parent = orphan_parent_class.new
-          record.parent1 = orphan_parent
-
-          Inheritance.stub(:recognizes?).with(orphan_parent).and_return(false)
-
-          orphan_parent_class.should_not_receive :inherits_permissions_from
-
-          parenter = Parenter.new(record)
-          parenter.ancestor_records
-        end
+    describe ".parents_of" do
+      it "works in the same way as Parenter.new(foo).parents" do
+        parent = make_node()
+        Parenter.new(node).add_parent(parent)
+        Parenter.parents_of(node).should == Parenter.new(node).parents
       end
     end
 
+    describe ".parent_ids_of" do
+      it "works in the same way as Parenter.new(foo).parent_ids" do
+        parent = make_node()
+        Parenter.new(node).add_parent(parent)
+        Parenter.parent_ids_of(node).should == Parenter.new(node).parent_ids
+      end
+    end
+
+    describe ".children_of" do
+      it "works in the same way as Parenter.new(foo).children" do
+        child = make_node()
+        Parenter.new(node).add_child(child)
+        Parenter.children_of(node).should == Parenter.new(node).children
+      end
+    end
+
+    describe ".parent_ids_of" do
+      it "works in the same way as Parenter.new(foo).parent_ids" do
+        child = make_node()
+        Parenter.new(node).add_child(child)
+        Parenter.child_ids(node).should == Parenter.new(node).child_ids
+      end
+    end
   end
 end

@@ -1,59 +1,77 @@
+require 'access_control/db'
 require 'access_control/exceptions'
 require 'access_control/node'
 require 'access_control/behavior'
 
 module AccessControl
   class Parenter
-
     def self.parents_of(*args)
-      self.new(*args).parent_records
+      self.new(*args).parents
     end
 
-    def self.parent_nodes_of(*args)
-      self.new(*args).parent_nodes
+    def self.children_of(*args)
+      self.new(*args).children
     end
 
-    def self.ancestor_records_of(*args)
-      self.new(*args).ancestor_records
+    def self.parent_ids_of(*args)
+      self.new(*args).parent_ids
     end
 
-    attr_reader :record
-
-    def initialize(record, associations = nil)
-      raise InvalidInheritage unless Inheritance.recognizes?(record)
-
-      associations ||= record.class.inherits_permissions_from
-
-      @record = record
-      @parent_associations = associations
+    def self.child_ids(*args)
+      self.new(*args).child_ids
     end
 
-    def parent_records
-      parents = Util.compact_flat_set(@parent_associations) do |association_name|
-        @record.public_send(association_name)
-      end
+    attr_reader :node
 
-      if parents.empty?
-        Set[GlobalRecord.instance]
-      else
-        Set.new(parents)
-      end
+    def initialize(node)
+      @node = node
     end
 
-    def parent_nodes
-      Util.compact_flat_set(parent_records) do |parent|
-        AccessControl::Node(parent)
-      end
+    def add_parent(parent)
+      db << { :child_id => node.id, :parent_id => parent.id }
     end
 
-    def ancestor_records
-      Util.flat_set(parent_records) do |parent|
-        if Inheritance.recognizes?(parent)
-          Parenter.ancestor_records_of(parent) << parent
-        else
-          parent
-        end
-      end
+    def add_child(child)
+      db << { :child_id => child.id, :parent_id => node.id }
     end
+
+    def del_parent(parent)
+      parent_set.filter(:parent_id => parent.id).delete
+    end
+
+    def del_child(child)
+      child_set.filter(:child_id => child.id).delete
+    end
+
+    def parents
+      Node.fetch_all(parent_ids)
+    end
+
+    def children
+      Node.fetch_all(child_ids)
+    end
+
+    def parent_ids
+      parent_set.map { |r| r[:parent_id] }
+    end
+
+    def child_ids
+      child_set.map { |r| r[:child_id] }
+    end
+
+  private
+
+    def db
+      AccessControl.db[:ac_parents]
+    end
+
+    def parent_set
+      db.filter(:child_id => node.id)
+    end
+
+    def child_set
+      db.filter(:parent_id => node.id)
+    end
+
   end
 end
