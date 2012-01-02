@@ -90,16 +90,10 @@ module AccessControl
 
       if unassign_from_node
         assignment = assignment_on(node, principal)
-
-        real_assignments.delete(assignment)
-        new_assignments.delete(assignment)
+        remove_assignments(assignment)
       elsif unassign_from_all
         assignments = assignments_by_principal[principal]
-
-        real_assignments.delete(assignments)
-        assignments.each do |assignment|
-          new_assignments.delete(assignment)
-        end
+        remove_assignments(*assignments)
       end
     end
 
@@ -109,16 +103,10 @@ module AccessControl
 
       if unassign_from_principal
         assignment = assignment_on(node, principal)
-
-        real_assignments.delete(assignment)
-        new_assignments.delete(assignment)
+        remove_assignments(assignment)
       elsif unassign_from_all
         assignments = assignments_by_node[node]
-
-        real_assignments.delete(assignments)
-        assignments.each do |assignment|
-          new_assignments.delete(assignment)
-        end
+        remove_assignments(*assignments)
       end
     end
 
@@ -161,6 +149,13 @@ module AccessControl
 
     def real_assignments
       persistent.persisted_assignments
+    end
+
+    def remove_assignments(*assignments)
+      real_assignments.delete(assignments)
+      assignments.each do |assignment|
+        new_assignments.delete(assignment)
+      end
     end
 
     def permissions_set
