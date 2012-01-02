@@ -43,6 +43,10 @@ module AccessControl
       child_set.filter(:child_id => child.id).delete
     end
 
+    def del_all_parents
+      parent_set.delete
+    end
+
     def parents
       Node.fetch_all(parent_ids)
     end

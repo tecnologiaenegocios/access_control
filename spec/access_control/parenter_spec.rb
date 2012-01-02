@@ -12,11 +12,8 @@ module AccessControl
     let(:all_nodes) { {} }
     let(:node) { make_node }
 
-    before do
-      Node.stub(:fetch_all) { |ids| ids.map{|id| all_nodes[id]} }
-    end
-
-    after { AccessControl.db[:ac_parents].delete }
+    before { Node.stub(:fetch_all) { |ids| ids.map{|id| all_nodes[id]} } }
+    after  { AccessControl.db[:ac_parents].delete }
 
     it "takes a node as the only obligatory parameter" do
       lambda {
@@ -72,6 +69,22 @@ module AccessControl
       parenter = Parenter.new(same_node)
       parenter.children.should include(other_child)
       parenter.children.should_not include(child)
+    end
+
+    it "can remove all parents" do
+      parent = make_node()
+      other_parent = make_node()
+      same_node = stub(:id => node.id)
+
+      parenter = Parenter.new(node)
+      parenter.add_parent(parent)
+      parenter.add_parent(other_parent)
+
+      parenter = Parenter.new(node)
+      parenter.del_all_parents
+
+      parenter = Parenter.new(same_node)
+      parenter.parents.should be_empty
     end
 
     it "can return only parent ids" do
