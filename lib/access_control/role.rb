@@ -64,6 +64,7 @@ module AccessControl
       unless assigned_to?(principal, node)
         new_assignment = assignments_by_principal[principal].build(:node => node)
         real_assignments << new_assignment
+        new_assignments  << new_assignment
       end
     end
 
@@ -71,6 +72,7 @@ module AccessControl
       unless assigned_at?(node, principal)
         new_assignment = assignments_by_node[node].build(:principal => principal)
         real_assignments << new_assignment
+        new_assignments  << new_assignment
       end
     end
 
@@ -87,9 +89,17 @@ module AccessControl
       unassign_from_all  = node.nil? && assignments_by_principal[principal].any?
 
       if unassign_from_node
-        real_assignments.delete assignment_on(node, principal)
+        assignment = assignment_on(node, principal)
+
+        real_assignments.delete(assignment)
+        new_assignments.delete(assignment)
       elsif unassign_from_all
-        real_assignments.delete assignments_by_principal[principal]
+        assignments = assignments_by_principal[principal]
+
+        real_assignments.delete(assignments)
+        assignments.each do |assignment|
+          new_assignments.delete(assignment)
+        end
       end
     end
 
@@ -98,9 +108,17 @@ module AccessControl
       unassign_from_all       = principal.nil? && assignments_by_node[node].any?
 
       if unassign_from_principal
-        real_assignments.delete assignment_on(node, principal)
+        assignment = assignment_on(node, principal)
+
+        real_assignments.delete(assignment)
+        new_assignments.delete(assignment)
       elsif unassign_from_all
-        real_assignments.delete assignments_by_node[node]
+        assignments = assignments_by_node[node]
+
+        real_assignments.delete(assignments)
+        assignments.each do |assignment|
+          new_assignments.delete(assignment)
+        end
       end
     end
 
@@ -108,10 +126,21 @@ module AccessControl
       persistent.permissions = permissions.to_a
       persistent.save
     end
+
   private
 
     def assignment_on(node, principal)
-      real_assignments.find_by_node_id_and_principal_id(node.id, principal.id)
+      node_id      = node.id
+      principal_id = principal.id
+
+      query_database = Proc.new do
+        real_assignments.find_by_node_id_and_principal_id(node_id, principal_id)
+      end
+
+      new_assignments.detect(query_database) do |assignment|
+        assignment.node_id == node_id and
+          assignment.principal_id == principal_id
+      end
     end
 
     def assignments_by_principal
@@ -126,20 +155,16 @@ module AccessControl
       end
     end
 
+    def new_assignments
+      @new_assignments ||= Array.new
+    end
+
     def real_assignments
       persistent.persisted_assignments
     end
 
     def permissions_set
       @permissions_set ||= persistent.permissions
-    end
-
-    def destroy_dependant_assignments
-      AccessControl.manager.without_assignment_restriction do
-        assignments.each do |assignment|
-          assignment.destroy
-        end
-      end
     end
   end
 end

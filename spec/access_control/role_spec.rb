@@ -136,6 +136,13 @@ module AccessControl
         role.should be_assigned_to(principal, node)
       end
 
+      it "works with unsaved roles" do
+        role = Role.new
+        role.assign_to(principal, node)
+
+        role.should be_assigned_to(principal, node)
+      end
+
       it "doesn't cause trouble if assigned more than once" do
         role.assign_to(principal, node)
         role.assign_to(principal, node)
@@ -191,6 +198,13 @@ module AccessControl
 
       it "assigns a role in the given node to a principal" do
         role.assign_at(node, principal)
+        role.should be_assigned_at(node, principal)
+      end
+
+      it "works with unsaved roles" do
+        role = Role.new
+        role.assign_at(node, principal)
+
         role.should be_assigned_at(node, principal)
       end
 
