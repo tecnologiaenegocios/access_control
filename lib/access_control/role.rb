@@ -40,7 +40,11 @@ module AccessControl
     end
 
     def permissions
-      permissions_set.to_enum
+      Enumerator.new do |yielder|
+        permissions_set.each do |permission|
+          yielder.yield(permission)
+        end
+      end
     end
 
     def add_permissions(*names)
@@ -88,6 +92,11 @@ module AccessControl
         end
       end
     end
+
+    def persist
+      persistent.permissions = permissions.to_a
+      persistent.save
+    end
   private
 
     def assignments
@@ -95,7 +104,7 @@ module AccessControl
     end
 
     def permissions_set
-      @permissions_set ||= Set.new
+      @permissions_set ||= persistent.permissions
     end
 
     def destroy_dependant_assignments

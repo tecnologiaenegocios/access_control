@@ -317,9 +317,31 @@ module AccessControl
         end
 
         specify "are persisted as well" do
-          pending("Still no permission persistency!")
           persisted_role.permissions.should include("p1", "p2")
         end
+      end
+    end
+
+    describe "#persist" do
+      let(:persistent) do
+        mock.tap do |persistent|
+          persistent.stub(:save)
+          persistent.stub(:permissions => Set.new)
+          persistent.stub(:permissions=)
+        end
+      end
+
+      subject { Role.wrap(persistent) }
+
+      it "feeds the persitent with its permissions" do
+        subject.add_permissions("p1", "p2", "p3")
+        persistent.should_receive(:permissions=).with(["p1", "p2", "p3"])
+        subject.persist
+      end
+
+      it "commands the persistent to be saved" do
+        persistent.should_receive(:save)
+        subject.persist
       end
     end
 
