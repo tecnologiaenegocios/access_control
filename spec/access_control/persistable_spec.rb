@@ -322,14 +322,19 @@ module AccessControl
       end
 
       describe ".fetch_all" do
-        before do
+        it "finds persistents with id included in the list given" do
           persistent_model.stub(:all).
             with(:conditions => {:id => [1,2,3]}).
             and_return(['item1', 'item2', 'item3'])
+          persistent_results = model.fetch_all([1,2,3]).map(&:persistent)
+          persistent_results.should == ['item1', 'item2', 'item3']
         end
 
-        it "finds persistents with id included in the list given" do
-          persistent_results = model.fetch_all([1,2,3]).map(&:persistent)
+        it "passes an array to the conditions" do
+          persistent_model.stub(:all).
+            with(:conditions => {:id => instance_of(Array)}).
+            and_return(['item1', 'item2', 'item3'])
+          persistent_results = model.fetch_all(Set[1,2,3]).map(&:persistent)
           persistent_results.should == ['item1', 'item2', 'item3']
         end
 

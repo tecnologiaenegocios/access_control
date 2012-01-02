@@ -77,7 +77,7 @@ module AccessControl
       end
 
       def fetch_all(ids)
-        results = persistent_model.all(:conditions => { :id => ids })
+        results = persistent_model.all(:conditions => { :id => Array(ids) })
         raise NotFoundError if results.size != ids.size
         results.map { |result| wrap(result) }
       end
