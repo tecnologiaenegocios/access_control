@@ -38,6 +38,13 @@ module AccessControl
 
           returned_set.should == Set[2, 4, 6, 8, 10]
         end
+
+        it "doesn't merge hashes in the result (to prevent awkward results)" do
+          collection = [1, 2, 3]
+          returned_set = Util.flat_set(collection) { |n| {n => n * 2} }
+
+          returned_set.should == Set[{1 => 2}, {2 => 4}, {3 => 6}]
+        end
       end
 
       it "doesn't remove null values from the resulting Set" do

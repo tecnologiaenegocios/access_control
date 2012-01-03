@@ -22,7 +22,7 @@ module AccessControl
         collection = block ? enumerable.map(&block) : enumerable
 
         collection.inject(Set.new) do |set, element|
-          if element.kind_of?(Set) || element.kind_of?(Array)
+          if element.kind_of?(Enumerable) && !element.kind_of?(Hash)
             set.merge element
           else
             set.add element
