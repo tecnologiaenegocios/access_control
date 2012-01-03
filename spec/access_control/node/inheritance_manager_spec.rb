@@ -13,11 +13,12 @@ module AccessControl
 
       let(:all_nodes) { {} }
       let(:node) { make_node }
-      let(:global_node) { stub("Global Node") }
+      let(:global_node) { stub_model(Node) }
 
       before do
+        all_nodes[global_node.id] = global_node
         Node.stub(:fetch_all) { |ids| ids.map{|id| all_nodes[id]} }
-        AccessControl.stub(:global_node => global_node)
+        AccessControl.stub(:global_node_id => global_node.id)
       end
 
       describe "immediate parents and children API" do
@@ -153,14 +154,17 @@ module AccessControl
           end
         end
 
-        subject { InheritanceManager.new(node) }
+        let(:inheritance_manager) { InheritanceManager.new(node) }
 
         describe "#ancestor_ids" do
-          let(:parent1)   { make_node() }
-          let(:parent2)   { make_node() }
-          let(:ancestor1) { make_node() }
-          let(:ancestor2) { make_node() }
-          let(:ancestor3) { make_node() }
+          let!(:parent1)   { make_node() }
+          let!(:parent2)   { make_node() }
+          let!(:parent3)   { make_node() }
+          let!(:ancestor1) { make_node() }
+          let!(:ancestor2) { make_node() }
+          let!(:ancestor3) { make_node() }
+
+          subject { inheritance_manager.ancestor_ids }
 
           before do
             set_parent_nodes_of(node, :as => [parent1, parent2])
@@ -168,33 +172,25 @@ module AccessControl
             set_parent_nodes_of(parent2, :as => [ancestor3, ancestor2])
           end
 
-          it "contains the node's parents" do
-            subject.ancestor_ids.should include(parent1.id, parent2.id)
-          end
-
-          it "contain each of the parent nodes ancestors" do
-            subject.ancestor_ids.should include(ancestor1.id, ancestor2.id,
-                                                ancestor3.id)
-          end
-
-          it "includes the GlobalNode" do
-            subject.ancestor_ids.should include(global_node)
-          end
-
-          it "doesn't repeat elements" do
-            ancestor_ids = subject.ancestor_ids
-            ancestor_ids.to_a.uniq.size.should == ancestor_ids.size
-          end
+          it { should include_only(
+            parent1.id,
+            parent2.id,
+            ancestor1.id,
+            ancestor2.id,
+            ancestor3.id,
+            global_node.id
+          ) }
         end
 
         describe "#descendant_ids" do
-          let(:child1)      { make_node() }
-          let(:child2)      { make_node() }
-          let(:descendant1) { make_node() }
-          let(:descendant2) { make_node() }
-          let(:descendant3) { make_node() }
+          let!(:child1)      { make_node() }
+          let!(:child2)      { make_node() }
+          let!(:child3)      { make_node() }
+          let!(:descendant1) { make_node() }
+          let!(:descendant2) { make_node() }
+          let!(:descendant3) { make_node() }
 
-          let(:global_node) { stub("Global Node") }
+          subject { inheritance_manager.descendant_ids }
 
           before do
             set_child_nodes_of(node, :as => [child1, child2])
@@ -204,24 +200,13 @@ module AccessControl
             AccessControl.stub(:global_node => global_node)
           end
 
-          it "contains the node's children" do
-            subject.descendant_ids.should include(child1.id, child2.id)
-          end
-
-          it "contain each of the child nodes descendants" do
-            subject.descendant_ids.should include(descendant1.id,
-                                                  descendant2.id,
-                                                  descendant3.id)
-          end
-
-          it "doesn't include the GlobalNode" do
-            subject.descendant_ids.should_not include(global_node)
-          end
-
-          it "doesn't repeat elements" do
-            descendant_ids = subject.descendant_ids
-            descendant_ids.to_a.uniq.size.should == descendant_ids.size
-          end
+          it { should include_only(
+            child1.id,
+            child2.id,
+            descendant1.id,
+            descendant2.id,
+            descendant3.id
+          ) }
         end
 
         describe "#ancestors" do
@@ -231,7 +216,11 @@ module AccessControl
             set_parent_nodes_of(node, :as => [parent])
             set_parent_nodes_of(parent, :as => [ancestor])
 
-            subject.ancestors.should include(parent, ancestor)
+            inheritance_manager.ancestors.should include_only(
+              parent,
+              ancestor,
+              global_node
+            )
           end
         end
 
@@ -242,7 +231,8 @@ module AccessControl
             set_child_nodes_of(node, :as => [child])
             set_child_nodes_of(child, :as => [descendant])
 
-            subject.descendants.should include(child, descendant)
+            inheritance_manager.descendants.should include_only(child,
+                                                                descendant)
           end
         end
 

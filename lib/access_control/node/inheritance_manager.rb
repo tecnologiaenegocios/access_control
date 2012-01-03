@@ -79,11 +79,11 @@ module AccessControl
     end
 
     def parent_ids(id=node.id)
-      Set.new parent_set(id).map { |r| r[:parent_id] }
+      Set.new(parent_set(id)) { |r| r[:parent_id] }
     end
 
     def child_ids(id=node.id)
-      Set.new child_set(id).map { |r| r[:child_id] }
+      Set.new(child_set(id)) { |r| r[:child_id] }
     end
 
     def ancestor_ids(id=node.id)
@@ -115,7 +115,7 @@ module AccessControl
     end
 
     def default_ancestor_set
-      Set[AccessControl.global_node]
+      Set[AccessControl.global_node_id]
     end
   end
 end
