@@ -16,8 +16,24 @@ module AccessControl
       self.new(*args).parent_ids
     end
 
-    def self.child_ids(*args)
+    def self.child_ids_of(*args)
       self.new(*args).child_ids
+    end
+
+    def self.ancestors_of(*args)
+      self.new(*args).ancestors
+    end
+
+    def self.ancestor_ids_of(*args)
+      self.new(*args).ancestor_ids
+    end
+
+    def self.descendants_of(*args)
+      self.new(*args).descendants
+    end
+
+    def self.descendant_ids_of(*args)
+      self.new(*args).descendant_ids
     end
 
     attr_reader :node

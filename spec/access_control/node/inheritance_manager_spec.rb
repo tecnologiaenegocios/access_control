@@ -101,7 +101,7 @@ module AccessControl
         end
 
         describe ".parents_of" do
-          it "works in the same way as InheritanceManager.new(foo).parents" do
+          it "works like InheritanceManager.new(foo).parents" do
             parent = make_node()
             InheritanceManager.new(node).add_parent(parent)
             InheritanceManager.parents_of(node).should ==
@@ -110,7 +110,7 @@ module AccessControl
         end
 
         describe ".parent_ids_of" do
-          it "works in the same way as InheritanceManager.new(foo).parent_ids" do
+          it "works like InheritanceManager.new(foo).parent_ids" do
             parent = make_node()
             InheritanceManager.new(node).add_parent(parent)
             InheritanceManager.parent_ids_of(node).should ==
@@ -119,7 +119,7 @@ module AccessControl
         end
 
         describe ".children_of" do
-          it "works in the same way as InheritanceManager.new(foo).children" do
+          it "works like InheritanceManager.new(foo).children" do
             child = make_node()
             InheritanceManager.new(node).add_child(child)
             InheritanceManager.children_of(node).should ==
@@ -127,11 +127,11 @@ module AccessControl
           end
         end
 
-        describe ".parent_ids_of" do
-          it "works in the same way as InheritanceManager.new(foo).parent_ids" do
+        describe ".child_ids_of" do
+          it "works like InheritanceManager.new(foo).child_ids" do
             child = make_node()
             InheritanceManager.new(node).add_child(child)
-            InheritanceManager.child_ids(node).should ==
+            InheritanceManager.child_ids_of(node).should ==
               InheritanceManager.new(node).child_ids
           end
         end
@@ -243,6 +243,52 @@ module AccessControl
             set_child_nodes_of(child, :as => [descendant])
 
             subject.descendants.should include(child, descendant)
+          end
+        end
+
+        describe "module methods for ancestors" do
+          before do
+            parent = make_node()
+            ancestor = make_node()
+            set_parent_nodes_of(node, :as => [parent])
+            set_parent_nodes_of(parent, :as => [ancestor])
+          end
+
+          describe ".ancestors_of" do
+            it "works like InheritanceManager.new(foo).parents" do
+              InheritanceManager.ancestors_of(node).should ==
+                InheritanceManager.new(node).ancestors
+            end
+          end
+
+          describe ".ancestor_ids_of" do
+            it "works like InheritanceManager.new(foo).ancestor_ids" do
+              InheritanceManager.ancestor_ids_of(node).should ==
+                InheritanceManager.new(node).ancestor_ids
+            end
+          end
+        end
+
+        describe "module methods for descendants" do
+          before do
+            child = make_node()
+            descendant = make_node()
+            set_child_nodes_of(node, :as => [child])
+            set_child_nodes_of(child, :as => [descendant])
+          end
+
+          describe ".descendants_of" do
+            it "works like InheritanceManager.new(foo).children" do
+              InheritanceManager.descendants_of(node).should ==
+                InheritanceManager.new(node).descendants
+            end
+          end
+
+          describe ".decendant_ids_of" do
+            it "works like InheritanceManager.new(foo).descendant_ids" do
+              InheritanceManager.descendant_ids_of(node).should ==
+                InheritanceManager.new(node).descendant_ids
+            end
           end
         end
       end
