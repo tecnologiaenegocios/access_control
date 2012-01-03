@@ -40,6 +40,7 @@ GEM
       ruby_core_source (>= 0.1.4)
     method_source (0.6.7)
       ruby_parser (>= 2.3.1)
+    mysql2 (0.2.13)
     pry (0.9.7.4)
       coderay (~> 0.9.8)
       method_source (~> 0.6.7)
@@ -98,6 +99,7 @@ DEPENDENCIES
   guard
   guard-rspec
   libnotify
+  mysql2
   pry
   pry-doc
   rb-inotify

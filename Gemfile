@@ -21,3 +21,7 @@ group :guard do
   gem 'libnotify'
   gem 'rb-inotify'
 end
+
+group :mysql do
+  gem 'mysql2'
+end
