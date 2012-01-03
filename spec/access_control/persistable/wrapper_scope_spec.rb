@@ -47,7 +47,7 @@ module AccessControl::Persistable
       end
     end
 
-    delegated_methods = [:count, :any?, :empty?]
+    delegated_methods = [:count, :any?, :empty?, :sql]
 
     delegated_methods.each do |method_name|
       it "delegates ##{method_name} to the original scope" do

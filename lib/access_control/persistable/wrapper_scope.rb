@@ -8,7 +8,7 @@ module AccessControl
         @original_scope    = original_scope
       end
 
-      delegate :count, :any?, :empty?, :to => :original_scope
+      delegate :count, :any?, :empty?, :sql, :to => :original_scope
 
       def each
         all.each { |item| yield(item) if block_given? }
