@@ -1,46 +1,17 @@
 require 'access_control/ids'
-require 'access_control/manager'
+require 'access_control/persistable'
+require 'access_control/assignment/persistent'
 
 module AccessControl
-  class Assignment < ActiveRecord::Base
+  class Assignment
+    include AccessControl::Persistable
 
-    extend AccessControl::Ids
-
-    set_table_name :ac_assignments
-
-    belongs_to :role, :class_name => 'AccessControl::Role'
-
-    has_many :security_policy_items, :through => :role
-
-    named_scope :granting, lambda {|permission|
-      ids = Role.for_permission(permission).ids
-      { :conditions => { :role_id => ids } }
-    }
-
-    def self.with_roles(roles)
-      roles = Util.ids_for_hash_condition(roles)
-      scoped(:conditions => { :role_id => roles })
+    def self.persistent_model
+      Assignment::Persistent
     end
 
-    def self.assigned_to(principal)
-      principal = Util.ids_for_hash_condition(principal)
-      scoped(:conditions => { :principal_id => principal })
-    end
-
-    def self.with_nodes(nodes)
-      node_id = Util.ids_for_hash_condition(nodes)
-      scoped(:conditions => { :node_id => node_id })
-    end
-
-    def self.granting_for_principal(permission, principal)
-      granting(permission).assigned_to(principal)
-    end
-
-    def self.overlapping(roles_ids, principals_ids, nodes_ids)
-      with_roles(roles_ids).
-        assigned_to(principals_ids).
-        with_nodes(nodes_ids)
-    end
+    delegate_scopes :with_nodes, :with_roles, :assigned_to,
+                    :assigned_on, :overlapping
 
     def node=(node)
       self.node_id = node.id
@@ -64,6 +35,5 @@ module AccessControl
       other.node_id == node_id && other.role_id == role_id &&
         other.principal_id == principal_id
     end
-
   end
 end

@@ -20,8 +20,9 @@ module AccessControl
 
         before do
           AccessControl.stub(:Node).with(node).and_return(node)
-          role.persisted_assignments.create(:node => node,
-                                            :principal => principal)
+          Assignment.store(:role_id => role.id,
+                           :node_id => node.id,
+                           :principal_id => principal.id)
         end
 
         it "includes roles that were assigned to the given principal" do
@@ -52,8 +53,9 @@ module AccessControl
 
         before do
           AccessControl.stub(:Node).with(node).and_return(node)
-          role.persisted_assignments.create(:node => node,
-                                            :principal => principal)
+          Assignment.store(:role_id => role.id,
+                           :node_id => node.id,
+                           :principal_id => principal.id)
         end
 
         it "includes roles that were assigned on the given node" do

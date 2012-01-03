@@ -8,42 +8,41 @@ module AccessControl
         Array.new.tap do |combination|
           combination.stub(:nodes=)
           combination.stub(:principals=)
-          combination.stub(:role_ids=)
+          combination.stub(:roles=)
           combination.stub(:skip_existing_assigments=)
         end
       end
 
+      let(:roles)      { stub("Roles collection")      }
       let(:nodes)      { stub("Nodes collection")      }
       let(:principals) { stub("Principals collection") }
 
+      it "sets up the roles of the combination using its parameter" do
+        combination.should_receive(:roles=).with(roles)
+        Role.assign_all(roles, principals, nodes, combination)
+      end
+
       it "sets up the nodes of the combination using its parameter" do
         combination.should_receive(:nodes=).with(nodes)
-        Role.assign_all(principals, nodes, combination)
+        Role.assign_all(roles, principals, nodes, combination)
       end
 
       it "sets up the nodes of the combination using its parameter" do
         combination.should_receive(:principals=).with(principals)
-        Role.assign_all(principals, nodes, combination)
-      end
-
-      it "sets the combination's 'role_ids' as being all role ids" do
-        roles = [Role.store(:name => "foobar")]
-        combination.should_receive(:role_ids=).with(roles.map(&:id))
-
-        Role.assign_all(principals, nodes, combination)
+        Role.assign_all(roles, principals, nodes, combination)
       end
 
       it "sets the combination's 'skip_existing_assigments' to true" do
         combination.should_receive(:skip_existing_assigments=).with(true)
-        Role.assign_all(principals, nodes, combination)
+        Role.assign_all(roles, principals, nodes, combination)
       end
 
       it "saves each returned assignment" do
         new_assignment = stub("New assignment")
         combination << new_assignment
 
-        new_assignment.should_receive(:save!)
-        Role.assign_all(principals, nodes, combination)
+        new_assignment.should_receive(:persist!)
+        Role.assign_all(roles, principals, nodes, combination)
       end
     end
 
@@ -52,34 +51,33 @@ module AccessControl
         Array.new.tap do |combination|
           combination.stub(:nodes=)
           combination.stub(:principals=)
-          combination.stub(:role_ids=)
+          combination.stub(:roles=)
           combination.stub(:only_existing_assigments=)
         end
       end
 
+      let(:roles)      { stub("Roles collection")      }
       let(:nodes)      { stub("Nodes collection")      }
       let(:principals) { stub("Principals collection") }
 
+      it "sets up the roles of the combination using its parameter" do
+        combination.should_receive(:roles=).with(roles)
+        Role.unassign_all(roles, principals, nodes, combination)
+      end
+
       it "sets up the nodes of the combination using its parameter" do
         combination.should_receive(:nodes=).with(nodes)
-        Role.unassign_all(principals, nodes, combination)
+        Role.unassign_all(roles, principals, nodes, combination)
       end
 
       it "sets up the nodes of the combination using its parameter" do
         combination.should_receive(:principals=).with(principals)
-        Role.unassign_all(principals, nodes, combination)
-      end
-
-      it "sets the combination's 'role_ids' as being all role ids" do
-        roles = [Role.store(:name => "foobar")]
-        combination.should_receive(:role_ids=).with(roles.map(&:id))
-
-        Role.unassign_all(principals, nodes, combination)
+        Role.unassign_all(roles, principals, nodes, combination)
       end
 
       it "sets the combination's 'only_existing_assigments' to true" do
         combination.should_receive(:only_existing_assigments=).with(true)
-        Role.unassign_all(principals, nodes, combination)
+        Role.unassign_all(roles, principals, nodes, combination)
       end
 
       it "destroys each returned assignment" do
@@ -87,7 +85,7 @@ module AccessControl
         combination << new_assignment
 
         new_assignment.should_receive(:destroy)
-        Role.unassign_all(principals, nodes, combination)
+        Role.unassign_all(roles, principals, nodes, combination)
       end
     end
 
@@ -178,11 +176,26 @@ module AccessControl
         end
       end
 
-      specify "are persisted" do
-        role.assign_to(principal, node)
+      context "within a persisted role" do
+        specify "are persisted" do
+          role.assign_to(node, principal)
 
-        persisted_role = Role.fetch(role.id)
-        persisted_role.should be_assigned_to(principal, node)
+          persisted_role = Role.fetch(role.id)
+          persisted_role.should be_assigned_to(node, principal)
+        end
+      end
+
+      context "within a new role" do
+        context "when the role is saved" do
+          specify "are persisted" do
+            role = Role.new(:name => 'Irrelevant')
+            role.assign_to(node, principal)
+            role.persist!
+
+            persisted_role = Role.fetch(role.id)
+            persisted_role.should be_assigned_to(node, principal)
+          end
+        end
       end
     end
 
@@ -243,11 +256,26 @@ module AccessControl
         end
       end
 
-      specify "are persisted" do
-        role.assign_at(node, principal)
+      context "within a persisted role" do
+        specify "are persisted" do
+          role.assign_at(node, principal)
 
-        persisted_role = Role.fetch(role.id)
-        persisted_role.should be_assigned_at(node, principal)
+          persisted_role = Role.fetch(role.id)
+          persisted_role.should be_assigned_at(node, principal)
+        end
+      end
+
+      context "within a new role" do
+        context "when the role is saved" do
+          specify "are persisted" do
+            role = Role.new(:name => 'Irrelevant')
+            role.assign_at(node, principal)
+            role.persist!
+
+            persisted_role = Role.fetch(role.id)
+            persisted_role.should be_assigned_at(node, principal)
+          end
+        end
       end
     end
 
@@ -277,44 +305,94 @@ module AccessControl
           return_value.should     include("p3")
           return_value.should_not include("p1", "p2")
         end
+
+        context "when the role is new" do
+          it "persists added permissions when the role is saved" do
+            subject.add_permissions('p1', 'p2')
+            subject.persist!
+
+            persisted_role = Role.fetch(subject.id)
+            persisted_role.permissions.to_a.should include_only('p1', 'p2')
+          end
+        end
+
+        context "when the role is already persisted" do
+          it "persists the permissions at the moment they are added" do
+            subject.add_permissions('p1')
+            subject.persist!
+            subject.add_permissions('p2')
+
+            persisted_role = Role.fetch(subject.id)
+            persisted_role.permissions.to_a.should include_only('p1', 'p2')
+          end
+        end
       end
 
-      describe "#remove_permissions" do
+      describe "#del_permissions" do
         it "can be used to remove one permission at time" do
           subject.add_permissions("p1", "p2")
-          subject.remove_permissions("p2")
+          subject.del_permissions("p2")
 
           subject.permissions.should_not include("p2")
         end
 
         it "can be used to removed many permissions at once" do
           subject.add_permissions("p1", "p2", "p3")
-          subject.remove_permissions("p2", "p1")
+          subject.del_permissions("p2", "p1")
 
           subject.permissions.should_not include("p1", "p2")
         end
 
         it "returns only the removed permissions" do
           subject.add_permissions("p1", "p2", "p3")
-          subject.remove_permissions("p1", "p2")
+          subject.del_permissions("p1", "p2")
 
-          return_value = subject.remove_permissions("p1", "p2", "p3")
+          return_value = subject.del_permissions("p1", "p2", "p3")
           return_value.should     include("p3")
           return_value.should_not include("p1", "p2")
         end
+
+        context "when the role is new" do
+          it "persists removal of permissions when the role is saved" do
+            subject.add_permissions("p1", "p2", "p3")
+            subject.del_permissions('p1', 'p2')
+            subject.persist!
+
+            persisted_role = Role.fetch(subject.id)
+            persisted_role.permissions.to_a.should include_only('p3')
+          end
+        end
+
+        context "when the role is already persisted" do
+          it "removes the permissions at the moment they are added" do
+            subject.add_permissions("p1", "p2", "p3")
+            subject.persist!
+            subject.del_permissions('p1', 'p2')
+
+            persisted_role = Role.fetch(subject.id)
+            persisted_role.permissions.to_a.should include_only('p3')
+          end
+        end
+      end
+    end
+
+    context "when role is removed" do
+      let(:role)      { Role.store(:name => 'Irrelevant') }
+      let(:principal) { stub('principal', :id => 1) }
+      let(:node)      { stub('node',      :id => 1) }
+
+      before do
+        role.add_permissions('p1', 'p2')
+        role.assign_to(principal, node)
+        role.destroy
       end
 
-      context "after a role is persisted" do
-        let(:persisted_role) { Role.fetch(subject.id) }
+      it "removes its assignments" do
+        Assignment.with_roles(role.id).should be_empty
+      end
 
-        before do
-          subject.add_permissions("p1", "p2")
-          subject.persist
-        end
-
-        specify "are persisted as well" do
-          persisted_role.permissions.should include("p1", "p2")
-        end
+      it "removes its permissions" do
+        SecurityPolicyItem.find_all_by_role_id(role.id).should be_empty
       end
     end
 

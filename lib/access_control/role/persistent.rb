@@ -5,14 +5,11 @@ module AccessControl
 
       extend AccessControl::Ids
 
-      has_many :persisted_assignments, :foreign_key => 'role_id',
-               :class_name => 'AccessControl::Assignment',
-               :dependent => :delete_all
-
-      has_many :security_policy_items, :foreign_key => 'role_id',
-               :dependent => :delete_all,
-               :class_name => 'AccessControl::SecurityPolicyItem'
-      private :security_policy_items
+      has_many :security_policy_items,
+               :foreign_key => 'role_id',
+               :dependent   => :delete_all,
+               :autosave    => true,
+               :class_name  => 'AccessControl::SecurityPolicyItem'
 
       named_scope :local_assignables,
                   :conditions => {:local => true}
@@ -36,9 +33,11 @@ module AccessControl
       end
 
       def self.assigned_to(principal, node = nil)
-        related_assignments = Assignment.assigned_to(principal)
         if node
-          related_assignments = related_assignments.with_nodes(node)
+          related_assignments = Assignment::Persistent.assigned_on(node,
+                                                                   principal)
+        else
+          related_assignments = Assignment::Persistent.assigned_to(principal)
         end
         subquery = related_assignments.column_sql(:role_id)
         scoped(:conditions => "#{quoted_table_name}.id IN (#{subquery})")
@@ -47,7 +46,7 @@ module AccessControl
       def self.assigned_at(nodes, principal = nil)
         return assigned_to(principal, nodes) if principal
 
-        subquery = Assignment.with_nodes(nodes).column_sql(:role_id)
+        subquery = Assignment::Persistent.with_nodes(nodes).column_sql(:role_id)
         scoped(:conditions => "#{quoted_table_name}.id IN (#{subquery})")
       end
 
