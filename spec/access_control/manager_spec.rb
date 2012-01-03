@@ -124,194 +124,90 @@ module AccessControl
 
     describe "#can?" do
 
-      let(:node1) { stub('node') }
-      let(:node2) { stub('node') }
-      let(:inspector1) { mock('inspector', :has_permission? => nil) }
-      let(:inspector2) { mock('inspector', :has_permission? => nil) }
-      let(:context) { mock('context', :nodes => Set.new) }
+      let(:nodes)       { stub("Nodes collection") }
+      let(:inspector)   { stub("Inspector", :permissions => permissions) }
+      let(:permissions) { Set["p1", "p2"] }
 
       before do
-        PermissionInspector.stub(:new).with(node1).and_return(inspector1)
-        PermissionInspector.stub(:new).with(node2).and_return(inspector2)
-        Context.stub(:new).with('nodes').and_return(context)
-        context.stub(:nodes).and_return(Set.new([node1]))
+        PermissionInspector.stub(:new).with(nodes).and_return(inspector)
         manager.use_anonymous! # Simulate a web request
       end
 
-      it "creates a inspector from the node given" do
-        PermissionInspector.should_receive(:new).with(node1).
-          and_return(inspector1)
-        manager.can?("a permission that doesn't matter", 'nodes')
+      it "returns true if the nodes grant all the given permissions" do
+        return_value = manager.can?(permissions, nodes)
+        return_value.should be_true
       end
 
-      it "uses Context to get the actual nodes" do
-        Context.should_receive(:new).with('nodes').
-          and_return(context)
-        context.should_receive(:nodes).and_return(Set.new([node1]))
-        manager.can?("a permission that doesn't matter", 'nodes')
+      it "returns false if the nodes don't grant any of the permissions" do
+        return_value = manager.can?(%w[p3 p4 p5], nodes)
+        return_value.should be_false
       end
 
-      describe "with a single permission queried" do
-
-        let(:permission) { 'a permission' }
-
-        it "returns true if the user has the permission" do
-          inspector1.should_receive(:has_permission?).with(permission).
-            and_return(true)
-          manager.can?(permission, 'nodes').should be_true
-        end
-
-        it "returns false if the user hasn't the permission" do
-          inspector1.should_receive(:has_permission?).with(permission).
-            and_return(false)
-          manager.can?(permission, 'nodes').should be_false
-        end
-
-        it "returns true if the user has the permission in any of the nodes" do
-          context.should_receive(:nodes).
-            and_return(Set.new([node1, node2]))
-          inspector1.stub(:has_permission? => true)
-          inspector2.stub(:has_permission? => false)
-          manager.can?(permission, 'nodes').should be_true
-        end
-
-        it "returns false if the user hasn't the permission in all nodes" do
-          context.should_receive(:nodes).
-            and_return(Set.new([node1, node2]))
-          inspector1.stub(:has_permission? => false)
-          inspector2.stub(:has_permission? => false)
-          manager.can?(permission, 'nodes').should be_false
-        end
-
+      it "returns false if the nodes don't grant one of the permissions" do
+        return_value = manager.can?(%w[p1 p2 p3], nodes)
+        return_value.should be_false
       end
 
-      describe "with many permissions queried" do
-
-        let(:permission1) { 'one permission' }
-        let(:permission2) { 'other permission' }
-
-        it "returns true if the user has all permissions queried" do
-          inspector1.should_receive(:has_permission?).
-            with(permission1).and_return(true)
-          inspector1.should_receive(:has_permission?).
-            with(permission2).and_return(true)
-          manager.can?([permission1, permission2], 'nodes').
-            should be_true
-        end
-
-        it "returns false if the user has not all permissions queried" do
-          inspector1.should_receive(:has_permission?).
-            with(permission1).and_return(true)
-          inspector1.should_receive(:has_permission?).
-            with(permission2).and_return(false)
-          manager.can?([permission1, permission2], 'nodes').
-            should be_false
-        end
-
-        it "returns true if the user has all permissions in one node" do
-          inspector1.stub(:has_permission? => true)
-          inspector2.stub(:has_permission? => false)
-          context.should_receive(:nodes).
-            and_return(Set.new([node1, node2]))
-          manager.can?([permission1, permission2], 'nodes').
-            should be_true
-        end
-
-        it "returns true if the user has all permissions combining nodes" do
-          inspector1.stub(:has_permission?) do |permission|
-            next true if permission == permission1
-            false
-          end
-          inspector2.stub(:has_permission?) do |permission|
-            next true if permission == permission2
-            false
-          end
-          context.should_receive(:nodes).
-            and_return(Set.new([node1, node2]))
-          manager.can?([permission1, permission2], 'nodes').
-            should be_true
-        end
-
-        it "returns false if user hasn't all permissions combining nodes" do
-          inspector1.stub(:has_permission?) do |permission|
-            next true if permission == permission1
-            false
-          end
-          inspector2.stub(:has_permission?) do |permission|
-            next true if permission == permission1
-            false
-          end
-          context.should_receive(:nodes).
-            and_return(Set.new([node1, node2]))
-          manager.can?([permission1, permission2], 'nodes').
-            should be_false
-        end
-
-      end
-
-      describe "when the UnrestrictableUser exists and is logged in" do
-
+      context "when the UnrestrictableUser exists and is logged in" do
         before do
           manager.current_subjects = [UnrestrictableUser.instance]
         end
 
-        it "returns true without any further verification on nodes or "\
-           "permissions" do
+        it "returns true without any further verification" do
           manager.can?('any permissions', 'any nodes').should be_true
         end
-
       end
 
     end
 
     describe "#can!" do
 
-      let(:node) { stub('node') }
-      let(:context) { mock('context', :nodes => Set.new([node])) }
-      let(:inspector) { mock('inspector') }
+      let(:nodes)         { stub("Nodes collection") }
+      let(:inspector)     { stub("Inspector") }
+      let(:permissions)   { Set["p1", "p2"] }
+      let(:current_roles) { Set["user"] }
 
       before do
-        inspector.stub(:permissions).and_return(Set.new)
-        inspector.stub(:current_roles).and_return(Set.new)
+        inspector.stub(:permissions   => permissions)
+        inspector.stub(:current_roles => current_roles)
+
         PermissionInspector.stub(:new).and_return(inspector)
-        Context.stub(:new).and_return(context)
-        AccessControl::Util.stub(:log_missing_permissions)
         manager.use_anonymous! # Simulate a web request
       end
 
-      it "passes unmodified the paramenters to `can?`" do
-        manager.should_receive(:can?).
-          with('some permissions', 'some context').
-          and_return(true)
-        manager.can!('some permissions', 'some context')
+      context "when the user has the permissions" do
+        it "doesn't raise the 'Unauthorized' exception" do
+          lambda {
+            manager.can!(permissions, nodes)
+          }.should_not raise_exception(::AccessControl::Unauthorized)
+        end
       end
 
-      it "doesn't raise Unauthorized when the user has the permissions" do
-        manager.stub(:can?).and_return(true)
-        lambda {
-          manager.can!('some permissions', 'some context')
-        }.should_not raise_exception(::AccessControl::Unauthorized)
-      end
+      context "when the user doesn't have the permissions" do
+        let(:missing_permissions) { Set["p4", "p5"] }
 
-      it "raises Unauthorized when the user has no permissions" do
-        manager.stub(:can?).and_return(false)
-        lambda {
-          manager.can!('some permissions', 'some context')
-        }.should raise_exception(::AccessControl::Unauthorized)
-      end
+        before do
+          AccessControl::Util.stub(:log_missing_permissions)
+        end
 
-      it "logs the exception when the user has no permissions" do
-        manager.stub(:can?).and_return(false)
-        inspector.should_receive(:permissions).
-          and_return(Set.new(['permissions']))
-        inspector.should_receive(:current_roles).
-          and_return(Set.new(['roles']))
-        AccessControl::Util.should_receive(:log_missing_permissions).
-          with('some permissions', Set.new(['permissions']),
-               Set.new(['roles']), instance_of(Array))
-        lambda {
-          manager.can!('some permissions', 'some context')
-        }.should raise_exception(::AccessControl::Unauthorized)
+        it "raises the 'Unauthorized' exception" do
+          lambda {
+            manager.can!(missing_permissions, nodes)
+          }.should raise_exception(AccessControl::Unauthorized)
+        end
+
+        it "logs the invalid permission request" do
+          log_arguments = [missing_permissions, permissions,
+                           current_roles, instance_of(Array)]
+
+          AccessControl::Util.should_receive(:log_missing_permissions).
+            with(*log_arguments)
+
+          begin
+            manager.can!(missing_permissions, nodes)
+          rescue AccessControl::Unauthorized
+          end
+        end
       end
 
     end
@@ -383,7 +279,7 @@ module AccessControl
       end
 
       it "returns true if has user has 'grant_roles'" do
-        inspector.should_receive(:has_permission?).
+        inspector.stub(:has_permission?).
           with('grant_roles').and_return(true)
         manager.can_assign_or_unassign?(node, 'a role').should be_true
       end
@@ -398,12 +294,12 @@ module AccessControl
         end
 
         it "returns true if the user has the role being assigned" do
-          inspector.should_receive(:current_roles).and_return(Set.new([role]))
+          inspector.stub(:current_roles => Set[role])
           manager.can_assign_or_unassign?(node, role).should be_true
         end
 
         it "returns false if the user hasn't the role being assigned" do
-          inspector.should_receive(:current_roles).and_return(Set.new())
+          inspector.stub(:current_roles => Set.new)
           manager.can_assign_or_unassign?(node, role).should be_false
         end
 

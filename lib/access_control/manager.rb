@@ -25,9 +25,9 @@ module AccessControl
     end
 
     def current_subjects= subjects
-      @current_principals = subjects.inject(Set.new) do |principals, subject|
+      @current_principals = Set.new(subjects) do |subject|
         raise InvalidSubject unless subject.respond_to?(:ac_principal)
-        principals << subject.ac_principal
+        subject.ac_principal
       end
     end
 
@@ -40,33 +40,41 @@ module AccessControl
       current_principals
     end
 
-    def can? permissions, nodes
+    def can?(permissions, nodes)
       return true if unrestrictable_user_logged_in?
-      nodes = Context.new(nodes).nodes
-      permissions = [permissions] unless permissions.respond_to?(:all?)
-      permissions.all? do |permission|
-        nodes.any? do |node|
-          PermissionInspector.new(node).has_permission?(permission)
-        end
-      end
+
+      inspector       = PermissionInspector.new(nodes)
+      permissions_set = Set.new(permissions)
+
+      permissions_set.subset?(inspector.permissions)
     end
 
-    def can! permissions, nodes
+    def can!(permissions, nodes)
       return if can?(permissions, nodes)
-      Util.log_missing_permissions(permissions,
-                                   permissions_in_context(nodes),
-                                   roles_in_context(nodes),
-                                   caller)
+
+      inspector           = PermissionInspector.new(nodes)
+      granted_permissions = inspector.permissions
+      current_roles       = inspector.current_roles
+
+      Util.log_missing_permissions(permissions, granted_permissions,
+                                   current_roles, caller)
       raise Unauthorized
     end
 
-    def can_assign_or_unassign? node, role
-      return true if unrestrictable_user_logged_in?
-      return true unless restrict_assignment_or_unassignment?
+    def can_assign_or_unassign?(node, role)
+      restriction_enabled = restrict_assignment_or_unassignment? and
+                            not unrestrictable_user_logged_in?
+
+      return true unless restriction_enabled
+
       inspector = PermissionInspector.new(node)
-      return true if inspector.has_permission?('grant_roles')
-      return false unless inspector.has_permission?('share_own_roles')
-      inspector.current_roles.include?(role)
+      if inspector.has_permission?('grant_roles')
+        true
+      else
+        user_can_share_roles = inspector.has_permission?('share_own_roles')
+        user_can_share_roles && inspector.current_roles.include?(role)
+      end
+
     end
 
     def verify_assignment! node, role
@@ -121,25 +129,9 @@ module AccessControl
       use_anonymous? ? Principal.anonymous : UnrestrictablePrincipal.instance
     end
 
-    def permissions_in_context *args
-      Context.new(args).nodes.inject(Set.new) do |permissions, node|
-        permissions | PermissionInspector.new(node).permissions
-      end
-    end
-
-    def roles_in_context *args
-      Context.new(args).nodes.inject(Set.new) do |roles, node|
-        roles | PermissionInspector.new(node).current_roles
-      end
-    end
-
     def unrestrictable_user_logged_in?
       principals.include?(UnrestrictablePrincipal.instance)
     end
-
-    # def current_user_principal_id
-    #   current_user ? current_user.principal.id : Principal.anonymous_id
-    # end
 
     def really_restrict_queries?
       @restrict_queries
