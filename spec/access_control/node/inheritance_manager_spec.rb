@@ -20,8 +20,6 @@ module AccessControl
         AccessControl.stub(:global_node => global_node)
       end
 
-      after { AccessControl.ac_parents.delete }
-
       describe "immediate parents and children API" do
         it "can add a new parent and persist it" do
           parent = make_node()
