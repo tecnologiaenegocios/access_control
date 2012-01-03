@@ -24,7 +24,7 @@ module AccessControl
     def db_connection_with_logging
       db = Sequel.connect(sanitized_config)
       if @in_memory
-        # Load the schema.
+        # Load the SQL schema.
         sql = File.open(File.join(Rails.root, 'db', "#{Rails.env}_structure.sql")).read
         db.run(sql)
       end
@@ -45,7 +45,12 @@ module AccessControl
           # other.
           @in_memory = true
         else
-          config['database'] = Rails.root + config['database']
+          # Scope the path to the database to Rails.root if it is relative,
+          # since this will be the assumption of ActiveRecord and we want
+          # Sequel and ActiveRecord to share the same database.
+          unless config['database'].starts_with?('/')
+            config['database'] = Rails.root + config['database']
+          end
         end
       end
       config

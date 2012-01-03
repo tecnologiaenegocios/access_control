@@ -15,13 +15,18 @@ require 'access_control'
 
 Dir[File.expand_path(File.join(File.dirname(__FILE__), 'support', '**', '*.rb'))].each {|f| require f}
 
-class Spec::Example::ExampleGroup
-  def execute(*args, &block)
-    x = nil
-    Sequel::Model.db.transaction(:rollback=>:always) do
-      x = super(*args, &block)
+module Spec
+  module Example
+    module ExampleMethods
+      alias_method :execute_without_transaction, :execute
+      def execute(*args, &block)
+        x = nil
+        AccessControl.db.transaction(:rollback => :always) do
+          x = execute_without_transaction(*args, &block)
+        end
+        x
+      end
     end
-    x
   end
 end
 
