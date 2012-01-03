@@ -11,11 +11,20 @@ module AccessControl
       delegate :count, :any?, :empty?, :sql, :to => :original_scope
 
       def each
-        all.each { |item| yield(item) if block_given? }
+        return to_enum(:each) unless block_given?
+
+        original_scope.map do |item|
+          wrap(item).tap { |wrapped| yield wrapped }
+        end
       end
 
       def all
-        @wrapped_items ||= original_scope.map { |item| wrap(item) }
+        @wrapped_items ||= each.to_a
+      end
+
+      def scoped_column(column_name)
+        new_scope = original_scope.scoped_column(column_name)
+        self.class.new(persistable_model, new_scope)
       end
 
       def inspect
@@ -24,12 +33,11 @@ module AccessControl
       end
 
     private
+      attr_reader :original_scope, :persistable_model
 
       def wrap(item)
         persistable_model.wrap(item)
       end
-
-      attr_reader :original_scope, :persistable_model
     end
   end
 end
