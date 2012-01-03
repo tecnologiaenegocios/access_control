@@ -196,11 +196,8 @@ module AccessControl
     end
 
     describe "scope delegation" do
-      [ :with_type, :blocked, :unblocked,
-        :granted_for, :blocked_for].each do |delegated_scope|
-        it "delegates scope .#{delegated_scope} to the persistent model" do
-          Node.delegated_scopes.should include(delegated_scope)
-        end
+      it "delegates scope .with_type to the persistent model" do
+        Node.delegated_scopes.should include(:with_type)
       end
     end
 
