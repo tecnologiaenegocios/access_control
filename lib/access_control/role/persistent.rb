@@ -40,14 +40,15 @@ module AccessControl
         if node
           related_assignments = related_assignments.with_nodes(node)
         end
-        scoped(:conditions => { :id => related_assignments.role_ids })
+        subquery = related_assignments.column_sql(:role_id)
+        scoped(:conditions => "#{quoted_table_name}.id IN (#{subquery})")
       end
 
       def self.assigned_at(nodes, principal = nil)
         return assigned_to(principal, nodes) if principal
 
-        related_assignments = Assignment.with_nodes(nodes)
-        scoped(:conditions => { :id => related_assignments.role_ids })
+        subquery = Assignment.with_nodes(nodes).column_sql(:role_id)
+        scoped(:conditions => "#{quoted_table_name}.id IN (#{subquery})")
       end
 
       def self.default
