@@ -14,12 +14,14 @@ module AccessControl
       let(:manager)     { stub('manager') }
       let(:global_node) { stub('global node') }
       let(:permissions) { ['permissions'] }
+      let(:db)          { AccessControl.db }
 
       subject { Restricter.new(orm_class).sql_query_for(permissions) }
 
       before do
-        orm_class.stub(:pk).and_return('pk')
-        orm_class.stub(:quoted_table_name).and_return('`table_name`')
+        orm_class.stub(:pk).and_return(:pk)
+        orm_class.stub(:table_name).and_return(:table_name)
+        orm_class.stub(:name).and_return('ModelName')
         AccessControl.stub(:manager).and_return(manager)
         AccessControl.stub(:global_node).and_return(global_node)
       end
@@ -29,7 +31,7 @@ module AccessControl
           manager.stub(:can?).with(permissions, global_node).and_return(true)
         end
 
-        it { should == "SELECT pk FROM `table_name`" }
+        it { should == db[orm_class.table_name].select(orm_class.pk).sql }
       end
 
       context "when the user doesn't have all permissions in global node" do
@@ -45,9 +47,12 @@ module AccessControl
           manager.stub(:principals).and_return([principal1, principal2])
         end
 
-        it { should == \
-            "SELECT node_id FROM `ac_effective_assignments` "\
-              "WHERE role_id IN (1,2) AND principal_id IN (1,2)" }
+        it { should == AccessControl.ac_nodes.
+             join_table(:left, :ac_effective_assignments, :node_id => :id).
+             filter(:securable_type => orm_class.name,
+                    :principal_id => [1,2],
+                    :role_id => [1,2]).
+             select(:securable_id).sql }
       end
     end
   end

@@ -8,11 +8,15 @@ module AccessControl
 
     def sql_query_for(permissions)
       if manager.can?(permissions, global_node)
-        "SELECT #{orm_class.pk} FROM #{orm_class.quoted_table_name}"
+        db[orm_class.table_name].select(orm_class.pk).sql
       else
-        "SELECT node_id FROM `ac_effective_assignments` "\
-          "WHERE role_id IN (#{sql_role_ids(permissions)}) AND "\
-          "principal_id IN (#{sql_principal_ids})"
+        ac_nodes.
+          select(:securable_id).
+          join_table(:left, :ac_effective_assignments, :node_id => :id).
+          filter(:securable_type => orm_class.name,
+                 :role_id        => role_ids(permissions),
+                 :principal_id   => principal_ids).
+          sql
       end
     end
 
@@ -20,6 +24,14 @@ module AccessControl
 
     def orm_class
       @orm_class
+    end
+
+    def db
+      AccessControl.db
+    end
+
+    def ac_nodes
+      AccessControl.ac_nodes
     end
 
     def manager
@@ -30,16 +42,12 @@ module AccessControl
       AccessControl.global_node
     end
 
-    def sql_role_ids(permissions)
-      sql_ids(Role.for_all_permissions(permissions))
+    def role_ids(permissions)
+      Role.for_all_permissions(permissions).map(&:id)
     end
 
-    def sql_principal_ids
-      sql_ids(manager.principals)
-    end
-
-    def sql_ids(collection)
-      collection.map(&:id).map(&:to_s).join(',')
+    def principal_ids
+      manager.principals.map(&:id)
     end
   end
 end
