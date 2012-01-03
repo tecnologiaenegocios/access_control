@@ -2,17 +2,24 @@ require 'active_record'
 require 'sequel'
 
 module AccessControl
-  def self.ac_parents
-    db[:ac_parents]
-  end
-
   class << self
+    def ac_parents
+      db[:ac_parents]
+    end
 
-  private
+    def ac_nodes
+      db[:ac_nodes]
+    end
+
+    def ac_effective_assignments
+      db[:ac_effective_assignments]
+    end
 
     def db
       @sequel_db ||= db_connection_with_logging
     end
+
+  private
 
     def db_connection_with_logging
       db = Sequel.connect(sanitized_config)
