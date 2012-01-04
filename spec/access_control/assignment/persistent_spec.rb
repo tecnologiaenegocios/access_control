@@ -98,42 +98,132 @@ module AccessControl
       end
 
       describe ".overlapping" do
-        let(:assignment) do
-          Persistent.new do |assignment|
-            assignment.role_id      = 1
-            assignment.principal_id = 2
-            assignment.node_id      = 3
-            assignment.save!
+        let(:role)                  { stub(:id => 1) }
+        let(:another_role)          { stub(:id => 2) }
+        let(:yet_another_role)      { stub(:id => 3) }
+
+        let(:node)                  { stub(:id => 1) }
+        let(:another_node)          { stub(:id => 2) }
+        let(:yet_another_node)      { stub(:id => 3) }
+
+        let(:principal)             { stub(:id => 1) }
+        let(:another_principal)     { stub(:id => 2) }
+        let(:yet_another_principal) { stub(:id => 3) }
+
+        def make_assignment(role, principal, node)
+          Persistent.create!(:role_id      => role.id,
+                             :principal_id => principal.id,
+                             :node_id      => node.id)
+        end
+
+        context "using single objects" do
+          let!(:a1) { make_assignment(role,             principal, node) }
+          let!(:a2) { make_assignment(another_role,     principal, node) }
+          let!(:a3) { make_assignment(yet_another_role, principal, node) }
+          let!(:a4) { make_assignment(role, another_principal,     node) }
+          let!(:a5) { make_assignment(role, yet_another_principal, node) }
+          let!(:a6) { make_assignment(role, principal,     another_node) }
+          let!(:a7) { make_assignment(role, principal, yet_another_node) }
+
+          it "matches by exact assignments" do
+            matches = Persistent.overlapping(role, principal, node)
+            matches.should include_only a1
+          end
+
+          it "matches by using ids directly" do
+            matches = Persistent.overlapping(role.id, principal.id, node.id)
+            matches.should include_only a1
           end
         end
 
-        it "returns assignments whose properties overlap the parameters" do
-          Persistent.overlapping(1,2,3).should include assignment
-        end
+        context "using role collections" do
+          let!(:a1) { make_assignment(role,             principal, node) }
+          let!(:a2) { make_assignment(another_role,     principal, node) }
+          let!(:a3) { make_assignment(yet_another_role, principal, node) }
 
-        it "doesn't return assignments whose properties don't overlap "\
-           "the parameters" do
-          Persistent.overlapping(3,2,1).should_not include assignment
-        end
-
-        it "works as a non-deterministic query as well" do
-          roles      = [1,3]
-          principals = [2,5]
-          nodes      = [3,1]
-
-          Persistent.overlapping(roles,principals,nodes).
-            should include assignment
-        end
-
-        it "doesn't suffer from the 'Set' bug on queries" do
-          roles      = Set[1,3]
-          principals = Set[2,5]
-          nodes      = Set[3,1]
-
-          using_the_collection = lambda do
-            Persistent.overlapping(roles,principals,nodes).any?
+          it "matches by any object using an array" do
+            matches = Persistent.
+              overlapping([role, another_role], principal, node)
+            matches.should include_only a1, a2
           end
-          using_the_collection.should_not raise_error
+
+          it "matches by any object using an array of ids" do
+            matches = Persistent.
+              overlapping([role.id, another_role.id], principal, node)
+            matches.should include_only a1, a2
+          end
+
+          it "matches by any object using a set" do
+            matches = Persistent.
+              overlapping(Set[role, another_role], principal, node)
+            matches.should include_only a1, a2
+          end
+
+          it "matches by any object using a set of ids" do
+            matches = Persistent.
+              overlapping(Set[role.id, another_role.id], principal, node)
+            matches.should include_only a1, a2
+          end
+        end
+
+        context "using principal collections" do
+          let!(:a1) { make_assignment(role, principal,             node) }
+          let!(:a2) { make_assignment(role, another_principal,     node) }
+          let!(:a3) { make_assignment(role, yet_another_principal, node) }
+
+          it "matches by any object using an array" do
+            matches = Persistent.
+              overlapping(role, [principal, another_principal], node)
+            matches.should include_only a1, a2
+          end
+
+          it "matches by any object using an array of ids" do
+            matches = Persistent.
+              overlapping(role, [principal.id, another_principal.id], node)
+            matches.should include_only a1, a2
+          end
+
+          it "matches by any object using a set" do
+            matches = Persistent.
+              overlapping(role, Set[principal, another_principal], node)
+            matches.should include_only a1, a2
+          end
+
+          it "matches by any object using a set of ids" do
+            matches = Persistent.
+              overlapping(role, Set[principal.id, another_principal.id], node)
+            matches.should include_only a1, a2
+          end
+        end
+
+        context "using node collections" do
+          let!(:a1) { make_assignment(role, principal, node) }
+          let!(:a2) { make_assignment(role, principal, another_node) }
+          let!(:a3) { make_assignment(role, principal, yet_another_node) }
+
+          it "matches by any object using an array" do
+            matches = Persistent.
+              overlapping(role, principal, [node, another_node])
+            matches.should include_only a1, a2
+          end
+
+          it "matches by any object using an array of ids" do
+            matches = Persistent.
+              overlapping(role, principal, [node.id, another_node.id])
+            matches.should include_only a1, a2
+          end
+
+          it "matches by any object using a set" do
+            matches = Persistent.
+              overlapping(role, principal, Set[node, another_node])
+            matches.should include_only a1, a2
+          end
+
+          it "matches by any object using a set of ids" do
+            matches = Persistent.
+              overlapping(role, principal, Set[node.id, another_node.id])
+            matches.should include_only a1, a2
+          end
         end
       end
 

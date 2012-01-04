@@ -8,18 +8,18 @@ module AccessControl
     extend AccessControl::Ids
 
     def self.with_nodes(nodes)
-      node_id = Util.ids_for_hash_condition(nodes)
-      scoped(:conditions => { :node_id => node_id })
+      node_ids = Util.ids_for_hash_condition(nodes)
+      scoped(:conditions => { :node_id => node_ids })
     end
 
     def self.with_roles(roles)
-      roles = Util.ids_for_hash_condition(roles)
-      scoped(:conditions => { :role_id => roles })
+      role_ids = Util.ids_for_hash_condition(roles)
+      scoped(:conditions => { :role_id => role_ids })
     end
 
-    def self.assigned_to(principal)
-      principal = Util.ids_for_hash_condition(principal)
-      scoped(:conditions => { :principal_id => principal })
+    def self.assigned_to(principals)
+      principal_ids = Util.ids_for_hash_condition(principals)
+      scoped(:conditions => { :principal_id => principal_ids })
     end
 
     def self.assigned_on(nodes, principals)
