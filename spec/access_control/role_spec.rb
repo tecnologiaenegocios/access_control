@@ -120,7 +120,7 @@ module AccessControl
     end
 
     describe "role assignment in principals and nodes" do
-      let(:role)       { Role.store(:name => 'role') }
+      let(:role)       { Role.new(:name => 'role') }
       let(:principal)  { stub_model(Principal) }
       let(:node)       { stub_model(Node) }
       let(:other_node) { stub_model(Node) }
@@ -134,11 +134,14 @@ module AccessControl
         role.should be_assigned_to(principal, node)
       end
 
-      it "works with unsaved roles" do
-        role = Role.new
-        role.assign_to(principal, node)
-
+      it "assigns using ids" do
+        role.assign_to(principal.id, node.id)
         role.should be_assigned_to(principal, node)
+      end
+
+      it "verifies using ids" do
+        role.assign_to(principal, node)
+        role.should be_assigned_to(principal.id, node.id)
       end
 
       it "doesn't cause trouble if assigned more than once" do
@@ -146,10 +149,31 @@ module AccessControl
         role.assign_to(principal, node)
       end
 
+      specify "are persisted when the role is saved" do
+        role.assign_to(principal, node)
+        role.persist!
+
+        persisted_role = Role.fetch(role.id)
+        persisted_role.should be_assigned_to(principal, node)
+      end
+
+      specify "aren't saved more than once" do
+        role.assign_to(principal, node)
+        role.persist!
+        lambda { role.persist! }.should_not raise_exception
+      end
+
       describe "unassignment" do
         it "unassigns a role from a principal in the given node" do
           role.assign_to(principal, node)
           role.unassign_from(principal, node)
+
+          role.should_not be_assigned_to(principal, node)
+        end
+
+        it "unassigns a role using a principal id and node id" do
+          role.assign_to(principal, node)
+          role.unassign_from(principal.id, node.id)
 
           role.should_not be_assigned_to(principal, node)
         end
@@ -174,33 +198,31 @@ module AccessControl
           role.should_not be_assigned_to(principal, node)
           role.should_not be_assigned_to(principal, other_node)
         end
-      end
 
-      context "within a persisted role" do
-        specify "are persisted" do
-          role.assign_to(node, principal)
+        specify "when node is not specified, unassigns all by principal id" do
+          role.assign_to(principal, node)
+          role.assign_to(principal, other_node)
 
-          persisted_role = Role.fetch(role.id)
-          persisted_role.should be_assigned_to(node, principal)
+          role.unassign_from(principal.id)
+
+          role.should_not be_assigned_to(principal, node)
+          role.should_not be_assigned_to(principal, other_node)
         end
       end
 
-      context "within a new role" do
-        context "when the role is saved" do
-          specify "are persisted" do
-            role = Role.new(:name => 'Irrelevant')
-            role.assign_to(node, principal)
-            role.persist!
+      context "within a persisted role" do
+        specify "assignments are persisted" do
+          role.persist!
+          role.assign_to(principal, node)
 
-            persisted_role = Role.fetch(role.id)
-            persisted_role.should be_assigned_to(node, principal)
-          end
+          persisted_role = Role.fetch(role.id)
+          persisted_role.should be_assigned_to(principal, node)
         end
       end
     end
 
     describe "role assignment in nodes and principals" do
-      let(:role)            { Role.store(:name => 'role') }
+      let(:role)            { Role.new(:name => 'role') }
       let(:principal)       { stub_model(Principal) }
       let(:other_principal) { stub_model(Principal) }
       let(:node)            { stub_model(Node) }
@@ -214,11 +236,14 @@ module AccessControl
         role.should be_assigned_at(node, principal)
       end
 
-      it "works with unsaved roles" do
-        role = Role.new
-        role.assign_at(node, principal)
-
+      it "assigns using ids" do
+        role.assign_at(node.id, principal.id)
         role.should be_assigned_at(node, principal)
+      end
+
+      it "verifies using ids" do
+        role.assign_at(node, principal)
+        role.should be_assigned_at(node.id, principal.id)
       end
 
       it "doesn't cause trouble if assigned more than once" do
@@ -226,10 +251,31 @@ module AccessControl
         role.assign_at(node, principal)
       end
 
+      specify "are persisted when the role is saved" do
+        role.assign_at(node, principal)
+        role.persist!
+
+        persisted_role = Role.fetch(role.id)
+        persisted_role.should be_assigned_at(node, principal)
+      end
+
+      specify "aren't saved more than once" do
+        role.assign_at(node, principal)
+        role.persist!
+        lambda { role.persist! }.should_not raise_exception
+      end
+
       describe "unassignment" do
         it "unassigns a role from a principal in the given node" do
           role.assign_at(node, principal)
           role.unassign_at(node, principal)
+
+          role.should_not be_assigned_at(node, principal)
+        end
+
+        it "unassigns a role using a principal id and node id" do
+          role.assign_at(node, principal)
+          role.unassign_at(node.id, principal.id)
 
           role.should_not be_assigned_at(node, principal)
         end
@@ -254,27 +300,25 @@ module AccessControl
           role.should_not be_assigned_at(node, principal)
           role.should_not be_assigned_at(node, other_principal)
         end
+
+        specify "when principal is not specified, unassigns all by node id" do
+          role.assign_at(node, principal)
+          role.assign_at(node, other_principal)
+
+          role.unassign_at(node.id)
+
+          role.should_not be_assigned_at(node, principal)
+          role.should_not be_assigned_at(node, other_principal)
+        end
       end
 
       context "within a persisted role" do
         specify "are persisted" do
+          role.persist!
           role.assign_at(node, principal)
 
           persisted_role = Role.fetch(role.id)
           persisted_role.should be_assigned_at(node, principal)
-        end
-      end
-
-      context "within a new role" do
-        context "when the role is saved" do
-          specify "are persisted" do
-            role = Role.new(:name => 'Irrelevant')
-            role.assign_at(node, principal)
-            role.persist!
-
-            persisted_role = Role.fetch(role.id)
-            persisted_role.should be_assigned_at(node, principal)
-          end
         end
       end
     end
@@ -385,6 +429,10 @@ module AccessControl
         role.add_permissions('p1', 'p2')
         role.assign_to(principal, node)
         role.destroy
+      end
+
+      it "reports itself having no assignments" do
+        role.should_not be_assigned_to(principal, node)
       end
 
       it "removes its assignments" do

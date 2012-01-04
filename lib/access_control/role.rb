@@ -1,6 +1,109 @@
 module AccessControl
   class Role
 
+    class AssignmentsAssociation
+      attr_reader :owner, :volatile
+
+      def initialize(owner)
+        @owner    = owner
+        @volatile = []
+      end
+
+      def << assignment
+        if owner.persisted?
+          persist_assignment(assignment)
+        else
+          volatile << assignment
+        end
+        self
+      end
+
+      def has?(principal, node)
+        on(principal, node).present?
+      end
+
+      def persist
+        volatile.each { |assignment| persist_assignment(assignment) }
+        volatile.clear
+      end
+
+      def destroy
+        Assignment.with_roles(owner).each { |assignment| assignment.destroy }
+      end
+
+      def remove_on(principal, node)
+        principal_id = Util.id_of(principal)
+        node_id = Util.id_of(node)
+
+        volatile.delete_if do |obj|
+          obj.principal_id == principal_id && obj.node_id == node_id
+        end
+        destroy_scope(overlapping(principal_id, node_id))
+      end
+
+      def remove_from(principal)
+        principal_id = Util.id_of(principal)
+
+        volatile.delete_if { |obj| obj.principal_id == principal_id }
+        destroy_scope(default_persistent_scope.assigned_to(principal_id))
+      end
+
+      def remove_at(node)
+        node_id = Util.id_of(node)
+
+        volatile.delete_if { |obj| obj.node_id == node_id }
+        destroy_scope(default_persistent_scope.with_nodes(node_id))
+      end
+
+    private
+
+      def on(principal, node)
+        principal_id = Util.id_of(principal)
+        node_id = Util.id_of(node)
+
+        query_database = Proc.new do
+          overlapping(principal_id, node_id).first
+        end
+
+        volatile.detect(query_database) do |assignment|
+          assignment.principal_id == principal_id &&
+            assignment.node_id == node_id
+        end
+      end
+
+      def overlapping(principal, node)
+        if owner.persisted?
+          Assignment.overlapping(owner, principal, node)
+        else
+          []
+        end
+      end
+
+      def overlapping?(principal, node)
+        overlapping(principal, node).first.present?
+      end
+
+      def persist_assignment(assignment)
+        unless overlapping?(assignment.principal_id, assignment.node_id)
+          assignment.role_id = owner.id
+          assignment.persist!
+        end
+      end
+
+      def destroy_scope(persistent_scope)
+        if persistent_scope.is_a?(Persistable::WrapperScope)
+          scope = persistent_scope
+        else
+          scope = Persistable::WrapperScope.new(owner.class, persistent_scope)
+        end
+        scope.each { |assignment| assignment.destroy }
+      end
+
+      def default_persistent_scope
+        Assignment::Persistent.with_roles(owner)
+      end
+    end
+
     def self.persistent_model
       Role::Persistent
     end
@@ -43,11 +146,7 @@ module AccessControl
     end
 
     def permissions
-      Enumerator.new do |yielder|
-        permissions_set.each do |permission|
-          yielder.yield(permission)
-        end
-      end
+      permissions_set.to_enum
     end
 
     def add_permissions(*names)
@@ -65,19 +164,15 @@ module AccessControl
     end
 
     def assign_to(principal, node)
-      unless assigned_to?(principal, node)
-        assign_on(principal, node)
-      end
+      assign_on(principal, node)
     end
 
     def assign_at(node, principal)
-      unless assigned_at?(node, principal)
-        assign_on(principal, node)
-      end
+      assign_on(principal, node)
     end
 
     def assigned_to?(principal, node)
-      !assignment_on(node, principal).nil?
+      assignments.has?(principal, node)
     end
 
     def assigned_at?(node, principal)
@@ -85,115 +180,45 @@ module AccessControl
     end
 
     def unassign_from(principal, node = nil)
-      unassign_from_node = node      && assigned_to?(principal, node)
-      unassign_from_all  = node.nil? && assignments_by_principal(principal).any?
-
-      if unassign_from_node
-        assignment = assignment_on(node, principal)
-        remove_assignments(assignment)
-      elsif unassign_from_all
-        assignments = assignments_by_principal(principal)
-        remove_assignments(*assignments)
+      if node
+        assignments.remove_on(principal, node)
+      else
+        assignments.remove_from(principal)
       end
     end
 
     def unassign_at(node, principal = nil)
-      unassign_from_principal = principal && assigned_at?(node, principal)
-      unassign_from_all       = principal.nil? && assignments_by_node(node).any?
-
-      if unassign_from_principal
-        assignment = assignment_on(node, principal)
-        remove_assignments(assignment)
-      elsif unassign_from_all
-        assignments = assignments_by_node(node)
-        remove_assignments(*assignments)
+      if principal
+        assignments.remove_on(principal, node)
+      else
+        assignments.remove_at(node)
       end
     end
 
     def persist
       persistent.permissions = permissions.to_a
       result = super
-      if result
-        new_assignments.each do |a|
-          a.role_id = id
-          a.persist!
-        end
-      end
+      assignments.persist if result
       result
     end
 
     def destroy
-      real_assignments.each(&:destroy)
+      assignments.destroy
       super
     end
 
   private
 
-    def assignment_on(node, principal)
-      node_id      = node.id
-      principal_id = principal.id
-
-      query_current = Proc.new do
-        real_assignments.detect do |a|
-          a.node_id == node_id && a.principal_id == principal_id
-        end
-      end
-
-      new_assignments.detect(query_current) do |assignment|
-        assignment.node_id == node_id and
-          assignment.principal_id == principal_id
-      end
-    end
-
     def assign_on(principal, node)
-      if persisted?
-        assignment = existing_assignment_on(principal, node)
-      else
-        assignment = assign_new_on(principal, node)
-      end
+      principal_id = Util.id_of(principal)
+      node_id = Util.id_of(node)
+
+      assignments << Assignment.new(:principal_id => principal_id,
+                                    :node_id      => node_id)
     end
 
-    def existing_assignment_on(principal, node)
-      assignment = Assignment.store(:role_id => self.id,
-                                    :principal_id => principal.id,
-                                    :node_id => node.id)
-      real_assignments << assignment
-      assignment
-    end
-
-    def assign_new_on(principal, node)
-      assignment = Assignment.new(:node_id => node.id,
-                                  :principal_id => principal.id)
-      new_assignments << assignment
-      assignment
-    end
-
-    def assignments_by_principal(principal)
-      real_assignments.select do |a|
-        a.principal_id == principal.id
-      end
-    end
-
-    def assignments_by_node(node)
-      real_assignments.select do |a|
-        a.node_id == node.id
-      end
-    end
-
-    def new_assignments
-      @new_assignments ||= Array.new
-    end
-
-    def real_assignments
-      @real_assignments ||= Assignment.with_roles(self).map{|r| r}
-    end
-
-    def remove_assignments(*assignments)
-      assignments.each do |assignment|
-        new_assignments.delete(assignment)
-        real_assignments.detect{|r| r == assignment}.destroy
-        real_assignments.delete(assignment)
-      end
+    def assignments
+      @assignments ||= AssignmentsAssociation.new(self)
     end
 
     def permissions_set
