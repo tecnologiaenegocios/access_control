@@ -48,6 +48,13 @@ module AccessControl
       persistent.to_param
     end
 
+    def inspect
+      persistent_desc  = persistent.inspect
+      persistent_class = persistent.class.to_s
+
+      persistent_desc.gsub(persistent_class, self.class.name)
+    end
+
     module ClassMethods
       def wrap(object)
         ensure_delegation
