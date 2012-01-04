@@ -71,6 +71,16 @@ module AccessControl
       end
     end
 
+    describe ".id_of" do
+      it "returns the object if the object is a fixnum" do
+        Util.id_of(22).should == 22
+      end
+
+      it "returns the result of calling #id if the object is not a fixnum" do
+        Util.id_of(stub(:id => 22)).should == 22
+      end
+    end
+
     describe ".ids_for_hash_condition" do
       def self.item(id)
         o = Object.new

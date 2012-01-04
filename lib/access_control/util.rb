@@ -48,6 +48,11 @@ module AccessControl
         set
       end
 
+      # Return an id from an object, or the object itself if it is a Fixnum.
+      def id_of(object)
+        object.is_a?(Fixnum) ? object : object.id
+      end
+
       # Return one or more ids suitable for a hash condition, or nil if
       # argument is empty.  Example:
       #
@@ -68,11 +73,7 @@ module AccessControl
       def ids_for_hash_condition(items)
         items = Array(items)
         items = items.map do |item|
-          if item.is_a?(Fixnum)
-            item
-          else
-            item.id
-          end
+          id_of(item)
         end
 
         case items.size
