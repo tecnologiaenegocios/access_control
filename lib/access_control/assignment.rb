@@ -1,6 +1,5 @@
 require 'access_control/ids'
 require 'access_control/persistable'
-require 'access_control/assignment/persistent'
 
 module AccessControl
   class Assignment
