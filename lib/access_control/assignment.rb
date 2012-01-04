@@ -1,6 +1,3 @@
-require 'access_control/ids'
-require 'access_control/persistable'
-
 module AccessControl
   class Assignment
     include AccessControl::Persistable
