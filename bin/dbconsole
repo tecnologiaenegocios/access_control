@@ -1,0 +1,23 @@
+#!/usr/bin/env ruby
+
+require 'spec/app/config/environment'
+
+env = ARGV.first || ENV['RAILS_ENV'] || 'development'
+config_file = File.join(Rails.root, "config", "database.yml")
+
+config = YAML.load(File.read config_file)[env]
+config.symbolize_keys!
+
+command =
+  case config[:adapter]
+  when 'mysql', 'mysql2'
+    if password = config[:password]
+      "mysql -u #{config[:username]} #{config[:database]} --password=#{password}"
+    else
+      "mysql -u #{config[:username]} #{config[:database]}"
+    end
+  when 'sqlite3'
+    "sqlite3 #{config[:database]}"
+  end
+
+exec(command)
