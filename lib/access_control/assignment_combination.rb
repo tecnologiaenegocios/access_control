@@ -73,15 +73,23 @@ module AccessControl
       @instances ||= {}
     end
 
-    def instance_for(combination)
-      instances[combination] ||=
-        existing_assignments[combination] || new_assignment(*combination)
+    def instance_for(ids)
+      instances[ids.to_s] ||=
+        existing_assignment(*ids) || new_assignment(*ids)
+    end
+
+    def existing_assignment(role_id, principal_id, node_id)
+      existing_assignments[role_id][principal_id][node_id]
     end
 
     def existing_assignments
       @existing_assignments ||= begin
-        assignments = Assignment.overlapping(roles_ids, principals_ids, nodes_ids)
-        assignments.index_by { |a| [a.role_id, a.principal_id, a.node_id] }
+        Hash.new do |tree, role_id|
+          tree[role_id] = Hash.new do |subtree, principal_id|
+            assignments = Assignment.overlapping(role_id, principal_id, nodes_ids)
+            subtree[principal_id] = assignments.index_by(&:node_id)
+          end
+        end
       end
     end
 
@@ -93,18 +101,14 @@ module AccessControl
     def combinations
       @combinations ||=
         begin
-          roles      = roles_ids.to_a
-          principals = principals_ids.to_a
-          nodes      = nodes_ids.to_a
-
-          combinations = Set.new(roles.product(principals, nodes))
+          combinations = roles_ids.product(principals_ids, nodes_ids)
 
           if skip_existing_assigments
-            combinations.subtract(existing_combinations)
+            combinations = combinations - existing_combinations
           end
 
           if only_existing_assigments
-            combinations.delete_if { |o| !existing_combinations.include?(o) }
+            combinations = combinations & existing_combinations
           end
 
           combinations
@@ -115,9 +119,9 @@ module AccessControl
       if value.kind_of?(Enumerable)
         value
       elsif value.nil?
-        Set.new
+        []
       else
-        Set[value]
+        [value]
       end
     end
 
@@ -126,11 +130,11 @@ module AccessControl
         value = Array(value)
       end
 
-      Util.compact_flat_set(value, &:id)
+      value.map(&:id)
     end
 
     def existing_combinations
-      @existing_combinations ||= Set.new(existing_assignments.keys)
+      @existing_combinations ||= existing_assignments.keys
     end
   end
 end
