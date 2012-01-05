@@ -1,4 +1,4 @@
-require 'access_control/orm'
+require 'access_control/orm/active_record_class'
 
 module AccessControl
   module ORM
