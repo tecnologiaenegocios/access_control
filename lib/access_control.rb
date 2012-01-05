@@ -21,6 +21,8 @@ require 'access_control/registry'
 require 'access_control/securable'
 require 'access_control/active_record_subject'
 
+AccessControl.bootstrap_sequel!
+
 module AccessControl
   LIB_PATH = File.dirname(__FILE__)
 end

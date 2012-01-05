@@ -2,7 +2,8 @@ require 'active_record'
 require 'sequel'
 
 module AccessControl
-  class << self
+  extend self
+
     def ac_parents
       db[:ac_parents]
     end
@@ -13,6 +14,10 @@ module AccessControl
 
     def ac_effective_assignments
       db[:ac_effective_assignments]
+    end
+
+    def bootstrap_sequel!
+      @sequel_db = db_connection_with_logging
     end
 
     def db
@@ -55,5 +60,4 @@ module AccessControl
       end
       config
     end
-  end
 end
