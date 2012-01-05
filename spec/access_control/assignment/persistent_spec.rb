@@ -13,7 +13,7 @@ module AccessControl
         properties[:node_id] ||= 0
         properties[:role_id] ||= 0
 
-        Persistent.create!(properties)
+        Persistent.create(properties)
       end
 
       describe ".with_nodes" do
@@ -111,7 +111,7 @@ module AccessControl
         let(:yet_another_principal) { stub(:id => 3) }
 
         def make_assignment(role, principal, node)
-          Persistent.create!(:role_id      => role.id,
+          Persistent.create(:role_id      => role.id,
                              :principal_id => principal.id,
                              :node_id      => node.id)
         end
@@ -231,11 +231,11 @@ module AccessControl
 
         let(:cls) { Persistent }
 
-        let!(:a1) { cls.create!(:role_id=>1, :principal_id=>1, :node_id=>1) }
-        let!(:a2) { cls.create!(:role_id=>2, :principal_id=>1, :node_id=>2) }
-        let!(:a3) { cls.create!(:role_id=>3, :principal_id=>2, :node_id=>1) }
-        let!(:a4) { cls.create!(:role_id=>4, :principal_id=>2, :node_id=>2) }
-        let!(:a5) { cls.create!(:role_id=>5, :principal_id=>3, :node_id=>3) }
+        let!(:a1) { cls.create(:role_id=>1, :principal_id=>1, :node_id=>1) }
+        let!(:a2) { cls.create(:role_id=>2, :principal_id=>1, :node_id=>2) }
+        let!(:a3) { cls.create(:role_id=>3, :principal_id=>2, :node_id=>1) }
+        let!(:a4) { cls.create(:role_id=>4, :principal_id=>2, :node_id=>2) }
+        let!(:a5) { cls.create(:role_id=>5, :principal_id=>3, :node_id=>3) }
 
         describe "using single ids" do
           subject { Persistent.assigned_on(1, 1) }

@@ -2,37 +2,36 @@ require 'access_control/assignment'
 require 'access_control/ids'
 
 module AccessControl
-  class Assignment::Persistent < ActiveRecord::Base
-    set_table_name :ac_assignments
+  class Assignment::Persistent < Sequel::Model
+    set_dataset :ac_assignments
 
     extend AccessControl::Ids
 
-    def self.with_nodes(nodes)
+    def_dataset_method :with_nodes do |nodes|
       node_ids = Util.ids_for_hash_condition(nodes)
       subquery = Node::Persistent.column_sql(:id, node_ids)
-      scoped(:conditions => "#{quoted_table_name}.node_id IN (#{subquery})")
+      filter(:node_id => AccessControl.db[subquery])
     end
 
-    def self.with_roles(roles)
+    def_dataset_method :with_roles do |roles|
       role_ids = Util.ids_for_hash_condition(roles)
       subquery = Role::Persistent.column_sql(:id, role_ids)
-      scoped(:conditions => "#{quoted_table_name}.role_id IN (#{subquery})")
+      filter(:role_id => AccessControl.db[subquery])
     end
 
-    def self.assigned_to(principals)
+    def_dataset_method :assigned_to do |principals|
       principal_ids = Util.ids_for_hash_condition(principals)
       subquery = Principal::Persistent.column_sql(:id, principal_ids)
-      scoped(:conditions => "#{quoted_table_name}.principal_id IN (#{subquery})")
+      filter(:principal_id => AccessControl.db[subquery])
     end
 
-    def self.assigned_on(nodes, principals)
+    def_dataset_method :assigned_on do |nodes, principals|
       with_nodes(nodes).assigned_to(principals)
     end
 
-    def self.overlapping(roles_ids, principals_ids, nodes_ids)
-      with_roles(roles_ids).
-        assigned_to(principals_ids).
-        with_nodes(nodes_ids)
+    def_dataset_method :overlapping do |roles_ids, principals_ids, nodes_ids|
+      with_roles(roles_ids).assigned_on(nodes_ids, principals_ids)
     end
+
   end
 end
