@@ -39,14 +39,14 @@ module AccessControl
         else
           related_assignments = Assignment::Persistent.assigned_to(principal)
         end
-        subquery = related_assignments.column_sql(:role_id)
+        subquery = related_assignments.select(:role_id).sql
         scoped(:conditions => "#{quoted_table_name}.id IN (#{subquery})")
       end
 
       def self.assigned_at(nodes, principal = nil)
         return assigned_to(principal, nodes) if principal
 
-        subquery = Assignment::Persistent.with_nodes(nodes).column_sql(:role_id)
+        subquery = Assignment::Persistent.with_nodes(nodes).select(:role_id).sql
         scoped(:conditions => "#{quoted_table_name}.id IN (#{subquery})")
       end
 
