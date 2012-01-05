@@ -2,25 +2,25 @@ require 'spec_helper'
 
 module AccessControl
   describe Assignment do
-    describe "scope delegation" do
-      it "delegates scope .with_nodes to the persistent model" do
-        Assignment.delegated_scopes.should include(:with_nodes)
+    describe "subset delegation" do
+      it "delegates subset .with_nodes to the persistent model" do
+        Assignment.delegated_subsets.should include(:with_nodes)
       end
 
-      it "delegates scope .with_roles to the persistent model" do
-        Assignment.delegated_scopes.should include(:with_roles)
+      it "delegates subset .with_roles to the persistent model" do
+        Assignment.delegated_subsets.should include(:with_roles)
       end
 
-      it "delegates scope .assigned_to to the persistent model" do
-        Assignment.delegated_scopes.should include(:assigned_to)
+      it "delegates subset .assigned_to to the persistent model" do
+        Assignment.delegated_subsets.should include(:assigned_to)
       end
 
-      it "delegates scope .assigned_on to the persistent model" do
-        Assignment.delegated_scopes.should include(:assigned_on)
+      it "delegates subset .assigned_on to the persistent model" do
+        Assignment.delegated_subsets.should include(:assigned_on)
       end
 
-      it "delegates scope .overlapping to the persistent model" do
-        Assignment.delegated_scopes.should include(:overlapping)
+      it "delegates subset .overlapping to the persistent model" do
+        Assignment.delegated_subsets.should include(:overlapping)
       end
     end
 

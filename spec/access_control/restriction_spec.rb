@@ -9,6 +9,7 @@ module AccessControl
     let(:manager) { mock('manager') }
 
     before do
+      model.stub(:quoted_table_name => '`table`', :primary_key => 'id')
       model.send(:include, Restriction)
       AccessControl.stub(:manager).and_return(manager)
     end
@@ -47,7 +48,7 @@ module AccessControl
           let(:restricter)  { mock('restricter') }
           let(:subquery)    { 'the id subquery expression' }
           let(:global_node) { stub('global node') }
-          let(:adapted)     { stub('adapted', :full_pk => '`table`.id') }
+          let(:adapted)     { stub('adapted') }
 
           before do
             model.stub(:permissions_required_to_index).

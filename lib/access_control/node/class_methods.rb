@@ -1,3 +1,5 @@
+require 'access_control/orm'
+
 # Methods related to AccessControl::Node class, related to record fetching and
 # the global node creation/retrieval. The (physical) separation was made for
 # organization and readability purposes.
@@ -6,7 +8,7 @@ module AccessControl
   module Node::ClassMethods
 
     def persistent_model
-      Node::Persistent
+      @persistent_model ||= ORM.adapt_class(Node::Persistent)
     end
 
     def for_securable(securable)

@@ -1,19 +1,19 @@
 module AccessControl
   module Persistable
-    class WrapperScope
+    class WrappedSubset
       include Enumerable
 
-      def initialize(persistable_model, original_scope)
+      def initialize(persistable_model, original_subset)
         @persistable_model = persistable_model
-        @original_scope    = original_scope
+        @original_subset   = original_subset
       end
 
-      delegate :count, :any?, :empty?, :sql, :to => :original_scope
+      delegate :count, :any?, :empty?, :sql, :to => :original_subset
 
       def each
         return to_enum(:each) unless block_given?
 
-        original_scope.map do |item|
+        original_subset.map do |item|
           wrap(item).tap { |wrapped| yield wrapped }
         end
       end
@@ -23,7 +23,9 @@ module AccessControl
       end
 
       def scoped_column(column_name)
-        new_scope = original_scope.scoped_column(column_name)
+        # Warning: this method has the assumption that the original scope is an
+        # ActiveRecord's one.
+        new_scope = original_subset.scoped_column(column_name)
         self.class.new(persistable_model, new_scope)
       end
 
@@ -33,7 +35,7 @@ module AccessControl
       end
 
     private
-      attr_reader :original_scope, :persistable_model
+      attr_reader :original_subset, :persistable_model
 
       def wrap(item)
         persistable_model.wrap(item)

@@ -21,7 +21,7 @@ module AccessControl
           permissions = permissions_required_to_index
           adapted = ORM.adapt_class(self)
           subquery = Restricter.new(adapted).sql_query_for(permissions)
-          condition = "#{adapted.full_pk} IN (#{subquery})"
+          condition = "#{quoted_table_name}.#{primary_key} IN (#{subquery})"
           with_scope(:find => { :conditions => condition }) { super }
         else
           permissions = permissions_required_to_show

@@ -11,6 +11,14 @@ module AccessControl
 
         it { should == :ModelName }
       end
+
+      describe Base.instance_method(:new).name do
+        let(:instance) { stub }
+        before         { orm_class.stub(:object => stub(:new => instance)) }
+        subject        { orm_class.new }
+
+        it { should be instance }
+      end
     end
   end
 end

@@ -23,7 +23,7 @@ module AccessControl
 
     let(:manager)       { stub('manager') }
     let(:principals)    { ['principal1', 'principal2'] }
-    let(:default_roles) { stub('default roles scope') }
+    let(:default_roles) { stub('default roles subset') }
 
     before do
       AccessControl.stub(:manager).and_return(manager)

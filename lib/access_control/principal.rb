@@ -22,7 +22,7 @@ module AccessControl
 
     class << self
       def persistent_model
-        Persistent
+        @persistent_model ||= ORM.adapt_class(Persistent)
       end
 
       def anonymous!
@@ -39,7 +39,7 @@ module AccessControl
       end
 
       def for_subject(subject)
-        persistent = persistent_model.find(
+        persistent = Principal::Persistent.find(
           :first,
           :conditions => {
             :subject_type => subject.class.name,

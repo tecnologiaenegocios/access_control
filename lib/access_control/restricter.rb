@@ -8,7 +8,7 @@ module AccessControl
 
     def sql_query_for(permissions)
       if manager.can?(permissions, global_node)
-        db[orm_class.table_name].select(orm_class.pk).sql
+        db[orm_class.table_name].select(orm_class.pk_name).sql
       else
         ac_nodes.
           select(:securable_id).

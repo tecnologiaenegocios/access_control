@@ -3,11 +3,11 @@ module AccessControl
     include AccessControl::Persistable
 
     def self.persistent_model
-      Assignment::Persistent
+      @persistent_model ||= ORM.adapt_class(Assignment::Persistent)
     end
 
-    delegate_scopes :with_nodes, :with_roles, :assigned_to,
-                    :assigned_on, :overlapping
+    delegate_subsets :with_nodes, :with_roles, :assigned_to,
+                     :assigned_on, :overlapping
 
     def node=(node)
       self.node_id = node.id

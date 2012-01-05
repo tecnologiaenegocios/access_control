@@ -1,10 +1,10 @@
 require 'spec_helper'
 
 module AccessControl::Persistable
-  describe WrapperScope do
-    let(:original_scope) { Array.new }
+  describe WrappedSubset do
+    let(:original_subset) { Array.new }
     let(:persistable_model) { stub }
-    subject { WrapperScope.new(persistable_model, original_scope) }
+    subject { WrappedSubset.new(persistable_model, original_subset) }
 
     it { should be_kind_of(Enumerable) }
 
@@ -14,7 +14,7 @@ module AccessControl::Persistable
       let(:original_item) { stub("Original item") }
 
       before do
-        original_scope << original_item
+        original_subset << original_item
         persistable_model.stub(:wrap).with(original_item).
           and_return(wrapped_item)
       end
@@ -26,7 +26,7 @@ module AccessControl::Persistable
       end
 
       describe "#each" do
-        it "yields each item of the original scope wrapped in a persistable" do
+        it "yields each item of the original subset wrapped in a persistable" do
           yielded_items = []
           subject.each do |yielded_item|
             yielded_items << yielded_item
@@ -50,13 +50,13 @@ module AccessControl::Persistable
           persistable_model.stub(:wrap).with(original_scope_item).
             and_return(wrapped_scope_item)
 
-          original_scope.stub(:scoped_column).with(:column).
+          original_subset.stub(:scoped_column).with(:column).
             and_return(scoped_column)
         end
 
         it "returns a wrapper scope" do
           wrapped_scope = subject.scoped_column(:column)
-          wrapped_scope.should be_kind_of WrapperScope
+          wrapped_scope.should be_kind_of WrappedSubset
         end
 
         it "returns an object that has the scope wrapped items" do
@@ -69,9 +69,9 @@ module AccessControl::Persistable
     delegated_methods = [:count, :any?, :empty?, :sql]
 
     delegated_methods.each do |method_name|
-      it "delegates ##{method_name} to the original scope" do
+      it "delegates ##{method_name} to the original subset" do
         original_value = stub
-        original_scope.stub(method_name).and_return(original_value)
+        original_subset.stub(method_name).and_return(original_value)
 
         subject.public_send(method_name).should == original_value
       end

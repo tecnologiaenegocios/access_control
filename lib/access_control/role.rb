@@ -1,3 +1,5 @@
+require 'access_control/orm'
+
 module AccessControl
   class Role
 
@@ -38,21 +40,21 @@ module AccessControl
         volatile.delete_if do |obj|
           obj.principal_id == principal_id && obj.node_id == node_id
         end
-        destroy_scope(overlapping(principal_id, node_id))
+        destroy_subset(overlapping(principal_id, node_id))
       end
 
       def remove_from(principal)
         principal_id = Util.id_of(principal)
 
         volatile.delete_if { |obj| obj.principal_id == principal_id }
-        destroy_scope(default_persistent_scope.assigned_to(principal_id))
+        destroy_subset(default_persistent_subset.assigned_to(principal_id))
       end
 
       def remove_at(node)
         node_id = Util.id_of(node)
 
         volatile.delete_if { |obj| obj.node_id == node_id }
-        destroy_scope(default_persistent_scope.with_nodes(node_id))
+        destroy_subset(default_persistent_subset.with_nodes(node_id))
       end
 
     private
@@ -90,22 +92,22 @@ module AccessControl
         end
       end
 
-      def destroy_scope(persistent_scope)
-        if persistent_scope.is_a?(Persistable::WrapperScope)
-          scope = persistent_scope
+      def destroy_subset(persistent_subset)
+        if persistent_subset.is_a?(Persistable::WrappedSubset)
+          subset = persistent_subset
         else
-          scope = Persistable::WrapperScope.new(owner.class, persistent_scope)
+          subset = Persistable::WrappedSubset.new(owner.class, persistent_subset)
         end
-        scope.each { |assignment| assignment.destroy }
+        subset.each { |assignment| assignment.destroy }
       end
 
-      def default_persistent_scope
+      def default_persistent_subset
         Assignment::Persistent.with_roles(owner)
       end
     end
 
     def self.persistent_model
-      Role::Persistent
+      @persistent_model ||= ORM.adapt_class(Role::Persistent)
     end
 
     include Persistable
@@ -130,8 +132,8 @@ module AccessControl
       combination.each(&:destroy)
     end
 
-    delegate_scopes :assigned_to, :assigned_at, :for_all_permissions, :default,
-                    :with_names_in, :local_assignables, :global_assignables
+    delegate_subsets :assigned_to, :assigned_at, :for_all_permissions, :default,
+                     :with_names_in, :local_assignables, :global_assignables
 
     def self.unassign_all_from(principal)
       assigned_to(principal).each do |role|

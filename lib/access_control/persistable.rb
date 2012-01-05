@@ -1,5 +1,5 @@
 require 'access_control/exceptions'
-require 'access_control/persistable/wrapper_scope'
+require 'access_control/persistable/wrapped_subset'
 
 module AccessControl
   module Persistable
@@ -9,7 +9,7 @@ module AccessControl
     end
 
     def initialize(properties={})
-      self.class.ensure_delegation
+      self.class.__persistable_ensure_delegation__
       properties.each do |name, value|
         public_send(:"#{name}=", value)
       end
@@ -20,11 +20,11 @@ module AccessControl
     end
 
     def persisted?
-      !persistent.new_record?
+      self.class.persistent_model.persisted?(persistent)
     end
 
     def persist
-      persistent.save
+      self.class.persistent_model.persist(persistent)
     end
 
     def persist!
@@ -33,12 +33,12 @@ module AccessControl
     end
 
     def destroy
-      persistent.destroy
+      self.class.persistent_model.delete(persistent)
     end
 
     def == other
       if other.kind_of?(self.class)
-        other.persistent == persistent
+        self.class.persistent_model.instance_eql?(persistent, other.persistent)
       else
         false
       end
@@ -57,7 +57,7 @@ module AccessControl
 
     module ClassMethods
       def wrap(object)
-        ensure_delegation
+        __persistable_ensure_delegation__
         allocate.tap do |persistable|
           persistable.instance_variable_set('@persistent', object)
         end
@@ -69,60 +69,60 @@ module AccessControl
       end
 
       def all
-        WrapperScope.new(self, persistent_model.all)
+        WrappedSubset.new(self, persistent_model.values)
       end
 
-      def fetch(id, default_value = marker)
-        found = persistent_model.find_by_id(id)
+      def fetch(id, default_value = Persistable::MARKER)
+        found = persistent_model[id]
         return wrap(found) if found
 
         return yield if block_given?
 
         default_value.tap do |value|
-          raise NotFoundError if value.eql?(marker)
+          raise NotFoundError if value.eql?(Persistable::MARKER)
         end
       end
 
       def fetch_all(ids)
-        results = persistent_model.all(:conditions => { :id => Array(ids) })
+        results = persistent_model.values_at(*ids)
         raise NotFoundError if results.size != ids.size
         results.map { |result| wrap(result) }
       end
 
       def has?(id)
-        persistent_model.exists?(id)
+        persistent_model.include?(id)
       end
 
       def count
-        persistent_model.count
+        persistent_model.size
       end
 
-      def delegate_scope(*scope_names)
+      def delegate_subset(*subset_names)
         meta = (class << self; self; end)
 
-        scope_names.each do |scope_name|
+        subset_names.each do |subset_name|
           meta.class_eval do
-            define_method(scope_name) do |*args|
-              scope = persistent_model.public_send(scope_name, *args)
-              WrapperScope.new(self, scope)
+            define_method(subset_name) do |*args|
+              subset = persistent_model.subset(subset_name, *args)
+              WrappedSubset.new(self, subset)
             end
           end
         end
 
-        delegated_scopes.concat(scope_names)
-        delegated_scopes.uniq!
+        delegated_subsets.concat(subset_names)
+        delegated_subsets.uniq!
       end
 
-      alias_method :delegate_scopes, :delegate_scope
+      alias_method :delegate_subsets, :delegate_subset
 
-      def delegated_scopes
-        @__persistable_delegated_scopes__ ||= []
+      def delegated_subsets
+        @__persistable_delegated_subsets__ ||= []
       end
 
-      def ensure_delegation
-        unless delegated?
+      def __persistable_ensure_delegation__
+        unless __persistable_delegated__?
           readers = persistent_model.column_names
-          writers = readers.map { |name| "#{name}=" }
+          writers = readers.map { |name| :"#{name}=" }
 
           readers.delete_if { |name| method_defined?(name) }
           writers.delete_if { |name| method_defined?(name) }
@@ -139,23 +139,21 @@ module AccessControl
             end
           end
 
-          mark_as_delegated
+          __persistable_mark_as_delegated__
         end
       end
 
     private
 
-      def marker
-        @marker ||= Object.new
-      end
-
-      def delegated?
+      def __persistable_delegated__?
         !!@__persistable_class_done_delegation__
       end
 
-      def mark_as_delegated
+      def __persistable_mark_as_delegated__
         @__persistable_class_done_delegation__ = true
       end
     end
+
+    MARKER = Object.new
   end
 end

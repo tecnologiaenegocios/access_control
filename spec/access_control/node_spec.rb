@@ -195,9 +195,9 @@ module AccessControl
       end
     end
 
-    describe "scope delegation" do
-      it "delegates scope .with_type to the persistent model" do
-        Node.delegated_scopes.should include(:with_type)
+    describe "subset delegation" do
+      it "delegates subset .with_type to the persistent model" do
+        Node.delegated_subsets.should include(:with_type)
       end
     end
 

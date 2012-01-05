@@ -4,8 +4,12 @@ require 'access_control/persistable'
 module AccessControl
   describe Persistable do
     let(:model)            { Class.new }
-    let(:persistent_model) { stub(:new => persistent, :column_names => []) }
-    let(:persistent)       { stub(:new_record? => true) }
+    let(:persistent)       { stub('persistent instance') }
+    let(:persistent_model) do
+      m = stub(:new => persistent, :column_names => [])
+      m.stub(:persisted?).with(persistent).and_return(false)
+      m
+    end
 
     before do
       model.class_eval { include Persistable }
@@ -44,7 +48,7 @@ module AccessControl
 
     describe "property delegation" do
       before do
-        persistent_model.stub(:column_names => ['property'])
+        persistent_model.stub(:column_names => [:property])
         meta = (class << persistent; self; end)
         meta.class_eval { attr_accessor :property }
         persistent.instance_eval { @property = 'value' }
@@ -113,15 +117,14 @@ module AccessControl
     describe "persistency" do
 
       describe "#persist" do
-        # Implementors can override #persist, which must return true or false.
+        # Implementors can override #persist but must call 'super' and return
+        # true or false.
         #
         # Returning true means OK, whilst false means that the persistent
         # object couldn't be saved at all.
-        #
-        # However, a default implementation is provided.
-
         it "delegates to persistent.save" do
-          persistent.stub(:save).and_return('the result of saving persistent')
+          persistent_model.stub(:persist).with(persistent).
+            and_return('the result of saving persistent')
           persistable = model.new
           persistable.persist.should == 'the result of saving persistent'
         end
@@ -153,7 +156,7 @@ module AccessControl
 
       describe ".store" do
         before do
-          persistent_model.stub(:column_names).and_return(['foo'])
+          persistent_model.stub(:column_names).and_return([:foo])
           persistent.stub(:foo=).with(:bar)
           model.class_eval do
             def persist
@@ -207,31 +210,25 @@ module AccessControl
         subject { model.wrap(persistent) }
 
         context "persistent object already saved" do
-          before { persistent.stub(:new_record? => false) }
+          before { persistent_model.stub(:persisted?).
+                   with(persistent).and_return(true) }
 
           it { should be_persisted }
         end
 
         context "persistent object not saved yet" do
-          before { persistent.stub(:new_record? => true) }
+          before { persistent_model.stub(:persisted?).
+                   with(persistent).and_return(false) }
 
           it { should_not be_persisted }
         end
       end
 
       describe "#destroy" do
-        # Implementors can override #destroy, which must at some point call
-        # super or destroy the persistent manually.
-        #
-        # After being destroyed, the instance should not accept modifications,
-        # since they can't be persisted.  At this point we rely on ActiveRecord
-        # implementation of #destroy, which cares about freezing the instance.
-
-        it "delegates to persistent.destroy" do
-          persistent.stub(:destroy).
-            and_return('the result of destroying persistent')
+        it "delegates to persistent_model.delete(persistent)" do
+          persistent_model.should_receive(:delete).with(persistent)
           persistable = model.wrap(persistent)
-          persistable.destroy.should == 'the result of destroying persistent'
+          persistable.destroy
         end
       end
 
@@ -239,8 +236,11 @@ module AccessControl
 
     describe "equality comparison" do
       specify "two persistables are equal if their persistents are equal" do
-        p1 = 'a persistent'
-        p2 = 'a persistent'
+        p1 = stub
+        p2 = stub
+
+        persistent_model.stub(:instance_eql?).
+          with(p1, p2).and_return(true)
 
         persistable1 = model.wrap(p1)
         persistable2 = model.wrap(p2)
@@ -261,22 +261,21 @@ module AccessControl
 
     describe "query interface" do
       describe ".all" do
-        it "delegates to persistent_model.all and wraps it in a scope" do
-          scope         = stub('Regular scope')
-          wrapped_scope = stub('Wrapped scope')
+        it "delegates to persistent_model.values and wraps it in a subset" do
+          subset         = stub('Regular subset')
+          wrapped_subset = stub('Wrapped subset')
 
-          persistent_model.stub(:all).and_return(scope)
-          Persistable::WrapperScope.stub(:new).with(model, scope).
-            and_return(wrapped_scope)
+          persistent_model.stub(:values).and_return(subset)
+          Persistable::WrappedSubset.stub(:new).with(model, subset).
+            and_return(wrapped_subset)
 
-          model.all.should == wrapped_scope
+          model.all.should == wrapped_subset
         end
       end
 
       describe ".fetch" do
         it "returns the persistable whose persistent has the given id" do
-          persistent_model.stub(:find_by_id).with('the id').
-            and_return(persistent)
+          persistent_model.stub(:[]).with('the id').and_return(persistent)
           persistable = model.fetch('the id')
           persistable.persistent.should be persistent
         end
@@ -285,8 +284,7 @@ module AccessControl
           let(:inexistent_id) { -1 }
 
           before do
-            persistent_model.stub(:find_by_id).with(inexistent_id).
-              and_return(nil)
+            persistent_model.stub(:[]).with(inexistent_id).and_return(nil)
           end
 
           context "and no block is given" do
@@ -322,26 +320,22 @@ module AccessControl
       end
 
       describe ".fetch_all" do
-        it "finds persistents with id included in the list given" do
-          persistent_model.stub(:all).
-            with(:conditions => {:id => [1,2,3]}).
-            and_return(['item1', 'item2', 'item3'])
+        it "finds persistents with pk included in the list given" do
+          persistent_model.stub(:values_at).
+            with(1,2,3).and_return(['item1', 'item2', 'item3'])
           persistent_results = model.fetch_all([1,2,3]).map(&:persistent)
           persistent_results.should == ['item1', 'item2', 'item3']
         end
 
-        it "passes an array to the conditions" do
-          persistent_model.stub(:all).
-            with(:conditions => {:id => instance_of(Array)}).
-            and_return(['item1', 'item2', 'item3'])
-          persistent_results = model.fetch_all(Set[1,2,3]).map(&:persistent)
-          persistent_results.should == ['item1', 'item2', 'item3']
+        it "works with a set" do
+          persistent_model.stub(:values_at).with(1).and_return(['item1'])
+          persistent_results = model.fetch_all(Set[1]).map(&:persistent)
+          persistent_results.should == ['item1']
         end
 
         context "when one or more of the ids aren't found" do
           before do
-            persistent_model.stub(:all).
-              with(:conditions => {:id => [1,2,3]}).
+            persistent_model.stub(:values_at).with(1,2,3).
               and_return(['item1', 'item3'])
           end
 
@@ -355,71 +349,72 @@ module AccessControl
 
       describe ".has?" do
         it "returns true if there's a persistent with the id provided" do
-          persistent_model.stub(:exists?).with('the id').and_return(true)
+          persistent_model.stub(:include?).with('the id').and_return(true)
           model.has?('the id').should be_true
         end
 
         it "returns false if there's no persistent with the id provided" do
-          persistent_model.stub(:exists?).with('the id').and_return(false)
+          persistent_model.stub(:include?).with('the id').and_return(false)
           model.has?('the id').should be_false
         end
       end
 
       describe ".count" do
         it "delegates to persistent_model.count" do
-          persistent_model.stub(:count).and_return('the total number of items')
+          persistent_model.stub(:size).and_return('the total number of items')
           model.count.should == 'the total number of items'
         end
       end
 
-      describe ".delegate_scope" do
-        let(:scope_result) { stub('scope result') }
+      describe ".delegate_subset" do
+        let(:subset) { stub('subset') }
 
         it "delegates to persistent model and wraps the result" do
-          model.delegate_scope :a_named_scope
+          model.delegate_subset :a_named_subset
 
-          wrapped_scope = stub
-          persistent_model.stub(:a_named_scope).and_return(scope_result)
-          Persistable::WrapperScope.stub(:new).with(model, scope_result).
-            and_return(wrapped_scope)
+          wrapped_subset = stub
+          persistent_model.stub(:subset).with(:a_named_subset).
+            and_return(subset)
+          Persistable::WrappedSubset.stub(:new).with(model, subset).
+            and_return(wrapped_subset)
 
-          model.a_named_scope.should be wrapped_scope
+          model.a_named_subset.should be wrapped_subset
         end
 
-        specify "forwards received arguments when calling delegated scopes" do
-          model.delegate_scope :a_named_scope
+        specify "forwards received arguments when calling delegated subsets" do
+          model.delegate_subset :a_named_subset
 
-          wrapped_scope = stub
-          persistent_model.should_receive(:a_named_scope).with('arg1', 'arg2').
-            and_return(scope_result)
-          Persistable::WrapperScope.stub(:new).with(model, scope_result).
-            and_return(wrapped_scope)
+          wrapped_subset = stub
+          persistent_model.stub(:subset).with(:a_named_subset, 'arg1', 'arg2').
+            and_return(subset)
+          Persistable::WrappedSubset.stub(:new).with(model, subset).
+            and_return(wrapped_subset)
 
-          model.a_named_scope('arg1', 'arg2')
+          model.a_named_subset('arg1', 'arg2').should be wrapped_subset
         end
 
-        it "accepts an argument list of scopes to delegate" do
-          model.delegate_scope :a_named_scope, :another_named_scope
+        it "accepts an argument list of subsets to delegate" do
+          model.delegate_subset :a_named_subset, :another_named_subset
 
-          model.should respond_to(:a_named_scope)
-          model.should respond_to(:another_named_scope)
+          model.should respond_to(:a_named_subset)
+          model.should respond_to(:another_named_subset)
         end
 
-        it "has an alias method .delegate_scopes, for better readability" do
-          model.delegate_scopes :a_named_scope, :another_named_scope
+        it "has an alias method .delegate_subsets, for better readability" do
+          model.delegate_subsets :a_named_subset, :another_named_subset
 
-          model.should respond_to(:a_named_scope)
-          model.should respond_to(:another_named_scope)
+          model.should respond_to(:a_named_subset)
+          model.should respond_to(:another_named_subset)
         end
 
-        it "returns all delegated scopes in .delegated_scopes" do
-          model.delegate_scopes :a_named_scope, :another_named_scope
-          model.delegate_scope :some_other_named_scope
+        it "returns all delegated subsets in .delegated_subsets" do
+          model.delegate_subsets :a_named_subset, :another_named_subset
+          model.delegate_subset :some_other_named_subset
 
-          model.delegated_scopes.should == [
-            :a_named_scope,
-            :another_named_scope,
-            :some_other_named_scope
+          model.delegated_subsets.should == [
+            :a_named_subset,
+            :another_named_subset,
+            :some_other_named_subset
           ]
         end
       end

@@ -19,7 +19,7 @@ module AccessControl
       subject { Restricter.new(orm_class).sql_query_for(permissions) }
 
       before do
-        orm_class.stub(:pk).and_return(:pk)
+        orm_class.stub(:pk_name).and_return(:pk)
         orm_class.stub(:table_name).and_return(:table_name)
         orm_class.stub(:name).and_return('ModelName')
         AccessControl.stub(:manager).and_return(manager)
@@ -31,7 +31,7 @@ module AccessControl
           manager.stub(:can?).with(permissions, global_node).and_return(true)
         end
 
-        it { should == db[orm_class.table_name].select(orm_class.pk).sql }
+        it { should == db[orm_class.table_name].select(orm_class.pk_name).sql }
       end
 
       context "when the user doesn't have all permissions in global node" do
