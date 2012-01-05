@@ -1,4 +1,5 @@
 require 'access_control/persistable'
+require 'access_control/ids'
 
 module AccessControl
   def AccessControl.Principal(object)
@@ -15,6 +16,7 @@ module AccessControl
     include Persistable
 
     class Persistent < ActiveRecord::Base
+      extend AccessControl::Ids
       set_table_name :ac_principals
     end
 

@@ -6,6 +6,14 @@ module AccessControl
     let(:scoped)     { mock('scoped') }
     let(:model)      { mock('model', :connection => connection) }
 
+    before(:all) do
+      Ids.use_subqueries = true
+    end
+
+    after(:all) do
+      Ids.use_subqueries = nil
+    end
+
     before do
       model.stub(:quoted_table_name).and_return('the_table_name')
       model.stub(:scoped).

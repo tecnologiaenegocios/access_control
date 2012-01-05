@@ -1,6 +1,14 @@
 module AccessControl
   module Ids
 
+    def self.use_subqueries?
+      @use_subqueries ||= RAILS_ENV != "test"
+    end
+
+    def self.use_subqueries=(value)
+      @use_subqueries = value
+    end
+
     def ids
       select_values_of_column(:id)
     end
@@ -10,16 +18,27 @@ module AccessControl
     end
 
     def select_values_of_column(column_name)
-      sql = column_sql(column_name)
+      sql = scoped_column(column_name).sql
       connection.select_values(sql)
     end
 
-    def scoped_column(column_name)
-      scoped(:select => "DISTINCT #{quoted_table_name}.#{column_name}")
+    def scoped_column(column_name, values = nil)
+      scope = scoped(:select => "DISTINCT #{quoted_table_name}.#{column_name}")
+      if values
+        scope = scope.scoped(:conditions => { column_name => values })
+      end
+      scope
     end
 
-    def column_sql(column_name)
-      scoped_column(column_name).sql
+    def column_sql(column_name, values = nil)
+      if AccessControl::Ids.use_subqueries?
+        scoped_column(column_name, values).sql
+      elsif values
+        ids = values.kind_of?(Enumerable) ? values : [values]
+        ids.join(",")
+      else
+        select_values_of_column(column_name).join(",")
+      end
     end
 
   end

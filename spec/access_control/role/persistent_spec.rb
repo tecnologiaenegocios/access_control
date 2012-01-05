@@ -26,6 +26,7 @@ module AccessControl
         end
 
         it "includes roles that were assigned to the given principal" do
+          $debug = true
           Persistent.assigned_to(principal).should include role
         end
 

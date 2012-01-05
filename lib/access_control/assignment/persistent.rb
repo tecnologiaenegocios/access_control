@@ -9,17 +9,20 @@ module AccessControl
 
     def self.with_nodes(nodes)
       node_ids = Util.ids_for_hash_condition(nodes)
-      scoped(:conditions => { :node_id => node_ids })
+      subquery = Node::Persistent.column_sql(:id, node_ids)
+      scoped(:conditions => "#{quoted_table_name}.node_id IN (#{subquery})")
     end
 
     def self.with_roles(roles)
       role_ids = Util.ids_for_hash_condition(roles)
-      scoped(:conditions => { :role_id => role_ids })
+      subquery = Role::Persistent.column_sql(:id, role_ids)
+      scoped(:conditions => "#{quoted_table_name}.role_id IN (#{subquery})")
     end
 
     def self.assigned_to(principals)
       principal_ids = Util.ids_for_hash_condition(principals)
-      scoped(:conditions => { :principal_id => principal_ids })
+      subquery = Principal::Persistent.column_sql(:id, principal_ids)
+      scoped(:conditions => "#{quoted_table_name}.principal_id IN (#{subquery})")
     end
 
     def self.assigned_on(nodes, principals)
