@@ -57,14 +57,14 @@ module AccessControl
           subject.public_send(singular_setter, 1)
 
           return_value = subject.public_send(property)
-          return_value.should == Set[1]
+          return_value.should include_only(1)
         end
 
-        it "when set to nil, is redefined as an empty Set" do
+        it "when set to nil, is redefined as an empty collection" do
           subject.public_send(setter, nil)
 
           return_value = subject.public_send(property)
-          return_value.should == Set.new
+          return_value.should be_empty
         end
 
         pretty_setter = setter.gsub(/_ids/,'')
@@ -75,7 +75,7 @@ module AccessControl
             subject.public_send(pretty_setter, collection)
 
             return_value = subject.public_send(property)
-            return_value.should == Set[1234, 4321]
+            return_value.should include_only(1234, 4321)
           end
 
           it "when used in singular form, defines #{property} as its id" do
@@ -85,7 +85,7 @@ module AccessControl
             subject.public_send(singular_setter, object)
 
             return_value = subject.public_send(property)
-            return_value.should == Set[1234]
+            return_value.should include_only(1234)
           end
 
           it "removes nil ids in a collection" do
@@ -93,7 +93,7 @@ module AccessControl
             subject.public_send(pretty_setter, collection)
 
             return_value = subject.public_send(property)
-            return_value.should == Set[4321]
+            return_value.should include_only(4321)
           end
         end
       end
@@ -219,8 +219,22 @@ module AccessControl
 
       before do
         Assignment.stub(:new => new_assignment)
-        Assignment.stub(:overlapping).with(roles_ids, principals_ids, nodes_ids).
-          and_return(Set[existing_assignment])
+        Assignment.stub(:overlapping) do |roles_ids, principals_ids, nodes_ids|
+          roles_ids      = [roles_ids] unless Enumerable === roles_ids
+          principals_ids = [principals_ids] unless Enumerable === principals_ids
+          nodes_ids      = [nodes_ids] unless Enumerable === nodes_ids
+
+          same_role      = roles_ids.include?(1)
+          same_principal = principals_ids.include?(3)
+          same_node      = nodes_ids.include?(5)
+
+          if(same_role and same_principal and same_node)
+            [existing_assignment]
+          else
+            []
+          end
+        end
+
       end
 
       context "and 'skip_existing_assigments' is true" do

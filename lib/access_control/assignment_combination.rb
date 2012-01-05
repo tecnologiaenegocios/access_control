@@ -19,6 +19,10 @@ module AccessControl
     end
 
     def initialize(properties = {})
+      @roles_ids      = []
+      @principals_ids = []
+      @nodes_ids      = []
+
       properties.each do |property, value|
         public_send("#{property}=", value)
       end
@@ -63,19 +67,22 @@ module AccessControl
   private
 
     def clear_memoizations
-      @instances = nil
-      @existing_assignments = nil
+      @instances             = nil
+      @existing_assignments  = nil
       @existing_combinations = nil
-      @combinations = nil
+      @combinations          = nil
+      @all_combinations      = nil
     end
 
-    def instances
-      @instances ||= {}
+    def instance_for(combination)
+      @instances ||= Hash.new
+      @instances[combination] ||=
+        existing_assignment(*combination) || new_assignment(*combination)
     end
 
-    def instance_for(ids)
-      instances[ids.to_s] ||=
-        existing_assignment(*ids) || new_assignment(*ids)
+    def new_assignment(role_id, principal_id, node_id)
+      Assignment.new(:role_id => role_id, :node_id => node_id,
+                     :principal_id => principal_id)
     end
 
     def existing_assignment(role_id, principal_id, node_id)
@@ -93,31 +100,35 @@ module AccessControl
       end
     end
 
-    def new_assignment(role_id, principal_id, node_id)
-      Assignment.new(:role_id => role_id, :node_id => node_id,
-                     :principal_id => principal_id)
+    def combinations
+      @combinations ||= begin
+        combinations = all_combinations
+
+        if skip_existing_assigments
+          combinations = combinations - existing_combinations
+        end
+
+        if only_existing_assigments
+          combinations = combinations & existing_combinations
+        end
+
+        combinations
+      end
     end
 
-    def combinations
-      @combinations ||=
-        begin
-          combinations = roles_ids.product(principals_ids, nodes_ids)
+    def all_combinations
+      @all_combinations ||= roles_ids.product(principals_ids, nodes_ids)
+    end
 
-          if skip_existing_assigments
-            combinations = combinations - existing_combinations
-          end
-
-          if only_existing_assigments
-            combinations = combinations & existing_combinations
-          end
-
-          combinations
-        end
+    def existing_combinations
+      @existing_combinations ||= all_combinations.select do |combination|
+        !!existing_assignment(*combination)
+      end
     end
 
     def normalize(value)
       if value.kind_of?(Enumerable)
-        value
+        value.to_a
       elsif value.nil?
         []
       else
@@ -130,11 +141,7 @@ module AccessControl
         value = Array(value)
       end
 
-      value.map(&:id)
-    end
-
-    def existing_combinations
-      @existing_combinations ||= existing_assignments.keys
+      value.map(&:id).compact
     end
   end
 end
