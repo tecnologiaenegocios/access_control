@@ -19,8 +19,11 @@ module AccessControl
     end
 
     def self.adapt_class(object)
-      # We only support ActiveRecord::Base by now.
-      ActiveRecordClass.new(object)
+      if object <= ActiveRecord::Base
+        ActiveRecordClass.new(object)
+      elsif object <= Sequel::Model
+        SequelClass.new(object)
+      end
     end
 
   end

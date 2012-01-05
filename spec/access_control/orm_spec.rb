@@ -20,5 +20,25 @@ module AccessControl
         it { should be instance }
       end
     end
+
+    describe ".adapt_class" do
+      context "when the argument is an ActiveRecord model" do
+        let(:ar_model) { ActiveRecord::Base }
+
+        it "wraps it into an ActiveRecordClass" do
+          return_value = ORM.adapt_class(ar_model)
+          return_value.should be_an_instance_of(ActiveRecordClass)
+        end
+      end
+
+      context "when the argument is a Sequel model" do
+        let(:ar_model) { Sequel::Model }
+
+        it "wraps it into an SequelClass" do
+          return_value = ORM.adapt_class(ar_model)
+          return_value.should be_an_instance_of(SequelClass)
+        end
+      end
+    end
   end
 end
