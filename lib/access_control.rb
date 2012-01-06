@@ -3,6 +3,8 @@ require 'access_control/db'
 require 'access_control/behavior'
 require 'action_controller'
 
+AccessControl.bootstrap_sequel!
+
 # Models
 require 'access_control/assignment'
 require 'access_control/node'
@@ -20,8 +22,6 @@ require 'access_control/manager'
 require 'access_control/registry'
 require 'access_control/securable'
 require 'access_control/active_record_subject'
-
-AccessControl.bootstrap_sequel!
 
 module AccessControl
   LIB_PATH = File.dirname(__FILE__)
