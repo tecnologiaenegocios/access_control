@@ -1,15 +1,18 @@
+require 'access_control'
+require 'access_control/dataset_helper'
+
 module AccessControl
   class Role
-    class Persistent < ActiveRecord::Base
-      set_table_name :ac_roles
+    class Persistent < Sequel::Model(:ac_roles)
 
-      extend AccessControl::Ids
+      include AccessControl::DatasetHelper
 
-      named_scope :local_assignables,
-                  :conditions => {:local => true}
+      def_dataset_method(:local_assignables)  { filter(:local  => true) }
+      def_dataset_method(:global_assignables) { filter(:global => true) }
 
-      named_scope :global_assignables,
-                  :conditions => {:global => true}
+      def self.create!(properties={})
+        new(properties).save(:raise_on_failure => true)
+      end
 
       def self.for_all_permissions(permissions)
         items = SecurityPolicyItem.with_permission(permissions).to_a
@@ -23,7 +26,7 @@ module AccessControl
         end
         accepted_ids = Hash[accepted_combinations].keys
 
-        scoped(:conditions => {:id => accepted_ids})
+        filter(:id => accepted_ids)
       end
 
       def self.assigned_to(principal, node = nil)
@@ -33,15 +36,17 @@ module AccessControl
         else
           related_assignments = Assignment::Persistent.assigned_to(principal)
         end
-        subquery = related_assignments.select(:role_id).sql
-        scoped(:conditions => "#{quoted_table_name}.id IN (#{subquery})")
+        # subquery = related_assignments.select(:role_id).sql
+        # scoped(:conditions => "#{quoted_table_name}.id IN (#{subquery})")
+        filter(:id => related_assignments.select(:role_id))
       end
 
       def self.assigned_at(nodes, principal = nil)
         return assigned_to(principal, nodes) if principal
 
-        subquery = Assignment::Persistent.with_nodes(nodes).select(:role_id).sql
-        scoped(:conditions => "#{quoted_table_name}.id IN (#{subquery})")
+        # subquery = Assignment::Persistent.with_nodes(nodes).select(:role_id).sql
+        # scoped(:conditions => "#{quoted_table_name}.id IN (#{subquery})")
+        filter(:id=>Assignment::Persistent.with_nodes(nodes).select(:role_id))
       end
 
       def self.default
@@ -52,7 +57,8 @@ module AccessControl
         if names.kind_of?(Enumerable)
           names = names.to_a
         end
-        scoped_by_name(names)
+        # scoped_by_name(names)
+        filter(:name => names)
       end
 
       def permissions=(permissions)
@@ -67,7 +73,10 @@ module AccessControl
 
     private
 
-      after_save :update_permissions
+      def after_save
+        super
+        update_permissions
+      end
 
       def update_permissions
         added_permissions.each do |permission|
@@ -82,10 +91,9 @@ module AccessControl
         @removed_permissions = Set.new
       end
 
-      before_destroy :annihilate_permissions
-
-      def annihilate_permissions
+      def before_destroy
         policy_items.delete
+        super
       end
 
       def policy_items

@@ -4,10 +4,6 @@ require 'access_control/assignment/persistent'
 module AccessControl
   class Assignment
     describe Persistent do
-      it "is extended with AccessControl::Ids" do
-        Persistent.singleton_class.should include(AccessControl::Ids)
-      end
-
       def build_persistent(properties = {})
         properties[:principal_id] ||= 0
         properties[:node_id] ||= 0
@@ -60,8 +56,8 @@ module AccessControl
       end
 
       describe ".with_roles" do
-        let(:a1) { build_persistent(:role_id => 1) }
-        let(:a2) { build_persistent(:role_id => 2) }
+        let!(:a1) { build_persistent(:role_id => 1) }
+        let!(:a2) { build_persistent(:role_id => 2) }
 
         it "returns assignments for the given role" do
           Persistent.with_roles(1).should include(a1)
@@ -72,7 +68,7 @@ module AccessControl
         end
 
         it "accepts an array" do
-          collection = Persistent.with_roles([1, 2])
+          collection = Persistent.with_roles([1, 2]).to_a
           collection.should include(a1)
           collection.should include(a1)
         end

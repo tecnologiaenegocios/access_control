@@ -106,7 +106,7 @@ module AccessControl
 
     describe ".unassign_all_at" do
       let(:node) { stub("Node", :id => 123) }
-      let(:role) { Role.store(:name => "Foo")  }
+      let(:role) { Role.store(:name => "Foo") }
 
       before do
         principal = stub("Principal", :id => -1)

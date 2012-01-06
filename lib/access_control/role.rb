@@ -48,14 +48,18 @@ module AccessControl
         principal_id = Util.id_of(principal)
 
         volatile.delete_if { |obj| obj.principal_id == principal_id }
-        destroy_subset(default_persistent_subset.assigned_to(principal_id))
+        destroy_subset(wrap_subset(
+          default_persistent_subset.filter(:principal_id => principal_id)
+        ))
       end
 
       def remove_at(node)
         node_id = Util.id_of(node)
 
         volatile.delete_if { |obj| obj.node_id == node_id }
-        destroy_subset(default_persistent_subset.with_nodes(node_id))
+        destroy_subset(wrap_subset(
+          default_persistent_subset.filter(:node_id => node_id)
+        ))
       end
 
     private
@@ -93,17 +97,16 @@ module AccessControl
         end
       end
 
-      def destroy_subset(persistent_subset)
-        if persistent_subset.is_a?(Persistable::WrappedSubset)
-          subset = persistent_subset
-        else
-          subset = Persistable::WrappedSubset.new(owner.class, persistent_subset)
-        end
-        subset.each { |assignment| assignment.destroy }
+      def destroy_subset(wrapped_persistent_subset)
+        wrapped_persistent_subset.each { |assignment| assignment.destroy }
       end
 
       def default_persistent_subset
         Assignment::Persistent.with_roles(owner)
+      end
+
+      def wrap_subset(subset)
+        Persistable::WrappedSubset.new(Assignment, subset)
       end
     end# }}}
 
@@ -230,7 +233,7 @@ module AccessControl
 
     def persist_permissions
       persistent.permissions = permissions.to_a
-      persistent.save!
+      persistent.save(:raise_on_failure => true)
     end
   end
 end

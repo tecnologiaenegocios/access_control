@@ -5,22 +5,23 @@ module AccessControl
   class Assignment::Persistent < Sequel::Model
     set_dataset :ac_assignments
 
-    extend AccessControl::Ids
+    self.raise_on_save_failure = true
 
     def_dataset_method :with_nodes do |nodes|
       node_ids = Util.ids_for_hash_condition(nodes)
+      # Remember that Node still is AR::Base backed.
       subquery = Node::Persistent.column_sql(:id, node_ids)
       filter(:node_id => AccessControl.db[subquery])
     end
 
     def_dataset_method :with_roles do |roles|
       role_ids = Util.ids_for_hash_condition(roles)
-      subquery = Role::Persistent.column_sql(:id, role_ids)
-      filter(:role_id => AccessControl.db[subquery])
+      filter :role_id => Role::Persistent.column_dataset(:id, role_ids)
     end
 
     def_dataset_method :assigned_to do |principals|
       principal_ids = Util.ids_for_hash_condition(principals)
+      # Remember that Principal still is AR::Base backed.
       subquery = Principal::Persistent.column_sql(:id, principal_ids)
       filter(:principal_id => AccessControl.db[subquery])
     end
