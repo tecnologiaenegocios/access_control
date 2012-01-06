@@ -440,7 +440,7 @@ module AccessControl
       end
 
       it "removes its permissions" do
-        SecurityPolicyItem.find_all_by_role_id(role.id).should be_empty
+        SecurityPolicyItem.filter(:role_id => role.id).should be_empty
       end
     end
 

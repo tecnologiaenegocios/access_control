@@ -5,12 +5,6 @@ module AccessControl
 
       extend AccessControl::Ids
 
-      has_many :security_policy_items,
-               :foreign_key => 'role_id',
-               :dependent   => :delete_all,
-               :autosave    => true,
-               :class_name  => 'AccessControl::SecurityPolicyItem'
-
       named_scope :local_assignables,
                   :conditions => {:local => true}
 
@@ -18,7 +12,7 @@ module AccessControl
                   :conditions => {:global => true}
 
       def self.for_all_permissions(permissions)
-        items = SecurityPolicyItem.with_permission(permissions)
+        items = SecurityPolicyItem.with_permission(permissions).to_a
         items_by_role = items.group_by(&:role_id)
 
         permissions_set = Set.new(permissions)
@@ -62,33 +56,52 @@ module AccessControl
       end
 
       def permissions=(permissions)
-        permissions = Set.new(permissions)
-        return if permissions == self.permissions
-
-        missing_permissions = permissions - self.permissions
-        add_permissions(missing_permissions)
-
-        extra_permissions = self.permissions - permissions
-        remove_permissions(extra_permissions)
+        @permissions         = Set.new(permissions)
+        @added_permissions   = @permissions - current_permissions
+        @removed_permissions = current_permissions - @permissions
       end
 
       def permissions
-        Set.new(security_policy_items, &:permission)
+        @permissions ||= current_permissions
       end
 
     private
 
-      def add_permissions(permissions)
-        permissions.each do |permission|
-          security_policy_items.build(:permission => permission)
+      after_save :update_permissions
+
+      def update_permissions
+        added_permissions.each do |permission|
+          item = SecurityPolicyItem.new(:permission => permission,
+                                        :role_id    => self.id)
+          item.save(:raise_on_failure => true)
         end
+
+        policy_items.filter(:permission => removed_permissions.to_a).delete
+
+        @added_permissions   = Set.new
+        @removed_permissions = Set.new
       end
 
-      def remove_permissions(permissions)
-        permissions.each do |permission|
-          item = security_policy_items.find_by_permission(permission)
-          security_policy_items.delete(item)
-        end
+      before_destroy :annihilate_permissions
+
+      def annihilate_permissions
+        policy_items.delete
+      end
+
+      def policy_items
+        SecurityPolicyItem.filter(:role_id => id)
+      end
+
+      def current_permissions
+        Set.new(policy_items.select_map(:permission))
+      end
+
+      def added_permissions
+        @added_permissions ||= Set.new
+      end
+
+      def removed_permissions
+        @removed_permissions ||= Set.new
       end
     end
   end

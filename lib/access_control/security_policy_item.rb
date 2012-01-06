@@ -1,17 +1,9 @@
-require 'access_control/behavior'
-require 'access_control/ids'
+require 'access_control'
 
 module AccessControl
-  class SecurityPolicyItem < ActiveRecord::Base
-
-    extend AccessControl::Ids
-
-    set_table_name :ac_security_policy_items
-    belongs_to :role, :class_name => 'AccessControl::Role'
-
-    named_scope :with_permission, lambda { |permission|
-      { :conditions => { :permission => permission } }
-    }
-
+  class SecurityPolicyItem < Sequel::Model(:ac_security_policy_items)
+    def_dataset_method(:with_permission) do |permission|
+      filter(:permission => permission)
+    end
   end
 end
