@@ -1,0 +1,39 @@
+PATH
+  remote: ../../
+  specs:
+    access_control (0.0.1)
+      backports
+      rails (= 2.3.5)
+      sequel
+
+GEM
+  remote: http://rubygems.org/
+  specs:
+    actionmailer (2.3.5)
+      actionpack (= 2.3.5)
+    actionpack (2.3.5)
+      activesupport (= 2.3.5)
+      rack (~> 1.0.0)
+    activerecord (2.3.5)
+      activesupport (= 2.3.5)
+    activeresource (2.3.5)
+      activesupport (= 2.3.5)
+    activesupport (2.3.5)
+    backports (2.3.0)
+    rack (1.0.1)
+    rails (2.3.5)
+      actionmailer (= 2.3.5)
+      actionpack (= 2.3.5)
+      activerecord (= 2.3.5)
+      activeresource (= 2.3.5)
+      activesupport (= 2.3.5)
+      rake (>= 0.8.3)
+    rake (0.9.2.2)
+    sequel (3.31.0)
+
+PLATFORMS
+  ruby
+
+DEPENDENCIES
+  access_control!
+  rails (= 2.3.5)
