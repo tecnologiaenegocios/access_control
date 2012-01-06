@@ -19,6 +19,9 @@ module AccessControl
     end
 
     def self.adapt_class(object)
+      require 'access_control/orm/active_record_class'
+      require 'access_control/orm/sequel_class'
+
       if object <= ActiveRecord::Base
         ActiveRecordClass.new(object)
       elsif object <= Sequel::Model
