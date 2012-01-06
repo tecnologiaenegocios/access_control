@@ -33,11 +33,11 @@ module AccessControl
     def column_sql(column_name, values = nil)
       if AccessControl::Ids.use_subqueries?
         scoped_column(column_name, values).sql
-      elsif values
-        ids = values.kind_of?(Enumerable) ? values : [values]
-        ids.join(",")
       else
-        select_values_of_column(column_name).join(",")
+        values ||= select_values_of_column(column_name)
+
+        ids = values.kind_of?(Enumerable) ? values : [values]
+        ids.any?? ids.join(",") : "NULL"
       end
     end
 

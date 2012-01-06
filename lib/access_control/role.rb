@@ -1,9 +1,10 @@
+# vim: fdm=marker
 require 'access_control/orm'
 
 module AccessControl
   class Role
 
-    class AssignmentsAssociation
+    class AssignmentsAssociation# {{{
       attr_reader :owner, :volatile
 
       def initialize(owner)
@@ -104,7 +105,7 @@ module AccessControl
       def default_persistent_subset
         Assignment::Persistent.with_roles(owner)
       end
-    end
+    end# }}}
 
     def self.persistent_model
       @persistent_model ||= ORM.adapt_class(Role::Persistent)
