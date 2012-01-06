@@ -446,7 +446,7 @@ module AccessControl
 
     describe "subset delegation" do
       delegated_subsets = [:assigned_to, :assigned_at, :for_all_permissions,
-                           :default, :with_names_in, :local_assignables,
+                           :default, :with_names, :local_assignables,
                            :global_assignables]
 
       delegated_subsets.each do |delegated_subset|

@@ -36,28 +36,23 @@ module AccessControl
         else
           related_assignments = Assignment::Persistent.assigned_to(principal)
         end
-        # subquery = related_assignments.select(:role_id).sql
-        # scoped(:conditions => "#{quoted_table_name}.id IN (#{subquery})")
         filter(:id => related_assignments.select(:role_id))
       end
 
       def self.assigned_at(nodes, principal = nil)
         return assigned_to(principal, nodes) if principal
 
-        # subquery = Assignment::Persistent.with_nodes(nodes).select(:role_id).sql
-        # scoped(:conditions => "#{quoted_table_name}.id IN (#{subquery})")
         filter(:id=>Assignment::Persistent.with_nodes(nodes).select(:role_id))
       end
 
       def self.default
-        with_names_in(AccessControl.config.default_roles)
+        with_names(AccessControl.config.default_roles)
       end
 
-      def self.with_names_in(names)
+      def self.with_names(names)
         if names.kind_of?(Enumerable)
           names = names.to_a
         end
-        # scoped_by_name(names)
         filter(:name => names)
       end
 

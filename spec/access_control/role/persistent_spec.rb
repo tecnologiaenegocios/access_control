@@ -187,23 +187,23 @@ module AccessControl
 
         context "for string arguments" do
           it "returns roles whose name is the argument" do
-            Persistent.with_names_in("foo").should include role
+            Persistent.with_names("foo").should include role
           end
 
           it "doesn't return roles whose name isn't argument" do
-            Persistent.with_names_in("bar").should_not include role
+            Persistent.with_names("bar").should_not include role
           end
         end
 
         context "for set arguments" do
           it "returns roles whose name is included in the set" do
             names = Set["foo", "bar"]
-            Persistent.with_names_in(names).should include role
+            Persistent.with_names(names).should include role
           end
 
           it "doesn't return roles whose name isn't included in the set" do
             names = Set["baz", "bar"]
-            Persistent.with_names_in(names).should_not include role
+            Persistent.with_names(names).should_not include role
           end
         end
       end
