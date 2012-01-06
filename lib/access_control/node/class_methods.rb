@@ -1,3 +1,4 @@
+require 'access_control/node/persistent'
 require 'access_control/orm'
 
 # Methods related to AccessControl::Node class, related to record fetching and
