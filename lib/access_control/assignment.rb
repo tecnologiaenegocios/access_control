@@ -63,11 +63,13 @@ module AccessControl
       common_properties = { :role_id => role_id, :principal_id => principal_id,
                             :parent_id => id }
 
-      new_assignments_properties = node_descendants.map do |node_descendant_id|
-        common_properties.merge(:node_id => node_descendant_id)
-      end
+       node_descendants.each do |node_descendant_id|
+        new_assignment_properties =
+          common_properties.merge(:node_id => node_descendant_id)
 
-      Assignment::Persistent.multi_insert(new_assignments_properties)
+        new_assignment = Assignment.new(new_assignment_properties)
+        new_assignment.persist
+      end
     end
 
     def node_descendants
