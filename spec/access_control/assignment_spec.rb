@@ -30,6 +30,10 @@ module AccessControl
       it "delegates subset .real to the persistent model" do
         Assignment.delegated_subsets.should include(:real)
       end
+
+      it "delegates subset .children_of to the persistent model" do
+        Assignment.delegated_subsets.should include(:children_of)
+      end
     end
 
     context "when its persistent doesn't have a parent" do
@@ -57,6 +61,7 @@ module AccessControl
 
       let(:descendant1)     { stub("Descendant 1", :id => 54321) }
       let(:descendant2)     { stub("Descendant 2", :id => 12543) }
+
       let(:descendants_ids) { [descendant1.id, descendant2.id] }
 
       before do
@@ -129,6 +134,29 @@ module AccessControl
             end
 
             missing_descendants_ids.should be_empty
+          end
+        end
+      end
+
+      context "on the destruction of the assignment" do
+        let(:assignment_children) { Assignment.children_of(subject) }
+
+        before do
+          subject.persist
+        end
+
+        it "destroys one assignment for each of the node's descendants" do
+          destroyed_assignments_count = descendants_ids.count + 1
+          lambda {
+            subject.destroy
+          }.should change(Assignment, :count).by(-destroyed_assignments_count)
+        end
+
+        it "destroys the 'children' of the assignment" do
+          subject.destroy
+
+          assignment_children.each do |child|
+            Assignment.has?(child.id).should be_false
           end
         end
       end

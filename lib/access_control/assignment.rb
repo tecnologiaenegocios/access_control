@@ -7,7 +7,8 @@ module AccessControl
     end
 
     delegate_subsets :with_nodes, :with_roles, :assigned_to,
-                     :assigned_on, :overlapping, :effective, :real
+                     :assigned_on, :overlapping, :effective, :real,
+                     :children_of
 
     def node=(node)
       self.node_id = node.id
@@ -41,12 +42,22 @@ module AccessControl
       end
     end
 
+    def destroy
+      super.tap do
+        destroy_child_assignments!
+      end
+    end
+
     def overlaps?(other)
       other.node_id == node_id && other.role_id == role_id &&
         other.principal_id == principal_id
     end
 
-    private
+  private
+
+    def destroy_child_assignments!
+      Assignment.children_of(self).each(&:destroy)
+    end
 
     def propagate_to_node_descendants!
       common_properties = { :role_id => role_id, :principal_id => principal_id,

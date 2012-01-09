@@ -5,7 +5,6 @@ require 'sequel/plugins/tree'
 module AccessControl
   class Assignment::Persistent < Sequel::Model(:ac_assignments)
     plugin :tree, :key => :parent_id
-    plugin :association_dependencies, :children => :destroy
 
     self.raise_on_save_failure = true
 
