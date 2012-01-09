@@ -6,14 +6,15 @@ module AccessControl
   class Node
     describe InheritanceManager do
 
-      def make_node
+      def make_node(name = nil)
         @ids ||= Enumerator.new do |yielder|
           n = 0
           loop { yielder.yield(n+=1) }
         end
 
         id   = @ids.next
-        node = stub("Node #{id}", :id => id)
+        name ||= "Node #{id}"
+        node = stub(name, :id => id)
         all_nodes[id] = node
         node
       end
@@ -21,12 +22,11 @@ module AccessControl
       let(:all_nodes)   { Hash.new }
       let(:node)        { make_node }
       let(:node_id)     { node.id }
-      let(:global_node) { make_node }
+      let(:global_node) { make_node("Global Node") }
 
       before do
-        all_nodes[global_node.id] = global_node
-        Node.stub(:fetch_all) { |ids| ids.map{|id| all_nodes[id]} }
-        AccessControl.stub(:global_node_id => global_node.id)
+        Node.stub(:fetch_all) { |ids| all_nodes.values_at(*ids) }
+        AccessControl.stub(:global_node => global_node)
       end
 
       describe "immediate parents and children API" do
@@ -165,7 +165,6 @@ module AccessControl
         describe "#ancestor_ids" do
           let!(:parent1)   { make_node() }
           let!(:parent2)   { make_node() }
-          let!(:parent3)   { make_node() }
           let!(:ancestor1) { make_node() }
           let!(:ancestor2) { make_node() }
           let!(:ancestor3) { make_node() }
@@ -178,20 +177,29 @@ module AccessControl
             set_parent_nodes_of(parent2, :as => [ancestor3, ancestor2])
           end
 
-          it { should include_only(
-            parent1.id,
-            parent2.id,
-            ancestor1.id,
-            ancestor2.id,
-            ancestor3.id,
-            global_node.id
-          ) }
+          it "includes the node's immediate parents ids" do
+            immediate_parents_ids = [parent1, parent2].map(&:id)
+            subject.should include(*immediate_parents_ids)
+          end
+
+          it "includes the ids of the parents of the node's parents" do
+            second_degree_parents_ids = [ancestor1, ancestor2, ancestor3].map(&:id)
+            subject.should include(*second_degree_parents_ids)
+          end
+
+          it "includes the ID of the global node" do
+            subject.should include(global_node.id)
+          end
+
+          it "doesn't include the IDs of unrelated nodes" do
+            unrelated_node = make_node()
+            subject.should_not include(unrelated_node.id)
+          end
         end
 
         describe "#descendant_ids" do
           let!(:child1)      { make_node() }
           let!(:child2)      { make_node() }
-          let!(:child3)      { make_node() }
           let!(:descendant1) { make_node() }
           let!(:descendant2) { make_node() }
           let!(:descendant3) { make_node() }
@@ -206,27 +214,53 @@ module AccessControl
             AccessControl.stub(:global_node => global_node)
           end
 
-          it { should include_only(
-            child1.id,
-            child2.id,
-            descendant1.id,
-            descendant2.id,
-            descendant3.id
-          ) }
+          it "includes the node's immediate children ids" do
+            immediate_children_ids = [child1, child2].map(&:id)
+            subject.should include(*immediate_children_ids)
+          end
+
+          it "includes the ids of the children of the node's children" do
+            second_degree_children_ids =
+              [descendant1, descendant2, descendant3].map(&:id)
+            subject.should include(*second_degree_children_ids)
+          end
+
+          it "doesn't include the ID of the global node" do
+            subject.should_not include(global_node.id)
+          end
+
+          it "doesn't include the IDs of unrelated nodes" do
+            unrelated_node = make_node()
+            subject.should_not include(unrelated_node.id)
+          end
         end
 
         describe "#ancestors" do
-          it "returns Node instances" do
-            parent = make_node()
-            ancestor = make_node()
+          let(:node_ancestors) { inheritance_manager.ancestors }
+
+          let!(:parent) { make_node() }
+          let!(:ancestor) { make_node() }
+
+          before do
             set_parent_nodes_of(node, :as => [parent])
             set_parent_nodes_of(parent, :as => [ancestor])
+          end
 
-            inheritance_manager.ancestors.should include_only(
-              parent,
-              ancestor,
-              global_node
-            )
+          it "include the node's immediate parents" do
+            node_ancestors.should include(parent)
+          end
+
+          it "include the parents of the node's parents" do
+            node_ancestors.should include(ancestor)
+          end
+
+          it "include the global node" do
+            node_ancestors.should include(global_node)
+          end
+
+          it "doesn't include unrelated nodes" do
+            random_node = make_node()
+            node_ancestors.should_not include(random_node)
           end
         end
 

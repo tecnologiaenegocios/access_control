@@ -79,11 +79,11 @@ module AccessControl
     end
 
     def parent_ids(id=node_id)
-      Set.new parent_set(id).select_map(:parent_id)
+      Set.new parent_set(id).select_map(:parent_id).compact
     end
 
     def child_ids(id=node_id)
-      Set.new child_set(id).select_map(:child_id)
+      Set.new child_set(id).select_map(:child_id).compact
     end
 
     def ancestor_ids(id=node_id)
