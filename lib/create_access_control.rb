@@ -109,6 +109,7 @@ class CreateAccessControl < ActiveRecord::Migration
       t.integer :node_id, :limit => 8, :null => false
       t.integer :principal_id, :null => false
       t.integer :role_id, :null => false
+      t.integer :parent_id
       t.integer :lock_version, :default => 0
     end
     add_index(

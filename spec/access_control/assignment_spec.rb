@@ -22,6 +22,32 @@ module AccessControl
       it "delegates subset .overlapping to the persistent model" do
         Assignment.delegated_subsets.should include(:overlapping)
       end
+
+      it "delegates subset .effective to the persistent model" do
+        Assignment.delegated_subsets.should include(:effective)
+      end
+
+      it "delegates subset .real to the persistent model" do
+        Assignment.delegated_subsets.should include(:real)
+      end
+    end
+
+    context "when its persistent doesn't have a parent" do
+      let(:persistent) { stub(:parent_id => nil) }
+
+      subject { Assignment.wrap(persistent) }
+
+      it { should     be_real }
+      it { should_not be_effective }
+    end
+
+    context "when its persistent has a parent" do
+      let(:persistent) { stub(:parent_id => stub) }
+
+      subject { Assignment.wrap(persistent) }
+
+      it { should     be_effective }
+      it { should_not be_real }
     end
 
     describe "#overlaps?" do

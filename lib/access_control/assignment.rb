@@ -7,7 +7,7 @@ module AccessControl
     end
 
     delegate_subsets :with_nodes, :with_roles, :assigned_to,
-                     :assigned_on, :overlapping
+                     :assigned_on, :overlapping, :effective, :real
 
     def node=(node)
       self.node_id = node.id
@@ -25,6 +25,14 @@ module AccessControl
 
     def principal
       @principal ||= Principal.fetch(principal_id, nil)
+    end
+
+    def effective?
+      not real?
+    end
+
+    def real?
+      persistent.parent_id.nil?
     end
 
     def overlaps?(other)

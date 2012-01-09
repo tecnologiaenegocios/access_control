@@ -6,10 +6,38 @@ module AccessControl
     describe Persistent do
       def build_persistent(properties = {})
         properties[:principal_id] ||= 0
-        properties[:node_id] ||= 0
-        properties[:role_id] ||= 0
+        properties[:node_id]      ||= 0
+        properties[:role_id]      ||= 0
 
         Persistent.create(properties)
+      end
+
+      it "uses the 'tree' Sequel plugin" do
+        Persistent.plugins.should include Sequel::Plugins::Tree
+      end
+
+      describe ".real" do
+        it "returns assignments that don't have a parent" do
+          subject = build_persistent(:parent_id => nil)
+          Persistent.real.should include subject
+        end
+
+        it "doesn't return assignments that have a parent" do
+          subject = build_persistent(:parent_id => 1)
+          Persistent.real.should_not include subject
+        end
+      end
+
+      describe ".effective" do
+        it "returns assignments that have a parent" do
+          subject = build_persistent(:parent_id => 1)
+          Persistent.effective.should include subject
+        end
+
+        it "doesn't return assignments that don't have a parent" do
+          subject = build_persistent(:parent_id => nil)
+          Persistent.effective.should_not include subject
+        end
       end
 
       describe ".with_nodes" do

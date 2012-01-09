@@ -1,10 +1,10 @@
 require 'access_control/assignment'
 require 'access_control/ids'
+require 'sequel/plugins/tree'
 
 module AccessControl
-  class Assignment::Persistent < Sequel::Model
-    set_dataset :ac_assignments
-
+  class Assignment::Persistent < Sequel::Model(:ac_assignments)
+    plugin :tree, :key => :parent_id
     self.raise_on_save_failure = true
 
     def_dataset_method :with_nodes do |nodes|
@@ -34,5 +34,7 @@ module AccessControl
       with_roles(roles_ids).assigned_on(nodes_ids, principals_ids)
     end
 
+    subset(:real,       {:parent_id => nil})
+    subset(:effective, ~{:parent_id => nil})
   end
 end
