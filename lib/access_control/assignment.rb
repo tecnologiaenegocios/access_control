@@ -36,6 +36,13 @@ module AccessControl
       persistent.parent_id.nil?
     end
 
+    def propagate_to(node)
+      node_id = node.kind_of?(Numeric) ? node : node.id
+
+      Assignment.store(:node_id => node_id, :principal_id => self.principal_id,
+                       :role_id => self.role_id, :parent_id => self.id)
+    end
+
     def persist
       super.tap do
         propagate_to_node_descendants!
@@ -60,21 +67,10 @@ module AccessControl
     end
 
     def propagate_to_node_descendants!
-      common_properties = { :role_id => role_id, :principal_id => principal_id,
-                            :parent_id => id }
-
-       node_descendants.each do |node_descendant_id|
-        new_assignment_properties =
-          common_properties.merge(:node_id => node_descendant_id)
-
-        new_assignment = Assignment.new(new_assignment_properties)
-        new_assignment.persist
+      node_descendants = Node::InheritanceManager.child_ids_of(node_id)
+      node_descendants.each do |node_descendant_id|
+        propagate_to(node_descendant_id)
       end
     end
-
-    def node_descendants
-      Node::InheritanceManager.child_ids_of(node_id)
-    end
-
   end
 end

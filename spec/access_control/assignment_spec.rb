@@ -54,7 +54,45 @@ module AccessControl
       it { should_not be_real }
     end
 
-    describe "propagation" do
+    describe "#propagate_to" do
+      let(:node) { stub("Node", :id => 12345) }
+      subject do
+        Assignment.store(:node_id => 54321, :principal_id => 123,
+                                            :role_id => 456)
+      end
+
+      let(:returned_assignment) { subject.propagate_to(node) }
+
+      it "returns an assignment with the same principal and role" do
+        returned_assignment.role_id.should == subject.role_id
+        returned_assignment.principal_id.should == subject.principal_id
+      end
+
+      it "returns an assignment that points to the given node" do
+        returned_assignment.node_id.should == node.id
+      end
+
+      it "returns an assignment that is a child of the original" do
+        returned_assignment.parent_id.should == subject.id
+      end
+
+      it "returns a effective assignment" do
+        returned_assignment.should be_effective
+      end
+
+      it "returns a saved assignment" do
+        returned_assignment.should be_persisted
+      end
+
+      it "works if given an ID instead of a instance" do
+        returned_assignment = subject.propagate_to(node.id)
+
+        returned_assignment.node_id.should == node.id
+        returned_assignment.should be_persisted
+      end
+    end
+
+    describe "automatic propagation" do
       let(:node_id)             { 12345 }
       let(:node)                { stub("Node", :id => node_id) }
       let(:inheritance_manager) { stub("Inheritance Manager") }
