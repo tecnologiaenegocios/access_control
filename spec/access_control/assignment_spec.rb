@@ -59,15 +59,15 @@ module AccessControl
       let(:node)                { stub("Node", :id => node_id) }
       let(:inheritance_manager) { stub("Inheritance Manager") }
 
-      let(:descendant1)     { stub("Descendant 1", :id => 54321) }
-      let(:descendant2)     { stub("Descendant 2", :id => 12543) }
+      let(:child1)     { stub("child 1", :id => 54321) }
+      let(:child2)     { stub("child 2", :id => 12543) }
 
-      let(:descendants_ids) { [descendant1.id, descendant2.id] }
+      let(:children_ids) { [child1.id, child2.id] }
 
       before do
-        Node::InheritanceManager.stub(:descendant_ids_of => [])
-        Node::InheritanceManager.stub(:descendant_ids_of).with(node_id).
-          and_return(descendants_ids)
+        Node::InheritanceManager.stub(:child_ids_of => [])
+        Node::InheritanceManager.stub(:child_ids_of).with(node_id).
+          and_return(children_ids)
       end
 
       subject do
@@ -80,7 +80,7 @@ module AccessControl
 
       context "after the assignment is created" do
         it "creates new assignments for each of the Node's decendants" do
-          new_assignments_count = descendants_ids.count + 1
+          new_assignments_count = children_ids.count + 1
 
           lambda {
             subject.persist
@@ -90,7 +90,7 @@ module AccessControl
         describe "the new assignments" do
           let(:new_assignments) do
             # Naive by design
-            Assignment.all.to_a.reverse.take(descendants_ids.count)
+            Assignment.all.to_a.reverse.take(children_ids.count)
           end
 
           before do
@@ -127,13 +127,13 @@ module AccessControl
             end
           end
 
-          it "have node_id pointing to one of the node's descendants" do
-            missing_descendants_ids = Set.new(descendants_ids)
+          it "have node_id pointing to one of the node's children" do
+            missing_children_ids = Set.new(children_ids)
             new_assignments.each do |new_assignment|
-              missing_descendants_ids.delete(new_assignment.node_id)
+              missing_children_ids.delete(new_assignment.node_id)
             end
 
-            missing_descendants_ids.should be_empty
+            missing_children_ids.should be_empty
           end
         end
       end
@@ -145,8 +145,8 @@ module AccessControl
           subject.persist
         end
 
-        it "destroys one assignment for each of the node's descendants" do
-          destroyed_assignments_count = descendants_ids.count + 1
+        it "destroys one assignment for each of the node's children" do
+          destroyed_assignments_count = children_ids.count + 1
           lambda {
             subject.destroy
           }.should change(Assignment, :count).by(-destroyed_assignments_count)

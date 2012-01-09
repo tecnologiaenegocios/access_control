@@ -71,7 +71,7 @@ module AccessControl
     end
 
     def node_descendants
-      Node::InheritanceManager.descendant_ids_of(node_id)
+      Node::InheritanceManager.child_ids_of(node_id)
     end
 
   end
