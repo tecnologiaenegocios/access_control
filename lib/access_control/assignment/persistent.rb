@@ -5,6 +5,8 @@ require 'sequel/plugins/tree'
 module AccessControl
   class Assignment::Persistent < Sequel::Model(:ac_assignments)
     plugin :tree, :key => :parent_id
+    plugin :association_dependencies, :children => :destroy
+
     self.raise_on_save_failure = true
 
     def_dataset_method :with_nodes do |nodes|
@@ -32,6 +34,11 @@ module AccessControl
 
     def_dataset_method :overlapping do |roles_ids, principals_ids, nodes_ids|
       with_roles(roles_ids).assigned_on(nodes_ids, principals_ids)
+    end
+
+    def_dataset_method :children_of do |assignment|
+      assignment_id = Util.ids_for_hash_condition(assignment)
+      filter(:parent_id => assignment_id)
     end
 
     subset(:real,       {:parent_id => nil})

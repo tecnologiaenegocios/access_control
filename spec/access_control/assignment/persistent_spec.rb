@@ -5,15 +5,16 @@ module AccessControl
   class Assignment
     describe Persistent do
       def build_persistent(properties = {})
-        properties[:principal_id] ||= 0
-        properties[:node_id]      ||= 0
-        properties[:role_id]      ||= 0
+        @ids ||= Enumerator.new do |yielder|
+          n = 0
+          loop { yielder.yield(n+=1) }
+        end
+
+        properties[:principal_id] ||= @ids.next
+        properties[:node_id]      ||= @ids.next
+        properties[:role_id]      ||= @ids.next
 
         Persistent.create(properties)
-      end
-
-      it "uses the 'tree' Sequel plugin" do
-        Persistent.plugins.should include Sequel::Plugins::Tree
       end
 
       describe ".real" do
@@ -37,6 +38,29 @@ module AccessControl
         it "doesn't return assignments that don't have a parent" do
           subject = build_persistent(:parent_id => nil)
           Persistent.effective.should_not include subject
+        end
+      end
+
+      describe ".children_of" do
+        let!(:assignment) { build_persistent }
+
+        it "returns assignments whose 'parent_id' point to the param" do
+          child = build_persistent(:parent_id => assignment.id)
+          Persistent.children_of(assignment).should include(child)
+        end
+
+        it "doesn't return assignments with a different 'parent_id'" do
+          random_assignment = build_persistent(:parent_id => assignment.id-1)
+          Persistent.children_of(assignment).should_not include(random_assignment)
+        end
+
+        it "works the same if given an ID instead of an instance" do
+          child             = build_persistent(:parent_id => assignment.id)
+          random_assignment = build_persistent(:parent_id => assignment.id-1)
+
+          returned_dataset = Persistent.children_of(assignment.id)
+          returned_dataset.should include(child)
+          returned_dataset.should_not include(random_assignment)
         end
       end
 
