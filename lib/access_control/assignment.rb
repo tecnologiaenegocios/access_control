@@ -35,9 +35,33 @@ module AccessControl
       persistent.parent_id.nil?
     end
 
+    def persist
+      super.tap do
+        propagate_to_node_descendants!
+      end
+    end
+
     def overlaps?(other)
       other.node_id == node_id && other.role_id == role_id &&
         other.principal_id == principal_id
     end
+
+    private
+
+    def propagate_to_node_descendants!
+      common_properties = { :role_id => role_id, :principal_id => principal_id,
+                            :parent_id => id }
+
+      new_assignments_properties = node_descendants.map do |node_descendant_id|
+        common_properties.merge(:node_id => node_descendant_id)
+      end
+
+      Assignment::Persistent.multi_insert(new_assignments_properties)
+    end
+
+    def node_descendants
+      Node::InheritanceManager.descendant_ids_of(node_id)
+    end
+
   end
 end
