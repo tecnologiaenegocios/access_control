@@ -14,7 +14,7 @@ module AccessControl
 
       @context = Set.new(nodes_or_securables) do |item|
         node = AccessControl::Node(item)
-        node.persisted?? node : Node::InheritanceManager.parents_of(node)
+        node.persisted?? node : Node::InheritanceManager.parents_of(node.id)
       end
     end
 

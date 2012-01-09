@@ -36,18 +36,18 @@ module AccessControl
       self.new(*args).descendant_ids
     end
 
-    attr_reader :node
+    attr_reader :node_id
 
-    def initialize(node)
-      @node = node
+    def initialize(node_id)
+      @node_id = node_id
     end
 
     def add_parent(parent)
-      db << { :child_id => node.id, :parent_id => parent.id }
+      db << { :child_id => node_id, :parent_id => parent.id }
     end
 
     def add_child(child)
-      db << { :child_id => child.id, :parent_id => node.id }
+      db << { :child_id => child.id, :parent_id => node_id }
     end
 
     def del_parent(parent)
@@ -78,22 +78,22 @@ module AccessControl
       Node.fetch_all(descendant_ids)
     end
 
-    def parent_ids(id=node.id)
-      Set.new(parent_set(id)) { |r| r[:parent_id] }
+    def parent_ids(id=node_id)
+      Set.new parent_set(id).select_map(:parent_id)
     end
 
-    def child_ids(id=node.id)
-      Set.new(child_set(id)) { |r| r[:child_id] }
+    def child_ids(id=node_id)
+      Set.new child_set(id).select_map(:child_id)
     end
 
-    def ancestor_ids(id=node.id)
+    def ancestor_ids(id=node_id)
       parent_ids(id).each_with_object(default_ancestor_set) do |parent_id, set|
         set << parent_id
         set.merge(ancestor_ids(parent_id))
       end
     end
 
-    def descendant_ids(id=node.id)
+    def descendant_ids(id=node_id)
       child_ids(id).each_with_object(Set.new) do |child_id, set|
         set << child_id
         set.merge(descendant_ids(child_id))
@@ -106,16 +106,16 @@ module AccessControl
       AccessControl.ac_parents
     end
 
-    def parent_set(id=node.id)
+    def parent_set(id=node_id)
       db.filter(:child_id => id)
     end
 
-    def child_set(id=node.id)
+    def child_set(id=node_id)
       db.filter(:parent_id => id)
     end
 
     def default_ancestor_set
-      Set[AccessControl.global_node_id]
+      Set[AccessControl.global_node.id]
     end
   end
 end

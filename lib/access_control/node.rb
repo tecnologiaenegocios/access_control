@@ -59,7 +59,7 @@ module AccessControl
 
     attr_writer :inheritance_manager
     def inheritance_manager
-      @inheritance_manager ||= InheritanceManager.new(self)
+      @inheritance_manager ||= InheritanceManager.new(id)
     end
 
     def ancestors

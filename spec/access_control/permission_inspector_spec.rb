@@ -12,7 +12,13 @@ module AccessControl
     end
 
     def stub_node(stubs = {})
+      @node_ids ||= Enumerator.new do |yielder|
+        n = 0
+        loop { yielder.yield(n += 1) }
+      end
+
       stubs[:persisted?] ||= true
+      stubs[:id]         ||= @node_ids.next
 
       stub("Node", stubs).tap do |node|
         AccessControl.stub(:Node).with(node).and_return(node)
@@ -43,7 +49,7 @@ module AccessControl
         before do
           node.stub(:persisted? => false)
           Node::InheritanceManager.stub(:parents_of).
-            with(node).and_return(parent_nodes)
+            with(node.id).and_return(parent_nodes)
         end
 
         it "asks Node::InheritanceManager for the node's parents" do
@@ -69,7 +75,7 @@ module AccessControl
         before do
           node.stub(:persisted? => false)
           Node::InheritanceManager.stub(:parents_of).
-            with(node).and_return(parent_nodes)
+            with(node.id).and_return(parent_nodes)
         end
 
         it "asks Node::InheritanceManager for the node's parents" do

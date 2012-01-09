@@ -7,13 +7,21 @@ module AccessControl
     describe InheritanceManager do
 
       def make_node
-        node = stub_model(Node)
-        all_nodes[node.id] = node
+        @ids ||= Enumerator.new do |yielder|
+          n = 0
+          loop { yielder.yield(n+=1) }
+        end
+
+        id   = @ids.next
+        node = stub("Node #{id}", :id => id)
+        all_nodes[id] = node
+        node
       end
 
-      let(:all_nodes) { {} }
-      let(:node) { make_node }
-      let(:global_node) { stub_model(Node) }
+      let(:all_nodes)   { Hash.new }
+      let(:node)        { make_node }
+      let(:node_id)     { node.id }
+      let(:global_node) { make_node }
 
       before do
         all_nodes[global_node.id] = global_node
@@ -24,34 +32,31 @@ module AccessControl
       describe "immediate parents and children API" do
         it "can add a new parent and persist it" do
           parent = make_node()
-          same_node = stub(:id => node.id)
-          InheritanceManager.new(node).add_parent(parent)
+          InheritanceManager.new(node_id).add_parent(parent)
 
-          InheritanceManager.new(same_node).parent_ids.
+          InheritanceManager.new(node_id).parent_ids.
             should include(parent.id)
         end
 
         it "can add a new child and persist it" do
           child = make_node()
-          same_node = stub(:id => node.id)
-          InheritanceManager.new(node).add_child(child)
+          InheritanceManager.new(node_id).add_child(child)
 
-          InheritanceManager.new(same_node).child_ids.should include(child.id)
+          InheritanceManager.new(node_id).child_ids.should include(child.id)
         end
 
         it "can remove an existing parent and persist it" do
           parent = make_node()
           other_parent = make_node()
-          same_node = stub(:id => node.id)
 
-          parenter = InheritanceManager.new(node)
-          parenter.add_parent(parent)
-          parenter.add_parent(other_parent)
+          manager = InheritanceManager.new(node_id)
+          manager.add_parent(parent)
+          manager.add_parent(other_parent)
 
-          parenter = InheritanceManager.new(node)
-          parenter.del_parent(parent)
+          manager = InheritanceManager.new(node_id)
+          manager.del_parent(parent)
 
-          ids = InheritanceManager.new(same_node).parent_ids
+          ids = InheritanceManager.new(node_id).parent_ids
           ids.should include(other_parent.id)
           ids.should_not include(parent.id)
         end
@@ -59,16 +64,15 @@ module AccessControl
         it "can remove existing child and persist it" do
           child = make_node()
           other_child = make_node()
-          same_node = stub(:id => node.id)
 
-          parenter = InheritanceManager.new(node)
-          parenter.add_child(child)
-          parenter.add_child(other_child)
+          manager = InheritanceManager.new(node_id)
+          manager.add_child(child)
+          manager.add_child(other_child)
 
-          parenter = InheritanceManager.new(node)
-          parenter.del_child(child)
+          manager = InheritanceManager.new(node_id)
+          manager.del_child(child)
 
-          ids = InheritanceManager.new(same_node).child_ids
+          ids = InheritanceManager.new(node_id).child_ids
           ids.should include(other_child.id)
           ids.should_not include(child.id)
         end
@@ -76,64 +80,62 @@ module AccessControl
         it "can remove all parents" do
           parent = make_node()
           other_parent = make_node()
-          same_node = stub(:id => node.id)
 
-          parenter = InheritanceManager.new(node)
+          parenter = InheritanceManager.new(node_id)
           parenter.add_parent(parent)
           parenter.add_parent(other_parent)
 
-          parenter = InheritanceManager.new(node)
+          parenter = InheritanceManager.new(node_id)
           parenter.del_all_parents
 
-          parenter = InheritanceManager.new(same_node)
           parenter.parent_ids.should be_empty
         end
 
         it "can return actual Node parent instances" do
           parent = make_node()
-          InheritanceManager.new(node).add_parent(parent)
-          InheritanceManager.new(node).parents.should include(parent)
+          InheritanceManager.new(node_id).add_parent(parent)
+          InheritanceManager.new(node_id).parents.should include(parent)
         end
 
         it "can return actual Node child instances" do
           child = make_node()
-          InheritanceManager.new(node).add_child(child)
-          InheritanceManager.new(node).children.should include(child)
+          InheritanceManager.new(node_id).add_child(child)
+          InheritanceManager.new(node_id).children.should include(child)
         end
 
         describe ".parents_of" do
           it "works like InheritanceManager.new(foo).parents" do
             parent = make_node()
-            InheritanceManager.new(node).add_parent(parent)
-            InheritanceManager.parents_of(node).should ==
-              InheritanceManager.new(node).parents
+            InheritanceManager.new(node_id).add_parent(parent)
+            InheritanceManager.parents_of(node_id).should ==
+              InheritanceManager.new(node_id).parents
           end
         end
 
         describe ".parent_ids_of" do
           it "works like InheritanceManager.new(foo).parent_ids" do
             parent = make_node()
-            InheritanceManager.new(node).add_parent(parent)
-            InheritanceManager.parent_ids_of(node).should ==
-              InheritanceManager.new(node).parent_ids
+            InheritanceManager.new(node_id).add_parent(parent)
+            InheritanceManager.parent_ids_of(node_id).should ==
+              InheritanceManager.new(node_id).parent_ids
           end
         end
 
         describe ".children_of" do
           it "works like InheritanceManager.new(foo).children" do
             child = make_node()
-            InheritanceManager.new(node).add_child(child)
-            InheritanceManager.children_of(node).should ==
-              InheritanceManager.new(node).children
+            InheritanceManager.new(node_id).add_child(child)
+            InheritanceManager.children_of(node_id).should ==
+              InheritanceManager.new(node_id).children
           end
         end
 
         describe ".child_ids_of" do
           it "works like InheritanceManager.new(foo).child_ids" do
             child = make_node()
-            InheritanceManager.new(node).add_child(child)
-            InheritanceManager.child_ids_of(node).should ==
-              InheritanceManager.new(node).child_ids
+            InheritanceManager.new(node_id).add_child(child)
+            InheritanceManager.child_ids_of(node_id).should ==
+              InheritanceManager.new(node_id).child_ids
           end
         end
       end
@@ -141,20 +143,24 @@ module AccessControl
       describe "ancestors and descendants API" do
 
         def set_parent_nodes_of(node, options)
+          manager = InheritanceManager.new(node.id)
           parents = options.fetch(:as)
+
           parents.each do |parent|
-            InheritanceManager.new(node).add_parent(parent)
+            manager.add_parent(parent)
           end
         end
 
         def set_child_nodes_of(node, options)
+          manager = InheritanceManager.new(node.id)
           children = options.fetch(:as)
+
           children.each do |child|
-            InheritanceManager.new(node).add_child(child)
+            manager.add_child(child)
           end
         end
 
-        let(:inheritance_manager) { InheritanceManager.new(node) }
+        let(:inheritance_manager) { InheritanceManager.new(node_id) }
 
         describe "#ancestor_ids" do
           let!(:parent1)   { make_node() }
@@ -246,15 +252,15 @@ module AccessControl
 
           describe ".ancestors_of" do
             it "works like InheritanceManager.new(foo).parents" do
-              InheritanceManager.ancestors_of(node).should ==
-                InheritanceManager.new(node).ancestors
+              InheritanceManager.ancestors_of(node_id).should ==
+                InheritanceManager.new(node_id).ancestors
             end
           end
 
           describe ".ancestor_ids_of" do
             it "works like InheritanceManager.new(foo).ancestor_ids" do
-              InheritanceManager.ancestor_ids_of(node).should ==
-                InheritanceManager.new(node).ancestor_ids
+              InheritanceManager.ancestor_ids_of(node_id).should ==
+                InheritanceManager.new(node_id).ancestor_ids
             end
           end
         end
@@ -269,15 +275,15 @@ module AccessControl
 
           describe ".descendants_of" do
             it "works like InheritanceManager.new(foo).children" do
-              InheritanceManager.descendants_of(node).should ==
-                InheritanceManager.new(node).descendants
+              InheritanceManager.descendants_of(node_id).should ==
+                InheritanceManager.new(node_id).descendants
             end
           end
 
           describe ".decendant_ids_of" do
             it "works like InheritanceManager.new(foo).descendant_ids" do
-              InheritanceManager.descendant_ids_of(node).should ==
-                InheritanceManager.new(node).descendant_ids
+              InheritanceManager.descendant_ids_of(node_id).should ==
+                InheritanceManager.new(node_id).descendant_ids
             end
           end
         end
