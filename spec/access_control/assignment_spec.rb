@@ -213,11 +213,9 @@ module AccessControl
       context "on the destruction of the assignment" do
         let(:assignment_children) { Assignment.children_of(subject) }
 
-        before do
-          subject.persist
-        end
-
         it "destroys one assignment for each of the node's children" do
+          subject.persist
+
           destroyed_assignments_count = children_ids.count + 1
           lambda {
             subject.destroy
@@ -225,10 +223,35 @@ module AccessControl
         end
 
         it "destroys the 'children' of the assignment" do
+          subject.persist
           subject.destroy
 
           assignment_children.each do |child|
             Assignment.has?(child.id).should be_false
+          end
+        end
+
+        context "when the assignment has second-order children" do
+          before do
+            second_order_child = stub("2nd order child", :id => 666)
+
+            Node::InheritanceManager.stub(:child_ids_of).with(child2.id).
+              and_return([second_order_child.id])
+            subject.persist
+          end
+
+          let!(:second_order_children) do
+            Util.flat_set(assignment_children) do |child|
+              Assignment.children_of(child)
+            end
+          end
+
+          specify "they are destroyed too" do
+            subject.destroy
+
+            second_order_children.each do |child|
+              Assignment.has?(child.id).should be_false
+            end
           end
         end
       end
