@@ -6,22 +6,46 @@ require 'access_control/persistency_protector'
 
 module AccessControl
   module ActiveRecordSecurable
-    def self.included(base)
-      base.class_eval do
-        include ActiveRecordJustAfterCallback
-        extend ClassMethods
+
+    class << self
+      attr_writer :assign_default_roles, :protect_persistency, :track_parents
+
+      def assign_default_roles?
+        @assign_default_roles.nil?? true : @assign_default_roles
       end
+
+      def protect_persistency?
+        @protect_persistency.nil?? true : @protect_persistency
+      end
+
+      def track_parents?
+        @track_parents.nil?? true : @track_parents
+      end
+    end
+
+
+    def self.included(base)
+      base.send(:include, ActiveRecordJustAfterCallback)
 
       ActiveRecordAssociator.setup_association(:ac_node, base) do
         @__ac_node__ ||= Node.for_securable(self)
       end
 
-      base.just_after_create do
-        Role.assign_all(Role.default,
-                        AccessControl.manager.principals, ac_node)
+      if track_parents?
+        base.extend(ClassMethods)
       end
 
-      setup_persistency_protection_callbacks(base)
+      if assign_default_roles?
+        base.just_after_create do
+          Role.assign_all(Role.default,
+                          AccessControl.manager.principals, ac_node)
+        end
+      end
+
+      if protect_persistency?
+        setup_persistency_protection_callbacks(base)
+      end
+
     end
 
     def self.setup_persistency_protection_callbacks(base)

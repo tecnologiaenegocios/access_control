@@ -19,18 +19,19 @@ module AccessControl
       end
     end
 
-    let(:model) { Class.new(base) }
-
-    let(:manager)       { stub('manager') }
-    let(:principals)    { ['principal1', 'principal2'] }
-    let(:default_roles) { stub('default roles subset') }
-
     before do
-      AccessControl.stub(:manager).and_return(manager)
-      manager.stub(:principals).and_return(principals)
-      Role.stub(:default).and_return(default_roles)
-      Role.stub(:assign_all)
+      ActiveRecordSecurable.track_parents        = false
+      ActiveRecordSecurable.assign_default_roles = false
+      ActiveRecordSecurable.protect_persistency  = false
     end
+
+    after do
+      ActiveRecordSecurable.track_parents        = true
+      ActiveRecordSecurable.assign_default_roles = true
+      ActiveRecordSecurable.protect_persistency  = true
+    end
+
+    let(:model) { Class.new(base) }
 
     it "includes just after callbacks" do
       model.send(:include, ActiveRecordSecurable)
@@ -43,37 +44,50 @@ module AccessControl
 
       before do
         Node.stub(:for_securable).with(instance).and_return(node)
-        model.send(:include, ActiveRecordSecurable)
       end
 
-      it "returns a node for the instance" do
-        instance.ac_node.should be node
-      end
-
-      specify "once the node is computed, the node is cached" do
-        old_result = instance.ac_node # should cache
-        Node.should_not_receive(:for_securable)
-        instance.ac_node.should be old_result
-      end
-
-      describe "persistency and removal of the node" do
-        it "persists the node when the record is saved" do
-          PersistencyProtector.stub(:verify_attachment!)
-          node.should_receive(:persist!)
-          instance.create
+      describe "association" do
+        before do
+          model.send(:include, ActiveRecordSecurable)
         end
 
-        it "destroys the node when the record is destroyed" do
-          PersistencyProtector.stub(:verify_detachment!)
-          node.should_receive(:destroy)
-          instance.destroy
+        it "returns a node for the instance" do
+          instance.ac_node.should be node
+        end
+
+        specify "once the node is computed, the node is cached" do
+          old_result = instance.ac_node # should cache
+          Node.should_not_receive(:for_securable)
+          instance.ac_node.should be old_result
+        end
+
+        describe "persistency and removal of the node" do
+          it "persists the node when the record is saved" do
+            PersistencyProtector.stub(:verify_attachment!)
+            node.should_receive(:persist!)
+            instance.create
+          end
+
+          it "destroys the node when the record is destroyed" do
+            PersistencyProtector.stub(:verify_detachment!)
+            node.should_receive(:destroy)
+            instance.destroy
+          end
         end
       end
 
       describe "setting default roles on the node created" do
+        let(:principals)    { ['principal1', 'principal2'] }
+        let(:default_roles) { stub('default roles subset') }
+
         before do
-          PersistencyProtector.stub(:verify_attachment!)
-          instance.stub(:ac_node).and_return(node)
+          ActiveRecordSecurable.assign_default_roles = true
+          model.send(:include, ActiveRecordSecurable)
+
+          Role.stub(:default => default_roles)
+          AccessControl.stub_chain(:manager, :principals).and_return(principals)
+
+          instance.stub(:ac_node => node)
         end
 
         it "sets default roles by assigning them to the node and principals" do
@@ -85,18 +99,20 @@ module AccessControl
           node.should_receive(:persist!).ordered
           node.should_receive(:called_on_assignment).ordered
 
-          Role.define_singleton_method(:assign_all) do |r, p, n|
-            n.called_on_assignment
+          Role.stub(:assign_all) do |_, _, node|
+            node.called_on_assignment
           end
 
           instance.create
         end
       end
+
     end
 
     describe "tracking parents" do
 
       before do
+        ActiveRecordSecurable.track_parents = true
         PersistencyProtector.stub(:track_parents)
         model.send(:include, ActiveRecordSecurable)
       end
@@ -139,11 +155,10 @@ module AccessControl
       let(:instance) { model.new }
 
       before do
-        PersistencyProtector.stub(:verify_attachment!)
-        PersistencyProtector.stub(:verify_detachment!)
-        PersistencyProtector.stub(:verify_update!)
-        PersistencyProtector.stub(:track_parents)
+        PersistencyProtector.as_null_object
         ActiveRecordAssociator.stub(:setup_association)
+
+        ActiveRecordSecurable.protect_persistency = true
         model.send(:include, ActiveRecordSecurable)
         instance.stub(:ac_node)
       end
