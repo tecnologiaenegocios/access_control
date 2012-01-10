@@ -22,6 +22,11 @@ module AccessControl
       end
 
       def has?(principal, node)
+        on(principal, node).present? ||
+          effective_on(principal, node).present?
+      end
+
+      def has_locally?(principal, node)
         on(principal, node).present?
       end
 
@@ -63,6 +68,21 @@ module AccessControl
       end
 
     private
+
+      def effective_on(principal, node)
+        principal_id = Util.id_of(principal)
+        node_id      = Util.id_of(node)
+
+        query_database = Proc.new do
+          subset = default_persistent_subset.assigned_on(node, principal)
+          wrap_subset(subset).first
+        end
+
+        volatile.detect(query_database) do |assignment|
+          assignment.principal_id == principal_id &&
+            assignment.node_id == node_id
+        end
+      end
 
       def on(principal, node)
         principal_id = Util.id_of(principal)
@@ -181,8 +201,16 @@ module AccessControl
       assignments.has?(principal, node)
     end
 
+    def locally_assigned_to?(principal, node)
+      assignments.has_locally?(principal, node)
+    end
+
     def assigned_at?(node, principal)
       assigned_to?(principal, node)
+    end
+
+    def locally_assigned_at?(node, principal)
+      locally_assigned_to?(principal, node)
     end
 
     def unassign_from(principal, node = nil)

@@ -323,6 +323,63 @@ module AccessControl
       end
     end
 
+    describe "assignment-related predicate methods" do
+      let(:node)       { stub("Node",       :id => 1) }
+      let(:child_node) { stub("Child node", :id => 2) }
+      let(:principal)  { stub("Principal",  :id => 1) }
+
+      let!(:local_assignment) do
+        Assignment.store(:role_id => subject.id, :node_id => node.id,
+                         :principal_id => principal.id)
+      end
+
+      subject { Role.store(:name => "Irrelevant") }
+
+      describe "#assigned_to?" do
+        it "returns true if the role was directly assigned" do
+          subject.should be_assigned_to(principal, node)
+        end
+
+        it "returns true if the role was inherited" do
+          local_assignment.propagate_to(child_node)
+          subject.should be_assigned_to(principal, child_node)
+        end
+      end
+
+      describe "#locally_assigned_to?" do
+        it "returns true if the role was directly assigned" do
+          subject.should be_locally_assigned_to(principal, node)
+        end
+
+        it "returns false if the role was inherited" do
+          local_assignment.propagate_to(child_node)
+          subject.should_not be_locally_assigned_to(principal, child_node)
+        end
+      end
+
+      describe "#assigned_at?" do
+        it "returns true if the role was directly assigned" do
+          subject.should be_assigned_at(node, principal)
+        end
+
+        it "returns true if the role was inherited" do
+          local_assignment.propagate_to(child_node)
+          subject.should be_assigned_at(child_node, principal)
+        end
+      end
+
+      describe "#locally_assigned_at?" do
+        it "returns true if the role was directly assigned" do
+          subject.should be_locally_assigned_at(node, principal)
+        end
+
+        it "returns false if the role was inherited" do
+          local_assignment.propagate_to(child_node)
+          subject.should_not be_locally_assigned_at(child_node, principal)
+        end
+      end
+    end
+
     context "permissions management" do
       subject { Role.new(:name => "Irrelevant") }
 
