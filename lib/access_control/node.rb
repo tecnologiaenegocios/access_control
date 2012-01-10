@@ -1,7 +1,4 @@
 require 'access_control/exceptions'
-require 'access_control/ids'
-require 'access_control/inheritance'
-require 'access_control/configuration'
 require 'access_control/persistable'
 
 module AccessControl
@@ -57,44 +54,6 @@ module AccessControl
       @securable_class ||= securable_type.constantize
     end
 
-    attr_writer :inheritance_manager
-    def inheritance_manager
-      @inheritance_manager ||= InheritanceManager.new(id)
-    end
-
-    def ancestors
-      strict_ancestors.add(self)
-    end
-
-    def strict_ancestors
-      guard_against_block(:by_returning => :global_node) do
-        inheritance_manager.ancestors
-      end
-    end
-
-    def unblocked_ancestors
-      strict_unblocked_ancestors.add(self)
-    end
-
-    def strict_unblocked_ancestors
-      guard_against_block(:by_returning => :global_node) do
-        filter = proc { |node| not node.block }
-        inheritance_manager.filtered_ancestors(filter)
-      end
-    end
-
-    def parents
-      guard_against_block(:by_returning => Set.new) do
-        inheritance_manager.parents
-      end
-    end
-
-    def unblocked_parents
-      guard_against_block(:by_returning => Set.new) do
-        Set.new parents.reject(&:block)
-      end
-    end
-
     def inspect
       id = "id: #{self.id.inspect}"
       securable_desc = ""
@@ -109,22 +68,6 @@ module AccessControl
       body = [id, securable_desc, blocked].compact.join(", ")
 
       "#<AccessControl::Node #{body}>"
-    end
-
-  private
-
-    def guard_against_block(arguments = {})
-      default_value = arguments.fetch(:by_returning)
-
-      if block
-        if default_value == :global_node
-          Set[Node.global]
-        else
-          default_value
-        end
-      else
-        yield
-      end
     end
   end
 end
