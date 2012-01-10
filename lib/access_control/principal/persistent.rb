@@ -1,4 +1,5 @@
 require 'access_control'
+require 'access_control/dataset_helper'
 
 module AccessControl
   class Principal
