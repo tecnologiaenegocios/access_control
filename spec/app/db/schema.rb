@@ -9,25 +9,23 @@
 #
 # It's strongly recommended to check this file into your version control system.
 
-ActiveRecord::Schema.define(:version => 20120106191854) do
+ActiveRecord::Schema.define(:version => 20120110225944) do
 
   create_table "ac_assignments", :force => true do |t|
-    t.integer "node_id",      :limit => 8,                :null => false
-    t.integer "principal_id",                             :null => false
-    t.integer "role_id",                                  :null => false
-    t.integer "parent_id"
-    t.integer "lock_version",              :default => 0
+    t.integer "parent_id",    :limit => 8
+    t.integer "role_id",                   :null => false
+    t.integer "principal_id",              :null => false
+    t.integer "node_id",      :limit => 8, :null => false
   end
 
-  add_index "ac_assignments", ["node_id"], :name => "constraint_ac_assignments_on_node_id"
-  add_index "ac_assignments", ["principal_id", "node_id", "role_id"], :name => "index_on_principal_id_and_node_id_and_role_id", :unique => true
-  add_index "ac_assignments", ["role_id"], :name => "constraint_ac_assignments_on_role_id"
+  add_index "ac_assignments", ["node_id"], :name => "index_ac_assignments_on_node_id"
+  add_index "ac_assignments", ["parent_id"], :name => "index_ac_assignments_on_parent_id"
+  add_index "ac_assignments", ["principal_id"], :name => "index_ac_assignments_on_principal_id"
+  add_index "ac_assignments", ["role_id"], :name => "index_ac_assignments_on_role_id"
 
   create_table "ac_nodes", :force => true do |t|
-    t.string  "securable_type", :limit => 40,                    :null => false
-    t.integer "securable_id",   :limit => 8,                     :null => false
-    t.boolean "block",                        :default => false, :null => false
-    t.integer "lock_version",                 :default => 0
+    t.string  "securable_type", :limit => 40, :null => false
+    t.integer "securable_id",   :limit => 8,  :null => false
   end
 
   add_index "ac_nodes", ["securable_type", "securable_id"], :name => "index_ac_nodes_on_securable_type_and_securable_id", :unique => true
@@ -37,36 +35,28 @@ ActiveRecord::Schema.define(:version => 20120106191854) do
     t.integer "child_id",  :limit => 8, :null => false
   end
 
-  add_index "ac_parents", ["child_id"], :name => "constraint_ac_parents_on_child_id"
+  add_index "ac_parents", ["child_id"], :name => "index_ac_parents_on_child_id"
   add_index "ac_parents", ["parent_id", "child_id"], :name => "index_ac_parents_on_parent_id_and_child_id", :unique => true
 
   create_table "ac_principals", :force => true do |t|
-    t.string  "subject_type", :limit => 40,                :null => false
-    t.integer "subject_id",                                :null => false
-    t.integer "lock_version",               :default => 0
+    t.string  "subject_type", :limit => 40, :null => false
+    t.integer "subject_id",                 :null => false
   end
 
   add_index "ac_principals", ["subject_type", "subject_id"], :name => "index_ac_principals_on_subject_type_and_subject_id", :unique => true
 
   create_table "ac_roles", :force => true do |t|
-    t.string  "name",         :limit => 40,                    :null => false
-    t.string  "title",        :limit => 40
-    t.string  "description",  :limit => 150
-    t.boolean "local",                       :default => true, :null => false
-    t.boolean "global",                      :default => true, :null => false
-    t.integer "lock_version",                :default => 0
+    t.string "name", :limit => 40, :null => false
   end
 
   add_index "ac_roles", ["name"], :name => "index_ac_roles_on_name", :unique => true
 
   create_table "ac_security_policy_items", :force => true do |t|
-    t.string  "permission",   :limit => 60,                :null => false
-    t.integer "role_id",                                   :null => false
-    t.integer "lock_version",               :default => 0
+    t.string  "permission", :limit => 60, :null => false
+    t.integer "role_id",                  :null => false
   end
 
-  add_index "ac_security_policy_items", ["permission", "role_id"], :name => "index_ac_security_policy_items_on_permission_and_role_id", :unique => true
-  add_index "ac_security_policy_items", ["role_id"], :name => "constraint_ac_security_policy_items_on_role_id"
+  add_index "ac_security_policy_items", ["role_id", "permission"], :name => "index_ac_security_policy_items_on_role_id_and_permission", :unique => true
 
   create_table "records", :force => true do |t|
     t.integer "field"
