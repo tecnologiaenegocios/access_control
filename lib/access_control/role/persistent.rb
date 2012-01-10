@@ -7,9 +7,6 @@ module AccessControl
 
       include AccessControl::DatasetHelper
 
-      def_dataset_method(:local_assignables)  { filter(:local  => true) }
-      def_dataset_method(:global_assignables) { filter(:global => true) }
-
       def self.create!(properties={})
         new(properties).save(:raise_on_failure => true)
       end

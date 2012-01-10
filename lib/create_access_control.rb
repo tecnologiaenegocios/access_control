@@ -58,9 +58,7 @@ class CreateAccessControl < ActiveRecord::Migration
 
     create_table(:ac_nodes, Helper.default_options) do |t|
       t.string  :securable_type, :limit => 40, :null => false
-      t.integer :securable_id,   :limit => 8,   :null => false
-      t.boolean :block, :default => false, :null => false
-      t.integer :lock_version, :default => 0
+      t.integer :securable_id,   :limit => 8,  :null => false
     end
     Helper.id_to_limit_8(self, :ac_nodes)
     add_index :ac_nodes, [:securable_type, :securable_id], :unique => true
@@ -71,6 +69,7 @@ class CreateAccessControl < ActiveRecord::Migration
       t.integer :child_id,  :limit => 8, :null => false
     end
     add_index :ac_parents, [:parent_id, :child_id], :unique => true
+    add_index :ac_parents, :child_id
     Helper.add_constraints(self, :ac_parents, {
       :child_id  => :ac_nodes,
       :parent_id => :ac_nodes
@@ -78,47 +77,39 @@ class CreateAccessControl < ActiveRecord::Migration
 
     # This table is a wrapper for users/groups/whatever.
     create_table(:ac_principals, Helper.default_options) do |t|
-      t.string :subject_type, :limit => 40, :null => false
-      t.integer :subject_id, :null => false
-      t.integer :lock_version, :default => 0
+      t.string  :subject_type, :limit => 40, :null => false
+      t.integer :subject_id,                 :null => false
     end
     add_index :ac_principals, [:subject_type, :subject_id], :unique => true
 
     create_table(:ac_roles, Helper.default_options) do |t|
-      t.string :name, :limit => 40, :null => false
-      t.string :title, :limit => 40
-      t.string :description, :limit => 150
-      t.boolean :local, :default => true, :null => false
-      t.boolean :global, :default => true, :null => false
-      t.integer :lock_version, :default => 0
+      t.string  :name, :limit => 40, :null => false
     end
     add_index :ac_roles, :name, :unique => true
 
     create_table(:ac_security_policy_items, Helper.default_options) do |t|
-      t.string :permission, :limit => 60, :null => false
-      t.integer :role_id, :null => false
-      t.integer :lock_version, :default => 0
+      t.string  :permission, :limit => 60, :null => false
+      t.integer :role_id,                  :null => false
     end
-    add_index :ac_security_policy_items, [:permission, :role_id],
+    add_index :ac_security_policy_items, [:role_id, :permission],
               :unique => true
     Helper.add_constraints(self, :ac_security_policy_items, {
       :role_id => :ac_roles
     })
 
     create_table(:ac_assignments, Helper.default_options) do |t|
-      t.integer :node_id, :limit => 8, :null => false
-      t.integer :principal_id, :null => false
-      t.integer :role_id, :null => false
-      t.integer :parent_id
-      t.integer :lock_version, :default => 0
+      t.integer :parent_id, :limit => 8
+      t.integer :role_id,                :null => false
+      t.integer :principal_id,           :null => false
+      t.integer :node_id,   :limit => 8, :null => false
     end
-    add_index(
-      :ac_assignments,
-      [:principal_id, :node_id, :role_id],
-      :unique => true,
-      :name => 'index_on_principal_id_and_node_id_and_role_id'
-    )
+    Helper.id_to_limit_8(self, :ac_assignments)
+    add_index :ac_assignments, :parent_id
+    add_index :ac_assignments, :role_id
+    add_index :ac_assignments, :principal_id
+    add_index :ac_assignments, :node_id
     Helper.add_constraints(self, :ac_assignments, {
+      :parent_id    => :ac_assignments,
       :node_id      => :ac_nodes,
       :role_id      => :ac_roles,
       :principal_id => :ac_principals

@@ -133,30 +133,6 @@ module AccessControl
         end
       end
 
-      describe ".local_assignables" do
-        it "returns roles with local = true" do
-          role = persist_role(:local => true)
-          Persistent.local_assignables.should include role
-        end
-
-        it "doesn't return roles with local = false" do
-          role = persist_role(:local => false)
-          Persistent.local_assignables.should_not include role
-        end
-      end
-
-      describe ".global_assignables" do
-        it "returns roles with global = true" do
-          role = persist_role(:global => true)
-          Persistent.global_assignables.should include role
-        end
-
-        it "doesn't return roles with global = false" do
-          role = persist_role(:global => false)
-          Persistent.global_assignables.should_not include role
-        end
-      end
-
       describe ".default" do
         let(:roles_names) { ["owner"] }
         before do

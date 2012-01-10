@@ -136,8 +136,8 @@ module AccessControl
       combination.each(&:destroy)
     end
 
-    delegate_subsets :assigned_to, :assigned_at, :for_all_permissions, :default,
-                     :with_names, :local_assignables, :global_assignables
+    delegate_subsets :assigned_to, :assigned_at, :for_all_permissions,
+                     :default, :with_names
 
     def self.unassign_all_from(principal)
       assigned_to(principal).each do |role|
