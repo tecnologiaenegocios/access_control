@@ -1,4 +1,4 @@
-# vim: fdm=marker fdl=0
+# vim: fdm=marker:fdl=0
 
 require 'active_support/core_ext/module'
 require 'active_support/core_ext/class'
@@ -72,6 +72,7 @@ module AccessControl
       new_class = Class.new
       new_class.send(:include, FakeSecurableMethods)
       new_class.send(:extend,  FakeSecurableClassMethods)
+      new_class.send(:include, Inheritance)
 
       accessors.concat DEFAULT_ACCESSORS
       new_class.send(:attr_accessor, *accessors)

@@ -34,6 +34,29 @@ module AccessControl
       id == AccessControl.global_node_id
     end
 
+    attr_writer :inheritance_manager
+    def inheritance_manager
+      @inheritance_manager ||= InheritanceManager.new(self)
+    end
+
+    def persist
+      super
+
+      securable_parents = securable_class.inherits_permissions_from.map do |method_name|
+        securable.send(method_name)
+      end
+
+      parent_nodes = securable_parents.map do |securable_parent|
+        AccessControl::Node(securable_parent)
+      end
+
+      parent_nodes.select!(&:persisted?)
+
+      parent_nodes.each do |parent_node|
+        inheritance_manager.add_parent(parent_node)
+      end
+    end
+
     def destroy
       AccessControl.manager.without_assignment_restriction do
         Role.unassign_all_at(self)

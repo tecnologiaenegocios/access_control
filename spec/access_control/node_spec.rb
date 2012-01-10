@@ -77,7 +77,7 @@ module AccessControl
 
       context "when a corresponding node exists" do
         let!(:node) do
-          Node.store(:securable_class => securable.class,
+          Node.store(:securable_class => securable_class,
                      :securable_id    => securable.id)
         end
 
@@ -326,4 +326,53 @@ module AccessControl
     end
   end
 
+  context "parent nodes tracking" do
+    let(:node1) { stub("Node 1", :persisted? => true) }
+    let(:node2) { stub("Node 2", :persisted? => true) }
+
+    let(:parent1) { stub("Parent 1", :ac_node => node1) }
+    let(:parent2) { stub("Parent 2", :ac_node => node2) }
+
+    let(:securable_class) do
+      FakeSecurableClass.new(:parent1, :parent2) do
+        include Inheritance
+        inherits_permissions_from :parent1, :parent2
+      end
+    end
+
+    let(:securable) { securable_class.new(:parent1 => parent1,
+                                          :parent2 => parent2) }
+
+    let(:inheritance_manager) { stub("Inheritance Manager") }
+
+    before do
+      subject.inheritance_manager = inheritance_manager
+      inheritance_manager.stub(:parents => [parent1, parent2])
+      inheritance_manager.stub(:add_parent)
+    end
+
+    subject { Node.new(:securable_class => securable_class,
+                       :securable_id    => securable.id) }
+
+    it "saves the persistent" do
+      persistent = subject.persistent
+      persistent.should_receive(:save)
+
+      subject.persist
+    end
+
+    it "uses inheritance manager to add the nodes of the parent securables" do
+      inheritance_manager.should_receive(:add_parent).with(node1)
+      inheritance_manager.should_receive(:add_parent).with(node2)
+
+      subject.persist
+    end
+
+    it "doesn't try to add non-persisted parent nodes" do
+      node2.stub(:persisted? => false)
+      inheritance_manager.should_not_receive(:add_parent).with(node2)
+
+      subject.persist
+    end
+  end
 end
