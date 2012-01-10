@@ -1,13 +1,14 @@
-require 'access_control/node'
+require 'access_control'
+require 'access_control/dataset_helper'
 
 module AccessControl
-  class Node::Persistent < ActiveRecord::Base
-    set_table_name 'ac_nodes'
+  class Node
+    class Persistent < Sequel::Model(:ac_nodes)
+      include AccessControl::DatasetHelper
 
-    extend AccessControl::Ids
-
-    named_scope :with_type, lambda {|securable_type| {
-      :conditions => { :securable_type => securable_type }
-    }}
+      def_dataset_method(:with_type) do |securable_type|
+        filter(:securable_type => securable_type)
+      end
+    end
   end
 end

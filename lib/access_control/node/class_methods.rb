@@ -18,7 +18,7 @@ module AccessControl
       type            = securable_class.name
 
       persistent = Node::Persistent.with_type(type).
-                                    find_by_securable_id(securable_id)
+                                    filter(:securable_id => securable_id).first
       if persistent
         wrap(persistent)
       else
@@ -43,11 +43,11 @@ module AccessControl
   private
 
     def create_global_node
-      load_global_node || Node.wrap(Node::Persistent.create!(global_node_properties))
+      load_global_node || Node.wrap(Node::Persistent.create(global_node_properties))
     end
 
     def load_global_node
-      persistent = Node::Persistent.first(:conditions => global_node_properties)
+      persistent = Node::Persistent.filter(global_node_properties).first
       if persistent
         Node.wrap(persistent)
       end

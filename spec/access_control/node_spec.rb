@@ -169,7 +169,7 @@ module AccessControl
       end
 
       it "raises an exception if the global node wasn't created yet" do
-        Node::Persistent.destroy_all
+        Node::Persistent.delete
 
         lambda {
           Node.global!

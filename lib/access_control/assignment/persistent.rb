@@ -10,9 +10,7 @@ module AccessControl
 
     def_dataset_method :with_nodes do |nodes|
       node_ids = Util.ids_for_hash_condition(nodes)
-      # Remember that Node still is AR::Base backed.
-      subquery = Node::Persistent.column_sql(:id, node_ids)
-      filter(:node_id => AccessControl.db[subquery])
+      filter :node_id => Node::Persistent.column_dataset(:id, node_ids)
     end
 
     def_dataset_method :with_roles do |roles|

@@ -1,13 +1,8 @@
 require 'spec_helper'
-require 'access_control/node'
 
 module AccessControl
   class Node
     describe Persistent do
-      it "is extended with AccessControl::Ids" do
-        Persistent.singleton_class.should include(AccessControl::Ids)
-      end
-
       let(:manager)         { Manager.new }
       let(:securable_class) { FakeSecurableClass.new }
       let(:securable)       { securable_class.new }
@@ -18,10 +13,10 @@ module AccessControl
 
       describe ".with_type" do
         let(:node1) do
-          Persistent.create!(:securable_type => 'SomeType', :securable_id => '2341')
+          Persistent.create(:securable_type => 'SomeType', :securable_id => '2341')
         end
         let(:node2) do
-          Persistent.create!(:securable_type => 'AnotherType', :securable_id => '2341')
+          Persistent.create(:securable_type => 'AnotherType', :securable_id => '2341')
         end
 
         subject { Persistent.with_type('SomeType') }
