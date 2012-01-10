@@ -19,10 +19,23 @@ module AccessControl
         node
       end
 
+
       let(:all_nodes)   { Hash.new }
       let(:node)        { make_node }
       let(:node_id)     { node.id }
       let(:global_node) { make_node("Global Node") }
+
+      describe "on initialization" do
+        it "accepts a node instance, and uses its ID internally" do
+          manager = InheritanceManager.new(node)
+          manager.node_id.should == node_id
+        end
+
+        it "accepts a number, and considers it as being the ID of the node" do
+          manager = InheritanceManager.new(node_id)
+          manager.node_id.should == node_id
+        end
+      end
 
       before do
         Node.stub(:fetch_all) { |ids| all_nodes.values_at(*ids) }

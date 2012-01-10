@@ -38,8 +38,8 @@ module AccessControl
 
     attr_reader :node_id
 
-    def initialize(node_id)
-      @node_id = node_id
+    def initialize(node)
+      @node_id = Util.ids_for_hash_condition(node)
     end
 
     def add_parent(parent)
