@@ -158,10 +158,25 @@ module AccessControl
         let(:another_principal)     { stub(:id => 2) }
         let(:yet_another_principal) { stub(:id => 3) }
 
-        def make_assignment(role, principal, node)
+        def make_assignment(role, principal, node, parent_id = nil)
           Persistent.create(:role_id      => role.id,
-                             :principal_id => principal.id,
-                             :node_id      => node.id)
+                            :principal_id => principal.id,
+                            :node_id      => node.id,
+                            :parent_id    => parent_id)
+        end
+
+        it "returns exact matches if the assignment has no parent" do
+          assignment = make_assignment(role, principal, node)
+          matches    = Persistent.overlapping(role, principal, node)
+
+          matches.should include(assignment)
+        end
+
+        it "doesn't return exact matches that have parents" do
+          effective_assignment = make_assignment(role, principal, node, 1)
+          matches    = Persistent.overlapping(role, principal, node)
+
+          matches.should_not include(effective_assignment)
         end
 
         context "using single objects" do

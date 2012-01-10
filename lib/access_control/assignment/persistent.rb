@@ -29,7 +29,7 @@ module AccessControl
     end
 
     def_dataset_method :overlapping do |roles_ids, principals_ids, nodes_ids|
-      with_roles(roles_ids).assigned_on(nodes_ids, principals_ids)
+      real.with_roles(roles_ids).assigned_on(nodes_ids, principals_ids)
     end
 
     def_dataset_method :children_of do |assignment|
