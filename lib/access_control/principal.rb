@@ -1,5 +1,6 @@
 require 'access_control/persistable'
 require 'access_control/ids'
+require 'access_control/principal/persistent'
 
 module AccessControl
   def AccessControl.Principal(object)
@@ -14,11 +15,6 @@ module AccessControl
 
   class Principal
     include Persistable
-
-    class Persistent < ActiveRecord::Base
-      extend AccessControl::Ids
-      set_table_name :ac_principals
-    end
 
     class << self
       def persistent_model
@@ -39,13 +35,12 @@ module AccessControl
       end
 
       def for_subject(subject)
-        persistent = Principal::Persistent.find(
-          :first,
-          :conditions => {
-            :subject_type => subject.class.name,
-            :subject_id   => subject.id,
-          }
-        )
+        properties = {
+          :subject_type => subject.class.name,
+          :subject_id   => subject.id,
+        }
+
+        persistent = Principal::Persistent.filter(properties).first
 
         return wrap(persistent) if persistent
         new(:subject_class => subject.class, :subject_id => subject.id)
@@ -55,11 +50,11 @@ module AccessControl
 
       def create_anonymous_principal
         load_anonymous_principal ||
-          wrap(Persistent.create!(anonymous_properties))
+          wrap(Persistent.create(anonymous_properties))
       end
 
       def load_anonymous_principal
-        persistent = Persistent.first(:conditions => anonymous_properties)
+        persistent = Persistent.filter(anonymous_properties).first
         wrap(persistent) if persistent
       end
 

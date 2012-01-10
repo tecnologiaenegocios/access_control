@@ -20,9 +20,8 @@ module AccessControl
 
     def_dataset_method :assigned_to do |principals|
       principal_ids = Util.ids_for_hash_condition(principals)
-      # Remember that Principal still is AR::Base backed.
-      subquery = Principal::Persistent.column_sql(:id, principal_ids)
-      filter(:principal_id => AccessControl.db[subquery])
+      dataset = Principal::Persistent.column_dataset(:id, principal_ids)
+      filter :principal_id => dataset
     end
 
     def_dataset_method :assigned_on do |nodes, principals|
