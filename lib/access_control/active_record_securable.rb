@@ -8,7 +8,12 @@ module AccessControl
   module ActiveRecordSecurable
 
     class << self
-      attr_writer :assign_default_roles, :protect_persistency, :track_parents
+      attr_writer :propagate_roles, :assign_default_roles, :protect_persistency,
+                  :track_parents
+
+      def propagate_roles?
+        @propagate_roles.nil?? true : @propagate_roles
+      end
 
       def assign_default_roles?
         @assign_default_roles.nil?? true : @assign_default_roles
@@ -46,6 +51,9 @@ module AccessControl
         setup_persistency_protection_callbacks(base)
       end
 
+      if propagate_roles?
+        setup_role_propagation_callbacks(base)
+      end
     end
 
     def self.setup_persistency_protection_callbacks(base)
@@ -61,6 +69,13 @@ module AccessControl
 
       base.just_after_destroy do
         PersistencyProtector.verify_detachment!(self)
+      end
+    end
+
+    def self.setup_role_propagation_callbacks(base)
+      base.just_after_create do
+        propagation = RolePropagation.new(ac_node)
+        propagation.propagate!
       end
     end
 

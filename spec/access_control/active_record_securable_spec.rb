@@ -21,12 +21,14 @@ module AccessControl
 
     before do
       ActiveRecordSecurable.track_parents        = false
+      ActiveRecordSecurable.propagate_roles      = false
       ActiveRecordSecurable.assign_default_roles = false
       ActiveRecordSecurable.protect_persistency  = false
     end
 
     after do
       ActiveRecordSecurable.track_parents        = true
+      ActiveRecordSecurable.propagate_roles      = true
       ActiveRecordSecurable.assign_default_roles = true
       ActiveRecordSecurable.protect_persistency  = true
     end
@@ -102,6 +104,24 @@ module AccessControl
           Role.stub(:assign_all) do |_, _, node|
             node.called_on_assignment
           end
+
+          instance.create
+        end
+      end
+
+      describe "propagating the roles from the parent nodes" do
+        let(:propagation) { stub("Role propagation") }
+
+        before do
+          ActiveRecordSecurable.propagate_roles = true
+          model.send(:include, ActiveRecordSecurable)
+
+          instance.stub(:ac_node => node)
+        end
+
+        it "uses a 'RolePropagation' to do the job" do
+          RolePropagation.stub(:new).with(node).and_return(propagation)
+          propagation.should_receive(:propagate!)
 
           instance.create
         end
