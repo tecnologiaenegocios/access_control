@@ -48,7 +48,7 @@ module AccessControl
         end
 
         it { should == AccessControl.ac_nodes.
-             join_table(:left, :ac_effective_assignments, :node_id => :id).
+             join_table(:left, :ac_assignments, :node_id => :id).
              filter(:securable_type => orm_class.name,
                     :principal_id => [1,2],
                     :role_id => [1,2]).

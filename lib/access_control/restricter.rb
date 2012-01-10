@@ -12,7 +12,7 @@ module AccessControl
       else
         ac_nodes.
           select(:securable_id).
-          join_table(:left, :ac_effective_assignments, :node_id => :id).
+          join_table(:left, :ac_assignments, :node_id => :id).
           filter(:securable_type => orm_class.name,
                  :role_id        => role_ids(permissions),
                  :principal_id   => principal_ids).
