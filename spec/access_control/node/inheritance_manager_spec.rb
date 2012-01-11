@@ -234,6 +234,40 @@ module AccessControl
             unrelated_node = make_node()
             subject.should_not include(unrelated_node.id)
           end
+
+          context "when it receives a block" do
+            def yielded_values
+              @yielded_values ||= begin
+                hash = Hash.new
+                inheritance_manager.descendant_ids do |node_id, children_ids|
+                  hash[node_id] = children_ids
+                end
+                hash
+              end
+            end
+
+            it "yields the node and its children to the block" do
+              yielded_values.should have_key(node.id)
+              yielded_values[node.id].should include_only(child1.id, child2.id)
+            end
+
+            it "yields the children that are parents, along with their children" do
+              yielded_values.should have_key(child1.id)
+              yielded_values[child1.id].should include_only(descendant1.id,
+                                                            descendant2.id)
+
+              yielded_values.should have_key(child2.id)
+              yielded_values[child2.id].should include_only(descendant3.id,
+                                                            descendant2.id)
+            end
+
+            it "doesn't yield nodes that have no children" do
+              leaf_nodes = [descendant1, descendant2, descendant3]
+              leaf_nodes.each do |leaf_node|
+                yielded_values.should_not have_key(leaf_node.id)
+              end
+            end
+          end
         end
 
         describe "#ancestors" do

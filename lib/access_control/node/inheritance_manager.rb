@@ -93,10 +93,18 @@ module AccessControl
       end
     end
 
-    def descendant_ids(id=node_id)
-      child_ids(id).each_with_object(Set.new) do |child_id, set|
+    def descendant_ids(id=node_id, &block)
+      children = child_ids(id)
+
+      if block_given? and children.any?
+        block.call(id, children)
+      end
+
+      children.each_with_object(Set.new) do |child_id, set|
+        descendant_ids = descendant_ids(child_id, &block)
+
         set << child_id
-        set.merge(descendant_ids(child_id))
+        set.merge(descendant_ids)
       end
     end
 
