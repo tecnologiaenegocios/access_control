@@ -292,5 +292,31 @@ module AccessControl
       end
     end
 
+    describe "#to_properties" do
+      let(:roles_ids)      { [1,2] }
+      let(:principals_ids) { [3] }
+      let(:nodes_ids)      { [5] }
+
+      def properties_hash(role_id, principal_id, node_id)
+        {:role_id => role_id, :principal_id => principal_id,
+         :node_id => node_id}
+      end
+
+      subject do
+        AssignmentCombination.new.tap do |combination|
+          combination.roles_ids      = roles_ids
+          combination.principals_ids = principals_ids
+          combination.nodes_ids      = nodes_ids
+        end
+      end
+
+      it "is equivalent to run #all and map the instances to their properties" do
+        properties_returned = subject.to_properties
+        properties = [properties_hash(1,3,5), properties_hash(2,3,5)]
+
+        properties_returned.should include_only(*properties)
+      end
+    end
+
   end
 end

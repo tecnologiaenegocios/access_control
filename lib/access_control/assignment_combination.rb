@@ -64,6 +64,12 @@ module AccessControl
       !!@only_existing_assigments
     end
 
+    def to_properties
+      combinations.map do |role_id, principal_id, node_id|
+        {:role_id => role_id, :principal_id => principal_id, :node_id => node_id}
+      end
+    end
+
   private
 
     def clear_memoizations
