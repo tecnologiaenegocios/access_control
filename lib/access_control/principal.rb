@@ -98,7 +98,7 @@ module AccessControl
 
     include Singleton
 
-    ID = Object.new.object_id
+    ID = -1
 
     def id
       ID
