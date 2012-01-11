@@ -10,7 +10,6 @@ module AccessControl
   class InvalidInheritage            < Error; end
   class MissingPermissionDeclaration < Error; end
   class CannotRestrict               < Error; end
-  class InvalidSubject               < Error; end
   class UnrecognizedSecurable        < Error; end
   class UnrecognizedSubject          < Error; end
   class NotFoundError                < Error; end
