@@ -511,5 +511,20 @@ module AccessControl
         end
       end
     end
+
+    describe ".[]" do
+      before do
+        Role.store(:name => 'role1')
+        Role.store(:name => 'role2')
+      end
+
+      it "returns the first role by the given name" do
+        Role['role2'].name.should == 'role2'
+      end
+
+      it "returns nil if a role with the given name is not found" do
+        Role['role3'].should be_nil
+      end
+    end
   end
 end

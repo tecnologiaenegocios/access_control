@@ -165,6 +165,10 @@ module AccessControl
       end
     end
 
+    def self.[] name
+      with_names(name).first
+    end
+
     def permissions
       permissions_set.to_enum
     end
