@@ -87,7 +87,7 @@ module AccessControl
     end
 
     def ancestor_ids(id=node_id)
-      parent_ids(id).each_with_object(default_ancestor_set) do |parent_id, set|
+      parent_ids(id).each_with_object(Set.new) do |parent_id, set|
         set << parent_id
         set.merge(ancestor_ids(parent_id))
       end
@@ -112,10 +112,6 @@ module AccessControl
 
     def child_set(id=node_id)
       db.filter(:parent_id => id)
-    end
-
-    def default_ancestor_set
-      Set[AccessControl.global_node.id]
     end
   end
 end

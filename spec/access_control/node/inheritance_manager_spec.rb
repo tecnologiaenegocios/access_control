@@ -23,7 +23,6 @@ module AccessControl
       let(:all_nodes)   { Hash.new }
       let(:node)        { make_node }
       let(:node_id)     { node.id }
-      let(:global_node) { make_node("Global Node") }
 
       describe "on initialization" do
         it "accepts a node instance, and uses its ID internally" do
@@ -39,7 +38,6 @@ module AccessControl
 
       before do
         Node.stub(:fetch_all) { |ids| all_nodes.values_at(*ids) }
-        AccessControl.stub(:global_node => global_node)
       end
 
       describe "immediate parents and children API" do
@@ -200,10 +198,6 @@ module AccessControl
             subject.should include(*second_degree_parents_ids)
           end
 
-          it "includes the ID of the global node" do
-            subject.should include(global_node.id)
-          end
-
           it "doesn't include the IDs of unrelated nodes" do
             unrelated_node = make_node()
             subject.should_not include(unrelated_node.id)
@@ -223,8 +217,6 @@ module AccessControl
             set_child_nodes_of(node, :as => [child1, child2])
             set_child_nodes_of(child1, :as => [descendant1, descendant2])
             set_child_nodes_of(child2, :as => [descendant3, descendant2])
-
-            AccessControl.stub(:global_node => global_node)
           end
 
           it "includes the node's immediate children ids" do
@@ -236,10 +228,6 @@ module AccessControl
             second_degree_children_ids =
               [descendant1, descendant2, descendant3].map(&:id)
             subject.should include(*second_degree_children_ids)
-          end
-
-          it "doesn't include the ID of the global node" do
-            subject.should_not include(global_node.id)
           end
 
           it "doesn't include the IDs of unrelated nodes" do
@@ -265,10 +253,6 @@ module AccessControl
 
           it "include the parents of the node's parents" do
             node_ancestors.should include(ancestor)
-          end
-
-          it "include the global node" do
-            node_ancestors.should include(global_node)
           end
 
           it "doesn't include unrelated nodes" do
