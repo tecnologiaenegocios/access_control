@@ -20,4 +20,4 @@ CREATE UNIQUE INDEX "index_ac_security_policy_items_on_role_id_and_permission" O
 CREATE UNIQUE INDEX "unique_schema_migrations" ON "schema_migrations" ("version");
 INSERT INTO schema_migrations (version) VALUES ('20110209170923');
 
-INSERT INTO schema_migrations (version) VALUES ('20120110225944');
+INSERT INTO schema_migrations (version) VALUES ('20120111003018');

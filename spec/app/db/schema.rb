@@ -9,7 +9,7 @@
 #
 # It's strongly recommended to check this file into your version control system.
 
-ActiveRecord::Schema.define(:version => 20120110225944) do
+ActiveRecord::Schema.define(:version => 20120111003018) do
 
   create_table "ac_assignments", :force => true do |t|
     t.integer "parent_id",    :limit => 8

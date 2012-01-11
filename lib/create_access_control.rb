@@ -15,23 +15,40 @@ class CreateAccessControl < ActiveRecord::Migration
         when 'mysql'
           executor.execute(
             "ALTER TABLE `#{table}` CHANGE COLUMN `id` "\
-            "`id` BIGINT NOT NULL AUTO_INCREMENT"
+              "`id` BIGINT NOT NULL AUTO_INCREMENT"
           )
         end
       end
 
       def add_constraints(executor, table, options)
+        defaults = {
+          :key       => :id,
+          :on_update => :cascade,
+          :on_delete => :restrict
+        }
+
         case adapter
         when 'mysql'
-          options.each do |key, other|
-            executor.execute("
-              ALTER TABLE `#{table}`
-                ADD CONSTRAINT `constraint_#{table}_on_#{key}`
-                FOREIGN KEY (`#{key}`)
-                REFERENCES `#{other}`(`id`)
-                ON UPDATE CASCADE
-                ON DELETE RESTRICT
-            ")
+          options.each do |key, suboptions|
+            unless suboptions.is_a?(Hash)
+              suboptions = { :parent => suboptions }
+            end
+
+            suboptions = defaults.merge(suboptions)
+
+            parent     = suboptions[:parent]
+            on_update  = suboptions[:on_update].to_s.upcase
+            on_delete  = suboptions[:on_delete].to_s.upcase
+            parent_key = suboptions[:key]
+
+            executor.execute(
+              "ALTER TABLE `#{table}` "\
+                "ADD CONSTRAINT `constraint_#{table}_on_#{key}` "\
+                "FOREIGN KEY (`#{key}`) "\
+                "REFERENCES `#{parent}`(`#{parent_key}`) "\
+                "ON UPDATE #{on_update} "\
+                "ON DELETE #{on_delete}"
+            )
           end
         end
       end
@@ -56,6 +73,7 @@ class CreateAccessControl < ActiveRecord::Migration
 
   def self.up
 
+    # This table is a wrapper for any kind of record.
     create_table(:ac_nodes, Helper.default_options) do |t|
       t.string  :securable_type, :limit => 40, :null => false
       t.integer :securable_id,   :limit => 8,  :null => false
@@ -109,7 +127,7 @@ class CreateAccessControl < ActiveRecord::Migration
     add_index :ac_assignments, :principal_id
     add_index :ac_assignments, :node_id
     Helper.add_constraints(self, :ac_assignments, {
-      :parent_id    => :ac_assignments,
+      :parent_id    => {:parent => :ac_assignments, :on_delete => :cascade},
       :node_id      => :ac_nodes,
       :role_id      => :ac_roles,
       :principal_id => :ac_principals
