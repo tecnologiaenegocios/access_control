@@ -103,9 +103,10 @@ module AccessControl
       let(:children_ids) { [child1.id, child2.id] }
 
       before do
-        Node::InheritanceManager.stub(:child_ids_of => [])
-        Node::InheritanceManager.stub(:child_ids_of).with(node_id).
-          and_return(children_ids)
+        Node::InheritanceManager.stub(:new).with(node_id).
+          and_return(inheritance_manager)
+
+        inheritance_manager.stub(:descendant_ids).and_yield(node_id, children_ids)
       end
 
       subject do
@@ -179,8 +180,9 @@ module AccessControl
           let(:second_order_children_ids) { [second_order_child.id] }
 
           before do
-            Node::InheritanceManager.stub(:child_ids_of).with(child2.id).
-              and_return(second_order_children_ids)
+            inheritance_manager.stub(:descendant_ids).
+              and_yield(node_id,   children_ids).
+              and_yield(child2.id, second_order_children_ids)
           end
 
           it "creates new assignments for each of them" do

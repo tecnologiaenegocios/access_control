@@ -66,10 +66,30 @@ module AccessControl
     end
 
     def propagate_to_node_descendants!
-      node_descendants = Node::InheritanceManager.child_ids_of(node_id)
-      node_descendants.each do |node_descendant_id|
-        propagate_to(node_descendant_id)
+      manager = Node::InheritanceManager.new(node_id)
+
+      created_assignments = {node_id => self.id}
+
+      manager.descendant_ids do |parent_node_id, children_ids|
+        parent_assignment_id = created_assignments[parent_node_id]
+        new_assignments = create_children_on(children_ids, parent_assignment_id)
+
+        created_assignments.merge!(new_assignments)
       end
+    end
+
+    def create_children_on(node_ids, parent_id)
+      combination = AssignmentCombination.new(:role_id => role_id,
+                      :principal_id => principal_id, :nodes_ids => node_ids)
+
+      new_assignments_properties = combination.to_properties.map do |properties|
+        properties.merge(:parent_id => parent_id)
+      end
+
+      Assignment::Persistent.multi_insert(new_assignments_properties)
+      Assignment::Persistent.filter(:role_id => role_id, :principal_id => principal_id,
+                                    :parent_id => parent_id, :node_id => node_ids.to_a).
+        select_hash(:node_id, :id)
     end
   end
 end
