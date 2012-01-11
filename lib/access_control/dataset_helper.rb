@@ -14,7 +14,7 @@ module AccessControl
 
     module ClassMethods
       def column_dataset(column, values)
-        if DatasetHelper.use_subqueries?
+        if DatasetHelper.use_subqueries? && values && !values.is_a?(Fixnum)
           filter(column => values).select(column)
         else
           values

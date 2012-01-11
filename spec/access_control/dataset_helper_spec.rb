@@ -13,7 +13,7 @@ module AccessControl
       describe ".column_dataset" do
         it "filters by column values and selects them" do
           # Both chains are accepted...
-          values = stub
+          values = [1,2]
           result = stub
           filtered = stub
           selected = stub
@@ -25,6 +25,14 @@ module AccessControl
           selected.stub(:filter).with(:column => values).and_return(result)
 
           model.column_dataset(:column, values).should be result
+        end
+
+        it "just return nil if value is nil" do
+          model.column_dataset(:column, nil).should == nil
+        end
+
+        it "just return the value if it is a number" do
+          model.column_dataset(:column, 666).should == 666
         end
       end
     end
