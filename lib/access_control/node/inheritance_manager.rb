@@ -82,34 +82,20 @@ module AccessControl
       Node.fetch_all(descendant_ids)
     end
 
-    def parent_ids(id=node_id)
-      Set.new parent_set(id).select_map(:parent_id).compact
+    def parent_ids
+      parent_ids_by_id(node_id)
     end
 
-    def child_ids(id=node_id)
-      Set.new child_set(id).select_map(:child_id).compact
+    def child_ids
+      child_ids_by_id(node_id)
     end
 
-    def ancestor_ids(id=node_id)
-      parent_ids(id).each_with_object(Set.new) do |parent_id, set|
-        set << parent_id
-        set.merge(ancestor_ids(parent_id))
-      end
+    def ancestor_ids
+      recurse_ancestor_ids([node_id])
     end
 
-    def descendant_ids(id=node_id, &block)
-      children = child_ids(id)
-
-      if block_given? and children.any?
-        block.call(id, children)
-      end
-
-      children.each_with_object(Set.new) do |child_id, set|
-        descendant_ids = descendant_ids(child_id, &block)
-
-        set << child_id
-        set.merge(descendant_ids)
-      end
+    def descendant_ids(&block)
+      recurse_descendant_ids([node_id], &block)
     end
 
   private
@@ -118,12 +104,63 @@ module AccessControl
       AccessControl.ac_parents
     end
 
+    def parent_ids_by_id(id)
+      Set.new parent_set(id).select_map(:parent_id)
+    end
+
+    def child_ids_by_id(id)
+      Set.new child_set(id).select_map(:child_id)
+    end
+
     def parent_set(id=node_id)
       db.filter(:child_id => id)
     end
 
     def child_set(id=node_id)
       db.filter(:parent_id => id)
+    end
+
+    def recurse_ancestor_ids(ids)
+      immediate_parent_ids = parent_ids_by_id(ids)
+
+      if immediate_parent_ids.any?
+        grand_parent_and_ancestor_ids =
+          recurse_ancestor_ids(Array(immediate_parent_ids))
+        immediate_parent_ids.merge(grand_parent_and_ancestor_ids)
+      else
+        immediate_parent_ids
+      end
+    end
+
+    def recurse_descendant_ids(ids, &block)
+      immediate_child_ids =
+        grouped_by_parent_ids(ids).
+        each_with_object(Set.new) do |(parent_id, child_ids), set|
+          block.call(parent_id, child_ids) if block_given?
+          set.merge(child_ids)
+        end
+
+      if immediate_child_ids.any?
+        grand_child_and_descendant_ids =
+          recurse_descendant_ids(Array(immediate_child_ids), &block)
+        immediate_child_ids.merge(grand_child_and_descendant_ids)
+      else
+        immediate_child_ids
+      end
+    end
+
+    def grouped_by_parent_ids(ids)
+      rows = db.filter(:parent_id => ids).select(:parent_id, :child_id).to_a
+      rows.group_by { |row| row[:parent_id] }.map do |parent_id, subrows|
+        [parent_id, subrows.map{|sr| sr[:child_id]}]
+      end
+    end
+
+    def grouped_by_child_ids(ids)
+      rows = db.filter(:child_id => ids).select(:parent_id, :child_id).to_a
+      rows.group_by { |row| row[:child_id] }.map do |child_id, subrows|
+        [child_id, subrows.map{|sr| sr[:parent_id]}]
+      end
     end
   end
 end
