@@ -130,12 +130,6 @@ module AccessControl
         principal.destroy
       end
 
-      it "does so by disabling assignment restriction" do
-        Role.should_receive_without_assignment_restriction(:unassign_all_from) do
-          principal.destroy
-        end
-      end
-
       it "calls #destroy on the 'persistent'" do
         persistent.should_receive(:destroy)
         principal.destroy

@@ -89,9 +89,7 @@ module AccessControl
     end
 
     def destroy
-      AccessControl.manager.without_assignment_restriction do
-        Role.unassign_all_from(self)
-      end
+      Role.unassign_all_from(self)
       super
     end
   end

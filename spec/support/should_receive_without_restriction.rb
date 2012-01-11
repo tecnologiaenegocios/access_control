@@ -1,8 +1,4 @@
 class Object
-  def should_receive_without_assignment_restriction(method_name, &block)
-    should_receive_without_restriction(:assignment, method_name, &block)
-  end
-
   def should_receive_without_query_restriction(method_name, &block)
     should_receive_without_restriction(:query, method_name, &block)
   end

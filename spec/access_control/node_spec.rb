@@ -215,12 +215,6 @@ module AccessControl
         node.destroy
       end
 
-      it "does so by disabling assignment restriction" do
-        Role.should_receive_without_assignment_restriction(:unassign_all_at) do
-          node.destroy
-        end
-      end
-
       it "calls #destroy on the 'persistent'" do
         persistent.should_receive(:destroy)
         node.destroy
