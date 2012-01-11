@@ -25,8 +25,7 @@ module AccessControl
 
     def current_subjects= subjects
       @current_principals = Set.new(subjects) do |subject|
-        raise InvalidSubject unless subject.respond_to?(:ac_principal)
-        subject.ac_principal
+        AccessControl::Principal(subject)
       end
     end
 

@@ -51,7 +51,7 @@ module AccessControl
       it "complains if the instance doesn't provide an #ac_principal method" do
         lambda {
           manager.current_subjects = [mock('subject')]
-        }.should raise_exception(InvalidSubject)
+        }.should raise_exception(UnrecognizedSubject)
       end
 
       it "gets the ac_principal from each instance" do
