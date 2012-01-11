@@ -102,6 +102,20 @@ module AccessControl
           parenter.parent_ids.should be_empty
         end
 
+        it "can remove all children" do
+          child = make_node()
+          other_child = make_node()
+
+          parenter = InheritanceManager.new(node_id)
+          parenter.add_child(child)
+          parenter.add_child(other_child)
+
+          parenter = InheritanceManager.new(node_id)
+          parenter.del_all_children
+
+          parenter.child_ids.should be_empty
+        end
+
         it "can return actual Node parent instances" do
           parent = make_node()
           InheritanceManager.new(node_id).add_parent(parent)

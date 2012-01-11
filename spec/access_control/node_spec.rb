@@ -229,6 +229,26 @@ module AccessControl
 
         node.destroy
       end
+
+      describe "Removal of children and parents" do
+        let(:inheritance_manager) { mock("Inheritance Manager") }
+
+        before do
+          inheritance_manager.stub(:del_all_parents)
+          inheritance_manager.stub(:del_all_children)
+          node.inheritance_manager = inheritance_manager
+        end
+
+        it "asks the inheritance manager to unassign it from all parents" do
+          inheritance_manager.should_receive(:del_all_parents)
+          node.destroy
+        end
+
+        it "asks the inheritance manager to unassign all its children" do
+          inheritance_manager.should_receive(:del_all_children)
+          node.destroy
+        end
+      end
     end
   end
 

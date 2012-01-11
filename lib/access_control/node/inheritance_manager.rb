@@ -62,6 +62,10 @@ module AccessControl
       parent_set.delete
     end
 
+    def del_all_children
+      child_set.delete
+    end
+
     def parents
       Node.fetch_all(parent_ids)
     end
