@@ -274,15 +274,19 @@ module AccessControl
     end
 
     it "defaults to unblocked (block == false)" do
-      node.block.should be_false
+      pending("Needs new blocking mechanism") do
+        node.block.should be_false
+      end
     end
 
     describe "when blocking" do
 
       it "checks if the user has 'change_inheritance_blocking'" do
-        manager.should_receive(:can!).
-          with('change_inheritance_blocking', node)
-        node.block = true
+        pending("Needs new blocking mechanism") do
+          manager.should_receive(:can!).
+            with('change_inheritance_blocking', node)
+          node.block = true
+        end
       end
 
     end
@@ -290,9 +294,11 @@ module AccessControl
     describe "when unblocking" do
 
       it "checks if the user has 'change_inheritance_blocking'" do
-        manager.should_receive(:can!).
-          with('change_inheritance_blocking', node)
-        node.block = false
+        pending("Needs new blocking mechanism") do
+          manager.should_receive(:can!).
+            with('change_inheritance_blocking', node)
+          node.block = false
+        end
       end
 
     end
