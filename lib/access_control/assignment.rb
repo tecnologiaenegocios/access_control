@@ -50,9 +50,8 @@ module AccessControl
     end
 
     def destroy
-      super.tap do
-        destroy_child_assignments!
-      end
+      destroy_child_assignments!
+      super
     end
 
     def overlaps?(other)
