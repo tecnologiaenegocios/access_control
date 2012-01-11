@@ -70,29 +70,23 @@ module AccessControl
     private
 
       def effective_on(principal, node)
-        principal_id = Util.id_of(principal)
-        node_id      = Util.id_of(node)
-
-        query_database = Proc.new do
+        fetch_assignment(principal, node) do
           subset = default_persistent_subset.assigned_on(node, principal)
           wrap_subset(subset).first
-        end
-
-        volatile.detect(query_database) do |assignment|
-          assignment.principal_id == principal_id &&
-            assignment.node_id == node_id
         end
       end
 
       def on(principal, node)
-        principal_id = Util.id_of(principal)
-        node_id = Util.id_of(node)
-
-        query_database = Proc.new do
-          overlapping(principal_id, node_id).first
+        fetch_assignment(principal, node) do
+          overlapping(principal, node).first
         end
+      end
 
-        volatile.detect(query_database) do |assignment|
+      def fetch_assignment(principal, node, &query)
+        principal_id = Util.id_of(principal)
+        node_id      = Util.id_of(node)
+
+        volatile.detect(query) do |assignment|
           assignment.principal_id == principal_id &&
             assignment.node_id == node_id
         end
