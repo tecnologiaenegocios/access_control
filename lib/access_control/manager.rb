@@ -42,8 +42,12 @@ module AccessControl
     def can?(permissions, nodes)
       return true if unrestrictable_user_logged_in?
 
-      inspector       = PermissionInspector.new(nodes)
       permissions_set = Set.new(permissions)
+
+      global_inspector = PermissionInspector.new(AccessControl.global_node)
+      inspector        = PermissionInspector.new(nodes)
+
+      return true if permissions_set.subset?(global_inspector.permissions)
 
       permissions_set.subset?(inspector.permissions)
     end
@@ -51,9 +55,13 @@ module AccessControl
     def can!(permissions, nodes)
       return if can?(permissions, nodes)
 
+      global_inspector    = PermissionInspector.new(AccessControl.global_node)
       inspector           = PermissionInspector.new(nodes)
-      granted_permissions = inspector.permissions
-      current_roles       = inspector.current_roles
+
+      granted_permissions = inspector.permissions |
+                            global_inspector.permissions
+      current_roles       = inspector.current_roles |
+                            global_inspector.current_roles
 
       Util.log_missing_permissions(permissions, granted_permissions,
                                    current_roles, caller)

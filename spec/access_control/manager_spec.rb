@@ -124,11 +124,18 @@ module AccessControl
 
     describe "#can?" do
 
+      let(:global_node) { stub('Global node') }
       let(:nodes)       { stub("Nodes collection") }
       let(:inspector)   { stub("Inspector", :permissions => permissions) }
       let(:permissions) { Set["p1", "p2"] }
+      let(:inspector_at_global_node) do
+        stub('Inspector', :permissions => Set.new)
+      end
 
       before do
+        AccessControl.stub(:global_node).and_return(global_node)
+        PermissionInspector.stub(:new).with(global_node).
+          and_return(inspector_at_global_node)
         PermissionInspector.stub(:new).with(nodes).and_return(inspector)
         manager.use_anonymous! # Simulate a web request
       end
@@ -158,20 +165,45 @@ module AccessControl
         end
       end
 
+      context "when user has the required permissions in the global node" do
+        before do
+          inspector_at_global_node.stub(:permissions).and_return(permissions)
+          inspector.stub(:permissions).and_return(Set.new)
+        end
+
+        it "returns true" do
+          return_value = manager.can?(permissions, nodes)
+          return_value.should be_true
+        end
+
+        it "doesn't check permissions in the nodes given" do
+          inspector.should_not_receive(:permissions)
+          manager.can?(permissions, nodes)
+        end
+      end
+
     end
 
     describe "#can!" do
 
+      let(:global_node)   { stub('Global node') }
       let(:nodes)         { stub("Nodes collection") }
       let(:inspector)     { stub("Inspector") }
       let(:permissions)   { Set["p1", "p2"] }
       let(:current_roles) { Set["user"] }
+      let(:inspector_at_global_node) do
+        stub('Inspector', :permissions => Set['p3'],
+             :current_roles => ['owner'])
+      end
 
       before do
         inspector.stub(:permissions   => permissions)
         inspector.stub(:current_roles => current_roles)
+        AccessControl.stub(:global_node).and_return(global_node)
 
-        PermissionInspector.stub(:new).and_return(inspector)
+        PermissionInspector.stub(:new).with(nodes).and_return(inspector)
+        PermissionInspector.stub(:new).with(global_node).
+          and_return(inspector_at_global_node)
         manager.use_anonymous! # Simulate a web request
       end
 
@@ -197,8 +229,12 @@ module AccessControl
         end
 
         it "logs the invalid permission request" do
-          log_arguments = [missing_permissions, permissions,
-                           current_roles, instance_of(Array)]
+          log_arguments = [
+            missing_permissions,
+            permissions | inspector_at_global_node.permissions,
+            current_roles | inspector_at_global_node.current_roles,
+            instance_of(Array)
+          ]
 
           AccessControl::Util.should_receive(:log_missing_permissions).
             with(*log_arguments)
