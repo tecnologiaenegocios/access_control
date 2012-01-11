@@ -29,6 +29,7 @@ module AccessControl
       end
     end
 
+    attr_writer :current_principals
     def current_principals
       @current_principals ||= Set.new
     end

@@ -38,7 +38,8 @@ module AccessControl
 
     describe "#current_subjects=" do
 
-      # Setter for telling the manager what are the current principals.
+      # Setter for telling the manager what are the current principals, from
+      # the application point of view.
 
       it "accepts an array of instances" do
         manager.current_subjects = [subject]
@@ -54,16 +55,23 @@ module AccessControl
         }.should raise_exception(UnrecognizedSubject)
       end
 
-      it "gets the ac_principal from each instance" do
-        subject.should_receive(:ac_principal).and_return(principal)
-        manager.current_subjects = [subject]
-      end
-
       it "makes the subject's principals available in current_principals" do
         manager.current_subjects = [subject]
         manager.current_principals.should == Set.new([principal])
       end
 
+    end
+
+    describe "#current_principals=" do
+
+      # Setter for telling the manager what are the current principals, from
+      # the AccessControl point of view.  This setter is more limited because it
+      # is not inteded to be used by the application.
+
+      it "sets #current_principals" do
+        manager.current_principals = Set[principal]
+        manager.current_principals.should == Set[principal]
+      end
     end
 
     describe "#principals" do
