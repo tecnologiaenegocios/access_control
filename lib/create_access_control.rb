@@ -77,6 +77,7 @@ class CreateAccessControl < ActiveRecord::Migration
     create_table(:ac_nodes, Helper.default_options) do |t|
       t.string  :securable_type, :limit => 40, :null => false
       t.integer :securable_id,   :limit => 8,  :null => false
+      t.boolean :block,                        :null => false, :default => false
     end
     Helper.id_to_limit_8(self, :ac_nodes)
     add_index :ac_nodes, [:securable_type, :securable_id], :unique => true

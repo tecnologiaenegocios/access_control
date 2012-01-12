@@ -9,7 +9,7 @@
 #
 # It's strongly recommended to check this file into your version control system.
 
-ActiveRecord::Schema.define(:version => 20120111003018) do
+ActiveRecord::Schema.define(:version => 20120112164736) do
 
   create_table "ac_assignments", :force => true do |t|
     t.integer "parent_id",    :limit => 8
@@ -24,8 +24,9 @@ ActiveRecord::Schema.define(:version => 20120111003018) do
   add_index "ac_assignments", ["role_id"], :name => "index_ac_assignments_on_role_id"
 
   create_table "ac_nodes", :force => true do |t|
-    t.string  "securable_type", :limit => 40, :null => false
-    t.integer "securable_id",   :limit => 8,  :null => false
+    t.string  "securable_type", :limit => 40,                    :null => false
+    t.integer "securable_id",   :limit => 8,                     :null => false
+    t.boolean "block",                        :default => false, :null => false
   end
 
   add_index "ac_nodes", ["securable_type", "securable_id"], :name => "index_ac_nodes_on_securable_type_and_securable_id", :unique => true

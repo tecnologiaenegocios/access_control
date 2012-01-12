@@ -100,20 +100,6 @@ describe AccessControl do
       subject.id.should == 1
     end
 
-    describe "its node" do
-      let(:global_node) { stub('the global node') }
-      before { AccessControl.stub(:global_node).and_return(global_node) }
-
-      it "is the global node" do
-        subject.ac_node.should be global_node
-      end
-
-      it "is returned without problems from AccessControl.Node" do
-        return_value = AccessControl::Node(subject)
-        return_value.should be global_node
-      end
-    end
-
     it { should be_a AccessControl::Securable }
 
     describe ".unrestricted_find" do
@@ -152,20 +138,6 @@ describe AccessControl do
     it "has id == 1" do
       # The is is 1 and not 0 because we're using 0 for class nodes.
       subject.id.should == 1
-    end
-
-    describe "its principal" do
-      let(:anonymous) { stub('the anonymous user') }
-      before { AccessControl.stub(:anonymous).and_return(anonymous) }
-
-      it "is the anonymous principal" do
-        subject.ac_principal.should be anonymous
-      end
-
-      it "is returned without problems from AccessControl.Principal" do
-        return_value = AccessControl::Principal(subject)
-        return_value.should be anonymous
-      end
     end
 
     describe ".unrestricted_find" do

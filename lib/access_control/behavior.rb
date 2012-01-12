@@ -58,10 +58,6 @@ module AccessControl
       end
     end
 
-    def ac_node
-      AccessControl.global_node
-    end
-
     def id
       1
     end
@@ -77,10 +73,6 @@ module AccessControl
         when :all
           Set[instance]
       end
-    end
-
-    def ac_principal
-      AccessControl.anonymous
     end
 
     def id

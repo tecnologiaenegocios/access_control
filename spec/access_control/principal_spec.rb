@@ -19,6 +19,15 @@ module AccessControl
       return_value.should be principal
     end
 
+    specify "when the argument is an AnonymousUser, returns the anonymous "\
+            "principal" do
+      anonymous_principal = stub
+      AccessControl.stub(:anonymous).and_return(anonymous_principal)
+
+      return_value = AccessControl.Principal(AnonymousUser.instance)
+      return_value.should be anonymous_principal
+    end
+
     it "launches Exception for non-recognized arguments" do
       random_object = stub.as_null_object
 

@@ -8,6 +8,8 @@ module AccessControl
       object
     elsif object.respond_to?(:ac_node)
       object.ac_node
+    elsif object.equal?(AccessControl::GlobalRecord.instance)
+      AccessControl.global_node
     else
       raise(UnrecognizedSecurable)
     end
@@ -26,7 +28,11 @@ module AccessControl
     end
 
     def block= value
-      AccessControl.manager.can!('change_inheritance_blocking', self)
+      if value
+        perform_blocking
+      else
+        perform_unblocking if blocked?
+      end
       persistent.block = value
     end
 
@@ -41,9 +47,10 @@ module AccessControl
 
     def persist
       AccessControl.transaction do
-        performing_update = persisted?
-        super
-        setup_parent_nodes() unless performing_update
+        if (result = super)
+          setup_parent_nodes()
+        end
+        result
       end
     end
 
@@ -78,28 +85,70 @@ module AccessControl
         securable_desc = "securable_type: #{securable_type.inspect}"
       end
 
-      blocked = block ? "blocked": nil
+      blocked = blocked?? "blocked": nil
 
       body = [id, securable_desc, blocked].compact.join(", ")
 
       "#<AccessControl::Node #{body}>"
     end
 
+    def blocked?
+      !!persistent.block
+    end
+
   private
 
-    def setup_parent_nodes
-      securable_parents = securable_class.inherits_permissions_from.map do |method_name|
-        securable.send(method_name)
+    def perform_blocking
+      AccessControl.transaction do
+        inheritance_manager.parents.each do |parent|
+          inheritance_manager.del_parent(parent)
+        end
       end
+    end
 
-      parent_nodes = securable_parents.map do |securable_parent|
+    def perform_unblocking
+      AccessControl.transaction do
+        persisted_parent_nodes.each do |parent|
+          inheritance_manager.add_parent(parent)
+        end
+      end
+    end
+
+    def setup_parent_nodes
+      new_persisted_parent_nodes.each do |parent_node|
+        inheritance_manager.add_parent(parent_node)
+      end
+      removed_persisted_parent_nodes.each do |parent_node|
+        inheritance_manager.del_parent(parent_node)
+      end
+    end
+
+    def new_persisted_parent_nodes
+      current_parent_nodes = inheritance_manager.parents
+      final_parent_nodes   = persisted_parent_nodes
+      final_parent_nodes - current_parent_nodes
+    end
+
+    def removed_persisted_parent_nodes
+      current_parent_nodes = inheritance_manager.parents
+      final_parent_nodes   = persisted_parent_nodes
+      current_parent_nodes - final_parent_nodes
+    end
+
+    def persisted_parent_nodes
+      parent_nodes.select(&:persisted?)
+    end
+
+    def parent_nodes
+      securable_parents.map do |securable_parent|
         AccessControl::Node(securable_parent)
       end
+    end
 
-      parent_nodes.select!(&:persisted?)
-
-      parent_nodes.each do |parent_node|
-        inheritance_manager.add_parent(parent_node)
+    def securable_parents
+      methods = securable_class.inherits_permissions_from
+      methods.each_with_object(Set.new) do |method_name, set|
+        set.merge(Array[*securable.send(method_name)].compact)
       end
     end
   end

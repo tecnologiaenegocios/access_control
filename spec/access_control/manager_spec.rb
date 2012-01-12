@@ -5,11 +5,14 @@ module AccessControl
   describe Manager do
 
     let(:principal) { stub('principal', :id => "user principal's id") }
-    let(:subject) { mock('subject', :ac_principal => principal) }
-    let(:manager) { Manager.new }
+    let(:subject)   { mock('subject') }
+    let(:manager)   { Manager.new }
 
     before do
       Principal.stub(:anonymous_id).and_return("the anonymous' id")
+      AccessControl.stub(:Principal).with(UnrestrictableUser.instance).
+        and_return(UnrestrictablePrincipal.instance)
+      AccessControl.stub(:Principal).with(subject).and_return(principal)
     end
 
     describe "#use_anonymous!, #use_anonymous? and #do_not_use_anonymous!" do
@@ -47,12 +50,6 @@ module AccessControl
 
       it "accepts a set of instances" do
         manager.current_subjects = Set.new([subject])
-      end
-
-      it "complains if the instance doesn't provide an #ac_principal method" do
-        lambda {
-          manager.current_subjects = [mock('subject')]
-        }.should raise_exception(UnrecognizedSubject)
       end
 
       it "makes the subject's principals available in current_principals" do
@@ -100,10 +97,7 @@ module AccessControl
       describe "when there's a subject set" do
         before { manager.current_subjects = [subject] }
         it "gets the principal from the user" do
-          manager.principals.map(&:id).should include(principal.id)
-        end
-        it "doesn't include the anonymous principal" do
-          manager.principals.size.should == 1
+          manager.principals.map(&:id).should include_only(principal.id)
         end
       end
 
@@ -115,15 +109,15 @@ module AccessControl
 
         it "smartly caches stuff" do
           manager.principals
-          subject.should_not_receive(:ac_principal)
+          AccessControl.should_not_receive(:Principal).with(subject)
           manager.principals
         end
 
         it "clears the cache if current_subjects is set" do
           manager.principals
-          subject.should_receive(:ac_principal)
+          AccessControl.stub(:Principal).with(subject).and_return(principal)
           manager.current_subjects = [subject]
-          manager.principals
+          manager.principals.map(&:id).should include_only(principal.id)
         end
 
       end

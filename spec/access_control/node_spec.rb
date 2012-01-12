@@ -17,8 +17,16 @@ module AccessControl
       node = Node.new
       securable = stub("Securable", :ac_node => node)
 
-      return_value = AccessControl::Node(securable)
+      return_value = AccessControl.Node(securable)
       return_value.should be node
+    end
+
+    specify "when the argument is a GlobalRecord, returns the global node" do
+      global_node = stub
+      AccessControl.stub(:global_node).and_return(global_node)
+
+      return_value = AccessControl.Node(GlobalRecord.instance)
+      return_value.should be global_node
     end
 
     specify "launches Exception for non-recognized argument types" do
@@ -201,6 +209,261 @@ module AccessControl
       end
     end
 
+    describe "#securable" do
+
+      let(:model) { Class.new }
+      let(:node) { Node.new(:securable_class => model,
+                            :securable_id    => 1000) }
+      def build_securable
+        # Strings compare char by char, but each time object_id changes.
+        'securable'
+      end
+
+      before do
+        model.stub(:unrestricted_find) do |id|
+          if id == node.securable_id
+            build_securable()
+          else
+            fail
+          end
+        end
+      end
+
+      it "gets the record by calling .unrestricted_find in the model" do
+        securable = build_securable
+        node.securable.should == securable
+      end
+
+      it "is cached" do
+        prev_securable = node.securable
+        next_securable = node.securable
+
+        next_securable.should be prev_securable
+      end
+    end
+
+    describe "the securable's class" do
+      it "is, by default, deduced from the securable_type string" do
+        node = Node.new(:securable_type => "Hash")
+        node.securable_class.should == Hash
+      end
+
+      it "can be set using an accessor" do
+        node = Node.new(:securable_type => "Hash")
+        node.securable_class = String
+
+        node.securable_class.should == String
+      end
+
+      it "sets the securable_type accordingly" do
+        node = Node.new(:securable_type => "Hash")
+        node.securable_class = String
+
+        node.securable_type.should == "String"
+      end
+    end
+
+    describe "blocking and unblocking" do
+      let(:securable_class) do
+        FakeSecurableClass.new(:parents) do
+          include Inheritance
+          inherits_permissions_from :parents
+        end
+      end
+
+      def build_securable(parents=[])
+        securable_class.new(:parents => parents)
+      end
+
+      let(:inheritance_manager) { Node::InheritanceManager.new(subject) }
+
+      let(:parent) do
+        securable = build_securable
+        parent = Node.store(:securable_class => securable.class,
+                            :securable_id    => securable.id)
+        securable.ac_node = parent
+        parent
+      end
+
+      subject do
+        securable = build_securable([parent.securable])
+        Node.store(:securable_class => securable.class,
+                  :securable_id    => securable.id)
+      end
+
+      specify "a new node is always unblocked" do
+        Node.new.should_not be_blocked
+      end
+
+      specify "the global node is unblocked" do
+        AccessControl.global_node.should_not be_blocked
+      end
+
+      describe "blocking a node" do
+        it { subject.block = true; should be_blocked }
+
+        it "removes all parents" do
+          subject.block = true
+          inheritance_manager.parents.should be_empty
+        end
+
+        it "causes no error if blocking twice" do
+          subject.block = true
+          subject.block = true
+          inheritance_manager.parents.should be_empty
+        end
+
+        context "with unsaved securable parents" do
+          it "causes no error" do
+            parent.stub(:persisted?).and_return(false)
+            subject.block = true
+            inheritance_manager.parents.should be_empty
+          end
+        end
+      end
+
+      describe "unblocking a node" do
+        before { subject.block = true }
+        it { subject.block = false; should_not be_blocked }
+
+        it "re-adds previous parents, according to the securable class" do
+          subject.block = false
+          inheritance_manager.parents.should include_only(parent)
+        end
+
+        it "causes no error if unblocking twice" do
+          subject.block = false
+          subject.block = false
+          inheritance_manager.parents.should include_only(parent)
+        end
+
+        context "with unsaved securable parents" do
+          it "doesn't add the unsaved parent" do
+            parent.stub(:persisted?).and_return(false)
+            subject.block = false
+            inheritance_manager.parents.should be_empty
+          end
+        end
+      end
+    end
+
+    context "creating and updating" do
+      let(:node1)   { stub("Node 1", :id => 1, :persisted? => true) }
+      let(:node2)   { stub("Node 2", :id => 2, :persisted? => true) }
+      let(:node3)   { stub("Node 3", :id => 3, :persisted? => true) }
+      let(:node4)   { stub("Node 4", :id => 4, :persisted? => true) }
+
+      let(:parent1) { stub("Parent 1", :ac_node => node1) }
+      let(:parent2) { stub("Parent 2", :ac_node => node2) }
+      let(:parent3) { stub("Parent 3", :ac_node => node3) }
+      let(:parent4) { stub("Parent 4", :ac_node => node4) }
+
+      let(:securable_class) do
+        FakeSecurableClass.new(:parent1, :parent2, :parent3, :parent4) do
+          include Inheritance
+          inherits_permissions_from :parent1, :parent2, :parent3, :parent4
+        end
+      end
+
+      let(:securable) { securable_class.new(:parent1 => parent1,
+                                            :parent2 => parent2,
+                                            :parent3 => nil,
+                                            :parent4 => [parent4]) }
+
+      let(:inheritance_manager) { stub("Inheritance Manager") }
+
+      before do
+        subject.inheritance_manager = inheritance_manager
+        inheritance_manager.stub(:parents => [])
+        inheritance_manager.stub(:add_parent)
+      end
+
+      subject { Node.new(:securable_class => securable_class,
+                        :securable_id    => securable.id) }
+
+      it "returns false if not saved persistent node successfully" do
+        persistent = subject.persistent
+        persistent.stub(:save).and_return(false)
+
+        subject.persist.should be_false
+      end
+
+      it "returns true if saved persistent node successfully" do
+        persistent = subject.persistent
+        persistent.stub(:save).and_return(true)
+
+        subject.persist.should be_true
+      end
+
+      context "when saved successfully" do
+        before { subject.persistent.stub(:save).and_return(true) }
+
+        context "when the node is a new record" do
+          it "uses inheritance manager to add the nodes of the parent securables" do
+            inheritance_manager.should_receive(:add_parent).with(node1)
+            inheritance_manager.should_receive(:add_parent).with(node2)
+            inheritance_manager.should_receive(:add_parent).with(node4)
+
+            subject.persist
+          end
+
+          it "doesn't try to add non-persisted parent nodes" do
+            node2.stub(:persisted? => false)
+            inheritance_manager.should_not_receive(:add_parent).with(node2)
+
+            subject.persist
+          end
+        end
+
+        context "when the node was already saved" do
+          before do
+            subject.persist
+            inheritance_manager.stub(:parents => [node1, node2, node4])
+          end
+
+          context "and later parents are added to securable" do
+            before do
+              securable.parent3 = parent3
+            end
+
+            it "adds the new parents using the inheritance manager" do
+              inheritance_manager.should_receive(:add_parent).with(node3)
+
+              subject.persist
+            end
+          end
+
+          context "and later parents are removed" do
+            before do
+              securable.parent2 = nil
+            end
+
+            it "deletes the old parents using the inheritance manager" do
+              inheritance_manager.should_receive(:del_parent).with(node2)
+
+              subject.persist
+            end
+          end
+        end
+      end
+
+      context "when not saved successfully" do
+        before { subject.persistent.stub(:save).and_return(false) }
+
+        it "doesn't try to add any parent" do
+          inheritance_manager.should_not_receive(:add_parent)
+
+          subject.persist
+        end
+
+        it "doesn't try to delete any parent" do
+          inheritance_manager.should_not_receive(:del_parent)
+
+          subject.persist
+        end
+      end
+    end
+
     describe "on #destroy" do
       let(:persistent) { Node::Persistent.new }
       let(:node)       { Node.wrap(persistent) }
@@ -248,162 +511,6 @@ module AccessControl
           inheritance_manager.should_receive(:del_all_children)
           node.destroy
         end
-      end
-    end
-  end
-
-  describe "#securable" do
-
-    let(:model) { Class.new }
-    let(:node) { Node.new(:securable_class => model,
-                          :securable_id    => 1000) }
-    def build_securable
-      # Strings compare char by char, but each time object_id changes.
-      'securable'
-    end
-
-    before do
-      model.stub(:unrestricted_find) do |id|
-        if id == node.securable_id
-          build_securable()
-        else
-          fail
-        end
-      end
-    end
-
-    it "gets the record by calling .unrestricted_find in the model" do
-      securable = build_securable
-      node.securable.should == securable
-    end
-
-    it "is cached" do
-      prev_securable = node.securable
-      next_securable = node.securable
-
-      next_securable.should be prev_securable
-    end
-  end
-
-  describe "blocking and unblocking" do
-    let(:manager) { stub("Manager") }
-    let(:node) { Node.new }
-
-    before do
-      AccessControl.stub(:manager => manager)
-    end
-
-    it "defaults to unblocked (block == false)" do
-      pending("Needs new blocking mechanism") do
-        node.block.should be_false
-      end
-    end
-
-    describe "when blocking" do
-
-      it "checks if the user has 'change_inheritance_blocking'" do
-        pending("Needs new blocking mechanism") do
-          manager.should_receive(:can!).
-            with('change_inheritance_blocking', node)
-          node.block = true
-        end
-      end
-
-    end
-
-    describe "when unblocking" do
-
-      it "checks if the user has 'change_inheritance_blocking'" do
-        pending("Needs new blocking mechanism") do
-          manager.should_receive(:can!).
-            with('change_inheritance_blocking', node)
-          node.block = false
-        end
-      end
-
-    end
-
-  end
-
-  describe "the securable's class" do
-    it "is, by default, deduced from the securable_type string" do
-      node = Node.new(:securable_type => "Hash")
-      node.securable_class.should == Hash
-    end
-
-    it "can be set using an accessor" do
-      node = Node.new(:securable_type => "Hash")
-      node.securable_class = String
-
-      node.securable_class.should == String
-    end
-
-    it "sets the securable_type accordingly" do
-      node = Node.new(:securable_type => "Hash")
-      node.securable_class = String
-
-      node.securable_type.should == "String"
-    end
-  end
-
-  context "parent nodes tracking" do
-    let(:node1) { stub("Node 1", :persisted? => true) }
-    let(:node2) { stub("Node 2", :persisted? => true) }
-
-    let(:parent1) { stub("Parent 1", :ac_node => node1) }
-    let(:parent2) { stub("Parent 2", :ac_node => node2) }
-
-    let(:securable_class) do
-      FakeSecurableClass.new(:parent1, :parent2) do
-        include Inheritance
-        inherits_permissions_from :parent1, :parent2
-      end
-    end
-
-    let(:securable) { securable_class.new(:parent1 => parent1,
-                                          :parent2 => parent2) }
-
-    let(:inheritance_manager) { stub("Inheritance Manager") }
-
-    before do
-      subject.inheritance_manager = inheritance_manager
-      inheritance_manager.stub(:parents => [parent1, parent2])
-      inheritance_manager.stub(:add_parent)
-    end
-
-    subject { Node.new(:securable_class => securable_class,
-                       :securable_id    => securable.id) }
-
-    it "saves the persistent" do
-      persistent = subject.persistent
-      persistent.should_receive(:save)
-
-      subject.persist
-    end
-
-    context "when the node is a new record" do
-      it "uses inheritance manager to add the nodes of the parent securables" do
-        inheritance_manager.should_receive(:add_parent).with(node1)
-        inheritance_manager.should_receive(:add_parent).with(node2)
-
-        subject.persist
-      end
-
-      it "doesn't try to add non-persisted parent nodes" do
-        node2.stub(:persisted? => false)
-        inheritance_manager.should_not_receive(:add_parent).with(node2)
-
-        subject.persist
-      end
-    end
-
-    context "when the node was already saved" do
-      before { subject.persist }
-
-      it "doesn't try to add its parents again" do
-        inheritance_manager.should_not_receive(:add_parent)
-
-        subject.persist
       end
     end
   end

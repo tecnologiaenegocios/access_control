@@ -8,6 +8,8 @@ module AccessControl
       object
     elsif object.respond_to?(:ac_principal)
       object.ac_principal
+    elsif object.equal?(AnonymousUser.instance)
+      AccessControl.anonymous
     else
       raise UnrecognizedSubject
     end
