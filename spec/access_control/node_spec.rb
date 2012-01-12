@@ -268,6 +268,12 @@ module AccessControl
         FakeSecurableClass.new(:parents) do
           include Inheritance
           inherits_permissions_from :parents
+          def self.permissions_required_to_create
+            Set.new
+          end
+          def self.permissions_required_to_destroy
+            Set.new
+          end
         end
       end
 
@@ -288,7 +294,7 @@ module AccessControl
       subject do
         securable = build_securable([parent.securable])
         Node.store(:securable_class => securable.class,
-                  :securable_id    => securable.id)
+                   :securable_id    => securable.id)
       end
 
       specify "a new node is always unblocked" do
@@ -497,13 +503,13 @@ module AccessControl
         let(:inheritance_manager) { mock("Inheritance Manager") }
 
         before do
-          inheritance_manager.stub(:del_all_parents)
+          inheritance_manager.stub(:del_all_parents_with_checks)
           inheritance_manager.stub(:del_all_children)
           node.inheritance_manager = inheritance_manager
         end
 
         it "asks the inheritance manager to unassign it from all parents" do
-          inheritance_manager.should_receive(:del_all_parents)
+          inheritance_manager.should_receive(:del_all_parents_with_checks)
           node.destroy
         end
 

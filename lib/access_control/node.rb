@@ -57,7 +57,7 @@ module AccessControl
     def destroy
       AccessControl.transaction do
         Role.unassign_all_at(self)
-        inheritance_manager.del_all_parents
+        inheritance_manager.del_all_parents_with_checks
         inheritance_manager.del_all_children
         super
       end

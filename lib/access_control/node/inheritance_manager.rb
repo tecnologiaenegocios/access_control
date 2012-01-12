@@ -38,42 +38,42 @@ module AccessControl
 
     attr_reader :node_id
 
-    def initialize(node)
-      @node_id = Util.ids_for_hash_condition(node)
-    end
-
-    def node
-      @node ||= Node.fetch(@node_id)
+    def initialize(node_or_node_id)
+      if node_or_node_id.is_a?(Fixnum)
+        @node_id = node_or_node_id
+      else
+        # Implicitly considering the argument a real node
+        @node = node_or_node_id
+        @node_id = node_or_node_id.id
+      end
     end
 
     def add_parent(parent)
-      # check_add_parent_permission(node, parent)
+      check_add_parent_permissions(node, parent)
       db << { :child_id => node_id, :parent_id => parent.id }
     end
 
     def add_child(child)
-      # check_add_parent_permission(child, node)
+      check_add_parent_permissions(child, node)
       db << { :child_id => child.id, :parent_id => node_id }
     end
 
-    def check_add_parent_permission(target, parent)
-      manager.can!(create_permission(target), parent)
-    end
-
-    def create_permission(target)
-      target.securable_class.permissions_required_to_create
-    end
-
     def del_parent(parent)
+      check_del_parent_permissions(node, parent)
       parent_set.filter(:parent_id => parent.id).delete
     end
 
     def del_child(child)
+      check_del_parent_permissions(child, node)
       child_set.filter(:child_id => child.id).delete
     end
 
-    def del_all_parents
-      parent_set.delete
+    def del_all_parents_with_checks
+      parent_set.each do |row|
+        parent_id = row[:parent_id]
+        check_del_parent_permissions(node, Node.fetch(parent_id))
+        parent_set.filter(:parent_id => parent_id).delete
+      end
     end
 
     def del_all_children
@@ -116,6 +116,10 @@ module AccessControl
 
     def db
       AccessControl.ac_parents
+    end
+
+    def node
+      @node ||= Node.fetch(@node_id)
     end
 
     def parent_ids_by_id(id)
@@ -168,6 +172,22 @@ module AccessControl
       rows.group_by { |row| row[:parent_id] }.map do |parent_id, subrows|
         [parent_id, subrows.map{|sr| sr[:child_id]}]
       end
+    end
+
+    def check_add_parent_permissions(target, parent)
+      AccessControl.manager.can!(create_permissions(target), parent)
+    end
+
+    def check_del_parent_permissions(target, parent)
+      AccessControl.manager.can!(destroy_permissions(target), parent)
+    end
+
+    def create_permissions(target)
+      target.securable_class.permissions_required_to_create
+    end
+
+    def destroy_permissions(target)
+      target.securable_class.permissions_required_to_destroy
     end
   end
 end

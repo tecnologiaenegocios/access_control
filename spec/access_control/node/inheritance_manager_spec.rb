@@ -14,39 +14,58 @@ module AccessControl
 
         id   = @ids.next
         name ||= "Node #{id}"
-        node = stub(name, :id => id)
+        node = stub(name, :id => id, :securable_class => securable_class)
         all_nodes[id] = node
         node
       end
 
-
-      let(:all_nodes)   { Hash.new }
-      let(:node)        { make_node }
-      let(:node_id)     { node.id }
+      let(:securable_class) {stub(:permissions_required_to_create => Set.new,
+                                  :permissions_required_to_destroy => Set.new)}
+      let(:all_nodes)       { Hash.new }
+      let(:node)            { make_node }
+      let(:node_id)         { node.id }
+      let(:manager)         { stub }
 
       describe "on initialization" do
         it "accepts a node instance, and uses its ID internally" do
-          manager = InheritanceManager.new(node)
-          manager.node_id.should == node_id
+          imanager = InheritanceManager.new(node)
+          imanager.node_id.should == node_id
         end
 
         it "accepts a number, and considers it as being the ID of the node" do
-          manager = InheritanceManager.new(node_id)
-          manager.node_id.should == node_id
+          imanager = InheritanceManager.new(node_id)
+          imanager.node_id.should == node_id
         end
       end
 
       before do
         Node.stub(:fetch_all) { |ids| all_nodes.values_at(*ids) }
+        Node.stub(:fetch) { |id| all_nodes[id] or raise "Not found" }
+        AccessControl.stub(:manager).and_return(manager)
+        manager.stub(:can!)
       end
 
       describe "immediate parents and children API" do
+        let(:create_permissions)  { Set['create permission'] }
+        let(:destroy_permissions) { Set['destroy permission'] }
+
         it "can add a new parent and persist it" do
           parent = make_node()
           InheritanceManager.new(node_id).add_parent(parent)
 
           InheritanceManager.new(node_id).parent_ids.
             should include(parent.id)
+        end
+
+        it "checks permissions when adding a parent" do
+          node_securable_class = stub
+          node_securable_class.stub(:permissions_required_to_create).
+            and_return(create_permissions)
+          node.stub(:securable_class).and_return(node_securable_class)
+          parent = make_node()
+
+          manager.should_receive(:can!).with(create_permissions, parent)
+          InheritanceManager.new(node_id).add_parent(parent)
         end
 
         it "can add a new child and persist it" do
@@ -56,39 +75,86 @@ module AccessControl
           InheritanceManager.new(node_id).child_ids.should include(child.id)
         end
 
+        it "checks permissions when adding a child" do
+          child_securable_class = stub
+          child_securable_class.stub(:permissions_required_to_create).
+            and_return(create_permissions)
+          child = make_node()
+          child.stub(:securable_class).and_return(child_securable_class)
+
+          manager.should_receive(:can!).with(create_permissions, node)
+          InheritanceManager.new(node_id).add_child(child)
+        end
+
         it "can remove an existing parent and persist it" do
           parent = make_node()
           other_parent = make_node()
 
-          manager = InheritanceManager.new(node_id)
-          manager.add_parent(parent)
-          manager.add_parent(other_parent)
+          imanager = InheritanceManager.new(node_id)
+          imanager.add_parent(parent)
+          imanager.add_parent(other_parent)
 
-          manager = InheritanceManager.new(node_id)
-          manager.del_parent(parent)
+          imanager = InheritanceManager.new(node_id)
+          imanager.del_parent(parent)
 
           ids = InheritanceManager.new(node_id).parent_ids
           ids.should include(other_parent.id)
           ids.should_not include(parent.id)
         end
 
+        it "checks permissions when removing a parent" do
+          parent = make_node()
+          other_parent = make_node()
+
+          imanager = InheritanceManager.new(node_id)
+          imanager.add_parent(parent)
+          imanager.add_parent(other_parent)
+
+          node_securable_class = stub
+          node_securable_class.stub(:permissions_required_to_destroy).
+            and_return(destroy_permissions)
+          node.stub(:securable_class).and_return(node_securable_class)
+
+          manager.should_receive(:can!).with(destroy_permissions, parent)
+          imanager = InheritanceManager.new(node_id)
+          imanager.del_parent(parent)
+        end
+
         it "can remove existing child and persist it" do
           child = make_node()
           other_child = make_node()
 
-          manager = InheritanceManager.new(node_id)
-          manager.add_child(child)
-          manager.add_child(other_child)
+          imanager = InheritanceManager.new(node_id)
+          imanager.add_child(child)
+          imanager.add_child(other_child)
 
-          manager = InheritanceManager.new(node_id)
-          manager.del_child(child)
+          imanager = InheritanceManager.new(node_id)
+          imanager.del_child(child)
 
           ids = InheritanceManager.new(node_id).child_ids
           ids.should include(other_child.id)
           ids.should_not include(child.id)
         end
 
-        it "can remove all parents" do
+        it "checks permissions when removing a child" do
+          child = make_node()
+          other_child = make_node()
+
+          imanager = InheritanceManager.new(node_id)
+          imanager.add_child(child)
+          imanager.add_child(other_child)
+
+          child_securable_class = stub
+          child_securable_class.stub(:permissions_required_to_destroy).
+            and_return(destroy_permissions)
+          child.stub(:securable_class).and_return(child_securable_class)
+
+          manager.should_receive(:can!).with(destroy_permissions, node)
+          imanager = InheritanceManager.new(node_id)
+          imanager.del_child(child)
+        end
+
+        it "can remove all parents checking permissions" do
           parent = make_node()
           other_parent = make_node()
 
@@ -97,9 +163,28 @@ module AccessControl
           parenter.add_parent(other_parent)
 
           parenter = InheritanceManager.new(node_id)
-          parenter.del_all_parents
+          parenter.del_all_parents_with_checks
 
           parenter.parent_ids.should be_empty
+        end
+
+        it "checks permissions for every parent when removing them all" do
+          parent = make_node()
+          other_parent = make_node()
+
+          parenter = InheritanceManager.new(node_id)
+          parenter.add_parent(parent)
+          parenter.add_parent(other_parent)
+
+          node_securable_class = stub
+          node_securable_class.stub(:permissions_required_to_destroy).
+            and_return(destroy_permissions)
+          node.stub(:securable_class).and_return(node_securable_class)
+
+          manager.should_receive(:can!).with(destroy_permissions, parent)
+          manager.should_receive(:can!).with(destroy_permissions, other_parent)
+          parenter = InheritanceManager.new(node_id)
+          parenter.del_all_parents_with_checks
         end
 
         it "can remove all children" do
@@ -168,20 +253,20 @@ module AccessControl
       describe "ancestors and descendants API" do
 
         def set_parent_nodes_of(node, options)
-          manager = InheritanceManager.new(node.id)
-          parents = options.fetch(:as)
+          imanager = InheritanceManager.new(node.id)
+          parents  = options.fetch(:as)
 
           parents.each do |parent|
-            manager.add_parent(parent)
+            imanager.add_parent(parent)
           end
         end
 
         def set_child_nodes_of(node, options)
-          manager = InheritanceManager.new(node.id)
+          imanager = InheritanceManager.new(node.id)
           children = options.fetch(:as)
 
           children.each do |child|
-            manager.add_child(child)
+            imanager.add_child(child)
           end
         end
 
