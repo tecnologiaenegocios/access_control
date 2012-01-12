@@ -44,14 +44,19 @@ module AccessControl
     end
 
     def persist
-      super.tap do
-        propagate_to_node_descendants!
+      AccessControl.db.transaction do
+        super.tap do
+          propagate_to_node_descendants!
+        end
       end
     end
 
     def destroy
-      destroy_child_assignments!
-      super
+      AccessControl.db.transaction do
+        super.tap do
+          destroy_child_assignments!
+        end
+      end
     end
 
     def overlaps?(other)

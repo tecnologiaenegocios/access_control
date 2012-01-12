@@ -381,18 +381,30 @@ module AccessControl
       subject.persist
     end
 
-    it "uses inheritance manager to add the nodes of the parent securables" do
-      inheritance_manager.should_receive(:add_parent).with(node1)
-      inheritance_manager.should_receive(:add_parent).with(node2)
+    context "when the node is a new record" do
+      it "uses inheritance manager to add the nodes of the parent securables" do
+        inheritance_manager.should_receive(:add_parent).with(node1)
+        inheritance_manager.should_receive(:add_parent).with(node2)
 
-      subject.persist
+        subject.persist
+      end
+
+      it "doesn't try to add non-persisted parent nodes" do
+        node2.stub(:persisted? => false)
+        inheritance_manager.should_not_receive(:add_parent).with(node2)
+
+        subject.persist
+      end
     end
 
-    it "doesn't try to add non-persisted parent nodes" do
-      node2.stub(:persisted? => false)
-      inheritance_manager.should_not_receive(:add_parent).with(node2)
+    context "when the node was already saved" do
+      before { subject.persist }
 
-      subject.persist
+      it "doesn't try to add its parents again" do
+        inheritance_manager.should_not_receive(:add_parent)
+
+        subject.persist
+      end
     end
   end
 end

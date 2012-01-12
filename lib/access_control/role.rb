@@ -228,15 +228,19 @@ module AccessControl
     end
 
     def persist
-      persistent.permissions = permissions.to_a
-      result = super
-      assignments.persist if result
-      result
+      AccessControl.db.transaction do
+        persistent.permissions = permissions.to_a
+        result = super
+        assignments.persist if result
+        result
+      end
     end
 
     def destroy
-      assignments.destroy
-      super
+      AccessControl.db.transaction do
+        assignments.destroy
+        super
+      end
     end
 
   private

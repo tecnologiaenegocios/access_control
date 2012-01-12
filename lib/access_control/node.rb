@@ -40,28 +40,20 @@ module AccessControl
     end
 
     def persist
-      super
-
-      securable_parents = securable_class.inherits_permissions_from.map do |method_name|
-        securable.send(method_name)
-      end
-
-      parent_nodes = securable_parents.map do |securable_parent|
-        AccessControl::Node(securable_parent)
-      end
-
-      parent_nodes.select!(&:persisted?)
-
-      parent_nodes.each do |parent_node|
-        inheritance_manager.add_parent(parent_node)
+      AccessControl.db.transaction do
+        performing_update = persisted?
+        super
+        setup_parent_nodes() unless performing_update
       end
     end
 
     def destroy
-      Role.unassign_all_at(self)
-      inheritance_manager.del_all_parents
-      inheritance_manager.del_all_children
-      super
+      AccessControl.db.transaction do
+        Role.unassign_all_at(self)
+        inheritance_manager.del_all_parents
+        inheritance_manager.del_all_children
+        super
+      end
     end
 
     def securable
@@ -91,6 +83,24 @@ module AccessControl
       body = [id, securable_desc, blocked].compact.join(", ")
 
       "#<AccessControl::Node #{body}>"
+    end
+
+  private
+
+    def setup_parent_nodes
+      securable_parents = securable_class.inherits_permissions_from.map do |method_name|
+        securable.send(method_name)
+      end
+
+      parent_nodes = securable_parents.map do |securable_parent|
+        AccessControl::Node(securable_parent)
+      end
+
+      parent_nodes.select!(&:persisted?)
+
+      parent_nodes.each do |parent_node|
+        inheritance_manager.add_parent(parent_node)
+      end
     end
   end
 end
