@@ -3,6 +3,7 @@ require 'access_control/active_record_associator'
 require 'access_control/declarations'
 require 'access_control/node'
 require 'access_control/persistency_protector'
+require 'access_control/role_propagation'
 
 module AccessControl
   module ActiveRecordSecurable
