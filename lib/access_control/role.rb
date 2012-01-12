@@ -22,8 +22,7 @@ module AccessControl
       end
 
       def has?(principal, node)
-        on(principal, node).present? ||
-          effective_on(principal, node).present?
+        effective_on(principal, node).present?
       end
 
       def has_locally?(principal, node)
