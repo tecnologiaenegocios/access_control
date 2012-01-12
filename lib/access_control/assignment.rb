@@ -44,7 +44,7 @@ module AccessControl
     end
 
     def persist
-      AccessControl.db.transaction do
+      AccessControl.transaction do
         super.tap do
           propagate_to_node_descendants!
         end
@@ -52,7 +52,7 @@ module AccessControl
     end
 
     def destroy
-      AccessControl.db.transaction do
+      AccessControl.transaction do
         super.tap do
           destroy_child_assignments!
         end

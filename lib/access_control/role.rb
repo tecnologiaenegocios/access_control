@@ -227,7 +227,7 @@ module AccessControl
     end
 
     def persist
-      AccessControl.db.transaction do
+      AccessControl.transaction do
         persistent.permissions = permissions.to_a
         result = super
         assignments.persist if result
@@ -236,7 +236,7 @@ module AccessControl
     end
 
     def destroy
-      AccessControl.db.transaction do
+      AccessControl.transaction do
         assignments.destroy
         super
       end

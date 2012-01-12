@@ -40,7 +40,7 @@ module AccessControl
     end
 
     def persist
-      AccessControl.db.transaction do
+      AccessControl.transaction do
         performing_update = persisted?
         super
         setup_parent_nodes() unless performing_update
@@ -48,7 +48,7 @@ module AccessControl
     end
 
     def destroy
-      AccessControl.db.transaction do
+      AccessControl.transaction do
         Role.unassign_all_at(self)
         inheritance_manager.del_all_parents
         inheritance_manager.del_all_children

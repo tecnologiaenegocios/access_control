@@ -24,6 +24,14 @@ module AccessControl
       @sequel_db ||= db_connection_with_logging
     end
 
+    def transaction
+      ActiveRecord::Base.transaction do
+        @sequel_db.transaction do
+          yield
+        end
+      end
+    end
+
   private
 
     def db_connection_with_logging
