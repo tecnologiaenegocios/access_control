@@ -8,16 +8,15 @@ module AccessControl
     end
 
     def propagate!
-      relevant_assignments.map do |assignment|
-        assignment.propagate_to(node)
-      end
+      Assignment::Persistent.propagate_all(relevant_assignments,
+                                           :node_id => node.id)
     end
 
     attr_writer :relevant_assignments
     def relevant_assignments
       @relevant_assignments ||=
         if node_parents.any?
-          Assignment.with_nodes(node_parents)
+          Assignment::Persistent.with_nodes(node_parents)
         else
           []
         end

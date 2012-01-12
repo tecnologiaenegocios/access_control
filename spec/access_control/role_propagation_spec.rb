@@ -3,7 +3,7 @@ require 'spec_helper'
 module AccessControl
   describe RolePropagation do
 
-    let(:node)         { stub("Node") }
+    let(:node)         { stub("Node", :id => 12345) }
     let(:node_parents) { [stub("Node parents")] }
 
     describe "on initialization" do
@@ -38,8 +38,8 @@ module AccessControl
         let(:assignments) { [stub, stub] }
 
         before do
-          Assignment.stub(:with_nodes).with(node_parents).
-            and_return(assignments)
+          Assignment::Persistent.stub(:with_nodes).with(node_parents).
+                                 and_return(assignments)
         end
 
         specify "are the assignments returned by the Assignment class" do
@@ -51,7 +51,7 @@ module AccessControl
         let(:node_parents) { Array.new }
 
         specify "doesn't touch the Assignment class" do
-          Assignment.should_not_receive(:with_nodes)
+          Assignment::Persistent.should_not_receive(:with_nodes)
           subject.relevant_assignments
         end
 
@@ -69,27 +69,17 @@ module AccessControl
     end
 
     describe "#propagate!" do
-      let(:assignment1) { stub("Assignment1") }
-      let(:assignment2) { stub("Assignment2") }
+      let(:assignments) { stub("Assignments dataset") }
 
-      before do
-        subject.relevant_assignments = [assignment1, assignment2]
-      end
+      it "uses Assignment.propagate_all to create the new assignments" do
+        subject.relevant_assignments = assignments
 
-      it "calls #propagate_to on each of the relevant assignments" do
-        assignment1.should_receive(:propagate_to).with(node)
-        assignment2.should_receive(:propagate_to).with(node)
+        Assignment::Persistent.should_receive(:propagate_all).
+          with(assignments, :node_id => node.id)
 
         subject.propagate!
       end
 
-      it "returns a collection with the results from calling the methods" do
-        assignment1.stub(:propagate_to => "propagation1")
-        assignment2.stub(:propagate_to => "propagation2")
-
-        return_value = subject.propagate!
-        return_value.should include_only("propagation1", "propagation2")
-      end
     end
   end
 end
