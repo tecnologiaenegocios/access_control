@@ -4,17 +4,94 @@ require 'access_control/assignment/persistent'
 module AccessControl
   class Assignment
     describe Persistent do
-      def build_persistent(properties = {})
+      def ids
         @ids ||= Enumerator.new do |yielder|
           n = 0
           loop { yielder.yield(n+=1) }
         end
+      end
 
-        properties[:principal_id] ||= @ids.next
-        properties[:node_id]      ||= @ids.next
-        properties[:role_id]      ||= @ids.next
+      def build_persistent(properties = {})
+        persistent = new_persistent(properties)
+        persistent.save
+      end
 
-        Persistent.create(properties)
+      def new_persistent(properties = {})
+        properties[:principal_id] ||= ids.next
+        properties[:node_id]      ||= ids.next
+        properties[:role_id]      ||= ids.next
+
+        Persistent.new(properties)
+      end
+
+      describe ".propagate_all" do
+
+        def created_assignments(role_id, principal_id, node_id, parent_id = nil)
+          filter = {:role_id => role_id, :principal_id => principal_id,
+                    :node_id => node_id}
+
+          if parent_id
+            filter.merge!(:parent_id => parent_id)
+          end
+
+          Persistent.filter(filter)
+        end
+
+        context "when given an array of instances" do
+          let(:assignment) do
+            new_persistent(:role_id => 1, :principal_id => 2,
+                           :node_id => 3)
+          end
+
+          it "saves them all" do
+            lambda {
+              Persistent.propagate_all Array(assignment)
+            }.should change(created_assignments(1,2,3), :count).by(1)
+          end
+
+          it "when given a hash, uses its values to override the instances" do
+            overrides = { :role_id => 15 }
+            lambda {
+              Persistent.propagate_all([assignment], overrides)
+            }.should change(created_assignments(15,2,3), :count).by(1)
+          end
+
+          it "sets the parent_id of the new assignments as the id of the old" do
+            assignment.save
+            lambda {
+              Persistent.propagate_all Array(assignment)
+            }.should change(created_assignments(1,2,3, assignment.id), :count).by(1)
+          end
+        end
+
+        context "when given a dataset" do
+          let(:assignment) { build_persistent(:role_id => 1, :principal_id => 2,
+                                              :node_id => 3) }
+
+          let!(:dataset) do
+            Persistent.filter(:id => assignment.id)
+          end
+
+          it "uses its data to create new assignments" do
+            lambda {
+              Persistent.propagate_all(dataset)
+            }.should change(created_assignments(1,2,3), :count).by(1)
+          end
+
+          it "and given the overrides, uses its values to override the dataset" do
+            overrides = { :role_id => 15 }
+
+            lambda {
+              Persistent.propagate_all(dataset, overrides)
+            }.should change(created_assignments(15,2,3), :count).by(1)
+          end
+
+          it "sets the parent_id of the new assignments as the id of the old" do
+            lambda {
+              Persistent.propagate_all(dataset)
+            }.should change(created_assignments(1,2,3, assignment.id), :count).by(1)
+          end
+        end
       end
 
       describe ".real" do

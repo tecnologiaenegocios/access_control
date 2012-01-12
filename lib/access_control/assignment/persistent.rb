@@ -8,6 +8,32 @@ module AccessControl
 
     self.raise_on_save_failure = true
 
+    def self.propagate_all(assignments, overrides = {})
+      if assignments.kind_of?(Sequel::Dataset)
+        columns_to_propagate = [:role_id, :principal_id, :node_id] | overrides.keys
+
+        columns_to_select = columns_to_propagate.map do |column_name|
+          if overrides.has_key?(column_name)
+            {overrides[column_name] => column_name}
+          else
+            column_name
+          end
+        end
+
+        dataset = assignments.select(*columns_to_select)
+
+        import(columns_to_propagate+[:parent_id], dataset.select_append(:id))
+      else
+        definitions = assignments.map do |assignment|
+          properties = assignment.values
+          properties[:parent_id] = properties.delete(:id)
+          properties.merge(overrides)
+        end
+        multi_insert(definitions)
+      end
+
+    end
+
     def_dataset_method :with_nodes do |nodes|
       node_ids = Util.ids_for_hash_condition(nodes)
       filter :node_id => Node::Persistent.column_dataset(:id, node_ids)
