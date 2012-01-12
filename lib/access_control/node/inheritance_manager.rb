@@ -42,12 +42,26 @@ module AccessControl
       @node_id = Util.ids_for_hash_condition(node)
     end
 
+    def node
+      @node ||= Node.fetch(@node_id)
+    end
+
     def add_parent(parent)
+      # check_add_parent_permission(node, parent)
       db << { :child_id => node_id, :parent_id => parent.id }
     end
 
     def add_child(child)
+      # check_add_parent_permission(child, node)
       db << { :child_id => child.id, :parent_id => node_id }
+    end
+
+    def check_add_parent_permission(target, parent)
+      manager.can!(create_permission(target), parent)
+    end
+
+    def create_permission(target)
+      target.securable_class.permissions_required_to_create
     end
 
     def del_parent(parent)
@@ -153,13 +167,6 @@ module AccessControl
       rows = db.filter(:parent_id => ids).select(:parent_id, :child_id).to_a
       rows.group_by { |row| row[:parent_id] }.map do |parent_id, subrows|
         [parent_id, subrows.map{|sr| sr[:child_id]}]
-      end
-    end
-
-    def grouped_by_child_ids(ids)
-      rows = db.filter(:child_id => ids).select(:parent_id, :child_id).to_a
-      rows.group_by { |row| row[:child_id] }.map do |child_id, subrows|
-        [child_id, subrows.map{|sr| sr[:parent_id]}]
       end
     end
   end
