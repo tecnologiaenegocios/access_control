@@ -8,6 +8,7 @@ gem 'pry-doc'
 
 platform :mri_18 do
   gem 'ruby-debug'
+  gem 'rcov'
 end
 
 platform :mri_19 do
