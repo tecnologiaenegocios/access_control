@@ -87,11 +87,9 @@ module AccessControl
       combination = AssignmentCombination.new(:role_id => role_id,
                       :principal_id => principal_id, :nodes_ids => node_ids)
 
-      new_assignments_properties = combination.to_properties.map do |properties|
-        properties.merge(:parent_id => parent_id)
-      end
+      combination.parent_id = parent_id
 
-      Assignment::Persistent.multi_insert(new_assignments_properties)
+      Assignment::Persistent.multi_insert(combination.to_properties)
       Assignment::Persistent.filter(:role_id => role_id, :principal_id => principal_id,
                                     :parent_id => parent_id, :node_id => node_ids.to_a).
         select_hash(:node_id, :id)

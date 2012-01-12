@@ -310,11 +310,29 @@ module AccessControl
         end
       end
 
+      it "returns one hash for each of the possible combinations" do
+        product = roles_ids.count * principals_ids.count * nodes_ids.count
+        subject.to_properties.count.should == product
+      end
+
       it "is equivalent to run #all and map the instances to their properties" do
         properties_returned = subject.to_properties
         properties = [properties_hash(1,3,5), properties_hash(2,3,5)]
 
         properties_returned.should include_only(*properties)
+      end
+
+      specify "when a parent_id was set, return it on the hashes as well" do
+        subject.parent_id = 123
+        subject.to_properties.each do |hash|
+          hash[:parent_id].should == 123
+        end
+      end
+
+      specify "when no parent_id was set, doesn't include it on the hashes" do
+        subject.to_properties.each do |hash|
+          hash.should_not have_key(:parent_id)
+        end
       end
     end
 
