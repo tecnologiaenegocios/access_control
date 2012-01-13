@@ -19,16 +19,6 @@ module AccessControl
       end
     end
 
-    before do
-      ActiveRecordSecurable.propagate_roles      = false
-      ActiveRecordSecurable.assign_default_roles = false
-    end
-
-    after do
-      ActiveRecordSecurable.propagate_roles      = true
-      ActiveRecordSecurable.assign_default_roles = true
-    end
-
     let(:model) { Class.new(base) }
 
     it "includes just after callbacks" do
@@ -36,79 +26,49 @@ module AccessControl
       model.should include(ActiveRecordJustAfterCallback)
     end
 
-    describe "associated node" do
+    context "in a model with ActiveRecordSecurable" do
       let(:node)     { stub('node', :persist! => nil) }
       let(:instance) { model.new }
+      let(:node_manager) { mock('node manager') }
 
       before do
+        model.send(:include, ActiveRecordSecurable)
         Node.stub(:for_securable).with(instance).and_return(node)
+        NodeManager.stub(:new).and_return(node_manager)
       end
 
-      describe "association" do
-        before do
-          model.send(:include, ActiveRecordSecurable)
-        end
-
-        it "returns a node for the instance" do
-          instance.ac_node.should be node
-        end
-
-        specify "once the node is computed, the node is cached" do
-          old_result = instance.ac_node # should cache
-          Node.should_not_receive(:for_securable)
-          instance.ac_node.should be old_result
-        end
+      it "returns a node for the instance" do
+        instance.ac_node.should be node
       end
 
-      describe "setting default roles on the node created" do
+      specify "once the node is computed, the node is cached" do
+        old_result = instance.ac_node # should cache
+        Node.should_not_receive(:for_securable)
+        instance.ac_node.should be old_result
+      end
+
+      describe "when securable instance is created" do
         let(:principals)    { ['principal1', 'principal2'] }
         let(:default_roles) { stub('default roles subset') }
 
-        before do
-          ActiveRecordSecurable.assign_default_roles = true
-          model.send(:include, ActiveRecordSecurable)
-
-          Role.stub(:default => default_roles)
-          AccessControl.stub_chain(:manager, :principals).and_return(principals)
-
+        it "assigns default roles and refreshes parents of the node" do
+          node_manager.should_receive(:assign_default_roles).ordered
+          node_manager.should_receive(:refresh_parents).ordered
           instance.stub(:ac_node => node)
-        end
-
-        it "sets default roles by assigning them to the node and principals" do
-          Role.should_receive(:assign_all).with(default_roles, principals, node)
-          instance.create
-        end
-
-        it "does that after persisting the node" do
-          node.should_receive(:persist!).ordered
-          node.should_receive(:called_on_assignment).ordered
-
-          Role.stub(:assign_all) do |_, _, node|
-            node.called_on_assignment
-          end
 
           instance.create
         end
       end
 
-      describe "propagating the roles from the parent nodes" do
-        let(:propagation) { stub("Role propagation") }
-
-        before do
-          ActiveRecordSecurable.propagate_roles = true
-          model.send(:include, ActiveRecordSecurable)
-
+      describe "when securable instance is updated" do
+        it "refreshes parents and then check for update rights" do
+          node_manager.should_receive(:refresh_parents).ordered
+          node_manager.should_receive(:can_update!).ordered
           instance.stub(:ac_node => node)
-        end
 
-        it "uses a 'RolePropagation' to do the job" do
-          RolePropagation.stub(:new).with(node).and_return(propagation)
-          propagation.should_receive(:propagate!)
-
-          instance.create
+          instance.update
         end
       end
-
     end
   end
 end

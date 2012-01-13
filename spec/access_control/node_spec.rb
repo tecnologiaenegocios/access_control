@@ -378,10 +378,13 @@ module AccessControl
 
       let(:inheritance_manager) { stub("Inheritance Manager") }
 
+      let(:role_propagation) { stub(:propagate! => nil, :unpropagate! => nil) }
+
       before do
         subject.inheritance_manager = inheritance_manager
         inheritance_manager.stub(:parents => [])
         inheritance_manager.stub(:add_parent)
+        RolePropagation.stub(:new).and_return(role_propagation)
       end
 
       subject { Node.new(:securable_class => securable_class,
@@ -419,6 +422,17 @@ module AccessControl
 
             subject.persist
           end
+
+          it "propagates roles from the added parents" do
+            RolePropagation.stub(:new) do |node, parents|
+              node.should be subject
+              parents.should include_only(node1, node2, node4)
+              role_propagation
+            end
+            role_propagation.should_receive(:propagate!)
+
+            subject.persist
+          end
         end
 
         context "when the node was already saved" do
@@ -451,6 +465,14 @@ module AccessControl
 
               subject.persist
             end
+
+            it "propagates roles from the added parents" do
+              RolePropagation.stub(:new).with(subject, [node3]).
+                and_return(role_propagation)
+              role_propagation.should_receive(:propagate!)
+
+              subject.persist
+            end
           end
 
           context "and later parents are removed" do
@@ -463,6 +485,12 @@ module AccessControl
               inheritance_manager.should_receive(:del_parent).with(node2)
 
               subject.persist
+            end
+
+            xit "unpropagates roles from the removed parents" do
+              RolePropagation.stub(:new).with(subject, [node2]).
+                and_return(role_propagation)
+              role_propagation.should_receive(:unpropagate!)
             end
           end
         end
@@ -477,10 +505,103 @@ module AccessControl
           subject.persist
         end
 
+        it "doesn't try to propagate or unpropagate anything" do
+          RolePropagation.should_not_receive(:new)
+
+          subject.persist
+        end
+
         it "doesn't try to delete any parent" do
           inheritance_manager.should_not_receive(:del_parent)
 
           subject.persist
+        end
+      end
+    end
+
+    describe "#refresh_parents" do
+      let(:node1)   { stub("Node 1", :id => 1, :persisted? => true) }
+      let(:node2)   { stub("Node 2", :id => 2, :persisted? => true) }
+      let(:node3)   { stub("Node 3", :id => 3, :persisted? => true) }
+
+      let(:parent1) { stub("Parent 1", :ac_node => node1) }
+      let(:parent2) { stub("Parent 2", :ac_node => node2) }
+      let(:parent3) { stub("Parent 3", :ac_node => node3) }
+
+      let(:securable_class) do
+        FakeSecurableClass.new(:parent1, :parent2, :parent3) do
+          include Inheritance
+          inherits_permissions_from :parent1, :parent2, :parent3
+        end
+      end
+
+      let(:securable) { securable_class.new(:parent1 => parent1,
+                                            :parent3 => [parent3]) }
+
+      let(:inheritance_manager) { stub("Inheritance Manager") }
+
+      let(:role_propagation) { stub(:propagate! => nil, :unpropagate! => nil) }
+
+      before do
+        subject.inheritance_manager = inheritance_manager
+        inheritance_manager.stub(:parents => [node1, node3])
+        inheritance_manager.stub(:add_parent)
+        inheritance_manager.stub(:del_parent)
+        RolePropagation.stub(:new).and_return(role_propagation)
+      end
+
+      subject { Node.new(:securable_class => securable_class,
+                         :securable_id    => securable.id) }
+
+      context "when parents were added to securable" do
+        before do
+          securable.parent2 = parent2
+        end
+
+        it "adds the new parents using the inheritance manager" do
+          inheritance_manager.should_receive(:add_parent).with(node2)
+
+          subject.persist
+        end
+
+        it "doesn't remove it" do
+          # Seems silly spec this, but previously there was a bug that
+          # new parents added were actually removed when checking for
+          # securable parents which were removed.
+          parents = [node1, node3]
+          inheritance_manager.stub(:add_parent) do |parent|
+            parents << parent
+          end
+          inheritance_manager.stub(:parents).and_return(parents)
+          inheritance_manager.should_not_receive(:del_parent)
+
+          subject.persist
+        end
+
+        it "propagates roles from the added parents" do
+          RolePropagation.stub(:new).with(subject, [node2]).
+            and_return(role_propagation)
+          role_propagation.should_receive(:propagate!)
+
+          subject.persist
+        end
+      end
+
+      context "when parents were removed" do
+        before do
+          securable.parent3 = []
+        end
+
+        it "deletes the old parents using the inheritance manager" do
+          inheritance_manager.should_receive(:del_parent).with(node3)
+
+          subject.persist
+        end
+
+        xit "unpropagates roles from the removed parents" do
+          RolePropagation.stub(:new).with(subject, [node3]).
+            and_return(role_propagation)
+          role_propagation.should_receive(:unpropagate!)
         end
       end
     end

@@ -48,10 +48,30 @@ module AccessControl
     def persist
       AccessControl.transaction do
         if (result = super)
-          setup_parent_nodes()
+          refresh_parents
         end
         result
       end
+    end
+
+    def refresh_parents
+      added_parents = new_persisted_parent_nodes
+      deleted_parents = removed_persisted_parent_nodes
+
+      added_parents.each do |parent_node|
+        inheritance_manager.add_parent(parent_node)
+      end
+      deleted_parents.each do |parent_node|
+        inheritance_manager.del_parent(parent_node)
+      end
+
+      if added_parents.any?
+        role_propagation(added_parents).propagate!
+      end
+
+      # if deleted_parents.any?
+      #   role_propagation(added_parents).propagate!
+      # end
     end
 
     def destroy
@@ -114,18 +134,6 @@ module AccessControl
       end
     end
 
-    def setup_parent_nodes
-      added_parents = new_persisted_parent_nodes
-      deleted_parents = removed_persisted_parent_nodes
-
-      added_parents.each do |parent_node|
-        inheritance_manager.add_parent(parent_node)
-      end
-      deleted_parents.each do |parent_node|
-        inheritance_manager.del_parent(parent_node)
-      end
-    end
-
     def new_persisted_parent_nodes
       current_parent_nodes = inheritance_manager.parents
       final_parent_nodes   = persisted_parent_nodes
@@ -153,6 +161,10 @@ module AccessControl
       methods.each_with_object(Set.new) do |method_name, set|
         set.merge(Array[*securable.send(method_name)].compact)
       end
+    end
+
+    def role_propagation(parents)
+      RolePropagation.new(self, parents)
     end
   end
 end
