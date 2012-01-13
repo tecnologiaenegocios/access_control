@@ -46,6 +46,15 @@ module AccessControl
       end
     end
 
+    describe "#hash" do
+      it "is a delegation to the persistent's #hash" do
+        persistent = stub(:hash => 12345)
+        subject = model.wrap(persistent)
+
+        subject.hash.should == 12345
+      end
+    end
+
     describe "property delegation" do
       before do
         persistent_model.stub(:column_names => [:property])

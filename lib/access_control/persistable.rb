@@ -48,6 +48,10 @@ module AccessControl
       persistent.to_param
     end
 
+    def hash
+      persistent.hash
+    end
+
     def inspect
       persistent_desc  = persistent.inspect
       persistent_class = persistent.class.to_s
