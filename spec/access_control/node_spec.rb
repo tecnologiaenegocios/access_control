@@ -424,7 +424,6 @@ module AccessControl
         context "when the node was already saved" do
           before do
             subject.persist
-            inheritance_manager.stub(:parents => [node1, node2, node4])
           end
 
           context "and later parents are added to securable" do
@@ -433,7 +432,22 @@ module AccessControl
             end
 
             it "adds the new parents using the inheritance manager" do
+              inheritance_manager.stub(:parents => [node1, node2, node4])
               inheritance_manager.should_receive(:add_parent).with(node3)
+
+              subject.persist
+            end
+
+            it "doesn't remove it" do
+              # Seems silly spec this, but previously there was a bug that
+              # new parents added were actually removed when checking for
+              # securable parents which were removed.
+              parents = [node1, node2, node4]
+              inheritance_manager.stub(:add_parent) do |parent|
+                parents << parent
+              end
+              inheritance_manager.stub(:parents).and_return(parents)
+              inheritance_manager.should_not_receive(:del_parent)
 
               subject.persist
             end
@@ -445,6 +459,7 @@ module AccessControl
             end
 
             it "deletes the old parents using the inheritance manager" do
+              inheritance_manager.stub(:parents => [node1, node2, node4])
               inheritance_manager.should_receive(:del_parent).with(node2)
 
               subject.persist

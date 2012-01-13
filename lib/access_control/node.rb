@@ -115,10 +115,13 @@ module AccessControl
     end
 
     def setup_parent_nodes
-      new_persisted_parent_nodes.each do |parent_node|
+      added_parents = new_persisted_parent_nodes
+      deleted_parents = removed_persisted_parent_nodes
+
+      added_parents.each do |parent_node|
         inheritance_manager.add_parent(parent_node)
       end
-      removed_persisted_parent_nodes.each do |parent_node|
+      deleted_parents.each do |parent_node|
         inheritance_manager.del_parent(parent_node)
       end
     end
