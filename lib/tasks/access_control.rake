@@ -1,12 +1,6 @@
 namespace :db do
   namespace :access_control do
 
-    desc "Access control seeds"
-    task :seed => :environment do
-      AccessControl::Node.global!
-      AccessControl::Principal.anonymous!
-    end
-
     desc "Generate access control migration"
     task :migration do
       require 'ftools'
