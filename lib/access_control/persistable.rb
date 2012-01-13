@@ -52,6 +52,15 @@ module AccessControl
       persistent.hash
     end
 
+    def eql?(other)
+      if other.kind_of?(self.class)
+        persistent.eql?(other.persistent)
+      else
+        false
+      end
+    end
+
+
     def inspect
       persistent_desc  = persistent.inspect
       persistent_class = persistent.class.to_s

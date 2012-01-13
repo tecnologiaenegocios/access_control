@@ -268,6 +268,31 @@ module AccessControl
       end
     end
 
+    describe "#eql?" do
+      let(:persistent1) { stub("Persistent 1") }
+      let(:persistent2) { stub("Persistent 2") }
+
+      subject     { model.wrap(persistent1) }
+      let(:other) { model.wrap(persistent2) }
+
+      it "is true if the persistents are eql" do
+        persistent1.stub(:eql?).with(persistent2).and_return(true)
+        subject.should be_eql(other)
+      end
+
+      it "is false if the persistents aren't eql" do
+        persistent1.stub(:eql?).with(persistent2).and_return(false)
+        subject.should_not be_eql(other)
+      end
+
+      it "is always false if the other object isn't from the same class" do
+        persistent1.stub(:eql?).with(persistent2).and_return(true)
+        fake_persistable = stub(:persistent => persistent2)
+
+        subject.should_not be_eql(fake_persistable)
+      end
+    end
+
     describe "query interface" do
       describe ".all" do
         it "delegates to persistent_model.values and wraps it in a subset" do
