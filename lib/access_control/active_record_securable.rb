@@ -1,8 +1,7 @@
 require 'access_control/active_record_just_after_callback'
 require 'access_control/active_record_associator'
-require 'access_control/declarations'
 require 'access_control/node'
-require 'access_control/role_propagation'
+require 'access_control/node_manager'
 
 module AccessControl
   module ActiveRecordSecurable
