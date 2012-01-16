@@ -1,3 +1,5 @@
+require 'access_control/node_manager'
+
 module AccessControl
   class NodeManager
     def initialize(node)
