@@ -17,9 +17,11 @@ module AccessControl
       def_dataset_method(:for_securables) do |securables|
         securables = Array(securables)
 
-        types_and_ids = securables.map { |s| [s.class.name, s.id] }
+        filters = securables.group_by(&:class).map do |klass, securables|
+          { :securable_type => klass.name, :securable_id => securables.map(&:id) }
+        end
 
-        filter([:securable_type, :securable_id] => types_and_ids)
+        filter filters.inject(:|)
       end
     end
   end
