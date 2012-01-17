@@ -493,6 +493,15 @@ module AccessControl
               InheritanceManager.descendant_ids_of(node_id).should ==
                 InheritanceManager.new(node_id).descendant_ids
             end
+
+            it "can accept a block, just like the instance method" do
+              descendants = Set.new
+              InheritanceManager.descendant_ids_of(node_id) do |p, children|
+                descendants.merge(children)
+              end
+              descendants.should ==
+                InheritanceManager.new(node_id).descendant_ids
+            end
           end
         end
       end

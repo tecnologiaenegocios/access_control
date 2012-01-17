@@ -32,8 +32,8 @@ module AccessControl
       self.new(*args).descendants
     end
 
-    def self.descendant_ids_of(*args)
-      self.new(*args).descendant_ids
+    def self.descendant_ids_of(*args, &block)
+      self.new(*args).descendant_ids(&block)
     end
 
     attr_reader :node_id
