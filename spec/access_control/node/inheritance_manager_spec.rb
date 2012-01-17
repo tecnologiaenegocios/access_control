@@ -335,35 +335,79 @@ module AccessControl
           end
 
           context "when it receives a block" do
-            def yielded_values
-              @yielded_values ||= begin
-                hash = Hash.new
-                inheritance_manager.descendant_ids do |node_id, children_ids|
-                  hash[node_id] = children_ids
+            describe "iteration by level" do
+              def yielded_values
+                @yielded_values ||= begin
+                  hash = Hash.new
+                  inheritance_manager.descendant_ids do |node_id, children_ids|
+                    hash[node_id] = children_ids
+                  end
+                  hash
                 end
-                hash
+              end
+
+              it "yields the node and its children to the block" do
+                yielded_values.should have_key(node.id)
+                yielded_values[node.id].should include_only(child1.id, child2.id)
+              end
+
+              it "yields the children that are parents, along with their children" do
+                yielded_values.should have_key(child1.id)
+                yielded_values[child1.id].should include_only(descendant1.id,
+                                                              descendant2.id)
+
+                yielded_values.should have_key(child2.id)
+                yielded_values[child2.id].should include_only(descendant3.id,
+                                                              descendant2.id)
+              end
+
+              it "doesn't yield nodes that have no children" do
+                leaf_nodes = [descendant1, descendant2, descendant3]
+                leaf_nodes.each do |leaf_node|
+                  yielded_values.should_not have_key(leaf_node.id)
+                end
               end
             end
 
-            it "yields the node and its children to the block" do
-              yielded_values.should have_key(node.id)
-              yielded_values[node.id].should include_only(child1.id, child2.id)
-            end
+            describe "monotonicity of depth in block calls" do
+              let!(:descendant4) { make_node() }
+              let!(:descendant5) { make_node() }
+              let!(:descendant6) { make_node() }
 
-            it "yields the children that are parents, along with their children" do
-              yielded_values.should have_key(child1.id)
-              yielded_values[child1.id].should include_only(descendant1.id,
-                                                            descendant2.id)
+              before do
+                set_child_nodes_of(descendant1, :as => [descendant4])
+                set_child_nodes_of(descendant2, :as => [descendant5, descendant6])
+              end
 
-              yielded_values.should have_key(child2.id)
-              yielded_values[child2.id].should include_only(descendant3.id,
-                                                            descendant2.id)
-            end
+              def yield_parents
+                @yielded_parents ||= begin
+                  arr = []
+                  inheritance_manager.descendant_ids do |node_id, children_ids|
+                    arr << node_id
+                  end
+                  arr
+                end
+              end
 
-            it "doesn't yield nodes that have no children" do
-              leaf_nodes = [descendant1, descendant2, descendant3]
-              leaf_nodes.each do |leaf_node|
-                yielded_values.should_not have_key(leaf_node.id)
+              it "calls the block as many times as there are different "\
+                 "parents with some child" do
+                yielded_parents = yield_parents()
+                yielded_parents.size.should == 5
+              end
+
+              it "preserves the order of depth as calls are performed" do
+                yielded_parents = yield_parents()
+
+                levels = [
+                  [node.id],                        # first level
+                  [child1.id, child2.id],           # second level
+                  [descendant1.id, descendant2.id]  # third level
+                ]
+
+                levels.each do |expected_parents|
+                  head = yielded_parents.shift(expected_parents.size)
+                  head.should include_only(*expected_parents)
+                end
               end
             end
           end
