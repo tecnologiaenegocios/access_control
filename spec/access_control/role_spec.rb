@@ -3,6 +3,47 @@ require 'spec_helper'
 module AccessControl
   describe Role do
 
+    describe ".assign_default_at" do
+      let(:securable_class) { FakeSecurableClass.new }
+      let(:node)   { Node.store(:securable_class => securable_class,
+                                :securable_id    => 1) }
+      let(:role1) { Role.store(:name => 'default') }
+      let(:role2) { Role.store(:name => 'other_default') }
+      let(:principals) { [
+        Principal.store(:subject_type => 'SubjectType', :subject_id => 1),
+        Principal.store(:subject_type => 'SubjectType', :subject_id => 2)
+      ] }
+
+      let(:manager) { stub('manager') }
+      let(:config)  { stub('configuration') }
+
+      let!(:role3) { Role.store(:name => 'non_default') }
+
+      before do
+        AccessControl.stub(:config).and_return(config)
+        AccessControl.stub(:manager).and_return(manager)
+        config.stub(:default_roles).and_return([role1.name, role2.name])
+        manager.stub(:principals).and_return(principals)
+      end
+
+      it "assigns default roles to the current principals in the given node" do
+        Role.assign_default_at(node)
+
+        principals.each do |principal|
+          role1.should be_assigned_to(principal, node)
+          role2.should be_assigned_to(principal, node)
+        end
+      end
+
+      it "doesn't assign non default roles" do
+        Role.assign_default_at(node)
+
+        principals.each do |principal|
+          role3.should_not be_assigned_to(principal, node)
+        end
+      end
+    end
+
     describe ".assign_all" do
       let(:combination) do
         Array.new.tap do |combination|
@@ -27,7 +68,7 @@ module AccessControl
         Role.assign_all(roles, principals, nodes, combination)
       end
 
-      it "sets up the nodes of the combination using its parameter" do
+      it "sets up the principals of the combination using its parameter" do
         combination.should_receive(:principals=).with(principals)
         Role.assign_all(roles, principals, nodes, combination)
       end
@@ -70,7 +111,7 @@ module AccessControl
         Role.unassign_all(roles, principals, nodes, combination)
       end
 
-      it "sets up the nodes of the combination using its parameter" do
+      it "sets up the principals of the combination using its parameter" do
         combination.should_receive(:principals=).with(principals)
         Role.unassign_all(roles, principals, nodes, combination)
       end

@@ -29,12 +29,10 @@ module AccessControl
     context "in a model with ActiveRecordSecurable" do
       let(:node)     { stub('node', :persist! => nil) }
       let(:instance) { model.new }
-      let(:node_manager) { mock('node manager') }
 
       before do
         model.send(:include, ActiveRecordSecurable)
         Node.stub(:for_securable).with(instance).and_return(node)
-        NodeManager.stub(:new).and_return(node_manager)
       end
 
       it "returns a node for the instance" do
@@ -52,8 +50,8 @@ module AccessControl
         let(:default_roles) { stub('default roles subset') }
 
         it "assigns default roles and refreshes parents of the node" do
-          node_manager.should_receive(:assign_default_roles).ordered
-          node_manager.should_receive(:refresh_parents).ordered
+          Role.should_receive(:assign_default_at).with(node)
+          node.should_receive(:refresh_parents)
           instance.stub(:ac_node => node)
 
           instance.create
@@ -62,8 +60,8 @@ module AccessControl
 
       describe "when securable instance is updated" do
         it "refreshes parents and then check for update rights" do
-          node_manager.should_receive(:refresh_parents).ordered
-          node_manager.should_receive(:can_update!).ordered
+          node.should_receive(:refresh_parents).ordered
+          node.should_receive(:can_update!).ordered
           instance.stub(:ac_node => node)
 
           instance.update

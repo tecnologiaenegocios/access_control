@@ -49,29 +49,24 @@ module AccessControl
     end
 
     def add_parent(parent)
-      check_add_parent_permissions(node, parent)
       db << { :child_id => node_id, :parent_id => parent.id }
     end
 
     def add_child(child)
-      check_add_parent_permissions(child, node)
       db << { :child_id => child.id, :parent_id => node_id }
     end
 
     def del_parent(parent)
-      check_del_parent_permissions(node, parent)
       parent_set.filter(:parent_id => parent.id).delete
     end
 
     def del_child(child)
-      check_del_parent_permissions(child, node)
       child_set.filter(:child_id => child.id).delete
     end
 
-    def del_all_parents_with_checks
+    def del_all_parents
       parent_set.each do |row|
         parent_id = row[:parent_id]
-        check_del_parent_permissions(node, Node.fetch(parent_id))
         parent_set.filter(:parent_id => parent_id).delete
       end
     end
@@ -172,14 +167,6 @@ module AccessControl
       rows.group_by { |row| row[:parent_id] }.map do |parent_id, subrows|
         [parent_id, subrows.map{|sr| sr[:child_id]}]
       end
-    end
-
-    def check_add_parent_permissions(target, parent)
-      AccessControl.manager.can!(create_permissions(target), parent)
-    end
-
-    def check_del_parent_permissions(target, parent)
-      AccessControl.manager.can!(destroy_permissions(target), parent)
     end
 
     def create_permissions(target)

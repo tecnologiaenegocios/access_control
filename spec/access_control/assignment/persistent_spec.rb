@@ -25,73 +25,125 @@ module AccessControl
       end
 
       describe ".propagate_all" do
-
-        def created_assignments(role_id, principal_id, node_id, parent_id = nil)
-          filter = {:role_id => role_id, :principal_id => principal_id,
-                    :node_id => node_id}
-
-          if parent_id
-            filter.merge!(:parent_id => parent_id)
-          end
-
-          Persistent.filter(filter)
+        let(:tree) do
+          [
+            [1, [2, 6]], # level 1
+            [2, [3, 4]], # level 2
+            [6, [4, 7]], # "
+            [3, [8, 9]], # level 3
+            [4, [5, 9]], # "
+            [7, [10]],   # "
+          ]
         end
 
-        context "when given an array of instances" do
-          let(:assignment) do
-            new_persistent(:role_id => 1, :principal_id => 2,
-                           :node_id => 3)
-          end
+        let!(:node_tree) do
+          AccessControl.ac_nodes.import(
+            [:id, :securable_type, :securable_id],
+            [
+              [1,  'Foo', ids.next],
+              [2,  'Foo', ids.next],
+              [3,  'Foo', ids.next],
+              [4,  'Foo', ids.next],
+              [5,  'Foo', ids.next],
+              [6,  'Foo', ids.next],
+              [7,  'Foo', ids.next],
+              [8,  'Foo', ids.next],
+              [9,  'Foo', ids.next],
+              [10, 'Foo', ids.next],
+            ]
+          )
+        end
 
-          it "saves them all" do
-            lambda {
-              Persistent.propagate_all Array(assignment)
-            }.should change(created_assignments(1,2,3), :count).by(1)
-          end
+        let(:role_ids)      { [1,2] }
+        let(:principal_ids) { [1,2] }
 
-          it "when given a hash, uses its values to override the instances" do
-            overrides = { :role_id => 15 }
-            lambda {
-              Persistent.propagate_all([assignment], overrides)
-            }.should change(created_assignments(15,2,3), :count).by(1)
-          end
-
-          it "sets the parent_id of the new assignments as the id of the old" do
-            assignment.save
-            lambda {
-              Persistent.propagate_all Array(assignment)
-            }.should change(created_assignments(1,2,3, assignment.id), :count).by(1)
+        let!(:top_assignments) do
+          combos = (role_ids + [99]).product(principal_ids + [99])
+          combos.each do |(role_id, principal_id)|
+            instance = Persistent.new(:role_id => role_id,
+                                      :principal_id => principal_id,
+                                      :node_id => 99,
+                                      :parent_id => nil)
+            instance.save(:raise_on_failure => true)
           end
         end
 
-        context "when given a dataset" do
-          let(:assignment) { build_persistent(:role_id => 1, :principal_id => 2,
-                                              :node_id => 3) }
+        let(:assignments_to_propagate) do
+          Persistent.filter(:role_id => role_ids,
+                            :principal_id => principal_ids)
+        end
 
-          let!(:dataset) do
-            Persistent.filter(:id => assignment.id)
-          end
+        let(:assignments_to_not_propagate) do
+          Persistent.filter(:role_id => 99, :principal_id => 99)
+        end
 
-          it "uses its data to create new assignments" do
-            lambda {
-              Persistent.propagate_all(dataset)
-            }.should change(created_assignments(1,2,3), :count).by(1)
-          end
+        let(:inheritance_manager) { stub }
 
-          it "and given the overrides, uses its values to override the dataset" do
-            overrides = { :role_id => 15 }
+        before do
+          inheritance_manager.stub(:descendant_ids)
+          Node::InheritanceManager.stub(:new).and_return(inheritance_manager)
+        end
 
-            lambda {
-              Persistent.propagate_all(dataset, overrides)
-            }.should change(created_assignments(15,2,3), :count).by(1)
-          end
-
-          it "sets the parent_id of the new assignments as the id of the old" do
-            lambda {
-              Persistent.propagate_all(dataset)
-            }.should change(created_assignments(1,2,3, assignment.id), :count).by(1)
+        def assignment_properties_on(node_id)
+          Persistent.filter(:node_id => 1).map do |item|
+            { :role_id => item.role_id, :principal_id => item.principal_id,
+              :node_id => item.node_id, :parent_id => item.parent_id }
           end
         end
+
+        it "propagates requested assignments to the given node" do
+          expected_properties = assignments_to_propagate.map do |item|
+            { :node_id => 1, :principal_id => item.principal_id,
+              :role_id => item.role_id, :parent_id => item.id }
+          end
+
+          Persistent.propagate_all(assignments_to_propagate, 1)
+
+          assignment_properties_on(1).should include_only(*expected_properties)
+        end
+
+        it "leaves non-requested assignments alone" do
+          Persistent.propagate_all(assignments_to_propagate, 1)
+
+          propagated = assignment_properties_on(1)
+
+          assignments_to_not_propagate.each do |assignment|
+            props = {:role_id => assignment.role_id,
+                     :node_id => 1,
+                     :parent_id => assignment.id,
+                     :principal_id => assignment.principal_id}
+            propagated.should_not include props
+          end
+        end
+
+        context "when the node has no descendants" do
+          before do
+            inheritance_manager.stub(:descendant_ids).and_return([])
+          end
+
+          it "doesn't propagate to any other node except the one given" do
+            [2..10].each do |n|
+              Persistent.filter(:node_id => n).should be_empty
+            end
+          end
+        end
+
+        context "when the node has descendants" do
+          before do
+            inheritance_manager.define_singleton_method(:descendant_ids) do |&block|
+              tree.each do |connection|
+                parent_id, child_ids = connection
+                block.call(parent_id, child_ids)
+              end
+            end
+          end
+
+          it "propagates to each descendant"
+        end
+      end
+
+      describe ".depropagate_all" do
+        it "depropagate all given assignments"
       end
 
       describe ".real" do

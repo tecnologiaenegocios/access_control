@@ -8,8 +8,11 @@ module AccessControl
     end
 
     def propagate!
-      Assignment::Persistent.propagate_all(relevant_assignments,
-                                           :node_id => node.id)
+      Assignment::Persistent.propagate_all(relevant_assignments, node.id)
+    end
+
+    def depropagate!
+      Assignment::Persistent.depropagate_all(relevant_assignments)
     end
 
     attr_writer :relevant_assignments

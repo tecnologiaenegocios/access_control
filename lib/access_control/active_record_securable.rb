@@ -13,15 +13,13 @@ module AccessControl
       end
 
       base.just_after_update do
-        node_manager = NodeManager.new(ac_node)
-        node_manager.refresh_parents
-        node_manager.can_update!
+        ac_node.refresh_parents
+        ac_node.can_update!
       end
 
       base.just_after_create do
-        node_manager = NodeManager.new(ac_node)
-        node_manager.assign_default_roles
-        node_manager.refresh_parents
+        Role.assign_default_at(ac_node)
+        ac_node.refresh_parents
       end
     end
   end

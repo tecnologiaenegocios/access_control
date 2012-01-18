@@ -75,11 +75,24 @@ module AccessControl
         subject.relevant_assignments = assignments
 
         Assignment::Persistent.should_receive(:propagate_all).
-          with(assignments, :node_id => node.id)
+          with(assignments, node.id)
 
         subject.propagate!
       end
 
+    end
+
+    describe "#depropagate!" do
+      let(:assignments) { stub("Assignments dataset") }
+
+      it "uses Assignment.depropagate_all to wipe out assignments" do
+        subject.relevant_assignments = assignments
+
+        Assignment::Persistent.should_receive(:depropagate_all).
+          with(assignments)
+
+        subject.depropagate!
+      end
     end
   end
 end

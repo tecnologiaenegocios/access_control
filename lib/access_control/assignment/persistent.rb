@@ -8,30 +8,37 @@ module AccessControl
 
     self.raise_on_save_failure = true
 
-    def self.propagate_all(assignments, overrides = {})
-      if assignments.kind_of?(Sequel::Dataset)
-        columns_to_propagate = [:role_id, :principal_id, :node_id] | overrides.keys
+    class << self
+      def propagate_all(assignments, node_id)
+        parent_ids = propagate_to(assignments.map(&:id), node_id)
+        parent_ids_by_level = { node_id => parent_ids }
 
-        columns_to_select = columns_to_propagate.map do |column_name|
-          if overrides.has_key?(column_name)
-            {overrides[column_name] => column_name}
-          else
-            column_name
+        im = Node::InheritanceManager.new(node_id)
+        im.descendant_ids do |parent_node_id, child_node_ids|
+          parent_ids = parent_ids_by_level[parent_node_id]
+          next_parent_ids = propagate_to(parent_ids, child_node_ids)
+
+          child_node_ids.each do |node_id|
+            arr = (parent_ids_by_level[node_id] ||= [])
+            arr.concat(next_parent_ids)
           end
         end
-
-        dataset = assignments.select(*columns_to_select)
-
-        import(columns_to_propagate+[:parent_id], dataset.select_append(:id))
-      else
-        definitions = assignments.map do |assignment|
-          properties = assignment.values
-          properties[:parent_id] = properties.delete(:id)
-          properties.merge(overrides)
-        end
-        multi_insert(definitions)
       end
 
+      def depropagate_all(assignments)
+      end
+
+    private
+
+      def propagate_to(ids, node_ids)
+        import(
+          [:parent_id, :role_id, :principal_id, :node_id],
+          select(:ac_assignments__id, :role_id, :principal_id, :ac_nodes__id).
+          from(:ac_assignments, :ac_nodes).
+          filter(:ac_assignments__id => ids, :ac_nodes__id => node_ids)
+        )
+        filter(:node_id => node_ids, :parent_id => ids).select_map(:id)
+      end
     end
 
     def_dataset_method :with_nodes do |nodes|

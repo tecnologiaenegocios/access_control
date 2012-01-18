@@ -30,7 +30,7 @@ module AccessControl
 
     def block= value
       if value
-        perform_blocking
+        perform_blocking unless blocked?
       else
         perform_unblocking if blocked?
       end
@@ -39,11 +39,6 @@ module AccessControl
 
     def global?
       id == AccessControl.global_node_id
-    end
-
-    attr_writer :inheritance_manager
-    def inheritance_manager
-      @inheritance_manager ||= InheritanceManager.new(self)
     end
 
     def persist
@@ -55,33 +50,20 @@ module AccessControl
       end
     end
 
-    def refresh_parents
-      added_parents = new_persisted_parent_nodes
-      deleted_parents = removed_persisted_parent_nodes
-
-      added_parents.each do |parent_node|
-        inheritance_manager.add_parent(parent_node)
-      end
-      deleted_parents.each do |parent_node|
-        inheritance_manager.del_parent(parent_node)
-      end
-
-      if added_parents.any?
-        role_propagation(added_parents).propagate!
-      end
-
-      # if deleted_parents.any?
-      #   role_propagation(added_parents).propagate!
-      # end
-    end
-
     def destroy
       AccessControl.transaction do
         Role.unassign_all_at(self)
-        inheritance_manager.del_all_parents_with_checks
-        inheritance_manager.del_all_children
+        NodeManager.disconnect(self)
         super
       end
+    end
+
+    def refresh_parents
+      NodeManager.refresh_parents_of(self)
+    end
+
+    def can_update!
+      NodeManager.can_update!(self)
     end
 
     def securable
@@ -120,31 +102,11 @@ module AccessControl
   private
 
     def perform_blocking
-      AccessControl.transaction do
-        inheritance_manager.parents.each do |parent|
-          inheritance_manager.del_parent(parent)
-        end
-      end
+      NodeManager.block(self)
     end
 
     def perform_unblocking
-      AccessControl.transaction do
-        persisted_parent_nodes.each do |parent|
-          inheritance_manager.add_parent(parent)
-        end
-      end
-    end
-
-    def new_persisted_parent_nodes
-      current_parent_nodes = inheritance_manager.parents
-      final_parent_nodes   = persisted_parent_nodes
-      final_parent_nodes - current_parent_nodes
-    end
-
-    def removed_persisted_parent_nodes
-      current_parent_nodes = inheritance_manager.parents
-      final_parent_nodes   = persisted_parent_nodes
-      current_parent_nodes - final_parent_nodes
+      NodeManager.unblock(self)
     end
 
     def persisted_parent_nodes
