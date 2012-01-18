@@ -1,5 +1,4 @@
-require 'access_control/inheritance'
-require 'support/matchers/recognize'
+require 'spec_helper'
 
 module AccessControl
   describe Inheritance do
@@ -30,7 +29,53 @@ module AccessControl
         model.inherits_permissions_from([:parent1, :parent2])
         model.inherits_permissions_from.should == [:parent1, :parent2]
       end
+    end
 
+    describe ".inherits_permissions_from_key" do
+      it "raises ArgumentError if not given a column name and a class name" do
+        lambda {
+          model.inherits_permissions_from_key('foo_id')
+        }.should raise_exception(ArgumentError)
+      end
+
+      it "returns a AssociationInheritance" do
+        inheritance = model.inherits_permissions_from_key('foo_id', :class_name => "Foo")
+        inheritance.should be_kind_of(AssociationInheritance)
+      end
+
+      it "stores the information from the class on the Inheritance module" do
+        lambda {
+          model.inherits_permissions_from_key('foo_id', :class_name => "Foo")
+        }.should change(Inheritance.inheritances_of(model), :count).by(1)
+      end
+
+      it "stores the returned inheritance on the Inheritance module" do
+        inheritance =
+          model.inherits_permissions_from_key('foo_id', :class_name => "Foo")
+        Inheritance.inheritances_of(model).should include(inheritance)
+      end
+
+      it "doesn't add a new inheritance if a equivalent exists" do
+        model.inherits_permissions_from_key('foo_id', :class_name => "Foo")
+
+        lambda {
+          model.inherits_permissions_from_key('foo_id', :class_name => "Foo")
+        }.should_not change(Inheritance.inheritances_of(model), :count)
+      end
+    end
+
+    describe ".inheritances_of" do
+      let!(:inheritance) do
+        model.inherits_permissions_from_key("foo_id", :class_name => "Foo")
+      end
+
+      it "finds inheritances correctly if given a class" do
+        Inheritance.inheritances_of(model).should include(inheritance)
+      end
+
+      it "finds inheritances correctly if given a class name" do
+        Inheritance.inheritances_of(model.name).should include(inheritance)
+      end
     end
 
     describe ".recognizes?" do
