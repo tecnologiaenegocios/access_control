@@ -18,6 +18,44 @@ module AccessControl
       AssociationInheritance.new(Record, :record_id, Record.name)
     end
 
+    describe "equality" do
+      it "is equal to other if the other's properties are the same" do
+        other = AssociationInheritance.new(Record, :record_id, Record.name)
+        subject.should == other
+      end
+
+      it "is not equal to other if the other's model is different" do
+        other = AssociationInheritance.new(Class.new, :record_id, Record.name)
+        subject.should_not == other
+      end
+
+      it "is not equal to other if the other's key is different" do
+        other = AssociationInheritance.new(Record, :wrong_key, Record.name)
+        subject.should_not == other
+      end
+
+      it "is not equal to other if the other's parent type is different" do
+        other = AssociationInheritance.new(Record, :record_id, "WrongType")
+        subject.should_not == other
+      end
+
+      it "is not equal to other if the other is not a AssociationInheritance" do
+        other = stub(:model_class => Record, :key_name => :record_id,
+                     :parent_type => Record.name)
+
+        subject.should_not == other
+      end
+    end
+
+    describe "#properties" do
+      it "returns the inheritance's properties in a hash" do
+        subject = AssociationInheritance.new(Record, :record_id, Record.name)
+        subject.properties.should == {:model_class => Record,
+                                      :key_name    => :record_id,
+                                      :parent_type => Record.name}
+      end
+    end
+
     def create_record(parent = nil)
       parent_id = parent && parent.id
       Record.create(:record_id => parent_id).tap do |record|
@@ -30,12 +68,12 @@ module AccessControl
       @nodes ||= Hash.new
     end
 
-    let!(:parent)     { create_record }
-    let!(:record)     { create_record(parent) }
-    let(:parent_node) { nodes[parent] }
-    let(:node)        { nodes[record] }
-
     describe "#relationships" do
+      let!(:parent)     { create_record }
+      let!(:record)     { create_record(parent) }
+      let(:parent_node) { nodes[parent] }
+      let(:node)        { nodes[record] }
+
       it "contains an element for each parent-child relationship" do
         subject.relationships.count.should == 1
       end

@@ -29,6 +29,21 @@ module AccessControl
     end
     alias_method :relationships_of, :relationships
 
+    def ==(other)
+      if other.class == self.class
+        other.properties == properties
+      else
+        false
+      end
+    end
+    alias_method :equal?, :==
+
+    def properties
+      { :model_class => model_class,
+        :key_name    => key_name,
+        :parent_type => parent_type }
+    end
+
   private
 
     def record_type

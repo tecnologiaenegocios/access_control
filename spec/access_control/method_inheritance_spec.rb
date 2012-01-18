@@ -28,6 +28,36 @@ module AccessControl
 
     subject { MethodInheritance.new(model, :parent) }
 
+    describe "equality" do
+      it "is equal to other if the other's model and method are the same" do
+        other = MethodInheritance.new(model, :parent)
+        subject.should == other
+      end
+
+      it "is not equal to other if the other's model is different" do
+        other = MethodInheritance.new(Class.new, :parent)
+        subject.should_not == other
+      end
+
+      it "is not equal to other if the other's method is different" do
+        other = MethodInheritance.new(model, :grandparent)
+        subject.should_not == other
+      end
+
+      it "is not equal to other if the other is not a MethodInheritance" do
+        other = stub(:model_class => model, :method_name => :parent)
+        subject.should_not == other
+      end
+    end
+
+    describe "#properties" do
+      it "returns the inheritance's properties in a hash" do
+        subject = MethodInheritance.new(model, :parent)
+        subject.properties.should == {:model_class => model,
+                                      :method_name => :parent}
+      end
+    end
+
     describe "#relationships" do
       let(:another_parent_node) { stub(:id => ids.next) }
       let(:another_node)        { stub(:id => ids.next) }

@@ -28,6 +28,19 @@ module AccessControl
 
     alias_method :relationships_of, :relationships
 
+    def ==(other)
+      if other.class == self.class
+        other.properties == properties
+      else
+        false
+      end
+    end
+    alias_method :eql?, :==
+
+    def properties
+      {:model_class => model_class, :method_name => method_name}
+    end
+
   private
 
     def nodes
