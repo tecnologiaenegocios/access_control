@@ -1,4 +1,5 @@
 require 'spec_helper'
+require 'access_control/db'
 require 'access_control/behavior'
 require 'access_control/node'
 require 'access_control/securable'
@@ -84,6 +85,35 @@ describe AccessControl do
       AccessControl::Principal.stub(:anonymous => anonymous)
 
       AccessControl.anonymous.should == anonymous
+    end
+  end
+
+  describe ".setup_parent_relationships" do
+    let(:parent1) { 1 }
+    let(:parent2) { 2 }
+    let(:child1)  { 3 }
+    let(:child2)  { 4 }
+
+    let(:inheritance1) { stub(:relationships => [[parent1, child1]]) }
+    let(:inheritance2) { stub(:relationships => [[parent2, child2]]) }
+
+    let(:inheritances) { [inheritance1, inheritance2] }
+
+    let(:securable_class) { stub }
+
+    before do
+      AccessControl::Inheritance.stub(:inheritances_of).with(securable_class).
+        and_return(inheritances)
+    end
+
+    it "imports every parent-child tuple for each inheritance" do
+      AccessControl.setup_parent_relationships(securable_class)
+
+      tuples = AccessControl.ac_parents.map do |row|
+        [row[:parent_id], row[:child_id]]
+      end
+
+      tuples.should include_only([parent1, child1], [parent2, child2])
     end
   end
 

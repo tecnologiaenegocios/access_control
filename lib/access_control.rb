@@ -1,7 +1,5 @@
 require 'rubygems'
 require 'access_control/db'
-AccessControl.bootstrap_sequel!
-
 require 'access_control/behavior'
 require 'action_controller'
 

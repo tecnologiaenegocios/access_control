@@ -1,5 +1,6 @@
 require 'access_control/manager'
 require 'access_control/securable'
+require 'access_control/inheritance'
 
 module AccessControl
 
@@ -43,6 +44,12 @@ module AccessControl
 
   def self.anonymous_subject_id
     AnonymousUser.instance.id
+  end
+
+  def self.setup_parent_relationships(securable_class)
+    Inheritance.inheritances_of(securable_class).each do |inheritance|
+      ac_parents.import([:parent_id, :child_id], inheritance.relationships)
+    end
   end
 
   class GlobalRecord

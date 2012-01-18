@@ -69,3 +69,5 @@ module AccessControl
       config
     end
 end
+
+AccessControl.bootstrap_sequel!
