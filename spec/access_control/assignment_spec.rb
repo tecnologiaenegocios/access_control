@@ -92,7 +92,7 @@ module AccessControl
       end
     end
 
-    describe "automatic propagation" do
+    describe "automatic propagation/depropagation" do
       let(:node_id)             { 12345 }
       let(:node)                { stub("Node", :id => node_id) }
       let(:inheritance_manager) { stub("Inheritance Manager") }
@@ -118,181 +118,33 @@ module AccessControl
       end
 
       context "after the assignment is created" do
-        it "creates new assignments for each of the Node's decendants" do
-          new_assignments_count = children_ids.count + 1
-
-          lambda {
-            subject.persist
-          }.should change(Assignment, :count).by(new_assignments_count)
+        it "propagates the assignment to the node's descentants" do
+          Assignment::Persistent.should_receive(:propagate_to_descendants).
+            with([subject], subject.node_id)
+          subject.persist
         end
 
-        describe "the new assignments" do
-          let(:new_assignments) do
-            Assignment.all.to_a.reverse.take(children_ids.count)
+        it "saves the persistent first, then propagates" do
+          persistent = subject.persistent
+          persistent.stub(:save) do
+            Assignment::Persistent.already_persisted
           end
 
-          before do
-            subject.persist
-          end
+          Assignment::Persistent.should_receive(:already_persisted).ordered
+          Assignment::Persistent.should_receive(:propagate_to_descendants).
+            with(any_args).ordered
 
-          specify "are effective" do
-            new_assignments.each do |new_assignment|
-              new_assignment.should be_effective
-            end
-          end
-
-          specify "are not real" do
-            new_assignments.each do |new_assignment|
-              new_assignment.should_not be_real
-            end
-          end
-
-          it "have parent_id pointing to the original assignment's id" do
-            new_assignments.each do |new_assignment|
-              new_assignment.parent_id.should == subject.id
-            end
-          end
-
-          it "have the same role_id of the parent" do
-            new_assignments.each do |new_assignment|
-              new_assignment.role_id.should == subject.role_id
-            end
-          end
-
-          it "have the same principal_id of the parent" do
-            new_assignments.each do |new_assignment|
-              new_assignment.principal_id.should == subject.principal_id
-            end
-          end
-
-          it "have node_id pointing to one of the node's children" do
-            missing_children_ids = Set.new(children_ids)
-            new_assignments.each do |new_assignment|
-              missing_children_ids.delete(new_assignment.node_id)
-            end
-
-            missing_children_ids.should be_empty
-          end
-        end
-
-        context "when the node has second-order children" do
-          let(:second_order_child) { stub("2nd order child", :id => 666) }
-          let(:second_order_children_ids) { [second_order_child.id] }
-
-          before do
-            inheritance_manager.stub(:descendant_ids).
-              and_yield(node_id,   children_ids).
-              and_yield(child2.id, second_order_children_ids)
-          end
-
-          it "creates new assignments for each of them" do
-            new_assignments_count = second_order_children_ids.count +
-                                    children_ids.count + 1
-
-            lambda {
-              subject.persist
-            }.should change(Assignment, :count).by(new_assignments_count)
-          end
-
-          context "the created 'second-order' assignments" do
-            before do
-              subject.persist
-            end
-
-            let(:first_order_assignment) do
-              Assignment.with_nodes(child2.id).to_a.first
-            end
-
-            let(:second_order_assignments) do
-              Assignment.all.to_a.reverse.take(second_order_children_ids.count)
-            end
-
-            it "have the parent_id as the assignment that is their parent" do
-              second_order_assignments.each do |assignment|
-                assignment.parent_id.should == first_order_assignment.id
-              end
-            end
-
-            it "have the same role_id of the parent" do
-              second_order_assignments.each do |assignment|
-                assignment.role_id.should == first_order_assignment.role_id
-              end
-            end
-
-            it "have the same principal_id of the parent" do
-              second_order_assignments.each do |assignment|
-                assignment.principal_id.should ==
-                  first_order_assignment.principal_id
-              end
-            end
-
-            specify "are effective" do
-              second_order_assignments.each do |assignment|
-                assignment.should be_effective
-              end
-            end
-
-            specify "are not real" do
-              second_order_assignments.each do |assignment|
-                assignment.should_not be_real
-              end
-            end
-
-            it "have node_id pointing to one of the node's 2nd order children" do
-              missing_children_ids = Set.new(second_order_children_ids)
-              second_order_assignments.each do |assignment|
-                missing_children_ids.delete(assignment.node_id)
-              end
-
-              missing_children_ids.should be_empty
-            end
-          end
+          subject.persist
         end
       end
 
       context "on the destruction of the assignment" do
-        let(:assignment_children) { Assignment.children_of(subject) }
-
-        it "destroys one assignment for each of the node's children" do
+        it "destroys the children assignments" do
           subject.persist
+          Assignment::Persistent.should_receive(:destroy_children_of).
+            with(subject.id)
 
-          destroyed_assignments_count = children_ids.count + 1
-          lambda {
-            subject.destroy
-          }.should change(Assignment, :count).by(-destroyed_assignments_count)
-        end
-
-        it "destroys the 'children' of the assignment" do
-          subject.persist
           subject.destroy
-
-          assignment_children.each do |child|
-            Assignment.has?(child.id).should be_false
-          end
-        end
-
-        context "when the assignment has second-order children" do
-          before do
-            second_order_child = stub("2nd order child", :id => 666)
-
-            Node::InheritanceManager.stub(:child_ids_of).with(child2.id).
-              and_return([second_order_child.id])
-            subject.persist
-          end
-
-          let!(:second_order_children) do
-            Util.flat_set(assignment_children) do |child|
-              Assignment.children_of(child)
-            end
-          end
-
-          specify "they are destroyed too" do
-            subject.destroy
-
-            second_order_children.each do |child|
-              Assignment.has?(child.id).should be_false
-            end
-          end
         end
       end
     end

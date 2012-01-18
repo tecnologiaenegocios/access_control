@@ -67,32 +67,11 @@ module AccessControl
   private
 
     def destroy_child_assignments!
-      Assignment.children_of(self).each(&:destroy)
+      Assignment::Persistent.destroy_children_of(id)
     end
 
     def propagate_to_node_descendants!
-      manager = Node::InheritanceManager.new(node_id)
-
-      created_assignments = {node_id => self.id}
-
-      manager.descendant_ids do |parent_node_id, children_ids|
-        parent_assignment_id = created_assignments[parent_node_id]
-        new_assignments = create_children_on(children_ids, parent_assignment_id)
-
-        created_assignments.merge!(new_assignments)
-      end
-    end
-
-    def create_children_on(node_ids, parent_id)
-      combination = AssignmentCombination.new(:role_id => role_id,
-                      :principal_id => principal_id, :nodes_ids => node_ids)
-
-      combination.parent_id = parent_id
-
-      Assignment::Persistent.multi_insert(combination.to_properties)
-      Assignment::Persistent.filter(:role_id => role_id, :principal_id => principal_id,
-                                    :parent_id => parent_id, :node_id => node_ids.to_a).
-        select_hash(:node_id, :id)
+      Persistent.propagate_to_descendants([self], node_id)
     end
   end
 end

@@ -71,10 +71,10 @@ module AccessControl
     describe "#propagate!" do
       let(:assignments) { stub("Assignments dataset") }
 
-      it "uses Assignment.propagate_all to create the new assignments" do
+      it "uses Assignment.propagate_to to create the new assignments" do
         subject.relevant_assignments = assignments
 
-        Assignment::Persistent.should_receive(:propagate_all).
+        Assignment::Persistent.should_receive(:propagate_to).
           with(assignments, node.id)
 
         subject.propagate!
@@ -85,11 +85,11 @@ module AccessControl
     describe "#depropagate!" do
       let(:assignments) { stub("Assignments dataset") }
 
-      it "uses Assignment.depropagate_all to wipe out assignments" do
+      it "uses Assignment.depropagate_from to wipe out assignments" do
         subject.relevant_assignments = assignments
 
-        Assignment::Persistent.should_receive(:depropagate_all).
-          with(assignments)
+        Assignment::Persistent.should_receive(:depropagate_from).
+          with(assignments, node.id)
 
         subject.depropagate!
       end
