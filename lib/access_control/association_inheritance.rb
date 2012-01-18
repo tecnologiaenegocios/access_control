@@ -11,7 +11,9 @@ module AccessControl
       @parent_type = parent_type
     end
 
-    def relationships(dataset = record_table, &block)
+    def relationships(collection = record_table, &block)
+      dataset = normalize_to_dataset(collection)
+
       child_nodes_clause = join_clause("child_nodes", record_type,
                                        :id.qualify(record_table_name))
 
@@ -61,8 +63,18 @@ module AccessControl
        { :table_alias => nodes_alias } ]
     end
 
+    def normalize_to_dataset(object)
+      if object.kind_of?(Sequel::Dataset)
+        object
+      elsif object.kind_of?(Enumerable)
+        record_table.filter(:id.qualify(record_table_name) => object.map(&:id))
+      else
+        raise ArgumentError, "Incompatible collection type #{object.class}"
+      end
+    end
+
     def record_table
-      @dataset ||= AccessControl.db[record_table_name]
+      @reciord_table ||= AccessControl.db[record_table_name]
     end
   end
 end

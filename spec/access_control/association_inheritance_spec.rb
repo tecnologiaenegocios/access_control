@@ -114,6 +114,16 @@ module AccessControl
                                               :child_id  => node.id)
           end
         end
+
+        context "and given a collection of securables to work on" do
+          it "acts on the values of the collection" do
+            relationships = subject.relationships [record]
+
+            relationships.should include_only(:parent_id => parent_node.id,
+                                              :child_id  => node.id)
+
+          end
+        end
       end
 
       it "doesn't return relationships whose child has no id" do
@@ -140,6 +150,14 @@ module AccessControl
           end
 
           yielded.should include [parent_node.id, node.id]
+        end
+      end
+
+      context "when given a invalid collection argument" do
+        it "raises ArgumentError" do
+          lambda {
+            subject.relationships record
+          }.should raise_exception(ArgumentError)
         end
       end
     end
