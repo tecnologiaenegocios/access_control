@@ -62,6 +62,15 @@ module AccessControl
           model.inherits_permissions_from_key('foo_id', :class_name => "Foo")
         }.should_not change(Inheritance.inheritances_of(model), :count)
       end
+
+      it "creates the inheritance with the correct parameters" do
+        model.inherits_permissions_from_key('foo_id', :class_name => "Foo")
+        inheritance = Inheritance.inheritances_of(model).first
+
+        inheritance.model_class.name.should == model.name
+        inheritance.key_name.should         == :foo_id
+        inheritance.parent_type.should      == "Foo"
+      end
     end
 
     describe ".inheritances_of" do

@@ -74,7 +74,7 @@ module AccessControl
           raise ArgumentError, "Key and class names are mandatory"
         end
 
-        Inheritance.add_key_inheritance(self, key_name, options)
+        Inheritance.add_key_inheritance(self, key_name, class_name)
       end
     end
 
