@@ -67,7 +67,21 @@ module AccessControl
     end
 
     def securable
-      @securable ||= securable_class.unrestricted_find(securable_id)
+      @securable ||=
+        begin
+          if global?
+            AccessControl::GlobalRecord.instance
+          else
+            AccessControl.manager.without_query_restriction do
+              record = adapted_class[securable_id]
+              unless record
+                raise NotFoundError,
+                      "missing securable #{securable_type}(#{securable_id})"
+              end
+              record
+            end
+          end
+        end
     end
 
     def securable_class=(klass)
@@ -100,6 +114,10 @@ module AccessControl
     end
 
   private
+
+    def adapted_class
+      @adapted_class ||= ORM.adapt_class(securable_class)
+    end
 
     def perform_blocking
       NodeManager.block(self)

@@ -216,26 +216,48 @@ module AccessControl
     describe "#securable" do
 
       let(:model) { Class.new }
-      let(:node) { Node.new(:securable_class => model,
-                            :securable_id    => 1000) }
+      let(:node)  { Node.new(:securable_class => model,
+                             :securable_id    => securable_id) }
+      let(:adapted) { stub }
+      let(:manager) { stub }
+      let(:securable_id) { 1000 }
+
       def build_securable
         # Strings compare char by char, but each time object_id changes.
         'securable'
       end
 
       before do
-        model.stub(:unrestricted_find) do |id|
-          if id == node.securable_id
+        ORM.stub(:adapt_class).with(model).and_return(adapted)
+        AccessControl.stub(:manager).and_return(manager)
+
+        manager.define_singleton_method(:without_query_restriction) do |&b|
+          b.call
+        end
+
+        adapted.stub(:[]) do |id|
+          if id == securable_id
             build_securable()
           else
-            fail
+            nil
           end
         end
       end
 
-      it "gets the record by calling .unrestricted_find in the model" do
+      it "gets the record by calling .[] in the adapted model" do
         securable = build_securable
         node.securable.should == securable
+      end
+
+      it "raises error if record is not found" do
+        node.stub(:securable_id).and_return('another id')
+        lambda { node.securable }.should raise_exception(NotFoundError)
+      end
+
+      it "gets the record in an unrestricted way" do
+        adapted.should_receive_without_query_restriction(:[]) do
+          node.securable
+        end
       end
 
       it "is cached" do
@@ -281,6 +303,12 @@ module AccessControl
         end
       end
 
+      let(:adapted) do
+        adapted = stub
+        adapted.stub(:[]) { |id| securable_class.find(id) }
+        adapted
+      end
+
       def build_securable(parents=[])
         securable_class.new(:parents => parents)
       end
@@ -300,6 +328,7 @@ module AccessControl
       end
 
       before do
+        ORM.stub(:adapt_class).with(securable_class).and_return(adapted)
         NodeManager.stub(:block)
         NodeManager.stub(:unblock)
       end

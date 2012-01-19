@@ -133,7 +133,6 @@ describe AccessControl do
   end
 
   describe AccessControl::GlobalRecord do
-
     subject { AccessControl::GlobalRecord.instance }
 
     it "cannot be instantiated" do
@@ -146,31 +145,6 @@ describe AccessControl do
     end
 
     it { should be_a AccessControl::Securable }
-
-    describe ".unrestricted_find" do
-      let(:global_record) { AccessControl::GlobalRecord.instance }
-      subject { AccessControl::GlobalRecord.public_method(:unrestricted_find) }
-
-      it "returns the global record when passed the :first parameter" do
-        subject[:first].should == global_record
-      end
-
-      it "returns the global record when passed the :last parameter" do
-        subject[:last].should == global_record
-      end
-
-      it "returns the global record when passed the GlobalRecord's ID" do
-        subject[global_record.id].should == global_record
-      end
-
-      it "returns nil when passed a number that is not the GlobalRecord's ID" do
-        subject[666].should be_nil
-      end
-
-      it "returns the global record inside a Set when passed :all" do
-        subject[:all].should == Set[global_record]
-      end
-    end
   end
 
   describe AccessControl::AnonymousUser do
@@ -184,31 +158,5 @@ describe AccessControl do
       # The is is 1 and not 0 because we're using 0 for class nodes.
       subject.id.should == 1
     end
-
-    describe ".unrestricted_find" do
-      let(:anonymous_user) { AccessControl::AnonymousUser.instance }
-      subject { AccessControl::AnonymousUser.public_method(:unrestricted_find) }
-
-      it "returns the anonymous user when passed the :first parameter" do
-        subject[:first].should == anonymous_user
-      end
-
-      it "returns the anonymous user when passed the :last parameter" do
-        subject[:last].should == anonymous_user
-      end
-
-      it "returns the anonymous user when passed the AnonymousUser's ID" do
-        subject[anonymous_user.id].should == anonymous_user
-      end
-
-      it "returns nil if passed a number that is not the AnonymousUser's ID" do
-        subject[666].should be_nil
-      end
-
-      it "returns the anonymous user inside a Set when passed :all" do
-        subject[:all].should == Set[anonymous_user]
-      end
-    end
   end
-
 end

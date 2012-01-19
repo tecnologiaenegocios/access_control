@@ -156,27 +156,50 @@ module AccessControl
     end
 
     describe "#subject" do
-      let(:model) { Class.new }
+      let(:model)     { Class.new }
       let(:principal) { Principal.new(:subject_class => model,
-                                      :subject_id    => 1000) }
+                                      :subject_id    => subject_id) }
+
+      let(:adapted)    { stub }
+      let(:manager)    { stub }
+      let(:subject_id) { 1000 }
+
       def build_subject
         # Strings compare char by char, but each time object_id changes.
         'subject'
       end
 
       before do
-        model.stub(:unrestricted_find) do |id|
-          if id == principal.subject_id
+        ORM.stub(:adapt_class).with(model).and_return(adapted)
+        AccessControl.stub(:manager).and_return(manager)
+
+        manager.define_singleton_method(:without_query_restriction) do |&b|
+          b.call
+        end
+
+        adapted.stub(:[]) do |id|
+          if id == subject_id
             build_subject()
           else
-            fail
+            nil
           end
         end
       end
 
-      it "gets the record by calling .unrestricted_find in the model" do
+      it "gets the record by calling .[] in the adapted model" do
         subject = build_subject
         principal.subject.should == subject
+      end
+
+      it "raises error if record is not found" do
+        principal.stub(:subject_id).and_return('another id')
+        lambda { principal.subject }.should raise_exception(NotFoundError)
+      end
+
+      it "gets the record in an unrestricted way" do
+        adapted.should_receive_without_query_restriction(:[]) do
+          principal.subject
+        end
       end
 
       it "is cached" do

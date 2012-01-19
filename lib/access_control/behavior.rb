@@ -60,16 +60,6 @@ module AccessControl
   class GlobalRecord
     include Singleton
     include Securable
-
-    def self.unrestricted_find(argument, *)
-      case argument
-        when :first, :last, instance.id
-          instance
-        when :all
-          Set[instance]
-      end
-    end
-
     def id
       1
     end
@@ -77,19 +67,8 @@ module AccessControl
 
   class AnonymousUser
     include Singleton
-
-    def self.unrestricted_find(argument, *)
-      case argument
-        when :first, :last, instance.id
-          instance
-        when :all
-          Set[instance]
-      end
-    end
-
     def id
       1
     end
-
   end
 end

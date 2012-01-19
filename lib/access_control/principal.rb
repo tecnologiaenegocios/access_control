@@ -1,3 +1,4 @@
+require 'access_control/exceptions'
 require 'access_control/persistable'
 require 'access_control/ids'
 require 'access_control/principal/persistent'
@@ -83,7 +84,21 @@ module AccessControl
     end
 
     def subject
-      @subject ||= subject_class.unrestricted_find(subject_id)
+      @subject ||=
+        begin
+          if anonymous?
+            AccessControl::AnonymousUser.instance
+          else
+            AccessControl.manager.without_query_restriction do
+              subject = adapted_class[subject_id]
+              unless subject
+                raise NotFoundError,
+                      "missing subject #{subject_type}(#{subject_id})"
+              end
+              subject
+            end
+          end
+        end
     end
 
     def anonymous?
@@ -93,6 +108,12 @@ module AccessControl
     def destroy
       Role.unassign_all_from(self)
       super
+    end
+
+  private
+
+    def adapted_class
+      @adapted_class ||= ORM.adapt_class(subject_class)
     end
   end
 
