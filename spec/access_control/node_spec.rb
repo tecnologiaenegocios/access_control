@@ -108,6 +108,45 @@ module AccessControl
       end
     end
 
+    describe ".generate_for" do
+      let(:securable_class) { FakeSecurable }
+      let(:adapted)         { stub(:table_name => :fake_securables) }
+      let(:node_dataset)    { AccessControl.db[:ac_nodes] }
+      let(:dataset)         { AccessControl.db[:fake_securables] }
+
+      before do
+        securable_class.stub(:name).and_return('FakeSecurable')
+        AccessControl.db.create_table(:fake_securables) { primary_key :id }
+        3.times { dataset.insert }
+        ORM.stub(:adapt_class).with(securable_class).and_return(adapted)
+      end
+
+      after do
+        AccessControl.db.drop_table(:fake_securables)
+      end
+
+      it "creates as many nodes as there are securable for the given class" do
+        Node.generate_for(securable_class)
+        node_dataset.
+          filter(:securable_type => 'FakeSecurable').count.should == 3
+      end
+
+      it "uses the ids of the securables as :securable_id" do
+        Node.generate_for(securable_class)
+
+        existing_securable_ids = node_dataset.
+          filter(:securable_type => 'FakeSecurable').select_map(:securable_id)
+        expected_securable_ids = dataset.select_map(:id)
+        expected_securable_ids.should include_only(*existing_securable_ids)
+      end
+
+      it "doesn't create duplicates" do
+        2.times { Node.generate_for(securable_class) }
+        node_dataset.
+          filter(:securable_type => 'FakeSecurable').count.should == 3
+      end
+    end
+
     describe ".clear_global_cache" do
       it "clears the global node cache" do
         prev_node = Node.global

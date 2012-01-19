@@ -40,6 +40,23 @@ module AccessControl
       @global_node = nil
     end
 
+    def generate_for(securable_class)
+      table_name = ORM.adapt_class(securable_class).table_name
+      securable_type = securable_class.name
+
+      securables_without_nodes =
+        AccessControl.db[table_name].
+          select(securable_type, :id.qualify(table_name)).
+          join_table(:left, :ac_nodes, {
+            :id.qualify(table_name) => :ac_nodes__id,
+            :ac_nodes__securable_type => securable_type,
+          }).
+          filter(:ac_nodes__id => nil)
+
+      Node::Persistent.import([:securable_type, :securable_id],
+                              securables_without_nodes)
+    end
+
   private
 
     def create_global_node
