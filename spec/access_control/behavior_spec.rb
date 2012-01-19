@@ -115,6 +115,21 @@ describe AccessControl do
 
       tuples.should include_only([parent1, child1], [parent2, child2])
     end
+
+    context "with equivalent inheritances" do
+      let(:inheritance2) { stub(:relationships => [[parent2, child2],
+                                                   [parent1, child1]]) }
+
+      it "doesn't cause a duplication" do
+        AccessControl.setup_parent_relationships(securable_class)
+
+        tuples = AccessControl.ac_parents.map do |row|
+          [row[:parent_id], row[:child_id]]
+        end
+
+        tuples.should include_only([parent1, child1], [parent2, child2])
+      end
+    end
   end
 
   describe AccessControl::GlobalRecord do

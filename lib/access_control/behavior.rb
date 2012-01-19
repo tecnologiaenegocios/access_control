@@ -47,8 +47,13 @@ module AccessControl
   end
 
   def self.setup_parent_relationships(securable_class)
-    Inheritance.inheritances_of(securable_class).each do |inheritance|
-      ac_parents.import([:parent_id, :child_id], inheritance.relationships)
+    AccessControl.transaction do
+      Inheritance.inheritances_of(securable_class).each do |inheritance|
+        existing_relationships =
+          ac_parents.filter([:parent_id, :child_id] => inheritance.relationships)
+        existing_relationships.delete
+        ac_parents.import([:parent_id, :child_id], inheritance.relationships)
+      end
     end
   end
 
