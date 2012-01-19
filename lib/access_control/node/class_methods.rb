@@ -48,7 +48,7 @@ module AccessControl
         AccessControl.db[table_name].
           select(securable_type, :id.qualify(table_name)).
           join_table(:left, :ac_nodes, {
-            :id.qualify(table_name) => :ac_nodes__id,
+            :id.qualify(table_name) => :ac_nodes__securable_id,
             :ac_nodes__securable_type => securable_type,
           }).
           filter(:ac_nodes__id => nil)
