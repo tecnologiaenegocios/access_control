@@ -58,7 +58,7 @@ module AccessControl
 
     def join_clause(nodes_alias, securable_type, id_spec)
       [:ac_nodes,
-       { :securable_type.qualify(nodes_alias) => record_type,
+       { :securable_type.qualify(nodes_alias) => securable_type,
          :securable_id.qualify(nodes_alias)   => id_spec },
        { :table_alias => nodes_alias } ]
     end

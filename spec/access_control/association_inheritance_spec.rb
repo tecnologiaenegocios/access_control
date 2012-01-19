@@ -3,7 +3,13 @@ require 'spec_helper'
 module AccessControl
   describe AssociationInheritance do
 
-    class Record < Sequel::Model(:records)
+    class Record < Sequel::Model
+      set_dataset AccessControl.db[:records].filter(~{:record_id => nil})
+      include Inheritance
+    end
+
+    class Parent < Sequel::Model
+      set_dataset AccessControl.db[:records].filter(:record_id => nil)
       include Inheritance
     end
 
@@ -15,22 +21,22 @@ module AccessControl
     end
 
     subject do
-      AssociationInheritance.new(Record, :record_id, Record.name)
+      AssociationInheritance.new(Record, :record_id, Parent.name)
     end
 
     describe "equality" do
       it "is equal to other if the other's properties are the same" do
-        other = AssociationInheritance.new(Record, :record_id, Record.name)
+        other = AssociationInheritance.new(Record, :record_id, Parent.name)
         subject.should == other
       end
 
       it "is not equal to other if the other's model is different" do
-        other = AssociationInheritance.new(Class.new, :record_id, Record.name)
+        other = AssociationInheritance.new(Class.new, :record_id, Parent.name)
         subject.should_not == other
       end
 
       it "is not equal to other if the other's key is different" do
-        other = AssociationInheritance.new(Record, :wrong_key, Record.name)
+        other = AssociationInheritance.new(Record, :wrong_key, Parent.name)
         subject.should_not == other
       end
 
@@ -41,7 +47,7 @@ module AccessControl
 
       it "is not equal to other if the other is not a AssociationInheritance" do
         other = stub(:model_class => Record, :key_name => :record_id,
-                     :parent_type => Record.name)
+                     :parent_type => Parent.name)
 
         subject.should_not == other
       end
@@ -49,10 +55,10 @@ module AccessControl
 
     describe "#properties" do
       it "returns the inheritance's properties in a hash" do
-        subject = AssociationInheritance.new(Record, :record_id, Record.name)
+        subject = AssociationInheritance.new(Record, :record_id, Parent.name)
         subject.properties.should == {:model_class => Record,
                                       :key_name    => :record_id,
-                                      :parent_type => Record.name}
+                                      :parent_type => Parent.name}
       end
     end
 
@@ -64,12 +70,19 @@ module AccessControl
       end
     end
 
+    def create_parent
+      Parent.create.tap do |parent|
+        nodes[parent] = Node.store(:securable_type => Parent.name,
+                                   :securable_id   => parent.id)
+      end
+    end
+
     def nodes
       @nodes ||= Hash.new
     end
 
     describe "#relationships" do
-      let!(:parent)     { create_record }
+      let!(:parent)     { create_parent}
       let!(:record)     { create_record(parent) }
       let(:parent_node) { nodes[parent] }
       let(:node)        { nodes[record] }
@@ -86,7 +99,7 @@ module AccessControl
       end
 
       context "when multiple records/nodes exists" do
-        let!(:another_parent)     { create_record }
+        let!(:another_parent)     { create_parent}
         let!(:another_record)     { create_record(another_parent) }
         let(:another_parent_node) { nodes[another_parent] }
         let(:another_node)        { nodes[another_record] }
