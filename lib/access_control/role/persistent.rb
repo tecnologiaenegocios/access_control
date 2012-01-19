@@ -12,7 +12,7 @@ module AccessControl
       end
 
       def self.for_all_permissions(permissions)
-        items = SecurityPolicyItem.with_permission(permissions).to_a
+        items = SecurityPolicyItem.with_permissions(permissions).to_a
         items_by_role = items.group_by(&:role_id)
 
         permissions_set = Set.new(permissions)
