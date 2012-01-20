@@ -23,115 +23,107 @@ module AccessControl
       end
     end
 
+    attr_writer :inheritance_manager, :manager
     def initialize(node)
       @node = node
     end
 
     def can_update!
-      manager.can!(update_permissions, @node)
+      manager.can!(permissions_to_update, @node)
     end
 
     def refresh_parents
-      added_parents = new_persisted_parent_nodes
-      deleted_parents = removed_persisted_parent_nodes
+      new_parents     = nodes_of_securable_parents - cached_parents
+      deleted_parents = cached_parents - nodes_of_securable_parents
 
-      added_parents.each do |parent_node|
-        manager.can!(create_permissions, parent_node)
-        inheritance_manager.add_parent(parent_node)
+      if new_parents.any?
+        add_to_parents_cache(new_parents)
+        propagate_roles_of(new_parents)
       end
 
-      deleted_parents.each do |parent_node|
-        manager.can!(destroy_permissions, parent_node)
-        inheritance_manager.del_parent(parent_node)
+      if deleted_parents.any?
+        remove_from_parents_cache(deleted_parents)
+        depropagate_roles_of(deleted_parents)
       end
-
-      role_propagation(added_parents).propagate!
-      role_propagation(deleted_parents).depropagate!
     end
 
     def disconnect
-      current_parent_nodes.each do |parent_node|
-        manager.can!(destroy_permissions, parent_node)
+      parents = cached_parents
+
+      parents.each do |parent_node|
+        manager.can!(permissions_to_destroy, parent_node)
       end
-      role_propagation(current_parent_nodes).depropagate!
+
+      depropagate_roles_of(parents)
       inheritance_manager.del_all_parents
       inheritance_manager.del_all_children
     end
 
     def block
-      role_propagation(inheritance_manager.parents).depropagate!
+      depropagate_roles_of(cached_parents)
       inheritance_manager.del_all_parents
     end
 
     def unblock
-      final_parent_nodes.each do |parent_node|
+      parents = nodes_of_securable_parents
+
+      parents.each do |parent_node|
         inheritance_manager.add_parent(parent_node)
       end
 
-      role_propagation(final_parent_nodes).propagate!
+      propagate_roles_of(parents)
     end
 
   private
 
+    def add_to_parents_cache(parents)
+      parents.each do |parent_node|
+        manager.can!(permissions_to_create, parent_node)
+        inheritance_manager.add_parent(parent_node)
+      end
+    end
+
+    def remove_from_parents_cache(parents)
+      parents.each do |parent_node|
+        manager.can!(permissions_to_destroy, parent_node)
+        inheritance_manager.del_parent(parent_node)
+      end
+    end
+
     def manager
-      AccessControl.manager
+      @manager ||= AccessControl.manager
     end
 
-    def update_permissions
-      securable_class.permissions_required_to_update
+    def permissions_to_update
+      @node.securable_class.permissions_required_to_update
     end
 
-    def create_permissions
-      securable_class.permissions_required_to_create
+    def permissions_to_create
+      @node.securable_class.permissions_required_to_create
     end
 
-    def destroy_permissions
-      securable_class.permissions_required_to_destroy
+    def permissions_to_destroy
+      @node.securable_class.permissions_required_to_destroy
     end
 
-    def securable_class
-      @node.securable_class
+    def cached_parents
+      @cached_parents ||= inheritance_manager.parents
     end
 
-    def new_persisted_parent_nodes
-      final_parent_nodes - current_parent_nodes
-    end
-
-    def removed_persisted_parent_nodes
-      current_parent_nodes - final_parent_nodes
-    end
-
-    def current_parent_nodes
-      @current_parent_nodes ||= inheritance_manager.parents
+    def nodes_of_securable_parents
+      Inheritance.parent_nodes_of(@node.securable)
     end
 
     def inheritance_manager
       @inheritance_manager ||= Node::InheritanceManager.new(@node)
     end
 
-    def final_parent_nodes
-      @final_parent_nodes ||= parent_nodes.select(&:persisted?)
+    def propagate_roles_of(parents)
+      RolePropagation.propagate!(@node, parents)
     end
 
-    def parent_nodes
-      securable_parents.map do |securable_parent|
-        AccessControl::Node(securable_parent)
-      end
-    end
-
-    def securable_parents
-      methods = securable_class.inherits_permissions_from
-      methods.each_with_object(Set.new) do |method_name, set|
-        set.merge(Array[*securable.send(method_name)].compact)
-      end
-    end
-
-    def securable
-      @node.securable
-    end
-
-    def role_propagation(parents)
-      RolePropagation.new(@node, parents)
+    def depropagate_roles_of(parents)
+      RolePropagation.depropagate!(@node, parents)
     end
   end
 end

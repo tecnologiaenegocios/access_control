@@ -17,9 +17,9 @@ module AccessControl
         node_id        = nodes[record] && nodes[record].id
         parent_node_id = nodes[parent_record] && nodes[parent_record].id
 
-        next unless node_id && parent_node_id
+        if node_id && parent_node_id
+          relationship = { :parent_id => parent_node_id, :child_id => node_id }
 
-        [parent_node_id, node_id].tap do |relationship|
           yield relationship if block_given?
           results << relationship
         end

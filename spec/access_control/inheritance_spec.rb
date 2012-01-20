@@ -3,31 +3,129 @@ require 'spec_helper'
 module AccessControl
   describe Inheritance do
 
-    let(:model) { Class.new }
+    def unique_model_name
+      Time.now.to_f.to_s
+    end
 
-    before do
-      model.send(:include, Inheritance)
+    let(:model) do
+      klass = Class.new { include Inheritance }
+
+      # Trick to make the model of each test have a different .name, so that
+      # Inheritance won't treat models on differents tests as the same
+
+      klass.class_exec(unique_model_name) do |name|
+        define_singleton_method(:name) { name }
+      end
+
+      klass
+    end
+
+
+    describe ".fetch_parent_nodes_of" do
+      let(:securable) { stub("Securable", :class => model) }
+
+      let(:method_parent_id)      { stub("Method parent id") }
+      let(:association_parent_id) { stub("Association parent id") }
+
+      let(:method_inheritance)      { stub("Method inheritance") }
+      let(:association_inheritance) { stub("Association inheritance") }
+
+      before do
+        MethodInheritance.stub(:new)
+        MethodInheritance.stub(:new).with(model, :parent_method).
+          and_return(method_inheritance)
+
+        AssociationInheritance.stub(:new)
+        AssociationInheritance.stub(:new).with(model, :parent_key, "Parent").
+          and_return(association_inheritance)
+
+        method_inheritance.stub(:relationships_of => [])
+        association_inheritance.stub(:relationships_of => [])
+
+        model.class_exec do
+          inherits_permissions_from     :parent_method
+          inherits_permissions_from_key :parent_key, :class_name => "Parent"
+        end
+      end
+
+      it "returns the ids of nodes retrieved by methods in the securable" do
+        method_inheritance.stub(:relationships_of).with([securable]).
+          and_return [ {:parent_id => method_parent_id} ]
+
+        Inheritance.parent_nodes_of(securable).should include(method_parent_id)
+      end
+
+      it "returns the ids of nodes retrieved by FKs in the securable" do
+        association_inheritance.stub(:relationships_of).with([securable]).
+          and_return [ {:parent_id => association_parent_id} ]
+
+        Inheritance.parent_nodes_of(securable).should include(association_parent_id)
+      end
+
+      it "returns the ids of both method-based and FK-based parents" do
+        method_inheritance.stub(:relationships_of).with([securable]).
+          and_return [ {:parent_id => method_parent_id} ]
+        association_inheritance.stub(:relationships_of).with([securable]).
+          and_return [ {:parent_id => association_parent_id} ]
+
+        parents = [method_parent_id, association_parent_id]
+        Inheritance.parent_nodes_of(securable).should include_only(*parents)
+      end
     end
 
     describe ".inherits_permissions_from" do
-
-      it "accepts a list of associations" do
-        model.inherits_permissions_from(:parent1, :parent2)
-        model.inherits_permissions_from.should == [:parent1, :parent2]
+      it "returns a MethodInheritance" do
+        inheritance = model.inherits_permissions_from(:foo)
+        inheritance.should be_kind_of(MethodInheritance)
       end
 
-      it "accepts strings, but always returns back symbols" do
-        model.inherits_permissions_from('parent1', 'parent2')
-        model.inherits_permissions_from.should == [:parent1, :parent2]
+      it "creates a new inheritance for the class on the Inheritance module" do
+        lambda {
+          model.inherits_permissions_from(:foo)
+        }.should change(Inheritance.inheritances_of(model), :count).by(1)
       end
 
-      it "returns an empty array if nothing is defined" do
-        model.inherits_permissions_from.should == []
+      it "stores the returned inheritance on the Inheritance module" do
+        inheritance = model.inherits_permissions_from(:foo)
+        Inheritance.inheritances_of(model).should include(inheritance)
       end
 
-      it "accepts an array as a single argument" do
-        model.inherits_permissions_from([:parent1, :parent2])
-        model.inherits_permissions_from.should == [:parent1, :parent2]
+      it "doesn't add a new inheritance if a equivalent exists" do
+        model.inherits_permissions_from(:foo)
+
+        lambda {
+          model.inherits_permissions_from(:foo)
+        }.should_not change(Inheritance.inheritances_of(model), :count)
+      end
+
+      context "when given multiple methods" do
+        it "creates one inheritance for each of them" do
+          lambda {
+            model.inherits_permissions_from(:foo, :bar)
+          }.should change(Inheritance.inheritances_of(model), :count).by(2)
+        end
+
+        it "returns a collection of the created inheritances" do
+          return_values = model.inherits_permissions_from(:foo, :bar)
+          return_values.each do |return_value|
+            return_value.should be_kind_of(MethodInheritance)
+          end
+        end
+
+        it "stores the returned inheritances on the Inheritance module" do
+          created_inheritances = model.inherits_permissions_from(:foo, :bar)
+          stored_inheritances = Inheritance.inheritances_of(model)
+
+          stored_inheritances.should include(*created_inheritances)
+        end
+
+        it "doesn't add a new inheritance if a equivalent exists" do
+          model.inherits_permissions_from(:foo)
+
+          lambda {
+            model.inherits_permissions_from(:foo, :bar)
+          }.should change(Inheritance.inheritances_of(model), :count).by(1)
+        end
       end
     end
 

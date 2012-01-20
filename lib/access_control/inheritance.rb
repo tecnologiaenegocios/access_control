@@ -21,6 +21,14 @@ module AccessControl
       inheritances[model]
     end
 
+    def self.parent_nodes_of(securable)
+      inheritances = inheritances_of(securable.class)
+      inheritances.flat_map do |inheritance|
+        relationships = inheritance.relationships_of([securable])
+        relationships.map { |relationship| relationship.fetch(:parent_id) }
+      end
+    end
+
     def self.add_key_inheritance(model, key_name, class_name)
       AssociationInheritance.new(model, key_name, class_name).tap do |inheritance|
         add_inheritance(model, inheritance)
@@ -31,6 +39,14 @@ module AccessControl
       MethodInheritance.new(model, method_name).tap do |inheritance|
         add_inheritance(model, inheritance)
       end
+    end
+
+    def self.add_inheritance(model, inheritance)
+      equivalent_exists = inheritances[model].any? do |other|
+        other == inheritance
+      end
+
+      inheritances[model] << inheritance unless equivalent_exists
     end
 
     def self.inheritances
@@ -44,26 +60,18 @@ module AccessControl
         end
       end
     end
-
     private_class_method :inheritances
 
-    def self.add_inheritance(model, inheritance)
-      equivalent_exists = inheritances[model].any? do |other|
-        other == inheritance
-      end
-
-      inheritances[model] << inheritance unless equivalent_exists
-    end
-
-    private_class_method :add_inheritance
 
     module ClassMethods
-      def inherits_permissions_from(*args)
-        unless args.any? || @__inheritance__.nil?
-          @__inheritance__
+      def inherits_permissions_from(*methods)
+        if methods.count == 1
+          method_name = methods.first
+          Inheritance.add_method_inheritance(self, method_name)
         else
-          associations = args.flatten(1)
-          @__inheritance__ = associations.flat_map(&:to_sym)
+          methods.map do |method_name|
+            Inheritance.add_method_inheritance(self, method_name)
+          end
         end
       end
 

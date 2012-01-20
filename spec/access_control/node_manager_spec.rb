@@ -2,136 +2,117 @@ require 'spec_helper'
 
 module AccessControl
   describe NodeManager do
-    let(:node) { stub }
+
+    let(:securable_class) { FakeSecurableClass.new }
+    let(:securable)       { securable_class.new }
+
+    let(:node) do
+      stub('main node', :securable       => securable,
+                        :securable_class => securable_class)
+    end
+
     subject { NodeManager.new(node) }
 
     describe "#can_update!" do
-      let(:securable_class) do
-        stub('securable class',
-             :permissions_required_to_update => update_permissions)
-      end
       let(:update_permissions) { stub('permissions enumerable') }
-      let(:manager)            { stub('manager') }
+      let(:manager)            { mock('manager') }
+
+      subject do
+        NodeManager.new(node).tap do |node_manager|
+          node_manager.manager = manager
+        end
+      end
 
       before do
-        node.stub(:securable_class).and_return(securable_class)
-        AccessControl.stub(:manager).and_return(manager)
+        securable_class.stub(:permissions_required_to_update).
+          and_return(update_permissions)
       end
 
       it "checks if the principals are granted with update permissions" do
         manager.should_receive(:can!).with(update_permissions, node)
-
         subject.can_update!
       end
     end
 
     describe "#refresh_parents" do
-      let(:node)    { stub('main node') }
-
-      let(:node1)   { stub("Node 1", :id => 1, :persisted? => true) }
-      let(:node2)   { stub("Node 2", :id => 2, :persisted? => true) }
-      let(:node3)   { stub("Node 3", :id => 3, :persisted? => true) }
-
-      let(:parent1) { stub("Parent 1", :ac_node => node1) }
-      let(:parent2) { stub("Parent 2", :ac_node => node2) }
-      let(:parent3) { stub("Parent 3", :ac_node => node3) }
-
-      let(:securable_class) do
-        FakeSecurableClass.new(:parent1, :parent2, :parent3) do
-          include Inheritance
-          inherits_permissions_from :parent1, :parent2, :parent3
-        end
-      end
-
-      let(:securable) { securable_class.new(:parent1 => parent1,
-                                            :parent2 => nil,
-                                            :parent3 => [parent3]) }
-
-      let(:inheritance_manager) { stub("Inheritance Manager",
-                                       :add_parent => nil,
-                                       :del_parent => nil) }
-
-      let(:role_propagation) { stub(:propagate! => nil, :depropagate! => nil) }
-      let(:manager) { stub('manager', :can! => nil) }
       let(:create_permissions)  { stub('permissions enumerable (create)') }
       let(:destroy_permissions) { stub('permissions enumerable (destroy)') }
 
+      let(:inheritance_manager) { mock("Inheritance Manager") }
+      let(:manager)             { mock('Manager') }
+
+      let(:parent)  { stub("Parent node") }
+
+      let(:real_parents)   { [parent] }
+      let(:cached_parents) { [parent] }
+
       before do
-        Node::InheritanceManager.stub(:new).with(node).
-          and_return(inheritance_manager)
-        AccessControl.stub(:manager).and_return(manager)
-        RolePropagation.stub(:new).and_return(role_propagation)
+        inheritance_manager.stub(:parents => cached_parents)
+
+        Inheritance.stub(:parent_nodes_of).with(securable).
+          and_return(real_parents)
+
         securable_class.stub(
           :permissions_required_to_create  => create_permissions,
           :permissions_required_to_destroy => destroy_permissions
         )
-        node.stub(:securable).and_return(securable)
-        node.stub(:securable_class).and_return(securable_class)
       end
 
-      subject { NodeManager.new(node) }
+      subject do
+        NodeManager.new(node).tap do |node_manager|
+          node_manager.inheritance_manager = inheritance_manager
+          node_manager.manager             = manager
+        end
+      end
 
-      context "when parents were added to node's securable" do
+      context "when parents were added" do
+        let(:new_parent) { stub("New parent") }
+
         before do
-          securable.parent2 = parent2
-          inheritance_manager.stub(:parents).and_return([node1, node3])
+          inheritance_manager.stub(:add_parent)
+          RolePropagation.stub(:propagate!)
+          manager.stub(:can!)
+
+          real_parents << new_parent
         end
 
         it "checks permission for adding the new parent" do
-          manager.should_receive(:can!).with(create_permissions, node2)
+          manager.should_receive(:can!).with(create_permissions, new_parent)
           subject.refresh_parents
         end
 
         it "adds the new parents using the inheritance manager" do
-          inheritance_manager.should_receive(:add_parent).with(node2)
-          subject.refresh_parents
-        end
-
-        it "doesn't add it if it is not persisted" do
-          node2.stub(:persisted?).and_return(false)
-          inheritance_manager.should_not_receive(:add_parent).with(node2)
+          inheritance_manager.should_receive(:add_parent).with(new_parent)
           subject.refresh_parents
         end
 
         it "propagates roles from the added parents" do
-          role_propagation = stub
-          RolePropagation.stub(:new).with(node, [node2]).
-            and_return(role_propagation)
-          role_propagation.should_receive(:propagate!)
-
+          RolePropagation.should_receive(:propagate!).with(node, [new_parent])
           subject.refresh_parents
         end
       end
 
       context "when parents were removed" do
         before do
-          securable.parent3 = []
-          inheritance_manager.stub(:parents).and_return([node1, node3])
+          inheritance_manager.stub(:del_parent)
+          RolePropagation.stub(:depropagate!)
+          manager.stub(:can!)
+
+          real_parents.delete(parent)
         end
 
         it "checks permissions for removing the parents" do
-          manager.should_receive(:can!).with(destroy_permissions, node3)
+          manager.should_receive(:can!).with(destroy_permissions, parent)
           subject.refresh_parents
         end
 
         it "deletes the old parents using the inheritance manager" do
-          inheritance_manager.should_receive(:del_parent).with(node3)
-
-          subject.refresh_parents
-        end
-
-        it "doesn't delete it if it is not persisted" do
-          node3.stub(:persisted?).and_return(false)
-          inheritance_manager.should_not_receive(:del_parent).with(node2)
+          inheritance_manager.should_receive(:del_parent).with(parent)
           subject.refresh_parents
         end
 
         it "depropagates roles from the removed parents" do
-          role_propagation = stub
-          RolePropagation.stub(:new).with(node, [node3]).
-            and_return(role_propagation)
-          role_propagation.should_receive(:depropagate!)
-
+          RolePropagation.should_receive(:depropagate!)
           subject.refresh_parents
         end
       end
@@ -140,29 +121,29 @@ module AccessControl
     describe "#disconnect" do
       let(:parent1) { stub }
       let(:parent2) { stub }
-      let(:node)    { stub }
       let(:manager) { stub }
 
-      let(:inheritance_manager) { stub }
-      let(:role_propagation)    { stub }
+      let(:inheritance_manager) { mock("Inheritance Manager") }
 
       let(:destroy_permissions) { stub('permissions enumerable (destroy)') }
-      let(:securable_class) do
-        stub(:permissions_required_to_destroy => destroy_permissions)
+
+      subject do
+        NodeManager.new(node).tap do |node_manager|
+          node_manager.inheritance_manager = inheritance_manager
+          node_manager.manager             = manager
+        end
       end
 
-      subject { NodeManager.new(node) }
-
       before do
-        Node::InheritanceManager.stub(:new).and_return(inheritance_manager)
-        AccessControl.stub(:manager).and_return(manager)
-        RolePropagation.stub(:new).and_return(role_propagation)
-        role_propagation.stub(:depropagate!)
+        securable_class.stub(:permissions_required_to_destroy).
+          and_return(destroy_permissions)
+
+        RolePropagation.stub(:depropagate!)
         inheritance_manager.stub(:del_all_parents)
         inheritance_manager.stub(:del_all_children)
-        inheritance_manager.stub(:parents).and_return([parent1, parent2])
+        inheritance_manager.stub(:parents => [parent1, parent2])
+
         manager.stub(:can!)
-        node.stub(:securable_class).and_return(securable_class)
       end
 
       it "checks permissions for every parent" do
@@ -173,15 +154,10 @@ module AccessControl
       end
 
       it "depropagates roles from all of the parents" do
-        role_propagation = stub
-
-        # Any of the combinations below are acceptable.
-        RolePropagation.stub(:new).with(node, [parent1, parent2]).
-          and_return(role_propagation)
-        RolePropagation.stub(:new).with(node, [parent2, parent1]).
-          and_return(role_propagation)
-
-        role_propagation.should_receive(:depropagate!)
+        RolePropagation.should_receive(:depropagate!) do |first_arg, second_arg|
+          first_arg.should == node
+          second_arg.should include_only(parent1, parent2)
+        end
 
         subject.disconnect
       end
@@ -192,25 +168,29 @@ module AccessControl
       end
 
       it "disconnects from parents after checking permissions" do
-        checked = {}
+        checked_parents = []
+
         manager.stub(:can!) do |permissions, parent_node|
-          checked[parent_node] = true
+          checked_parents << parent_node
         end
+
         inheritance_manager.stub(:del_all_parents) do
-          inheritance_manager.parents.each do |parent_node|
-            checked[parent_node].should be_true
-          end
+          checked_parents.should include_only(*inheritance_manager.parents)
         end
 
         subject.disconnect
       end
 
       it "disconnects from parents after depropagation" do
-        role_propagation.stub(:depropagate!) do
-          inheritance_manager.already_depropagated
+        depropagated = false
+
+        RolePropagation.stub(:depropagate!) do
+          depropagated = true
         end
-        inheritance_manager.should_receive(:already_depropagated).ordered
-        inheritance_manager.should_receive(:del_all_parents).ordered
+
+        inheritance_manager.stub(:del_all_parents) do
+          depropagated.should be_true
+        end
 
         subject.disconnect
       end
@@ -221,40 +201,38 @@ module AccessControl
       end
 
       it "disconnects after checking permissions" do
-        checked = {}
+        checked_parents = []
+
         manager.stub(:can!) do |permissions, parent_node|
-          checked[parent_node] = true
+          checked_parents << parent_node
         end
+
         inheritance_manager.stub(:del_all_children) do
-          inheritance_manager.parents.each do |parent_node|
-            checked[parent_node].should be_true
-          end
+          checked_parents.should include_only(*inheritance_manager.parents)
         end
+
         subject.disconnect
       end
     end
 
     describe "#block" do
-      let(:node) { stub }
-      let(:parent1) { stub }
+      let(:parent)              { stub }
       let(:inheritance_manager) { stub }
-      let(:role_propagation) { stub }
-      subject { NodeManager.new(node) }
+
+      subject do
+        NodeManager.new(node).tap do |node_manager|
+          node_manager.inheritance_manager = inheritance_manager
+        end
+      end
 
       before do
-        Node::InheritanceManager.stub(:new).and_return(inheritance_manager)
-        RolePropagation.stub(:new).and_return(role_propagation)
-        role_propagation.stub(:depropagate!)
-        inheritance_manager.stub(:parents).and_return([parent1])
+        RolePropagation.stub(:depropagate!)
+        inheritance_manager.stub(:parents => [parent])
         inheritance_manager.stub(:del_all_parents)
       end
 
       it "depropagates roles from the blocked parents" do
-        role_propagation = stub
-        RolePropagation.stub(:new).with(node, [parent1]).
-          and_return(role_propagation)
-        role_propagation.should_receive(:depropagate!)
-
+        RolePropagation.should_receive(:depropagate!).with(node, [parent])
         subject.block
       end
 
@@ -264,77 +242,52 @@ module AccessControl
       end
 
       it "disconnects after depropagation" do
-        role_propagation.stub(:depropagate!) do
-          inheritance_manager.already_depropagated
+        depropagated = false
+
+        RolePropagation.stub(:depropagate!) do
+          depropagated = true
         end
-        inheritance_manager.should_receive(:already_depropagated).ordered
-        inheritance_manager.should_receive(:del_all_parents).ordered
+
+        inheritance_manager.stub(:del_all_parents) do
+          depropagated.should be_true
+        end
 
         subject.block
       end
     end
 
     describe "#unblock" do
-      let(:node)    { stub('main node') }
 
-      let(:node1)   { stub("Node 1", :id => 1, :persisted? => true) }
-      let(:node2)   { stub("Node 2", :id => 2, :persisted? => false) }
-      let(:node3)   { stub("Node 3", :id => 3, :persisted? => true) }
+      let(:parent)  { stub("Parent node") }
+      let(:inheritance_manager) { stub }
 
-      let(:parent1) { stub("Parent 1", :ac_node => node1) }
-      let(:parent2) { stub("Parent 2", :ac_node => node2) }
-      let(:parent3) { stub("Parent 3", :ac_node => node3) }
+      before do
+        Inheritance.stub(:parent_nodes_of).with(securable).
+          and_return([parent])
 
-      let(:securable_class) do
-        FakeSecurableClass.new(:parent1, :parent2, :parent3, :parent4) do
-          include Inheritance
-          inherits_permissions_from :parent1, :parent2, :parent3, :parent4
+        RolePropagation.stub(:propagate!)
+
+        inheritance_manager.stub(:add_parent)
+        inheritance_manager.stub(:del_parent)
+      end
+
+      subject do
+        NodeManager.new(node).tap do |node_manager|
+          node_manager.inheritance_manager = inheritance_manager
         end
       end
 
-      let(:securable) { securable_class.new(:parent1 => parent1,
-                                            :parent2 => parent2,
-                                            :parent3 => [parent3],
-                                            :parent4 => nil) }
-
-      let(:inheritance_manager) { stub("Inheritance Manager",
-                                       :add_parent => nil,
-                                       :del_parent => nil) }
-
-      let(:role_propagation) { stub(:propagate! => nil, :depropagate! => nil) }
-
-      before do
-        Node::InheritanceManager.stub(:new).with(node).
-          and_return(inheritance_manager)
-        RolePropagation.stub(:new).and_return(role_propagation)
-        node.stub(:securable).and_return(securable)
-        node.stub(:securable_class).and_return(securable_class)
-      end
-
-      subject { NodeManager.new(node) }
-
-      it "adds all parents which are already persisted from the securable" do
-        inheritance_manager.should_receive(:add_parent).with(node1)
-        inheritance_manager.should_receive(:add_parent).with(node3)
-
-        subject.unblock
-      end
-
-      it "doesn't add nodes which aren't persisted" do
-        inheritance_manager.should_not_receive(:add_parent).with(node2)
+      it "adds all the securable's parents to inheritance manager" do
+        inheritance_manager.should_receive(:add_parent).with(parent)
         subject.unblock
       end
 
       it "propagates roles from the re-added parents" do
-        role_propagation = stub
+        RolePropagation.should_receive(:propagate!) do |first_arg, second_arg|
+          first_arg.should == node
+          second_arg.should include_only(parent)
+        end
 
-        # Any of the combinations below are acceptable.
-        RolePropagation.stub(:new).with(node, [node1, node3]).
-          and_return(role_propagation)
-        RolePropagation.stub(:new).with(node, [node3, node1]).
-          and_return(role_propagation)
-
-        role_propagation.should_receive(:propagate!)
         subject.unblock
       end
     end

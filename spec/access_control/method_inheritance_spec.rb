@@ -19,10 +19,10 @@ module AccessControl
       model.stub(:all => [record])
     end
 
-    let(:parent_node)         { stub(:id => ids.next) }
-    let(:parent)              { stub(:node => parent_node) }
-    let(:node)                { stub(:id => ids.next) }
-    let(:record)              { stub(:parent => parent, :node => node) }
+    let(:parent_node) { stub(:id => ids.next) }
+    let(:parent)      { stub(:node => parent_node) }
+    let(:node)        { stub(:id => ids.next) }
+    let(:record)      { stub(:parent => parent, :node => node) }
 
     before { model.stub(:all => [record]) }
 
@@ -74,22 +74,27 @@ module AccessControl
       it "relates each child to its parent (by id), in a parent-child array" do
         relationships = subject.relationships
 
-        relationships.should include [parent_node.id, node.id]
-        relationships.should include [another_parent_node.id, another_node.id]
+        relationships.should include(:parent_id => parent_node.id,
+                                     :child_id  => node.id)
+
+        relationships.should include(:parent_id => another_parent_node.id,
+                                     :child_id  => another_node.id)
       end
 
       it "doesn't return relationships whose child has no id" do
         another_node.stub(:id => nil)
 
         relationships = subject.relationships
-        relationships.should_not include [another_parent_node.id, another_node.id]
+        relationships.should_not include(:parent_id => another_parent_node.id,
+                                         :child_id  => another_node.id)
       end
 
       it "doesn't return relationships whose parent has no id" do
         another_parent_node.stub(:id => nil)
 
         relationships = subject.relationships
-        relationships.should_not include [another_parent_node.id, another_node.id]
+        relationships.should_not include(:parent_id => another_parent_node.id,
+                                         :child_id  => another_node.id)
       end
 
       it "doesn't try to fetch the node of null parents" do
@@ -102,19 +107,24 @@ module AccessControl
       context "when given a block" do
         it "yields the relationships to the block" do
           yielded = []
-          subject.relationships do |parent_id, node_id|
-            yielded << [parent_id, node_id]
+          subject.relationships do |relationship|
+            yielded << relationship
           end
 
-          yielded.should include [parent_node.id, node.id]
-          yielded.should include [another_parent_node.id, another_node.id]
+          yielded.should include(:parent_id => parent_node.id,
+                                 :child_id  => node.id)
+
+          yielded.should include(:parent_id => another_parent_node.id,
+                                 :child_id  => another_node.id)
         end
       end
 
       context "when given a collection" do
         it "acts on the values of the collection" do
           relationships = subject.relationships([record])
-          relationships.should include_only [parent_node.id, node.id]
+
+          relationships.should include_only(:parent_id => parent_node.id,
+                                            :child_id  => node.id)
         end
       end
     end
