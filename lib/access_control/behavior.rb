@@ -62,7 +62,7 @@ module AccessControl
           existing = ac_parents.filter([:parent_id, :child_id] => tuples)
           existing.delete
 
-          ac_parents.multi_insert(inheritance.relationships)
+          ac_parents.multi_insert(relationships)
         end
       end
 
