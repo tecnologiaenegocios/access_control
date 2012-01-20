@@ -26,7 +26,7 @@ module AccessControl
 
       describe ".name" do
         subject { orm.name }
-        it { should == :ModelName }
+        it { should == "ModelName" }
       end
 
       describe ".pk_name" do

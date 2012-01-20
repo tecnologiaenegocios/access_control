@@ -2,9 +2,9 @@ module AccessControl
   module ORM
     class Base
       attr_reader :object
-      # The name of the class, as a symbol.
+
       def name
-        object.name.to_sym
+        object.name
       end
 
       # Forwards the instantiation of the underlying object.

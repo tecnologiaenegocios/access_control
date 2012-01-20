@@ -9,7 +9,7 @@ module AccessControl
         before  { orm_class.stub(:object => stub(:name => 'ModelName')) }
         subject { orm_class.name }
 
-        it { should == :ModelName }
+        it { should == "ModelName" }
       end
 
       describe Base.instance_method(:new).name do
