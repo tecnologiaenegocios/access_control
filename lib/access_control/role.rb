@@ -129,8 +129,8 @@ module AccessControl
 
     include Persistable
 
-    def self.assign_default_at(nodes)
-      assign_all(default, AccessControl.manager.principals, nodes)
+    def self.assign_default_at(nodes, principals = AccessControl.manager.principals)
+      assign_all(default, principals, nodes)
     end
 
     def self.assign_all(roles, principals, nodes,

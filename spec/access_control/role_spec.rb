@@ -4,30 +4,31 @@ module AccessControl
   describe Role do
 
     describe ".assign_default_at" do
-      let(:securable_class) { FakeSecurableClass.new }
+      let(:securable_class) { Class.new Sequel::Model(:records) }
+
+      let!(:securable) { securable_class.create }
       let(:node)   { Node.store(:securable_class => securable_class,
-                                :securable_id    => 1) }
+                                :securable_id    => securable.id) }
+
       let(:role1) { Role.store(:name => 'default') }
       let(:role2) { Role.store(:name => 'other_default') }
+
       let(:principals) { [
         Principal.store(:subject_type => 'SubjectType', :subject_id => 1),
         Principal.store(:subject_type => 'SubjectType', :subject_id => 2)
       ] }
 
-      let(:manager) { stub('manager') }
       let(:config)  { stub('configuration') }
 
       let!(:role3) { Role.store(:name => 'non_default') }
 
       before do
         AccessControl.stub(:config).and_return(config)
-        AccessControl.stub(:manager).and_return(manager)
         config.stub(:default_roles).and_return([role1.name, role2.name])
-        manager.stub(:principals).and_return(principals)
       end
 
       it "assigns default roles to the current principals in the given node" do
-        Role.assign_default_at(node)
+        Role.assign_default_at(node, principals)
 
         principals.each do |principal|
           role1.should be_assigned_to(principal, node)
@@ -36,7 +37,7 @@ module AccessControl
       end
 
       it "doesn't assign non default roles" do
-        Role.assign_default_at(node)
+        Role.assign_default_at(node, principals)
 
         principals.each do |principal|
           role3.should_not be_assigned_to(principal, node)
