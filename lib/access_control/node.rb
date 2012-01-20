@@ -126,26 +126,5 @@ module AccessControl
     def perform_unblocking
       NodeManager.unblock(self)
     end
-
-    def persisted_parent_nodes
-      parent_nodes.select(&:persisted?)
-    end
-
-    def parent_nodes
-      securable_parents.map do |securable_parent|
-        AccessControl::Node(securable_parent)
-      end
-    end
-
-    def securable_parents
-      methods = securable_class.inherits_permissions_from
-      methods.each_with_object(Set.new) do |method_name, set|
-        set.merge(Array[*securable.send(method_name)].compact)
-      end
-    end
-
-    def role_propagation(parents)
-      RolePropagation.new(self, parents)
-    end
   end
 end
