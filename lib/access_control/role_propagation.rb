@@ -1,6 +1,14 @@
 module AccessControl
   class RolePropagation
 
+    def self.propagate!(node, parents = nil)
+      new(node, parents).propagate!
+    end
+
+    def self.depropagate!(node, parents = nil)
+      new(node, parents).depropagate!
+    end
+
     attr_reader :node
     def initialize(node, node_parents = nil)
       @node         = node

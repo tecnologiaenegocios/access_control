@@ -94,5 +94,35 @@ module AccessControl
         subject.depropagate!
       end
     end
+
+    describe ".propagate!" do
+      let(:assignments) { stub("Assignments dataset") }
+
+      it "uses Assignment.propagate_to to create the new assignments" do
+        Assignment::Persistent.stub(:with_nodes).with(node_parents).
+          and_return(assignments)
+
+        Assignment::Persistent.should_receive(:propagate_to).
+          with(assignments, node.id)
+
+        RolePropagation.propagate!(node, node_parents)
+      end
+
+    end
+
+    describe ".depropagate!" do
+      let(:assignments) { stub("Assignments dataset") }
+
+      it "uses Assignment.depropagate_from to wipe out assignments" do
+        Assignment::Persistent.stub(:with_nodes).with(node_parents).
+          and_return(assignments)
+
+        Assignment::Persistent.should_receive(:depropagate_from).
+          with(assignments, node.id)
+
+        RolePropagation.depropagate!(node, node_parents)
+      end
+    end
+
   end
 end
