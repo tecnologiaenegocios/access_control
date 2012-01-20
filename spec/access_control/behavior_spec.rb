@@ -94,11 +94,6 @@ describe AccessControl do
     let(:child1)  { 3 }
     let(:child2)  { 4 }
 
-    let(:inheritance1) { stub(:relationships => [[parent1, child1]]) }
-    let(:inheritance2) { stub(:relationships => [[parent2, child2]]) }
-
-    let(:inheritances) { [inheritance1, inheritance2] }
-
     let(:securable_class) { stub }
 
     before do
@@ -106,28 +101,55 @@ describe AccessControl do
         and_return(inheritances)
     end
 
+    let(:inheritance1) { stub_inheritance([parent1, child1]) }
+    let(:inheritance2) { stub_inheritance([parent2, child2]) }
+
+    let(:inheritances) { [inheritance1, inheritance2] }
+
+    def stub_inheritance(*relationships)
+      hashes = relationships.map do |parent, child|
+        {:parent_id => parent, :child_id => child}
+      end
+
+      inheritance = stub("Inheritance", :relationships => hashes)
+    end
+
+
     it "imports every parent-child tuple for each inheritance" do
       AccessControl.setup_parent_relationships(securable_class)
 
-      tuples = AccessControl.ac_parents.map do |row|
-        [row[:parent_id], row[:child_id]]
-      end
+      tuples = AccessControl.ac_parents.select_map([:parent_id, :child_id])
 
       tuples.should include_only([parent1, child1], [parent2, child2])
     end
 
     context "with equivalent inheritances" do
-      let(:inheritance2) { stub(:relationships => [[parent2, child2],
-                                                   [parent1, child1]]) }
+      let(:inheritance2) { stub_inheritance([parent2, child2],
+                                            [parent1, child1]) }
 
       it "doesn't cause a duplication" do
         AccessControl.setup_parent_relationships(securable_class)
 
-        tuples = AccessControl.ac_parents.map do |row|
-          [row[:parent_id], row[:child_id]]
-        end
+        tuples = AccessControl.ac_parents.select_map([:parent_id, :child_id])
 
         tuples.should include_only([parent1, child1], [parent2, child2])
+      end
+    end
+
+    context "when a inheritance returns a dataset" do
+      let(:dataset) { AccessControl.db.select(123, 456) }
+
+      before do
+        inheritance = stub(:relationships => dataset)
+        AccessControl::Inheritance.stub(:inheritances_of).with(securable_class).
+          and_return([inheritance])
+      end
+
+      it "works as expected" do
+        AccessControl.setup_parent_relationships(securable_class)
+        tuples = AccessControl.ac_parents.select_map([:parent_id, :child_id])
+
+        tuples.should include_only([123,456])
       end
     end
   end

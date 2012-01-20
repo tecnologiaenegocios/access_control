@@ -48,12 +48,24 @@ module AccessControl
 
   def self.setup_parent_relationships(securable_class)
     AccessControl.transaction do
+
       Inheritance.inheritances_of(securable_class).each do |inheritance|
-        existing_relationships =
-          ac_parents.filter([:parent_id, :child_id] => inheritance.relationships)
-        existing_relationships.delete
-        ac_parents.import([:parent_id, :child_id], inheritance.relationships)
+        relationships = inheritance.relationships
+
+        if relationships.kind_of?(Sequel::Dataset)
+          existing = ac_parents.filter([:parent_id, :child_id] => relationships)
+          existing.delete
+
+          ac_parents.import([:parent_id, :child_id], relationships)
+        else
+          tuples   = relationships.map { |r| [r[:parent_id], r[:child_id]] }
+          existing = ac_parents.filter([:parent_id, :child_id] => tuples)
+          existing.delete
+
+          ac_parents.multi_insert(inheritance.relationships)
+        end
       end
+
     end
   end
 
