@@ -27,7 +27,7 @@ module AccessControl
     end
 
     def current_roles
-      @current_roles ||= Role.assigned_to(principals, context)
+      @current_roles ||= Role.assigned_to(principals, context).to_set
     end
 
   end

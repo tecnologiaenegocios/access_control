@@ -125,8 +125,13 @@ module AccessControl
       end
 
       it "isn't searched more than once" do
-        Role.should_receive(:assigned_to).exactly(:once).and_return(:anything)
+        Role.should_receive(:assigned_to).exactly(:once).and_return(roles)
         2.times { subject.current_roles }
+      end
+
+      it "is a set" do
+        set_current_roles_as(roles)
+        subject.current_roles.should be_kind_of Set
       end
     end
 
