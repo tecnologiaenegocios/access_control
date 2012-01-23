@@ -56,7 +56,7 @@ module AccessControl
     describe "#properties" do
       it "returns the inheritance's properties in a hash" do
         subject = AssociationInheritance.new(Record, :record_id, Parent.name)
-        subject.properties.should == {:model_class => Record,
+        subject.properties.should == {:record_type => 'AccessControl::Record',
                                       :key_name    => :record_id,
                                       :parent_type => Parent.name}
       end

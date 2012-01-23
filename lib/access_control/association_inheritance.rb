@@ -7,6 +7,7 @@ module AccessControl
     attr_reader :model_class, :key_name, :parent_type
     def initialize(model_class, key_name, parent_type)
       @model_class = model_class
+      @orm         = ORM.adapt_class(model_class)
       @key_name    = key_name.to_sym
       @parent_type = parent_type
     end
@@ -41,7 +42,7 @@ module AccessControl
     alias_method :equal?, :==
 
     def properties
-      { :model_class => model_class,
+      { :record_type => record_type,
         :key_name    => key_name,
         :parent_type => parent_type }
     end
@@ -53,7 +54,7 @@ module AccessControl
     end
 
     def record_table_name
-      model_class.table_name.to_sym
+      @orm.table_name
     end
 
     def join_clause(nodes_alias, securable_type, id_spec)
