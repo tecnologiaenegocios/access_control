@@ -37,7 +37,7 @@ module AccessControl
       end
 
       def values
-        object.all
+        object.scoped({})
       end
 
       def new
