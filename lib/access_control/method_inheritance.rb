@@ -43,10 +43,10 @@ module AccessControl
   private
 
     def relationship_hashes(record, parents)
-      node_id = nodes[record] && nodes[record].id
+      node_id = node_id_of(record)
 
       parents.each_with_object(Array.new) do |parent_record, result|
-        parent_node_id = nodes[parent_record] && nodes[parent_record].id
+        parent_node_id = node_id_of(parent_record)
 
         if node_id && parent_node_id
           result << { :parent_id => parent_node_id, :child_id => node_id }
@@ -54,9 +54,9 @@ module AccessControl
       end
     end
 
-    def nodes
-      @nodes ||= Hash.new do |hash, record|
-        hash[record] = AccessControl::Node(record) unless record.nil?
+    def node_id_of(record)
+      if record
+        AccessControl::Node(record).id
       end
     end
 
