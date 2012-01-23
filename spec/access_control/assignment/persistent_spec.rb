@@ -53,18 +53,19 @@ module AccessControl
           end
         end
 
-        let(:tree)          { self.class.tree }
-        let(:tail_nodes)    { self.class.tail_nodes }
-        let(:head_node)     { (self.class.all_tree_nodes - tail_nodes).first }
-        let(:role_ids)      { [1,2] }
-        let(:principal_ids) { [1,2] }
+        let(:tree)           { self.class.tree }
+        let(:tail_nodes)     { self.class.tail_nodes }
+        let(:head_node)      { (self.class.all_tree_nodes - tail_nodes).first }
+        let(:role_ids)       { [1,2] }
+        let(:principal_ids)  { [1,2] }
+        let(:top_level_node) { 99 }
 
         let!(:top_assignments) do
           combos = (role_ids + [99]).product(principal_ids + [99])
           combos.each_with_object([]) do |(role_id, principal_id), top|
             top << build_persistent(:role_id => role_id,
                                     :principal_id => principal_id,
-                                    :node_id => 99,
+                                    :node_id => top_level_node,
                                     :parent_id => nil)
           end
         end
@@ -77,49 +78,24 @@ module AccessControl
           Persistent.filter(:id => valid.map(&:id))
         end
 
-        let(:inheritance_manager) { stub }
-
         before do
           AccessControl.ac_nodes.import(
             [:id, :securable_type, :securable_id],
             self.class.all_tree_nodes.map { |n| [n, 'Foo', ids.next] }
           )
-          inheritance_manager.stub(:descendant_ids)
-          Node::InheritanceManager.stub(:new).and_return(inheritance_manager)
+          tree.each do |parent_id, child_ids|
+            AccessControl.ac_parents.import(
+              [:parent_id, :child_id], [parent_id].product(child_ids)
+            )
+          end
+          AccessControl.ac_parents.insert([:parent_id, :child_id],
+                                          [top_level_node, head_node])
         end
 
         def assignment_properties_at(node_id)
           Persistent.filter(:node_id => node_id).map do |item|
             { :role_id => item.role_id, :principal_id => item.principal_id,
               :node_id => item.node_id, :parent_id => item.parent_id }
-          end
-        end
-
-        it "propagates requested assignments to the given node" do
-          expected_properties = assignments_to_propagate.map do |item|
-            { :node_id => head_node, :principal_id => item.principal_id,
-              :role_id => item.role_id, :parent_id => item.id }
-          end
-
-          Persistent.propagate_to(assignments_to_propagate, head_node)
-
-          assignment_properties_at(head_node).
-            should include_only(*expected_properties)
-        end
-
-        it "leaves non-requested assignments alone when propagating" do
-          Persistent.propagate_to(assignments_to_propagate, head_node)
-
-          propagated = assignment_properties_at(head_node)
-
-          assignments_to_not_propagate = Persistent.all -
-            assignments_to_propagate.all
-          assignments_to_not_propagate.each do |assignment|
-            props = {:role_id => assignment.role_id,
-                     :node_id => head_node,
-                     :parent_id => assignment.id,
-                     :principal_id => assignment.principal_id}
-            propagated.should_not include props
           end
         end
 
@@ -146,175 +122,131 @@ module AccessControl
           Persistent.with_nodes(head_node).should include_only(other_assignment)
         end
 
-        context "when the node has no descendants" do
+        describe "propagation to a given node" do
           before do
-            inheritance_manager.stub(:descendant_ids).and_return([])
-          end
-
-          it "doesn't propagate to any other node except the one given" do
             Persistent.propagate_to(assignments_to_propagate, head_node)
-            tail_nodes.each do |n|
-              Persistent.filter(:node_id => n).should be_empty
-            end
           end
 
-          it "doesn't depropagate from any other node except the one given" do
-            propagation_assignments = assignments_to_propagate()
+          it "doesn't create duplicates" do
+            all_properties = Persistent.
+              select_map([:parent_id, :node_id, :role_id, :principal_id])
+            all_properties.uniq.size.should == Persistent.count
+          end
 
-            tail_nodes.each do |n|
-              other_assignment =
-                Persistent.new(:role_id => 99, :principal_id => 99,
-                               :node_id => n,  :parent_id    => -1)
-              other_assignment.save(:raise_on_failure => true)
+          it "propagates requested assignments to the head node" do
+            expected_properties = assignments_to_propagate.map do |item|
+              { :node_id => head_node, :principal_id => item.principal_id,
+                :role_id => item.role_id, :parent_id => item.id }
             end
 
-            Persistent.propagate_to(propagation_assignments, head_node)
-            Persistent.depropagate_from(propagation_assignments, head_node)
+            assignment_properties_at(head_node).
+              should include_only(*expected_properties)
+          end
 
-            tail_nodes.each do |n|
-              Persistent.filter(:node_id => n).should_not be_empty
+          tail_nodes.each do |node|
+            it "points propagated assignments to their parents (#{node})" do
+              parent_nodes = parent_nodes(node)
+              expected_parents =
+                Persistent.with_nodes(parent_nodes).select_map(:id)
+
+              parents = Persistent.with_nodes(node).select_map(:parent_id)
+
+              parents.should include_only(*expected_parents)
+            end
+
+            it "propagates role ids from parents (#{node})" do
+              parent_nodes = parent_nodes(node)
+              expected_roles =
+                Persistent.with_nodes(parent_nodes).select_map(:role_id)
+              roles = Persistent.with_nodes(node).select_map(:role_id)
+
+              Set[*roles].should include_only(*Set[*expected_roles])
+            end
+
+            it "propagates principal ids from parents (#{node})" do
+              parent_nodes = parent_nodes(node)
+              expected_principals =
+                Persistent.with_nodes(parent_nodes).select_map(:principal_id)
+              principals =
+                Persistent.with_nodes(node).select_map(:principal_id)
+
+              Set[*principals].should include_only(*Set[*expected_principals])
             end
           end
         end
 
-        context "when the node has descendants" do
+        describe "propagation only to descendants" do
+          def assignments_to_propagate_to_descendants
+            ids = Persistent.real.with_nodes(head_node).select_map(:id)
+            # Turn this into a fixed dataset.
+            Persistent.filter(:id => ids)
+          end
+
           before do
-            inheritance_manager.
-                define_singleton_method(:descendant_ids) do |&block|
-              tree.each do |connection|
-                parent_id, child_ids = connection
-                block.call(parent_id, child_ids)
-              end
+            assignments_to_propagate.each do |a|
+              build_persistent(:node_id      => head_node,
+                               :role_id      => a.role_id,
+                               :principal_id => a.principal_id,
+                               :parent_id    => nil)
             end
-            inheritance_manager.stub(:tree).and_return(tree)
+            Persistent.propagate_to_descendants(
+              assignments_to_propagate_to_descendants, head_node
+            )
           end
 
-          describe "propagation to a given node" do
-            before do
-              Persistent.propagate_to(assignments_to_propagate, head_node)
-            end
-
-            it "doesn't create duplicates" do
-              all_properties = Persistent.
-                select_map([:parent_id, :node_id, :role_id, :principal_id])
-              all_properties.uniq.size.should == Persistent.count
-            end
-
-            it "propagates requested assignments to the head node" do
-              expected_properties = assignments_to_propagate.map do |item|
-                { :node_id => head_node, :principal_id => item.principal_id,
-                  :role_id => item.role_id, :parent_id => item.id }
-              end
-
-              assignment_properties_at(head_node).
-                should include_only(*expected_properties)
-            end
-
-            tail_nodes.each do |node|
-              it "points propagated assignments to their parents (#{node})" do
-                parent_nodes = parent_nodes(node)
-                expected_parents =
-                  Persistent.with_nodes(parent_nodes).select_map(:id)
-
-                parents = Persistent.with_nodes(node).select_map(:parent_id)
-
-                parents.should include_only(*expected_parents)
-              end
-
-              it "propagates role ids from parents (#{node})" do
-                parent_nodes = parent_nodes(node)
-                expected_roles =
-                  Persistent.with_nodes(parent_nodes).select_map(:role_id)
-                roles = Persistent.with_nodes(node).select_map(:role_id)
-
-                Set[*roles].should include_only(*Set[*expected_roles])
-              end
-
-              it "propagates principal ids from parents (#{node})" do
-                parent_nodes = parent_nodes(node)
-                expected_principals =
-                  Persistent.with_nodes(parent_nodes).select_map(:principal_id)
-                principals =
-                  Persistent.with_nodes(node).select_map(:principal_id)
-
-                Set[*principals].should include_only(*Set[*expected_principals])
-              end
-            end
+          it "doesn't create duplicates" do
+            all_properties = Persistent.
+              select_map([:parent_id, :node_id, :role_id, :principal_id])
+            all_properties.uniq.size.should == Persistent.count
           end
 
-          describe "propagation only to descendants" do
-            def assignments_to_propagate_to_descendants
-              ids = Persistent.real.with_nodes(head_node).select_map(:id)
-              # Turn this into a fixed dataset.
-              Persistent.filter(:id => ids)
-            end
-
-            before do
-              assignments_to_propagate.each do |a|
-                build_persistent(:node_id      => head_node,
-                                 :role_id      => a.role_id,
-                                 :principal_id => a.principal_id,
-                                 :parent_id    => nil)
-              end
-              Persistent.propagate_to_descendants(
-                assignments_to_propagate_to_descendants, head_node
-              )
-            end
-
-            it "doesn't create duplicates" do
-              all_properties = Persistent.
-                select_map([:parent_id, :node_id, :role_id, :principal_id])
-              all_properties.uniq.size.should == Persistent.count
-            end
-
-            it "keeps all of the assignments in the head node" do
-              Persistent.real.with_nodes(head_node).to_a.should ==
-                assignments_to_propagate_to_descendants.to_a
-            end
-
-            tail_nodes.each do |node|
-              it "points propagated assignments to their parents (#{node})" do
-                parent_nodes = parent_nodes(node)
-                expected_parents =
-                  Persistent.with_nodes(parent_nodes).select_map(:id)
-
-                parents = Persistent.with_nodes(node).select_map(:parent_id)
-
-                parents.should include_only(*expected_parents)
-              end
-
-              it "propagates role ids from parents (#{node})" do
-                parent_nodes = parent_nodes(node)
-                expected_roles =
-                  Persistent.with_nodes(parent_nodes).select_map(:role_id)
-                roles = Persistent.with_nodes(node).select_map(:role_id)
-
-                Set[*roles].should include_only(*Set[*expected_roles])
-              end
-
-              it "propagates principal ids from parents (#{node})" do
-                parent_nodes = parent_nodes(node)
-                expected_principals =
-                  Persistent.with_nodes(parent_nodes).select_map(:principal_id)
-                principals =
-                  Persistent.with_nodes(node).select_map(:principal_id)
-
-                Set[*principals].should include_only(*Set[*expected_principals])
-              end
-            end
+          it "keeps all of the assignments in the head node" do
+            Persistent.real.with_nodes(head_node).to_a.should ==
+              assignments_to_propagate_to_descendants.to_a
           end
 
-          describe "depropagation" do
-            before do
-              propagation_assignments = assignments_to_propagate()
+          tail_nodes.each do |node|
+            it "points propagated assignments to their parents (#{node})" do
+              parent_nodes = parent_nodes(node)
+              expected_parents =
+                Persistent.with_nodes(parent_nodes).select_map(:id)
 
-              Persistent.propagate_to(propagation_assignments, head_node)
-              Persistent.depropagate_from(propagation_assignments, head_node)
+              parents = Persistent.with_nodes(node).select_map(:parent_id)
+
+              parents.should include_only(*expected_parents)
             end
 
-            it "clears propagated assignments of the head and tail nodes" do
-              Persistent.all.should include_only(*top_assignments)
+            it "propagates role ids from parents (#{node})" do
+              parent_nodes = parent_nodes(node)
+              expected_roles =
+                Persistent.with_nodes(parent_nodes).select_map(:role_id)
+              roles = Persistent.with_nodes(node).select_map(:role_id)
+
+              Set[*roles].should include_only(*Set[*expected_roles])
             end
+
+            it "propagates principal ids from parents (#{node})" do
+              parent_nodes = parent_nodes(node)
+              expected_principals =
+                Persistent.with_nodes(parent_nodes).select_map(:principal_id)
+              principals =
+                Persistent.with_nodes(node).select_map(:principal_id)
+
+              Set[*principals].should include_only(*Set[*expected_principals])
+            end
+          end
+        end
+
+        describe "depropagation" do
+          before do
+            propagation_assignments = assignments_to_propagate()
+
+            Persistent.propagate_to(propagation_assignments, head_node)
+            Persistent.depropagate_from(propagation_assignments, head_node)
+          end
+
+          it "clears propagated assignments of the head and tail nodes" do
+            Persistent.all.should include_only(*top_assignments)
           end
         end
       end

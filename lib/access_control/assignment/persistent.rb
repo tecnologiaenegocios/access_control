@@ -8,17 +8,15 @@ module AccessControl
 
     class << self
       def propagate_to(assignments, node_id)
-        node_and_descendants_in_order(ids_of(assignments), node_id) \
-            do |ids, child_node_ids|
-          copy_from_ids_to_nodes_and_return_ids_by_level(ids, child_node_ids)
-        end
+        propagate_descendants(ids_of(assignments),
+                              :from => node_ids_of(assignments),
+                              :to   => node_id)
       end
 
       def propagate_to_descendants(assignments, node_id)
-        descendants_in_order({node_id => ids_of(assignments)},
-                             node_id) do |ids, child_node_ids|
-          copy_from_ids_to_nodes_and_return_ids_by_level(ids, child_node_ids)
-        end
+        propagate_descendants(ids_of(assignments),
+                              :from => node_id,
+                              :to   => child_node_ids_of(node_id))
       end
 
       def depropagate_from(assignments, node_id)
@@ -38,22 +36,6 @@ module AccessControl
 
     private
 
-      def node_and_descendants_in_order(parent_ids, node_id, &block)
-        ids_by_level = block.call(parent_ids, node_id)
-        descendants_in_order(ids_by_level, node_id, &block)
-      end
-
-      def descendants_in_order(ids_by_level, node_id)
-        im = Node::InheritanceManager.new(node_id)
-        im.descendant_ids do |parent_node_id, child_node_ids|
-          new_ids = yield(ids_by_level[parent_node_id], child_node_ids)
-          new_ids.each do |node_id, ids|
-            ids_by_level[node_id] ||= []
-            ids_by_level[node_id].concat(ids).uniq!
-          end
-        end
-      end
-
       def ids_of(assignments)
         if assignments.is_a?(Sequel::Dataset)
           assignments.select_map(:id)
@@ -62,29 +44,60 @@ module AccessControl
         end
       end
 
-      def copy_from_ids_to_nodes_and_return_ids_by_level(parent_ids, node_ids)
-        copy_from_ids_to_nodes(parent_ids, node_ids)
-        ids_with_parents_by_nodes(parent_ids, node_ids)
-      end
-
-      def copy_from_ids_to_nodes(parent_ids, node_ids)
-        import([:parent_id, :role_id, :principal_id, :node_id],
-               combinations_as_dataset(parent_ids, node_ids))
-      end
-
-      def combinations_as_dataset(parent_ids, node_ids)
-        select(:ac_assignments__id, :role_id, :principal_id, :ac_nodes__id).
-        from(:ac_assignments, :ac_nodes).
-        filter(:ac_assignments__id => parent_ids, :ac_nodes__id => node_ids)
-      end
-
-      def ids_with_parents_by_nodes(parent_ids, node_ids)
-        tuples = filter(:node_id => node_ids, :parent_id => parent_ids).
-          select_map([:id, :node_id])
-        tuples.each_with_object({}) do |(id, node_id), groups|
-          groups[node_id] ||= []
-          groups[node_id] << id
+      def node_ids_of(assignments)
+        if assignments.is_a?(Sequel::Dataset)
+          assignments.select_map(:node_id)
+        else
+          assignments.map(&:node_id)
         end
+      end
+
+      def child_node_ids_of(parent_node_ids)
+        AccessControl.ac_parents.filter(:parent_id => parent_node_ids).
+          select_map(:child_id)
+      end
+
+      def propagate_descendants(source_ids, params)
+        parent_node_ids = params[:from]
+        child_node_ids  = params[:to]
+
+        copy(source_ids, :from => parent_node_ids, :to => child_node_ids)
+        new_ids = propagated_ids_from(source_ids, :at => child_node_ids)
+        next_child_node_ids = child_node_ids_of(child_node_ids)
+
+        if next_child_node_ids.any?
+          propagate_descendants(new_ids, :from => child_node_ids,
+                                         :to   => next_child_node_ids)
+        end
+      end
+
+      def copy(source_ids, params)
+        parent_node_ids = params[:from]
+        child_node_ids  = params[:to]
+
+        combos = combinations_of(source_ids, :from => parent_node_ids,
+                                             :to => child_node_ids)
+
+        import([:parent_id, :role_id, :principal_id, :node_id], combos)
+      end
+
+      def combinations_of(source_ids, params)
+        parent_node_ids = params[:from]
+        child_node_ids  = params[:to]
+
+        select(:ac_assignments__id, :role_id, :principal_id,
+               :ac_parents__child_id).
+          join_table(:inner, :ac_parents,
+                     :ac_assignments__node_id => :ac_parents__parent_id).
+          filter(:ac_parents__parent_id => parent_node_ids,
+                 :ac_parents__child_id  => child_node_ids,
+                 :ac_assignments__id    => source_ids)
+      end
+
+      def propagated_ids_from(parent_ids, params)
+        child_node_ids = params[:at]
+        filter(:node_id => child_node_ids,
+               :parent_id => parent_ids).select_map(:id)
       end
     end
 
