@@ -10,19 +10,18 @@ module AccessControl
       @method_name = method_name
     end
 
-    def relationships(records = model_class.all)
+    def relationships(records = model_class.all, &block)
       records.each_with_object(Array.new) do |record, results|
-        parent_record = record.send(method_name)
+        method_result = record.send(method_name)
 
-        node_id        = nodes[record] && nodes[record].id
-        parent_node_id = nodes[parent_record] && nodes[parent_record].id
-
-        if node_id && parent_node_id
-          relationship = { :parent_id => parent_node_id, :child_id => node_id }
-
-          yield relationship if block_given?
-          results << relationship
+        unless method_result.kind_of?(Enumerable)
+          method_result = Array(method_result)
         end
+
+        relationships = relationship_hashes(record, method_result)
+        relationships.each(&block) if block_given?
+
+        results.concat(relationships)
       end
     end
 
@@ -42,6 +41,18 @@ module AccessControl
     end
 
   private
+
+    def relationship_hashes(record, parents)
+      node_id = nodes[record] && nodes[record].id
+
+      parents.each_with_object(Array.new) do |parent_record, result|
+        parent_node_id = nodes[parent_record] && nodes[parent_record].id
+
+        if node_id && parent_node_id
+          result << { :parent_id => parent_node_id, :child_id => node_id }
+        end
+      end
+    end
 
     def nodes
       @nodes ||= Hash.new do |hash, record|

@@ -8,6 +8,18 @@ module AccessControl
       @ids ||= 1.to_enum(:upto, Float::INFINITY)
     end
 
+    def nodes
+      @nodes ||= Hash.new do |hash, record|
+        node_id = ids.next
+        hash[record] = stub("#{node_id} node", :id => node_id)
+      end
+    end
+
+    def stub_record(stubs = {})
+      record_id = stubs[:id] ||= ids.next
+      stub("Record #{record_id}", stubs)
+    end
+
     it "is initialized with a class and a method name" do
       subject = MethodInheritance.new(model, :foobar)
       subject.model_class.should == model
@@ -15,14 +27,14 @@ module AccessControl
     end
 
     before do
-      AccessControl.stub(:Node) { |obj| obj.node }
+      AccessControl.stub(:Node) { |record| nodes[record] }
       model.stub(:all => [record])
     end
 
-    let(:parent_node) { stub(:id => ids.next) }
-    let(:parent)      { stub(:node => parent_node) }
-    let(:node)        { stub(:id => ids.next) }
-    let(:record)      { stub(:parent => parent, :node => node) }
+    let(:parent)      { stub_record }
+    let(:record)      { stub_record(:parent => parent) }
+    let(:parent_node) { nodes[parent] }
+    let(:node)        { nodes[record] }
 
     before { model.stub(:all => [record]) }
 
@@ -59,11 +71,10 @@ module AccessControl
     end
 
     describe "#relationships" do
-      let(:another_parent_node) { stub(:id => ids.next) }
-      let(:another_node)        { stub(:id => ids.next) }
-      let(:another_parent)      { stub(:node => another_parent_node) }
-      let(:another_record)      { stub(:parent => another_parent,
-                                       :node => another_node) }
+      let(:another_parent)      { stub_record}
+      let(:another_record)      { stub_record(:parent => another_parent) }
+      let(:another_node)        { nodes[another_record] }
+      let(:another_parent_node) { nodes[another_parent] }
 
       before { model.stub(:all => [record, another_record]) }
 
@@ -135,5 +146,22 @@ module AccessControl
       end
     end
 
+    describe "when assigned to a method that returns a collection" do
+      subject { MethodInheritance.new(model, :parents) }
+
+      let(:parent1) { stub_record }
+      let(:parent2) { stub_record }
+
+      let(:record)  { stub_record(:parents => [parent1, parent2]) }
+
+      specify "#relationships returns a flat collection of all the parents" do
+        relationships = subject.relationships
+        relationships.should include(:parent_id => nodes[parent1].id,
+                                     :child_id  => nodes[record].id)
+
+        relationships.should include(:parent_id => nodes[parent2].id,
+                                     :child_id  => nodes[record].id)
+      end
+    end
   end
 end
