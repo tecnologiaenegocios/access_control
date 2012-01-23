@@ -34,9 +34,11 @@ module AccessControl::Persistable
 
           yielded_items.should == [wrapped_item]
         end
+      end
 
+      describe "#to_a" do
         it "returns a collection of all the wrapped items" do
-          subject.each.should include_only(wrapped_item)
+          subject.to_a.should include_only(wrapped_item)
         end
       end
 

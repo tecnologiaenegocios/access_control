@@ -13,7 +13,7 @@ module AccessControl
       def each
         return to_enum(:each) unless block_given?
 
-        original_subset.map do |item|
+        original_subset.each do |item|
           wrap(item).tap { |wrapped| yield wrapped }
         end
       end
