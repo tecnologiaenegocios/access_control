@@ -7,10 +7,11 @@ module AccessControl
     attr_reader :model_class, :method_name
     def initialize(model_class, method_name)
       @model_class = model_class
+      @orm         = ORM.adapt_class(model_class)
       @method_name = method_name
     end
 
-    def relationships(records = model_class.all, &block)
+    def relationships(records = @orm.values, &block)
       records.each_with_object(Array.new) do |record, results|
         method_result = record.send(method_name)
 
@@ -37,7 +38,7 @@ module AccessControl
     alias_method :eql?, :==
 
     def properties
-      {:model_class => model_class, :method_name => method_name}
+      {:record_type => record_type, :method_name => method_name}
     end
 
   private
@@ -60,5 +61,8 @@ module AccessControl
       end
     end
 
+    def record_type
+      model_class.name
+    end
   end
 end

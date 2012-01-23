@@ -3,6 +3,7 @@ require 'spec_helper'
 module AccessControl
   describe MethodInheritance do
     let(:model) { Class.new }
+    let(:orm)   { stub }
 
     def ids
       @ids ||= 1.to_enum(:upto, Float::INFINITY)
@@ -28,15 +29,15 @@ module AccessControl
 
     before do
       AccessControl.stub(:Node) { |record| nodes[record] }
-      model.stub(:all => [record])
+      ORM.stub(:adapt_class).with(model).and_return(orm)
+      model.stub(:name => 'RecordType')
+      orm.stub(:values => [record])
     end
 
     let(:parent)      { stub_record }
     let(:record)      { stub_record(:parent => parent) }
     let(:parent_node) { nodes[parent] }
     let(:node)        { nodes[record] }
-
-    before { model.stub(:all => [record]) }
 
     subject { MethodInheritance.new(model, :parent) }
 
@@ -47,7 +48,9 @@ module AccessControl
       end
 
       it "is not equal to other if the other's model is different" do
-        other = MethodInheritance.new(Class.new, :parent)
+        other_model = Class.new
+        ORM.stub(:adapt_class).with(other_model).and_return(stub())
+        other = MethodInheritance.new(other_model, :parent)
         subject.should_not == other
       end
 
@@ -65,7 +68,7 @@ module AccessControl
     describe "#properties" do
       it "returns the inheritance's properties in a hash" do
         subject = MethodInheritance.new(model, :parent)
-        subject.properties.should == {:model_class => model,
+        subject.properties.should == {:record_type => 'RecordType',
                                       :method_name => :parent}
       end
     end
@@ -76,7 +79,7 @@ module AccessControl
       let(:another_node)        { nodes[another_record] }
       let(:another_parent_node) { nodes[another_parent] }
 
-      before { model.stub(:all => [record, another_record]) }
+      before { orm.stub(:values => [record, another_record]) }
 
       it "contains an element for each parent-child relationship" do
         subject.relationships.count.should == 2
