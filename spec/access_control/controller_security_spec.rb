@@ -338,6 +338,14 @@ module AccessControl
           end
         end
 
+        it "tells PermissionInspector to clear its role cache" do
+          PermissionInspector.should_receive(:block_called).ordered
+          PermissionInspector.should_receive(:clear_role_cache).ordered
+
+          records_controller.process do
+            PermissionInspector.block_called
+          end
+        end
       end
 
     end

@@ -1,6 +1,17 @@
 module AccessControl
   class PermissionInspector
 
+    def self.roles_on(context, principals)
+      cache_key = [context,principals]
+
+      @roles            ||= Hash.new
+      @roles[cache_key] ||= Set.new Role.assigned_to(principals, context)
+    end
+
+    def self.clear_role_cache
+      @roles = nil
+    end
+
     attr_reader :principals, :context
     def initialize(nodes_or_securables, principals = AccessControl.manager.principals)
       self.context = nodes_or_securables
@@ -27,7 +38,7 @@ module AccessControl
     end
 
     def current_roles
-      @current_roles ||= Role.assigned_to(principals, context).to_set
+      PermissionInspector.roles_on(context, principals)
     end
 
   end

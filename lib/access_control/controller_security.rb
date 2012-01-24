@@ -103,6 +103,7 @@ module AccessControl
         AccessControl::Principal.clear_anonymous_cache
         AccessControl.no_manager
         AccessControl::Node.clear_global_cache
+        PermissionInspector.clear_role_cache
       end
 
     end

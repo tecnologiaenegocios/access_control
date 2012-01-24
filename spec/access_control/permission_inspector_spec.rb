@@ -163,6 +163,62 @@ module AccessControl
       end
     end
 
+    describe "the role cache" do
+      let(:node)       { stub_node }
+      let(:principals) { Set[stub("Principals")] }
+
+      let(:instance1) { PermissionInspector.new(node, principals) }
+      let(:instance2) { PermissionInspector.new(node, principals) }
+
+      describe "two different instances" do
+        specify "with the same parameters have the same roles" do
+          Role.stub(:assigned_to)
+          instance1.current_roles.should == instance2.current_roles
+        end
+
+        specify "won't fetch the same roles twice" do
+          Role.should_receive(:assigned_to).exactly(:once)
+
+          instance1.current_roles
+          instance2.current_roles
+        end
+
+        specify "fetches their roles if given different contexts" do
+          other_node = stub_node
+          instance2 = PermissionInspector.new(other_node, principals)
+
+          Role.should_receive(:assigned_to).with(principals, Set[node]).once
+          Role.should_receive(:assigned_to).with(principals, Set[other_node]).once
+
+          instance1.current_roles
+          instance2.current_roles
+        end
+
+        specify "fetches their roles if given different principals" do
+          other_principals = Set[stub("Other principals")]
+          instance2 = PermissionInspector.new(node, other_principals)
+
+          Role.should_receive(:assigned_to).with(principals, Set[node]).once
+          Role.should_receive(:assigned_to).with(other_principals, Set[node]).once
+
+          instance1.current_roles
+          instance2.current_roles
+        end
+
+        context "if PermissionInspector.clear_role_cache is used" do
+          before { PermissionInspector.clear_role_cache }
+
+          specify "the roles are fetched again" do
+            Role.should_receive(:assigned_to).twice
+
+            instance1.current_roles
+            PermissionInspector.clear_role_cache
+            instance2.current_roles
+          end
+        end
+      end
+    end
+
   end
 
 end
