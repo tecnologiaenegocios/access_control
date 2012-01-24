@@ -3,12 +3,30 @@ require 'spec_helper'
 module AccessControl
   describe NodeManager do
 
+    def add_nodes(hash)
+      hash.each do |id, instance|
+        current_nodes[id] = instance
+      end
+    end
+    let(:current_nodes)   { {} }
+
     let(:securable_class) { FakeSecurableClass.new }
     let(:securable)       { securable_class.new }
 
     let(:node) do
       stub('main node', :securable       => securable,
                         :securable_class => securable_class)
+    end
+
+    before do
+      Node.stub(:fetch) do |id|
+        current_nodes[id] or raise "not found node #{id}"
+      end
+      Node.stub(:fetch_all) do |ids|
+        ids.map do |id|
+          Node.fetch(id)
+        end
+      end
     end
 
     subject { NodeManager.new(node) }
@@ -41,16 +59,19 @@ module AccessControl
       let(:inheritance_manager) { mock("Inheritance Manager") }
       let(:manager)             { mock('Manager') }
 
-      let(:parent)  { stub("Parent node") }
+      let(:parent_id) { 'parent id' }
+      let(:parent)    { stub("Parent node") }
 
-      let(:real_parents)   { [parent] }
-      let(:cached_parents) { [parent] }
+      let(:real_parent_ids) { [parent_id] }
+      let(:cached_parents)  { [parent] }
 
       before do
+        add_nodes(parent_id => parent)
+
         inheritance_manager.stub(:parents => cached_parents)
 
-        Inheritance.stub(:parent_nodes_of).with(securable).
-          and_return(real_parents)
+        Inheritance.stub(:parent_node_ids_of).with(securable).
+          and_return(real_parent_ids)
 
         securable_class.stub(
           :permissions_required_to_create  => create_permissions,
@@ -66,14 +87,17 @@ module AccessControl
       end
 
       context "when parents were added" do
-        let(:new_parent) { stub("New parent") }
+        let(:new_parent_id) { 'new parent id' }
+        let(:new_parent)    { stub("New parent") }
 
         before do
+          add_nodes(new_parent_id => new_parent)
+
           inheritance_manager.stub(:add_parent)
           RolePropagation.stub(:propagate!)
           manager.stub(:can!)
 
-          real_parents << new_parent
+          real_parent_ids << new_parent_id
         end
 
         it "checks permission for adding the new parent" do
@@ -98,7 +122,7 @@ module AccessControl
           RolePropagation.stub(:depropagate!)
           manager.stub(:can!)
 
-          real_parents.delete(parent)
+          real_parent_ids.delete(parent_id)
         end
 
         it "checks permissions for removing the parents" do
@@ -258,12 +282,15 @@ module AccessControl
 
     describe "#unblock" do
 
-      let(:parent)  { stub("Parent node") }
+      let(:parent_id) { 'parent id' }
+      let(:parent)    { stub("Parent node", :id => parent_id) }
       let(:inheritance_manager) { stub }
 
       before do
-        Inheritance.stub(:parent_nodes_of).with(securable).
-          and_return([parent])
+        add_nodes(parent_id => parent)
+
+        Inheritance.stub(:parent_node_ids_of).with(securable).
+          and_return([parent_id])
 
         RolePropagation.stub(:propagate!)
 

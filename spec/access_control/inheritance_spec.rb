@@ -21,7 +21,7 @@ module AccessControl
     end
 
 
-    describe ".fetch_parent_nodes_of" do
+    describe ".parent_node_ids_of" do
       let(:securable) { stub("Securable", :class => model) }
 
       let(:method_parent_id)      { stub("Method parent id") }
@@ -52,14 +52,14 @@ module AccessControl
         method_inheritance.stub(:relationships_of).with([securable]).
           and_return [ {:parent_id => method_parent_id} ]
 
-        Inheritance.parent_nodes_of(securable).should include(method_parent_id)
+        Inheritance.parent_node_ids_of(securable).should include(method_parent_id)
       end
 
       it "returns the ids of nodes retrieved by FKs in the securable" do
         association_inheritance.stub(:relationships_of).with([securable]).
           and_return [ {:parent_id => association_parent_id} ]
 
-        Inheritance.parent_nodes_of(securable).should include(association_parent_id)
+        Inheritance.parent_node_ids_of(securable).should include(association_parent_id)
       end
 
       it "returns the ids of both method-based and FK-based parents" do
@@ -69,7 +69,7 @@ module AccessControl
           and_return [ {:parent_id => association_parent_id} ]
 
         parents = [method_parent_id, association_parent_id]
-        Inheritance.parent_nodes_of(securable).should include_only(*parents)
+        Inheritance.parent_node_ids_of(securable).should include_only(*parents)
       end
     end
 

@@ -21,7 +21,7 @@ module AccessControl
       inheritances[model]
     end
 
-    def self.parent_nodes_of(securable)
+    def self.parent_node_ids_of(securable)
       inheritances = inheritances_of(securable.class)
       inheritances.flat_map do |inheritance|
         relationships = inheritance.relationships_of([securable])

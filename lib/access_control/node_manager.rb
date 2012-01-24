@@ -111,7 +111,8 @@ module AccessControl
     end
 
     def nodes_of_securable_parents
-      Inheritance.parent_nodes_of(@node.securable)
+      ids = Inheritance.parent_node_ids_of(@node.securable)
+      Node.fetch_all(ids)
     end
 
     def inheritance_manager
