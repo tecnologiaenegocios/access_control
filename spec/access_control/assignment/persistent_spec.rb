@@ -59,6 +59,7 @@ module AccessControl
         let(:role_ids)       { [1,2] }
         let(:principal_ids)  { [1,2] }
         let(:top_level_node) { 99 }
+        let(:unrelated_node) { 100 }
 
         let!(:top_assignments) do
           combos = (role_ids + [99]).product(principal_ids + [99])
@@ -90,6 +91,8 @@ module AccessControl
           end
           AccessControl.ac_parents.insert([:parent_id, :child_id],
                                           [top_level_node, head_node])
+          AccessControl.ac_parents.insert([:parent_id, :child_id],
+                                          [top_level_node, unrelated_node])
         end
 
         def assignment_properties_at(node_id)
@@ -141,6 +144,10 @@ module AccessControl
 
             assignment_properties_at(head_node).
               should include_only(*expected_properties)
+          end
+
+          it "doesn't propagate to unrelated nodes" do
+            assignment_properties_at(unrelated_node).should be_empty
           end
 
           tail_nodes.each do |node|

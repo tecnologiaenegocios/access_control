@@ -9,15 +9,13 @@ module AccessControl
     class << self
       def propagate_to(assignments, node_id)
         propagate_descendants(ids_of(assignments),
-                              :from      => node_ids_of(assignments),
                               :to        => node_id,
                               :scoped_by => node_id)
       end
 
       def propagate_to_descendants(assignments, node_id)
         propagate_descendants(ids_of(assignments),
-                              :from => node_id,
-                              :to   => child_node_ids_of(node_id))
+                              :to => child_node_ids_of(node_id))
       end
 
       def depropagate_from(assignments, node_id)
@@ -59,41 +57,30 @@ module AccessControl
       end
 
       def propagate_descendants(source_ids, params)
-        parent_node_ids   = params[:from]
         child_node_ids    = params[:to]
         child_nodes_scope = params[:scoped_by]
 
-        descend(source_ids,
-                :from => parent_node_ids,
-                :scoped_by => child_nodes_scope)
+        descend(source_ids, :scoped_by => child_nodes_scope)
         new_ids = propagated_ids_from(source_ids, :at => child_node_ids)
 
         # Next levels are propagated always without scope.
         next_child_node_ids = child_node_ids_of(child_node_ids)
         if next_child_node_ids.any?
-          propagate_descendants(new_ids, :from => child_node_ids,
-                                         :to   => next_child_node_ids)
+          propagate_descendants(new_ids, :to => next_child_node_ids)
         end
       end
 
       def descend(source_ids, params)
-        parent_node_ids   = params[:from]
         child_nodes_scope = params[:scoped_by]
-
-        combos = combinations_of(source_ids,
-                                 :from      => parent_node_ids,
-                                 :scoped_by => child_nodes_scope)
+        combos = combinations_of(source_ids, :scoped_by => child_nodes_scope)
 
         import([:parent_id, :role_id, :principal_id, :node_id], combos)
       end
 
       def combinations_of(source_ids, params)
-        parent_node_ids   = params[:from]
+        filter_params = { :ac_assignments__id => source_ids }
+
         child_nodes_scope = params[:scoped_by]
-
-        filter_params = { :ac_parents__parent_id => parent_node_ids,
-                          :ac_assignments__id    => source_ids }
-
         if child_nodes_scope
           filter_params[:ac_parents__child_id] = child_nodes_scope
         end
