@@ -3,20 +3,43 @@ require 'spec_helper'
 module AccessControl
   describe Role do
 
+    def ids
+      @ids ||= 1.to_enum(:upto, Float::INFINITY)
+    end
+
+    def stub_node(stubs = {})
+      id = stubs[:id]      ||= ids.next
+      stubs[:securable_id] ||= ids.next
+
+      stub("Node #{id}", stubs).tap do |node|
+        AccessControl.stub(:Node).with(node).
+          and_return(node)
+      end
+    end
+
+    def stub_principal(stubs = {})
+      id = stubs[:id]    ||= ids.next
+      stubs[:subject_id] ||= ids.next
+
+      stub("Principal #{id}", stubs).tap do |principal|
+        AccessControl.stub(:Principal).with(principal).
+          and_return(principal)
+      end
+    end
+
     describe ".assign_default_at" do
       let(:securable_class) { Class.new Sequel::Model(:records) }
 
       let!(:securable) { securable_class.create }
       let(:node)   { Node.store(:securable_class => securable_class,
                                 :securable_id    => securable.id) }
+      before { securable.stub(:ac_node => node) }
+
 
       let(:role1) { Role.store(:name => 'default') }
       let(:role2) { Role.store(:name => 'other_default') }
 
-      let(:principals) { [
-        Principal.store(:subject_type => 'SubjectType', :subject_id => 1),
-        Principal.store(:subject_type => 'SubjectType', :subject_id => 2)
-      ] }
+      let(:principals) { 2.times.map { stub_principal } }
 
       let(:config)  { stub('configuration') }
 
@@ -25,6 +48,31 @@ module AccessControl
       before do
         AccessControl.stub(:config).and_return(config)
         config.stub(:default_roles).and_return([role1.name, role2.name])
+      end
+
+      it "accepts a securable instead of a node" do
+        Role.assign_default_at(securable, principals)
+
+        principals.each do |principal|
+          role1.should be_assigned_to(principal, node)
+          role2.should be_assigned_to(principal, node)
+        end
+      end
+
+      it "accepts subjects instead of principals" do
+        subjects = principals.map do |principal|
+          subject = stub("Subject")
+          AccessControl.stub(:Principal).with(subject).
+            and_return(principal)
+          subject
+        end
+
+        Role.assign_default_at(node, subjects)
+
+        principals.each do |principal|
+          role1.should be_assigned_to(principal, node)
+          role2.should be_assigned_to(principal, node)
+        end
       end
 
       it "assigns default roles to the current principals in the given node" do
@@ -55,9 +103,9 @@ module AccessControl
         end
       end
 
-      let(:roles)      { stub("Roles collection")      }
-      let(:nodes)      { stub("Nodes collection")      }
-      let(:principals) { stub("Principals collection") }
+      let(:roles)      { stub("Roles collection") }
+      let(:nodes)      { [stub_node]              }
+      let(:principals) { [stub_principal]         }
 
       it "sets up the roles of the combination using its parameter" do
         combination.should_receive(:roles=).with(roles)
@@ -98,9 +146,9 @@ module AccessControl
         end
       end
 
-      let(:roles)      { stub("Roles collection")      }
-      let(:nodes)      { stub("Nodes collection")      }
-      let(:principals) { stub("Principals collection") }
+      let(:roles)      { stub("Roles collection") }
+      let(:nodes)      { [stub_node]              }
+      let(:principals) { [stub_principal]         }
 
       it "sets up the roles of the combination using its parameter" do
         combination.should_receive(:roles=).with(roles)
@@ -132,11 +180,11 @@ module AccessControl
     end
 
     describe ".unassign_all_from" do
-      let(:principal) { stub("Principal", :id => 123) }
+      let(:principal) { stub_principal }
       let(:role)      { Role.store(:name => "Foo")  }
 
       before do
-        node = stub("Node", :id => -1)
+        node = stub_node
         role.assign_to(principal, node)
       end
 
@@ -147,11 +195,11 @@ module AccessControl
     end
 
     describe ".unassign_all_at" do
-      let(:node) { stub("Node", :id => 123) }
+      let(:node) { stub_node }
       let(:role) { Role.store(:name => "Foo") }
 
       before do
-        principal = stub("Principal", :id => -1)
+        principal = stub_principal
         role.assign_at(node, principal)
       end
 
@@ -163,9 +211,9 @@ module AccessControl
 
     describe "role assignment in principals and nodes" do
       let(:role)       { Role.new(:name => 'role') }
-      let(:principal)  { stub_model(Principal) }
-      let(:node)       { stub_model(Node) }
-      let(:other_node) { stub_model(Node) }
+      let(:principal)  { stub_principal }
+      let(:node)       { stub_node }
+      let(:other_node) { stub_node }
 
       specify "roles are not initially assigned" do
         role.should_not be_assigned_to(principal, node)
@@ -173,6 +221,23 @@ module AccessControl
 
       it "assigns a role to a principal in the given node" do
         role.assign_to(principal, node)
+        role.should be_assigned_to(principal, node)
+      end
+
+      it "accepts a securable instead of a node" do
+        securable = stub("Securable")
+        AccessControl.stub(:Node).with(securable).and_return(node)
+
+        role.assign_to(principal, securable)
+        role.should be_assigned_to(principal, node)
+      end
+
+      it "accepts a subject instead of a principal" do
+        subject = stub("Subject")
+        AccessControl.stub(:Principal).with(subject).
+          and_return(principal)
+
+        role.assign_to(subject, node)
         role.should be_assigned_to(principal, node)
       end
 
@@ -265,9 +330,9 @@ module AccessControl
 
     describe "role assignment in nodes and principals" do
       let(:role)            { Role.new(:name => 'role') }
-      let(:principal)       { stub_model(Principal) }
-      let(:other_principal) { stub_model(Principal) }
-      let(:node)            { stub_model(Node) }
+      let(:principal)       { stub_principal }
+      let(:other_principal) { stub_principal }
+      let(:node)            { stub_node }
 
       specify "roles are not initially assigned" do
         role.should_not be_assigned_at(node, principal)
@@ -280,6 +345,23 @@ module AccessControl
 
       it "assigns using ids" do
         role.assign_at(node.id, principal.id)
+        role.should be_assigned_at(node, principal)
+      end
+
+      it "accepts a securable instead of a node" do
+        securable = stub("Securable")
+        AccessControl.stub(:Node).with(securable).and_return(node)
+
+        role.assign_at(securable, principal)
+        role.should be_assigned_at(node, principal)
+      end
+
+      it "accepts a subject instead of a principal" do
+        subject = stub("Subject")
+        AccessControl.stub(:Principal).with(subject).
+          and_return(principal)
+
+        role.assign_at(node, subject)
         role.should be_assigned_at(node, principal)
       end
 
@@ -333,6 +415,27 @@ module AccessControl
           role.should be_assigned_at(node, principal)
         end
 
+        it "accepts a securable instead of a node" do
+          securable = stub("Securable")
+          AccessControl.stub(:Node).with(securable).and_return(node)
+
+          role.assign_at(node, principal)
+          role.unassign_at(securable, principal)
+
+          role.should_not be_assigned_at(node, principal)
+        end
+
+        it "accepts a subject instead of a principal" do
+          subject = stub("Subject")
+          AccessControl.stub(:Principal).with(subject).
+            and_return(principal)
+
+          role.assign_at(node, principal)
+          role.unassign_at(node, subject)
+
+          role.should_not be_assigned_at(node, principal)
+        end
+
         specify "when principal is not specified, all nodes are unassigned" do
           role.assign_at(node, principal)
           role.assign_at(node, other_principal)
@@ -366,9 +469,9 @@ module AccessControl
     end
 
     describe "assignment-related predicate methods" do
-      let(:node)       { stub("Node",       :id => 1) }
-      let(:child_node) { stub("Child node", :id => 2) }
-      let(:principal)  { stub("Principal",  :id => 1) }
+      let(:node)       { stub_node      }
+      let(:child_node) { stub_node      }
+      let(:principal)  { stub_principal }
 
       let!(:local_assignment) do
         Assignment.store(:role_id => subject.id, :node_id => node.id,
@@ -382,6 +485,21 @@ module AccessControl
           subject.should be_assigned_to(principal, node)
         end
 
+        it "accepts a securable instead of a node" do
+          securable = stub("Securable")
+          AccessControl.stub(:Node).with(securable).and_return(node)
+
+          subject.should be_assigned_to(principal, securable)
+        end
+
+        it "accepts a subject instead of a principal" do
+          subj = stub("Subject")
+          AccessControl.stub(:Principal).with(subj).
+            and_return(principal)
+
+          subject.should be_assigned_to(subj, node)
+        end
+
         it "returns true if the role was inherited" do
           local_assignment.propagate_to(child_node)
           subject.should be_assigned_to(principal, child_node)
@@ -391,6 +509,21 @@ module AccessControl
       describe "#locally_assigned_to?" do
         it "returns true if the role was directly assigned" do
           subject.should be_locally_assigned_to(principal, node)
+        end
+
+        it "accepts a securable instead of a node" do
+          securable = stub("Securable")
+          AccessControl.stub(:Node).with(securable).and_return(node)
+
+          subject.should be_locally_assigned_to(principal, securable)
+        end
+
+        it "accepts a subject instead of a principal" do
+          subj = stub("Subject")
+          AccessControl.stub(:Principal).with(subj).
+            and_return(principal)
+
+          subject.should be_locally_assigned_to(subj, node)
         end
 
         it "returns false if the role was inherited" do
@@ -404,6 +537,21 @@ module AccessControl
           subject.should be_assigned_at(node, principal)
         end
 
+        it "accepts a securable instead of a node" do
+          securable = stub("Securable")
+          AccessControl.stub(:Node).with(securable).and_return(node)
+
+          subject.should be_assigned_at(securable, principal)
+        end
+
+        it "accepts a subject instead of a principal" do
+          subj = stub("Subject")
+          AccessControl.stub(:Principal).with(subj).
+            and_return(principal)
+
+          subject.should be_assigned_at(node, subj)
+        end
+
         it "returns true if the role was inherited" do
           local_assignment.propagate_to(child_node)
           subject.should be_assigned_at(child_node, principal)
@@ -413,6 +561,21 @@ module AccessControl
       describe "#locally_assigned_at?" do
         it "returns true if the role was directly assigned" do
           subject.should be_locally_assigned_at(node, principal)
+        end
+
+        it "accepts a securable instead of a node" do
+          securable = stub("Securable")
+          AccessControl.stub(:Node).with(securable).and_return(node)
+
+          subject.should be_locally_assigned_at(securable, principal)
+        end
+
+        it "accepts a subject instead of a principal" do
+          subj = stub("Subject")
+          AccessControl.stub(:Principal).with(subj).
+            and_return(principal)
+
+          subject.should be_locally_assigned_at(node, subj)
         end
 
         it "returns false if the role was inherited" do
@@ -521,8 +684,8 @@ module AccessControl
 
     context "when role is removed" do
       let(:role)      { Role.store(:name => 'Irrelevant') }
-      let(:principal) { stub('principal', :id => 1) }
-      let(:node)      { stub('node',      :id => 1) }
+      let(:principal) { stub_principal }
+      let(:node)      { stub_node }
 
       before do
         role.add_permissions('p1', 'p2')

@@ -127,6 +127,22 @@ module AccessControl
       @persistent_model ||= ORM.adapt_class(Role::Persistent)
     end
 
+    def self.normalize_principals(principals)
+      principals = Array(principals) unless principals.kind_of?(Enumerable)
+
+      principals.map do |principal|
+        AccessControl::Principal(principal)
+      end
+    end
+
+    def self.normalize_nodes(nodes)
+      nodes = Array(nodes) unless nodes.kind_of?(Enumerable)
+
+      nodes.map do |node|
+        AccessControl::Node(node)
+      end
+    end
+
     include Persistable
 
     def self.assign_default_at(nodes, principals = AccessControl.manager.principals)
@@ -135,6 +151,9 @@ module AccessControl
 
     def self.assign_all(roles, principals, nodes,
                         combination = AssignmentCombination.new)
+      principals = normalize_principals(principals)
+      nodes      = normalize_nodes(nodes)
+
       combination.nodes                    = nodes
       combination.principals               = principals
       combination.roles                    = roles
@@ -145,6 +164,9 @@ module AccessControl
 
     def self.unassign_all(roles, principals, nodes,
                           combination=AssignmentCombination.new)
+      principals = normalize_principals(principals)
+      nodes      = normalize_nodes(nodes)
+
       combination.nodes                    = nodes
       combination.principals               = principals
       combination.roles                    = roles
@@ -157,18 +179,22 @@ module AccessControl
                      :default, :with_names
 
     def self.unassign_all_from(principal)
+      principal = AccessControl::Principal(principal)
+
       assigned_to(principal).each do |role|
         role.unassign_from(principal)
       end
     end
 
     def self.unassign_all_at(node)
+      node = AccessControl::Node(node)
+
       assigned_at(node).each do |role|
         role.unassign_at(node)
       end
     end
 
-    def self.[] name
+    def self.[](name)
       with_names(name).first
     end
 
@@ -199,10 +225,16 @@ module AccessControl
     end
 
     def assigned_to?(principal, node)
-      assignments.has?(principal, node)
+      principal_id = Util.id_of(principal) { AccessControl::Principal(principal) }
+      node_id      = Util.id_of(node) { AccessControl::Node(node) }
+
+      assignments.has?(principal_id, node_id)
     end
 
     def locally_assigned_to?(principal, node)
+      principal = AccessControl::Principal(principal)
+      node      = AccessControl::Node(node)
+
       assignments.has_locally?(principal, node)
     end
 
@@ -215,18 +247,23 @@ module AccessControl
     end
 
     def unassign_from(principal, node = nil)
+      principal_id = Util.id_of(principal) { AccessControl::Principal(principal) }
+
       if node
-        assignments.remove_on(principal, node)
+        node_id = Util.id_of(node) { AccessControl::Node(node) }
+        assignments.remove_on(principal_id, node_id)
       else
-        assignments.remove_from(principal)
+        assignments.remove_from(principal_id)
       end
     end
 
     def unassign_at(node, principal = nil)
+      node_id = Util.id_of(node) { AccessControl::Node(node) }
       if principal
-        assignments.remove_on(principal, node)
+        principal_id = Util.id_of(principal) { AccessControl::Principal(principal) }
+        assignments.remove_on(principal_id, node_id)
       else
-        assignments.remove_at(node)
+        assignments.remove_at(node_id)
       end
     end
 
@@ -249,8 +286,8 @@ module AccessControl
   private
 
     def assign_on(principal, node)
-      principal_id = Util.id_of(principal)
-      node_id = Util.id_of(node)
+      principal_id = Util.id_of(principal) { AccessControl::Principal(principal) }
+      node_id      = Util.id_of(node) { AccessControl::Node(node) }
 
       assignments << Assignment.new(:principal_id => principal_id,
                                     :node_id      => node_id)
