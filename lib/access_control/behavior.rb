@@ -58,9 +58,7 @@ module AccessControl
 
           ac_parents.import([:parent_id, :child_id], relationships)
         else
-          while relationships.any?
-            partition = relationships.slice!(0, 1000)
-
+          relationships.each_slice(1000) do |partition|
             tuples = partition.map { |r| [r[:parent_id], r[:child_id]] }
             existing = ac_parents.filter([:parent_id, :child_id] => tuples)
             existing.delete
