@@ -50,7 +50,13 @@ module AccessControl
 
       # Return an id from an object, or the object itself if it is a Fixnum.
       def id_of(object)
-        object.is_a?(Fixnum) ? object : object.id
+        if object.is_a?(Fixnum)
+          object
+        elsif block_given?
+          id_of(yield)
+        else
+          object.id
+        end
       end
 
       # Return one or more ids suitable for a hash condition, or nil if

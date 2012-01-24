@@ -79,6 +79,30 @@ module AccessControl
       it "returns the result of calling #id if the object is not a fixnum" do
         Util.id_of(stub(:id => 22)).should == 22
       end
+
+      context "when given a block" do
+        it "returns the object if the object is a fixnum" do
+          id = Util.id_of(22) { 15 }
+          id.should == 22
+        end
+
+        context "when the object is not a fixnum" do
+          it "returns the result of the block if it is a fixnum" do
+            obj = stub(:id => 15)
+            id = Util.id_of(obj) { 22 }
+
+            id.should == 22
+          end
+
+          it "returns the id of the result of the block if it isn't a fixnum" do
+            obj  = stub(:id => 15)
+            obj2 = stub(:id => 22)
+            id = Util.id_of(obj) { obj2 }
+
+            id.should == 22
+          end
+        end
+      end
     end
 
     describe ".ids_for_hash_condition" do
