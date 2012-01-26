@@ -63,6 +63,13 @@ module AccessControl
           Persistent.assigned_to(principal).should_not include other_role
         end
 
+        it "doesn't return roles assigned at two nodes twice" do
+          lambda {
+            other_node = stub_node
+            assign_role(role, principal, other_node)
+          }.should_not change { Persistent.assigned_to(principal).count }
+        end
+
         context "when given a collection of principals" do
           let(:other_principal) { stub_principal }
           let(:principals)      { [principal, other_principal] }
@@ -141,6 +148,13 @@ module AccessControl
           AccessControl.stub(:Node).with(securable).and_return(node)
 
           Persistent.assigned_at(securable).should include role
+        end
+
+        it "doesn't return roles assigned to two principals twice" do
+          lambda {
+            other_principal = stub_principal
+            assign_role(role, other_principal, node)
+          }.should_not change { Persistent.assigned_at(node).count }
         end
 
         context "when given a collection of nodes" do
