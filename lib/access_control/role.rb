@@ -127,22 +127,6 @@ module AccessControl
       @persistent_model ||= ORM.adapt_class(Role::Persistent)
     end
 
-    def self.normalize_principals(principals)
-      principals = Array(principals) unless principals.kind_of?(Enumerable)
-
-      principals.map do |principal|
-        AccessControl::Principal(principal)
-      end
-    end
-
-    def self.normalize_nodes(nodes)
-      nodes = Array(nodes) unless nodes.kind_of?(Enumerable)
-
-      nodes.map do |node|
-        AccessControl::Node(node)
-      end
-    end
-
     include Persistable
 
     def self.assign_default_at(nodes, principals = AccessControl.manager.principals)
@@ -151,8 +135,8 @@ module AccessControl
 
     def self.assign_all(roles, principals, nodes,
                         combination = AssignmentCombination.new)
-      principals = normalize_principals(principals)
-      nodes      = normalize_nodes(nodes)
+      principals = Principal.normalize_collection(principals)
+      nodes      = Node.normalize_collection(nodes)
 
       combination.nodes                    = nodes
       combination.principals               = principals
@@ -164,8 +148,8 @@ module AccessControl
 
     def self.unassign_all(roles, principals, nodes,
                           combination=AssignmentCombination.new)
-      principals = normalize_principals(principals)
-      nodes      = normalize_nodes(nodes)
+      principals = Principal.normalize_collection(principals)
+      nodes      = Node.normalize_collection(nodes)
 
       combination.nodes                    = nodes
       combination.principals               = principals

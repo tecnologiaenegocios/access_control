@@ -33,16 +33,18 @@ module AccessControl
         end
       end
 
+      def assign_role(role, principal, node)
+        Assignment.store(:role_id => role.id,
+                         :node_id => node.id,
+                         :principal_id => principal.id)
+      end
+
       describe ".assigned_to" do
         let(:principal) { stub_principal }
         let(:node)      { stub_node }
         let(:role)      { persist_role(:name => "Foo") }
 
-        before do
-          Assignment.store(:role_id => role.id,
-                           :node_id => node.id,
-                           :principal_id => principal.id)
-        end
+        before { assign_role(role, principal, node) }
 
         it "includes roles that were assigned to the given principal" do
           Persistent.assigned_to(principal).should include role
@@ -61,6 +63,25 @@ module AccessControl
           Persistent.assigned_to(principal).should_not include other_role
         end
 
+        context "when given a collection of principals" do
+          let(:other_principal) { stub_principal }
+          let(:principals)      { [principal, other_principal] }
+
+          it "returns roles assigned to all the given principals" do
+            assign_role(role, other_principal, node)
+            Persistent.assigned_to(principals).should include role
+          end
+
+          it "returns roles assigned to one of the given principals" do
+            Persistent.assigned_to(principals).should include role
+          end
+
+          it "doesn't return roles that aren't assigned to any of the princiapls" do
+            other_role = persist_role(:name => "Bar")
+            Persistent.assigned_to(principals).should_not include other_role
+          end
+        end
+
         context "when a node is provided" do
           it "includes roles assigned to the principal on the node" do
             Persistent.assigned_to(principal, node).should include role
@@ -77,6 +98,25 @@ module AccessControl
             other_node = stub_node
             Persistent.assigned_to(principal, other_node).should_not include role
           end
+
+          context "when given a collection of nodes" do
+            let(:other_node) { stub_node }
+            let(:nodes)      { [node, other_node] }
+
+            it "returns roles assigned on all the given nodes" do
+              assign_role(role, principal, other_node)
+              Persistent.assigned_to(principal, nodes).should include role
+            end
+
+            it "returns roles assigned on one of the given nodes" do
+              Persistent.assigned_to(principal, nodes).should include role
+            end
+
+            it "doesn't return roles that aren't assigned on of the nodes" do
+              other_role = persist_role(:name => "Bar")
+              Persistent.assigned_to(principal, nodes).should_not include other_role
+            end
+          end
         end
       end
 
@@ -85,11 +125,7 @@ module AccessControl
         let(:principal) { stub_principal }
         let(:role)      { persist_role(:name => "Foo") }
 
-        before do
-          Assignment.store(:role_id => role.id,
-                           :node_id => node.id,
-                           :principal_id => principal.id)
-        end
+        before { assign_role(role, principal, node) }
 
         it "includes roles that were assigned on the given node" do
           Persistent.assigned_at(node).should include role
@@ -105,6 +141,25 @@ module AccessControl
           AccessControl.stub(:Node).with(securable).and_return(node)
 
           Persistent.assigned_at(securable).should include role
+        end
+
+        context "when given a collection of nodes" do
+          let(:other_node) { stub_node }
+          let(:nodes)      { [node, other_node] }
+
+          it "returns roles assigned at all the given nodes" do
+            assign_role(role, other_node, node)
+            Persistent.assigned_at(nodes).should include role
+          end
+
+          it "returns roles assigned at one of the given nodes" do
+            Persistent.assigned_at(nodes).should include role
+          end
+
+          it "doesn't return roles that aren't assigned at any of the princiapls" do
+            other_role = persist_role(:name => "Bar")
+            Persistent.assigned_at(nodes).should_not include other_role
+          end
         end
 
         context "when a principal is provided" do
@@ -123,6 +178,25 @@ module AccessControl
           it "doesn't include roles assigned on the node to other principals" do
             other_principal = stub_principal
             Persistent.assigned_at(node, other_principal).should_not include role
+          end
+
+          context "when given a collection of principals" do
+            let(:other_principal) { stub_principal }
+            let(:principals)      { [principal, other_principal] }
+
+            it "returns roles assigned to all the given principals" do
+              assign_role(role, other_principal, node)
+              Persistent.assigned_at(node, principals).should include role
+            end
+
+            it "returns roles assigned to one of the given principals" do
+              Persistent.assigned_at(node, principals).should include role
+            end
+
+            it "doesn't return roles that aren't assigned to any of the principals" do
+              other_role = persist_role(:name => "Bar")
+              Persistent.assigned_at(node, principals).should_not include other_role
+            end
           end
         end
       end

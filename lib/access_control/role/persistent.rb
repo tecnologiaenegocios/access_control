@@ -26,24 +26,24 @@ module AccessControl
         filter(:id => accepted_ids)
       end
 
-      def self.assigned_to(principal, node = nil)
-        principal_id = Util.id_of(principal) { AccessControl::Principal(principal) }
+      def self.assigned_to(principals, nodes = nil)
+        principals = Principal.normalize_collection(principals)
 
-        if node
-          node_id = Util.id_of(node) { AccessControl::Node(node) }
-          related_assignments = Assignment::Persistent.assigned_on(node_id,
-                                                                   principal_id)
+        if nodes
+          nodes = Node.normalize_collection(nodes)
+          related_assignments = Assignment::Persistent.assigned_on(nodes,
+                                                                   principals)
         else
-          related_assignments = Assignment::Persistent.assigned_to(principal_id)
+          related_assignments = Assignment::Persistent.assigned_to(principals)
         end
         filter(:id => related_assignments.select(:role_id))
       end
 
-      def self.assigned_at(node, principal = nil)
-        return assigned_to(principal, node) if principal
+      def self.assigned_at(nodes, principals = nil)
+        return assigned_to(principals, nodes) if principals
 
-        node_id = Util.id_of(node) { AccessControl::Node(node) }
-        filter(:id=>Assignment::Persistent.with_nodes(node_id).select(:role_id))
+        nodes = Node.normalize_collection(nodes)
+        filter(:id=>Assignment::Persistent.with_nodes(nodes).select(:role_id))
       end
 
       def self.default
