@@ -9,13 +9,36 @@ module AccessControl
         Persistent.new(properties).save(:raise_on_failure => true)
       end
 
+      def ids
+        @ids ||= 1.to_enum(:upto, Float::INFINITY)
+      end
+
+      def stub_node(stubs = {})
+        id = stubs[:id]      ||= ids.next
+        stubs[:securable_id] ||= ids.next
+
+        stub("Node #{id}", stubs).tap do |node|
+          AccessControl.stub(:Node).with(node).
+            and_return(node)
+        end
+      end
+
+      def stub_principal(stubs = {})
+        id = stubs[:id]    ||= ids.next
+        stubs[:subject_id] ||= ids.next
+
+        stub("Principal #{id}", stubs).tap do |principal|
+          AccessControl.stub(:Principal).with(principal).
+            and_return(principal)
+        end
+      end
+
       describe ".assigned_to" do
-        let(:principal) { stub("Principal", :id => 123) }
-        let(:node)      { stub("Node",      :id => -1)  }
+        let(:principal) { stub_principal }
+        let(:node)      { stub_node }
         let(:role)      { persist_role(:name => "Foo") }
 
         before do
-          AccessControl.stub(:Node).with(node).and_return(node)
           Assignment.store(:role_id => role.id,
                            :node_id => node.id,
                            :principal_id => principal.id)
@@ -23,6 +46,14 @@ module AccessControl
 
         it "includes roles that were assigned to the given principal" do
           Persistent.assigned_to(principal).should include role
+        end
+
+        it "accepts subjects instead of principals" do
+          principal_subject = stub("Subject")
+          AccessControl.stub(:Principal).with(principal_subject).
+            and_return(principal)
+
+          Persistent.assigned_to(principal_subject).should include role
         end
 
         it "doesn't include roles that not assigned to the given principal" do
@@ -35,20 +66,26 @@ module AccessControl
             Persistent.assigned_to(principal, node).should include role
           end
 
+          it "accepts securables instead of nodes" do
+            securable = stub("Securable")
+            AccessControl.stub(:Node).with(securable).and_return(node)
+
+            Persistent.assigned_to(principal, securable).should include role
+          end
+
           it "doesn't include roles assigned to the principal on other nodes" do
-            other_node = stub("Other node", :id => -2)
+            other_node = stub_node
             Persistent.assigned_to(principal, other_node).should_not include role
           end
         end
       end
 
       describe ".assigned_at" do
-        let(:node)      { stub("Node",      :id => -1) }
-        let(:principal) { stub("Principal", :id => -1) }
+        let(:node)      { stub_node }
+        let(:principal) { stub_principal }
         let(:role)      { persist_role(:name => "Foo") }
 
         before do
-          AccessControl.stub(:Node).with(node).and_return(node)
           Assignment.store(:role_id => role.id,
                            :node_id => node.id,
                            :principal_id => principal.id)
@@ -63,13 +100,28 @@ module AccessControl
           Persistent.assigned_at(node).should_not include other_role
         end
 
+        it "accepts securables instead of nodes" do
+          securable = stub("Securable")
+          AccessControl.stub(:Node).with(securable).and_return(node)
+
+          Persistent.assigned_at(securable).should include role
+        end
+
         context "when a principal is provided" do
           it "includes roles assigned on the node to the principal" do
             Persistent.assigned_at(node, principal).should include role
           end
 
+          it "accepts subjects instead of principals" do
+            principal_subject = stub("Subject")
+            AccessControl.stub(:Principal).with(principal_subject).
+              and_return(principal)
+
+            Persistent.assigned_at(node, principal_subject).should include role
+          end
+
           it "doesn't include roles assigned on the node to other principals" do
-            other_principal = stub("Other principal", :id => -2)
+            other_principal = stub_principal
             Persistent.assigned_at(node, other_principal).should_not include role
           end
         end
