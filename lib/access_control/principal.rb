@@ -52,6 +52,11 @@ module AccessControl
         new(:subject_class => subject.class, :subject_id => subject.id)
       end
 
+      def normalize_collection(collection)
+        collection = [*collection]
+        collection.map { |object| AccessControl::Principal(object) }
+      end
+
     private
 
       def create_anonymous_principal

@@ -336,5 +336,45 @@ module AccessControl
         end
       end
     end
+
+    describe ".normalize_collection" do
+      let(:principal) { Principal.new }
+
+      context "when given a single Principal instance" do
+        it "returns a singleton collection containing the principal untoucheD" do
+          return_value = Principal.normalize_collection(principal)
+          return_value.should include_only(principal)
+        end
+      end
+
+      context "when given a single subject instance" do
+        it "returns a singleton collection with the subject's principal" do
+          subject = stub(:ac_principal => principal)
+          return_value = Principal.normalize_collection(subject)
+          return_value.should include_only(principal)
+        end
+      end
+
+      context "when given a collection of Principal instances" do
+        it "returns a collection with the instances" do
+          other_principal = Principal.new
+          principals      = [principal, other_principal]
+
+          return_value = Principal.normalize_collection(principals)
+          return_value.should include_only(*principals)
+        end
+      end
+
+      context "when given a collection of subject instances" do
+        it "returns a collection with the instances" do
+          other_principal  = Principal.new
+          subjects  = [stub(:ac_principal => principal),
+                       stub(:ac_principal => other_principal)]
+
+          return_value = Principal.normalize_collection(subjects)
+          return_value.should include_only(principal, other_principal)
+        end
+      end
+    end
   end
 end

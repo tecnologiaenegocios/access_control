@@ -57,6 +57,10 @@ module AccessControl
                               securables_without_nodes)
     end
 
+    def normalize_collection(collection)
+      collection = [*collection]
+      collection.map { |object| AccessControl::Node(object) }
+    end
   private
 
     def create_global_node

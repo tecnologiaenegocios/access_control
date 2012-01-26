@@ -537,5 +537,45 @@ module AccessControl
         node.destroy
       end
     end
+
+    describe ".normalize_collection" do
+      let(:node) { Node.new }
+
+      context "when given a single Node instance" do
+        it "returns a singleton collection containing the node untoucheD" do
+          return_value = Node.normalize_collection(node)
+          return_value.should include_only(node)
+        end
+      end
+
+      context "when given a single Securable instance" do
+        it "returns a singleton collection with the securable's node" do
+          securable = stub(:ac_node => node)
+          return_value = Node.normalize_collection(securable)
+          return_value.should include_only(node)
+        end
+      end
+
+      context "when given a collection of Node instances" do
+        it "returns a collection with the instances" do
+          other_node = Node.new
+          nodes      = [node, other_node]
+
+          return_value = Node.normalize_collection(nodes)
+          return_value.should include_only(*nodes)
+        end
+      end
+
+      context "when given a collection of securable instances" do
+        it "returns a collection with the instances" do
+          other_node  = Node.new
+          securables  = [stub(:ac_node => node),
+                         stub(:ac_node => other_node)]
+
+          return_value = Node.normalize_collection(securables)
+          return_value.should include_only(node, other_node)
+        end
+      end
+    end
   end
 end
