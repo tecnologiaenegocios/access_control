@@ -19,6 +19,13 @@ module AccessControl
       return_value.should be principal
     end
 
+    specify "when the argument is a UnrestrictablePrincipal, just returns it" do
+      principal = AccessControl::UnrestrictablePrincipal.instance
+      return_value = AccessControl::Principal(principal)
+
+      return_value.should equal principal
+    end
+
     specify "when the argument is an AnonymousUser, returns the anonymous "\
             "principal" do
       anonymous_principal = stub

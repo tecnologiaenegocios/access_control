@@ -5,11 +5,14 @@ require 'access_control/principal/persistent'
 
 module AccessControl
   def AccessControl.Principal(object)
-    if object.kind_of?(AccessControl::Principal)
+    acts_as_subject = lambda { |object| object.respond_to?(:ac_principal) }
+
+    case object
+    when Principal, UnrestrictablePrincipal
       object
-    elsif object.respond_to?(:ac_principal)
+    when acts_as_subject
       object.ac_principal
-    elsif object.equal?(AnonymousUser.instance)
+    when AnonymousUser
       AccessControl.anonymous
     else
       raise UnrecognizedSubject
@@ -118,7 +121,6 @@ module AccessControl
   end
 
   class UnrestrictablePrincipal
-
     include Singleton
 
     ID = -1
@@ -126,16 +128,13 @@ module AccessControl
     def id
       ID
     end
-
   end
 
   class UnrestrictableUser
-
     include Singleton
 
     def ac_principal
       UnrestrictablePrincipal.instance
     end
-
   end
 end
