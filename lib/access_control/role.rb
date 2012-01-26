@@ -159,8 +159,8 @@ module AccessControl
       combination.each(&:destroy)
     end
 
-    delegate_subsets :assigned_to, :assigned_at, :for_all_permissions,
-                     :default, :with_names
+    delegate_subsets :assigned_to, :globally_assigned_to, :assigned_at,
+                     :for_all_permissions, :default, :with_names
 
     def self.unassign_all_from(principal)
       principal = AccessControl::Principal(principal)
@@ -204,6 +204,10 @@ module AccessControl
       assign_on(principal, node)
     end
 
+    def globally_assign_to(principal)
+      assign_to(principal, AccessControl.global_node)
+    end
+
     def assign_at(node, principal)
       assign_on(principal, node)
     end
@@ -213,6 +217,10 @@ module AccessControl
       node_id      = Util.id_of(node) { AccessControl::Node(node) }
 
       assignments.has?(principal_id, node_id)
+    end
+
+    def globally_assigned_to?(principal)
+      locally_assigned_to?(principal, AccessControl.global_node)
     end
 
     def locally_assigned_to?(principal, node)
@@ -239,6 +247,10 @@ module AccessControl
       else
         assignments.remove_from(principal_id)
       end
+    end
+
+    def globally_unassign_from(principal)
+      unassign_from(principal, AccessControl.global_node)
     end
 
     def unassign_at(node, principal = nil)

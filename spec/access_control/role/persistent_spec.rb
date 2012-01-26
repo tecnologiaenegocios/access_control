@@ -10,7 +10,7 @@ module AccessControl
       end
 
       def ids
-        @ids ||= 1.to_enum(:upto, Float::INFINITY)
+        @ids ||= AccessControl.global_node_id.to_enum(:upto, Float::INFINITY)
       end
 
       def stub_node(stubs = {})
@@ -37,6 +37,11 @@ module AccessControl
         Assignment.store(:role_id => role.id,
                          :node_id => node.id,
                          :principal_id => principal.id)
+      end
+
+      before do
+        AccessControl.stub(:Node).with(AccessControl.global_node).
+          and_return(AccessControl.global_node)
       end
 
       describe ".assigned_to" do
@@ -123,6 +128,57 @@ module AccessControl
               other_role = persist_role(:name => "Bar")
               Persistent.assigned_to(principal, nodes).should_not include other_role
             end
+          end
+        end
+      end
+
+      describe ".globally_assigned_to" do
+        let(:principal)   { stub_principal }
+        let(:node)        { stub_node }
+        let(:role)        { persist_role(:name => "Foo") }
+        let(:global_role) { persist_role(:name => "Global") }
+
+        before do
+          assign_role(role, principal, node)
+          assign_role(global_role, principal, AccessControl.global_node)
+        end
+
+        it "includes roles that were assigned to the given principal "\
+           "at the global node" do
+          Persistent.globally_assigned_to(principal).should include global_role
+        end
+
+        it "accepts subjects instead of principals" do
+          subj = stub("Subject")
+          AccessControl.stub(:Principal).with(subj).and_return(principal)
+
+          Persistent.globally_assigned_to(subj).should include global_role
+        end
+
+        it "doesn't include roles that not assigned to the given principal "\
+           "at the global node" do
+          Persistent.globally_assigned_to(principal).should_not include role
+        end
+
+        context "when given a collection of principals" do
+          let(:other_principal) { stub_principal }
+          let(:principals)      { [principal, other_principal] }
+
+          it "returns roles assigned to all the given principals "\
+             "at the global node" do
+            assign_role(global_role, other_principal, AccessControl.global_node)
+            Persistent.globally_assigned_to(principals).should include global_role
+          end
+
+          it "returns roles assigned to one of the given principals" do
+            Persistent.globally_assigned_to(principals).should include global_role
+          end
+
+          it "doesn't return roles that aren't assigned to any of the "\
+             "principals at the global node" do
+            other_role = persist_role(:name => "Bar")
+            assign_role(other_role, other_principal, node)
+            Persistent.globally_assigned_to(principals).should_not include other_role
           end
         end
       end

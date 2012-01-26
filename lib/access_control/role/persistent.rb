@@ -39,6 +39,10 @@ module AccessControl
         filter(:id => related_assignments.select(:role_id))
       end
 
+      def self.globally_assigned_to(principals)
+        assigned_to(principals, AccessControl.global_node)
+      end
+
       def self.assigned_at(nodes, principals = nil)
         return assigned_to(principals, nodes) if principals
 

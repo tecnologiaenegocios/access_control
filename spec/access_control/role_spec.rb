@@ -256,6 +256,11 @@ module AccessControl
         role.assign_to(principal, node)
       end
 
+      it "can assign to principal at global node" do
+        role.globally_assign_to(principal)
+        role.should be_assigned_to(principal, AccessControl.global_node)
+      end
+
       specify "are persisted when the role is saved" do
         role.assign_to(principal, node)
         role.persist!
@@ -283,6 +288,13 @@ module AccessControl
           role.unassign_from(principal.id, node.id)
 
           role.should_not be_assigned_to(principal, node)
+        end
+
+        it "can unassign from principal at global node" do
+          role.assign_to(principal, AccessControl.global_node)
+          role.globally_unassign_from(principal)
+
+          role.should_not be_assigned_to(principal, AccessControl.global_node)
         end
 
         specify "if node is not assigned, doesn't cause error" do
@@ -506,6 +518,32 @@ module AccessControl
         end
       end
 
+      describe "#globally_assign_to?" do
+        before do
+          AccessControl.stub(:Node).with(AccessControl.global_node).
+            and_return(AccessControl.global_node)
+        end
+
+        it "returns false if the role was not assigned at the global node" do
+          subject.globally_unassign_from(principal)
+          subject.should_not be_globally_assigned_to(principal)
+        end
+
+        it "returns true if the role was directly assigned at the global node" do
+          subject.globally_assign_to(principal)
+          subject.should be_globally_assigned_to(principal)
+        end
+
+        it "accepts a subject instead of a principal" do
+          subj = stub("Subject")
+          AccessControl.stub(:Principal).with(subj).
+            and_return(principal)
+          subject.globally_assign_to(principal)
+
+          subject.should be_globally_assigned_to(subj)
+        end
+      end
+
       describe "#locally_assigned_to?" do
         it "returns true if the role was directly assigned" do
           subject.should be_locally_assigned_to(principal, node)
@@ -707,7 +745,8 @@ module AccessControl
     end
 
     describe "subset delegation" do
-      delegated_subsets = [:assigned_to, :assigned_at, :for_all_permissions,
+      delegated_subsets = [:assigned_to, :globally_assigned_to, :assigned_at,
+                           :for_all_permissions,
                            :default, :with_names]
 
       delegated_subsets.each do |delegated_subset|
