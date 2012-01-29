@@ -86,24 +86,66 @@ module AccessControl
     describe ".for_securable" do
       let(:securable_class) { FakeSecurable }
       let(:securable)       { securable_class.new }
+      let(:securable_id)    { securable.id }
+      let(:orm)             { stub }
 
-      context "when a corresponding node exists" do
-        let!(:node) do
-          Node.store(:securable_class => securable_class,
-                     :securable_id    => securable.id)
+      before do
+        ORM.stub(:adapt_class).with(securable_class).and_return(orm)
+        orm.stub(:pk_of).with(securable).and_return(securable_id)
+      end
+
+      context "when the record is already saved" do
+        before { orm.stub(:persisted?).with(securable).and_return(true) }
+
+        context "when a corresponding node exists" do
+          let!(:node) do
+            Node.store(:securable_class => securable_class,
+                       :securable_id    => securable_id)
+          end
+
+          it "returns the existing node" do
+            returned_node = Node.for_securable(securable)
+            returned_node.should == node
+          end
+
+          it "uses the id returned by the ORM adapter" do
+            securable.stub(:id).and_return(securable_id + 1000)
+            node = Node.for_securable(securable)
+            node.securable_id.should == securable_id
+          end
         end
 
-        it "returns the existing node" do
-          returned_node = Node.for_securable(securable)
-          returned_node.should == node
+        context "when a corresponding node doesn't exist" do
+          it "returns a new Node with the correct properties set" do
+            node = Node.for_securable(securable)
+            node.securable_id.should    == securable_id
+            node.securable_class.should == securable_class
+          end
+
+          it "uses the id returned by the ORM adapter" do
+            securable.stub(:id).and_return(securable_id + 1000)
+            node = Node.for_securable(securable)
+            node.securable_id.should == securable_id
+          end
         end
       end
 
-      context "when a corresponding node doesn't exist" do
-        it "returns a new Node with the correct properties set" do
+      context "when the record is a new one" do
+        before { orm.stub(:persisted?).with(securable).and_return(false) }
+
+        it "returns a new Node" do
           node = Node.for_securable(securable)
-          node.securable_id.should    == securable.id
-          node.securable_class.should == securable.class
+          node.should_not be_persisted
+        end
+
+        it "doesn't set the securable id" do
+          node = Node.for_securable(securable)
+          node.securable_id.should be_nil
+        end
+
+        it "sets the securable class of the new Node" do
+          node = Node.for_securable(securable)
+          node.securable_class.should == securable_class
         end
       end
     end

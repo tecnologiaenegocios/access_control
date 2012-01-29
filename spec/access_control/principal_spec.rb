@@ -89,24 +89,66 @@ module AccessControl
       let(:subject_class) do
         Class.new { def self.name; 'Foo'; end; def id; 123; end }
       end
-      let(:subject)       { subject_class.new }
+      let(:subject)    { subject_class.new }
+      let(:subject_id) { subject.id }
+      let(:orm)        { stub }
 
-      context "when a corresponding principal exists" do
-        let!(:principal) do
-          Principal.store(:subject_class => subject_class,
-                          :subject_id    => subject.id)
+      before do
+        ORM.stub(:adapt_class).with(subject_class).and_return(orm)
+        orm.stub(:pk_of).with(subject).and_return(subject_id)
+      end
+
+      context "when the record is already persisted" do
+        before { orm.stub(:persisted?).with(subject).and_return(true) }
+
+        context "when a corresponding principal exists" do
+          let!(:principal) do
+            Principal.store(:subject_class => subject_class,
+                            :subject_id    => subject_id)
+          end
+
+          it "returns the existing principal" do
+            returned_principal = Principal.for_subject(subject)
+            returned_principal.should == principal
+          end
+
+          it "uses the id returned by the ORM adapter" do
+            subject.stub(:id).and_return(subject_id + 1000)
+            principal = Principal.for_subject(subject)
+            principal.subject_id.should == subject_id
+          end
         end
 
-        it "returns the existing principal" do
-          returned_principal = Principal.for_subject(subject)
-          returned_principal.should == principal
+        context "when a corresponding principal doesn't exist" do
+          it "returns a new Principal with the correct properties set" do
+            principal = Principal.for_subject(subject)
+            principal.subject_id.should == 123
+            principal.subject_class.should == subject_class
+          end
+
+          it "uses the id returned by the ORM adapter" do
+            subject.stub(:id).and_return(subject_id + 1000)
+            principal = Principal.for_subject(subject)
+            principal.subject_id.should == subject_id
+          end
         end
       end
 
-      context "when a corresponding principal doesn't exist" do
-        it "returns a new Principal with the correct properties set" do
+      context "when the record is not yet persisted" do
+        before { orm.stub(:persisted?).with(subject).and_return(false) }
+
+        it "returns a new Principal" do
           principal = Principal.for_subject(subject)
-          principal.subject_id.should == 123
+          principal.should_not be_persisted
+        end
+
+        it "doesn't set the subject id" do
+          principal = Principal.for_subject(subject)
+          principal.subject_id.should be_nil
+        end
+
+        it "sets the subject class of the new Principal" do
+          principal = Principal.for_subject(subject)
           principal.subject_class.should == subject_class
         end
       end

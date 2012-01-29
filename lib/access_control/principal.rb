@@ -41,15 +41,19 @@ module AccessControl
       end
 
       def for_subject(subject)
-        properties = {
-          :subject_type => subject.class.name,
-          :subject_id   => subject.id,
-        }
+        orm          = ORM.adapt_class(subject.class)
+        subject_id   = orm.pk_of(subject)
 
-        persistent = Principal::Persistent.filter(properties).first
+        if orm.persisted?(subject)
+          properties = { :subject_type => subject.class.name,
+                         :subject_id   => subject_id }
+          persistent = Principal::Persistent.filter(properties).first
 
-        return wrap(persistent) if persistent
-        new(:subject_class => subject.class, :subject_id => subject.id)
+          return wrap(persistent) if persistent
+          new(:subject_class => subject.class, :subject_id => subject_id)
+        else
+          new(:subject_class => subject.class)
+        end
       end
 
       def normalize_collection(collection)

@@ -13,17 +13,25 @@ module AccessControl
     end
 
     def for_securable(securable)
-      securable_id    = securable.id
+      orm = ORM.adapt_class(securable.class)
       securable_class = securable.class
-      type            = securable_class.name
+      securable_type  = securable_class.name
 
-      persistent = Node::Persistent.with_type(type).
-                                    filter(:securable_id => securable_id).first
-      if persistent
-        wrap(persistent)
+      if orm.persisted?(securable)
+        securable_id = orm.pk_of(securable)
+
+        persistent =
+          Node::Persistent.with_type(securable_type).
+          filter(:securable_id => securable_id).first
+
+        if persistent
+          wrap(persistent)
+        else
+          new(:securable_id    => securable_id,
+              :securable_class => securable_class)
+        end
       else
-        new(:securable_id    => securable_id,
-            :securable_class => securable_class)
+        new(:securable_class => securable_class)
       end
     end
 
