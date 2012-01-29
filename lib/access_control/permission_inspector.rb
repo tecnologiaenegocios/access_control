@@ -23,9 +23,13 @@ module AccessControl
         nodes_or_securables = [nodes_or_securables]
       end
 
-      @context = Set.new(nodes_or_securables) do |item|
+      @context = nodes_or_securables.each_with_object(Set.new) do |item, set|
         node = AccessControl::Node(item)
-        node.persisted?? node : Node::InheritanceManager.parents_of(node.id)
+        if node.persisted?
+          set << node
+        else
+          set.merge(parents_of(node.securable))
+        end
       end
     end
 
@@ -41,5 +45,10 @@ module AccessControl
       PermissionInspector.roles_on(context, principals)
     end
 
+  private
+
+    def parents_of(securable)
+      Node.fetch_all(Inheritance.parent_node_ids_of(securable))
+    end
   end
 end

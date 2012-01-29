@@ -26,16 +26,18 @@ module AccessControl
     end
 
     def stub_securable(stubs = {})
-      stubs[:node] ||= stub_node
+      stubs[:ac_node] ||= stub_node
       stub("Securable", stubs).tap do |securable|
-        AccessControl.stub(:Node).with(securable).and_return(stubs[:node])
+        AccessControl.stub(:Node).with(securable).and_return(stubs[:ac_node])
       end
     end
 
     let(:node)         { stub_node }
     let(:principals)   { stub("Current principals") }
-    let(:parent_nodes) { stub("Parents nodes") }
-    let(:securable)    { stub_securable(:node => node) }
+    let(:securable)    { stub_securable(:ac_node => node) }
+
+    let(:parent_node_ids) { [stub("Parent node id")] }
+    let(:parent_nodes)    { [stub("Parent node")] }
 
     subject { PermissionInspector.new(node, principals) }
 
@@ -48,19 +50,21 @@ module AccessControl
       context "when the given securable doesn't have a saved node" do
         before do
           node.stub(:persisted? => false)
-          Node::InheritanceManager.stub(:parents_of).
-            with(node.id).and_return(parent_nodes)
+          node.stub(:securable).and_return(securable)
+          Inheritance.stub(:parent_node_ids_of).
+            with(securable).and_return(parent_node_ids)
+          Node.stub(:fetch_all).with(parent_node_ids).and_return(parent_nodes)
         end
 
-        it "asks Node::InheritanceManager for the node's parents" do
+        it "asks Inheritance for the node's parents" do
           subject = PermissionInspector.new(securable)
-          subject.context.should include_only(parent_nodes)
+          subject.context.should include_only(*parent_nodes)
         end
       end
 
       it "accepts a collection of securables" do
         securables = [stub_securable, stub_securable]
-        nodes = securables.map(&:node)
+        nodes = securables.map(&:ac_node)
 
         subject = PermissionInspector.new(securables)
         subject.context.should include_only(*nodes)
@@ -74,13 +78,15 @@ module AccessControl
       context "when the given Node wasn't persisted yet" do
         before do
           node.stub(:persisted? => false)
-          Node::InheritanceManager.stub(:parents_of).
-            with(node.id).and_return(parent_nodes)
+          node.stub(:securable).and_return(securable)
+          Inheritance.stub(:parent_node_ids_of).
+            with(securable).and_return(parent_node_ids)
+          Node.stub(:fetch_all).with(parent_node_ids).and_return(parent_nodes)
         end
 
-        it "asks Node::InheritanceManager for the node's parents" do
+        it "asks Inheritance for the node's parents" do
           subject = PermissionInspector.new(node)
-          subject.context.should include_only(parent_nodes)
+          subject.context.should include_only(*parent_nodes)
         end
       end
 
