@@ -49,11 +49,17 @@ module AccessControl
                          :subject_id   => subject_id }
           persistent = Principal::Persistent.filter(properties).first
 
-          return wrap(persistent) if persistent
-          new(:subject_class => subject.class, :subject_id => subject_id)
+          if persistent
+            principal = wrap(persistent)
+          else
+            principal = store(:subject_class => subject.class, :subject_id => subject_id)
+          end
         else
-          new(:subject_class => subject.class)
+          principal = new(:subject_class => subject.class)
         end
+
+        principal.subject = subject
+        principal
       end
 
       def normalize_collection(collection)
@@ -112,6 +118,7 @@ module AccessControl
           end
         end
     end
+    attr_writer :subject
 
     def anonymous?
       id == AccessControl.anonymous_id

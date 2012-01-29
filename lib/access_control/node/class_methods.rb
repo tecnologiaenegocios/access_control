@@ -22,17 +22,20 @@ module AccessControl
 
         persistent =
           Node::Persistent.with_type(securable_type).
-          filter(:securable_id => securable_id).first
+            filter(:securable_id => securable_id).first
 
         if persistent
-          wrap(persistent)
+          node = wrap(persistent)
         else
-          new(:securable_id    => securable_id,
-              :securable_class => securable_class)
+          node = store(:securable_id    => securable_id,
+                       :securable_class => securable_class)
         end
       else
-        new(:securable_class => securable_class)
+        node = new(:securable_class => securable_class)
       end
+
+      node.securable = securable
+      node
     end
 
     def global!

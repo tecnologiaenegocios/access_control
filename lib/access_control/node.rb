@@ -83,6 +83,7 @@ module AccessControl
           end
         end
     end
+    attr_writer :securable
 
     def securable_class=(klass)
       self.securable_type = klass.name

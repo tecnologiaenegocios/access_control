@@ -43,6 +43,8 @@ module AccessControl
       NodeManager.stub(:refresh_parents_of)
     end
 
+    after { Node.clear_global_cache }
+
     describe "initialization" do
       it "accepts :securable_class" do
         node = Node.new(:securable_class => Hash)
@@ -113,6 +115,11 @@ module AccessControl
             node = Node.for_securable(securable)
             node.securable_id.should == securable_id
           end
+
+          it "sets the securable to avoid unnecessary trips to the DB" do
+            node = Node.for_securable(securable)
+            node.securable.should == securable
+          end
         end
 
         context "when a corresponding node doesn't exist" do
@@ -120,6 +127,16 @@ module AccessControl
             node = Node.for_securable(securable)
             node.securable_id.should    == securable_id
             node.securable_class.should == securable_class
+          end
+
+          it "persists the node" do
+            node = Node.for_securable(securable)
+            node.should be_persisted
+          end
+
+          it "sets the securable to avoid unnecessary trips to the DB" do
+            node = Node.for_securable(securable)
+            node.securable.should == securable
           end
 
           it "uses the id returned by the ORM adapter" do
@@ -143,9 +160,19 @@ module AccessControl
           node.securable_id.should be_nil
         end
 
+        it "doesn't persist the node" do
+          node = Node.for_securable(securable)
+          node.should_not be_persisted
+        end
+
         it "sets the securable class of the new Node" do
           node = Node.for_securable(securable)
           node.securable_class.should == securable_class
+        end
+
+        it "sets the securable to avoid unnecessary trips to the DB" do
+          node = Node.for_securable(securable)
+          node.securable.should == securable
         end
       end
     end
@@ -346,6 +373,22 @@ module AccessControl
         next_securable = node.securable
 
         next_securable.should be prev_securable
+      end
+
+      it "can be changed by using the setter" do
+        node.securable = 'some other securable'
+        node.securable.should == 'some other securable'
+      end
+
+      specify "#securable= does NOT change securable_type" do
+        model.stub(:name).and_return('Foo')
+        node.securable = stub(:securable_type => 'Bar')
+        node.securable_type.should == 'Foo'
+      end
+
+      specify "#securable= does NOT change securable_id" do
+        node.securable = stub(:securable_id => securable_id * 2)
+        node.securable_id.should == securable_id
       end
     end
 

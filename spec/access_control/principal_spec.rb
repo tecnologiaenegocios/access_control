@@ -45,6 +45,8 @@ module AccessControl
   end
 
   describe Principal do
+    after { Principal.clear_anonymous_cache }
+
     describe "initialization" do
       it "accepts :subject_class" do
         principal = Principal.new(:subject_class => Hash)
@@ -117,6 +119,11 @@ module AccessControl
             principal = Principal.for_subject(subject)
             principal.subject_id.should == subject_id
           end
+
+          it "sets the subject to avoid unnecessary trips to the DB" do
+            principal = Principal.for_subject(subject)
+            principal.subject.should == subject
+          end
         end
 
         context "when a corresponding principal doesn't exist" do
@@ -124,6 +131,16 @@ module AccessControl
             principal = Principal.for_subject(subject)
             principal.subject_id.should == 123
             principal.subject_class.should == subject_class
+          end
+
+          it "persists the principal" do
+            principal = Principal.for_subject(subject)
+            principal.should be_persisted
+          end
+
+          it "sets the subject to avoid unnecessary trips to the DB" do
+            principal = Principal.for_subject(subject)
+            principal.subject.should == subject
           end
 
           it "uses the id returned by the ORM adapter" do
@@ -147,9 +164,19 @@ module AccessControl
           principal.subject_id.should be_nil
         end
 
+        it "doesn't persist the principal" do
+          principal = Principal.for_subject(subject)
+          principal.should_not be_persisted
+        end
+
         it "sets the subject class of the new Principal" do
           principal = Principal.for_subject(subject)
           principal.subject_class.should == subject_class
+        end
+
+        it "sets the subject to avoid unnecessary trips to the DB" do
+          principal = Principal.for_subject(subject)
+          principal.subject.should == subject
         end
       end
     end
@@ -256,6 +283,22 @@ module AccessControl
         next_subject = principal.subject
 
         next_subject.should be prev_subject
+      end
+
+      it "can be changed by using the setter" do
+        principal.subject = 'some other subject'
+        principal.subject.should == 'some other subject'
+      end
+
+      specify "#subject= does NOT change subject_type" do
+        model.stub(:name).and_return('Foo')
+        principal.subject = stub(:subject_type => 'Bar')
+        principal.subject_type.should == 'Foo'
+      end
+
+      specify "#subject= does NOT change subject_id" do
+        principal.subject = stub(:subject_id => subject_id * 2)
+        principal.subject_id.should == subject_id
       end
     end
 
