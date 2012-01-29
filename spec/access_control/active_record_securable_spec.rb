@@ -16,6 +16,9 @@ module AccessControl
         def destroy
           self.class.just_after_callback_chains.execute(self, :destroy)
         end
+        def id
+          123
+        end
       end
     end
 
@@ -27,12 +30,12 @@ module AccessControl
     end
 
     context "in a model with ActiveRecordSecurable" do
-      let(:node)     { stub('node', :persist! => nil) }
+      let(:node)     { stub('node', :securable_id= => nil) }
       let(:instance) { model.new }
 
       before do
-        model.send(:include, ActiveRecordSecurable)
         Node.stub(:for_securable).with(instance).and_return(node)
+        model.send(:include, ActiveRecordSecurable)
       end
 
       it "returns a node for the instance" do
@@ -49,10 +52,32 @@ module AccessControl
         let(:principals)    { ['principal1', 'principal2'] }
         let(:default_roles) { stub('default roles subset') }
 
+        before do
+          node.stub(:persist!)
+          node.stub(:refresh_parents)
+          Role.stub(:assign_default_at)
+          AccessControl.stub(:Node).with(node).and_return(node)
+        end
+
+        it "persists the node when the record is saved" do
+          node.should_receive(:persist!)
+          instance.create
+        end
+
         it "assigns default roles and refreshes parents of the node" do
           Role.should_receive(:assign_default_at).with(node)
           node.should_receive(:refresh_parents)
           instance.stub(:ac_node => node)
+
+          instance.create
+        end
+
+        it "makes the assignment after the node is saved" do
+          Role.stub(:assign_default_at) do |*args|
+            node.do_assignment
+          end
+          node.should_receive(:persist!).ordered
+          node.should_receive(:do_assignment).ordered
 
           instance.create
         end
@@ -66,6 +91,11 @@ module AccessControl
 
           instance.update
         end
+      end
+
+      it "destroys the node when the record is destroyed" do
+        node.should_receive(:destroy)
+        instance.destroy
       end
     end
   end

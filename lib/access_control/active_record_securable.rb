@@ -8,7 +8,7 @@ module AccessControl
     def self.included(base)
       base.send(:include, ActiveRecordJustAfterCallback)
 
-      ActiveRecordAssociator.setup_association(:ac_node, base) do
+      ActiveRecordAssociator.setup_association(:ac_node, :securable_id, base) do
         @__ac_node__ ||= Node.for_securable(self)
       end
 

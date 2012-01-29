@@ -7,7 +7,7 @@ module AccessControl
       end
     end
 
-    def self.setup_association(name, base, &block)
+    def self.setup_association(name, key_method, base, &block)
       base.class_eval do
         include Boilerplate
 
@@ -17,11 +17,11 @@ module AccessControl
         define_method(name, &block)
       end
 
-      add_associated_name(base, name)
+      add_associated_name(base, name, key_method)
     end
 
-    def self.add_associated_name(base, name)
-      associated_names_of(base).add(name)
+    def self.add_associated_name(base, name, key_method)
+      associated_names_of(base).add([name, key_method])
     end
 
     def self.associated_names_of(base)
@@ -34,11 +34,15 @@ module AccessControl
     end
 
     def persist
-      @names.each { |name| @instance.send(name).persist! }
+      @names.each do |name, key_method|
+        associated = @instance.send(name)
+        associated.send(:"#{key_method}=", @instance.id)
+        associated.persist!
+      end
     end
 
     def destroy
-      @names.each { |name| @instance.send(name).destroy }
+      @names.each { |name, key_method| @instance.send(name).destroy }
     end
   end
 end

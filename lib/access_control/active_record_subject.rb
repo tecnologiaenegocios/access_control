@@ -9,7 +9,8 @@ module AccessControl
       base.class_eval do
         include ActiveRecordJustAfterCallback
 
-        ActiveRecordAssociator.setup_association(:ac_principal, base) do
+        ActiveRecordAssociator.setup_association(:ac_principal, :subject_id,
+                                                 base) do
           @__ac_principal__ ||= Principal.for_subject(self)
         end
       end

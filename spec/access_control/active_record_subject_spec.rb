@@ -16,6 +16,9 @@ module AccessControl
         def destroy
           self.class.just_after_callback_chains.execute(self, :destroy)
         end
+        def id
+          123
+        end
       end
     end
 
@@ -27,7 +30,7 @@ module AccessControl
     end
 
     describe "association to Principal" do
-      let(:principal) { stub('principal') }
+      let(:principal) { stub('principal', :subject_id= => nil) }
       let(:instance)  { model.new }
 
       before do

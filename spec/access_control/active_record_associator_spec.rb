@@ -36,6 +36,10 @@ module AccessControl
             instance_eval(&block)
           end
         end
+
+        def id
+          123
+        end
       end
       cls
     end
@@ -47,7 +51,8 @@ module AccessControl
       before do
         model.extend(callbacks)
         instance.stub(:access_control_object => ac_associated)
-        ActiveRecordAssociator.setup_association(:association, model) do
+        ActiveRecordAssociator.setup_association(:association, :key_method,
+                                                 model) do
           access_control_object
         end
       end
@@ -58,7 +63,8 @@ module AccessControl
 
       context "when a record is created" do
         it "persists the associated access control object" do
-          ac_associated.should_receive(:persist!)
+          ac_associated.should_receive(:key_method=).with(instance.id).ordered
+          ac_associated.should_receive(:persist!).ordered
           instance.create
         end
       end
