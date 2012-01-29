@@ -16,7 +16,10 @@ module AccessControl
         def destroy
           self.class.just_after_callback_chains.execute(self, :destroy)
         end
-        def id
+        def self.primary_key
+          'pk'
+        end
+        def pk
           123
         end
       end
@@ -49,7 +52,8 @@ module AccessControl
       end
 
       it "persists the principal when the record is saved" do
-        principal.should_receive(:persist!)
+        principal.should_receive(:subject_id=).with(instance.pk).ordered
+        principal.should_receive(:persist!).ordered
         instance.create
       end
 

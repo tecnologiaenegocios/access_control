@@ -30,14 +30,15 @@ module AccessControl
             instance_eval(&block)
           end
         end
-
         def destroy
           self.class.just_after_destroy_callbacks.each do |block|
             instance_eval(&block)
           end
         end
-
-        def id
+        def self.primary_key
+          'pk'
+        end
+        def pk
           123
         end
       end
@@ -63,7 +64,7 @@ module AccessControl
 
       context "when a record is created" do
         it "persists the associated access control object" do
-          ac_associated.should_receive(:key_method=).with(instance.id).ordered
+          ac_associated.should_receive(:key_method=).with(instance.pk).ordered
           ac_associated.should_receive(:persist!).ordered
           instance.create
         end

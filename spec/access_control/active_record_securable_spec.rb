@@ -16,7 +16,10 @@ module AccessControl
         def destroy
           self.class.just_after_callback_chains.execute(self, :destroy)
         end
-        def id
+        def self.primary_key
+          'pk'
+        end
+        def pk
           123
         end
       end
@@ -60,7 +63,8 @@ module AccessControl
         end
 
         it "persists the node when the record is saved" do
-          node.should_receive(:persist!)
+          node.should_receive(:securable_id=).with(instance.pk).ordered
+          node.should_receive(:persist!).ordered
           instance.create
         end
 

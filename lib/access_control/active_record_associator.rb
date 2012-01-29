@@ -36,7 +36,8 @@ module AccessControl
     def persist
       @names.each do |name, key_method|
         associated = @instance.send(name)
-        associated.send(:"#{key_method}=", @instance.id)
+        pk_method  = @instance.class.primary_key
+        associated.send(:"#{key_method}=", @instance.send(pk_method))
         associated.persist!
       end
     end
