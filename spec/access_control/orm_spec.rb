@@ -5,19 +5,27 @@ module AccessControl
     describe Base do
       let(:orm_class) { Class.new(Base).new }
 
-      describe Base.instance_method(:name).name do
+      describe ".name" do
         before  { orm_class.stub(:object => stub(:name => 'ModelName')) }
         subject { orm_class.name }
 
         it { should == "ModelName" }
       end
 
-      describe Base.instance_method(:new).name do
+      describe ".new" do
         let(:instance) { stub }
         before         { orm_class.stub(:object => stub(:new => instance)) }
         subject        { orm_class.new }
 
         it { should be instance }
+      end
+
+      describe ".pk_of" do
+        let(:instance) { stub(:pk => 'the primary key of this instance') }
+        before  { orm_class.stub(:pk_name).and_return(:pk) }
+        subject { orm_class.pk_of(instance) }
+
+        it { should == instance.pk }
       end
     end
 

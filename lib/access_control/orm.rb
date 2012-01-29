@@ -16,6 +16,10 @@ module AccessControl
       def new
         object.new
       end
+
+      def pk_of(instance)
+        instance.send(pk_name)
+      end
     end
 
     def self.adapt_class(object)
