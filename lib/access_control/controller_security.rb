@@ -21,12 +21,28 @@ module AccessControl
         (PublicActions[self.name] ||= []) << action.to_sym
       end
 
-      def protect action, options
-        metadata = (options[:data] || {}).merge(
-          :__ac_controller_action__ => [self.name, action.to_sym],
-          :__ac_context__    => options[:context] || :current_context
-        )
-        Registry.register(options[:with], metadata)
+      def protect action, options, &block
+        permission_name = options[:with]
+        controller_action = [name, action.to_sym]
+        context_designator = options[:context] || :current_context
+
+        validate_context_designator!(context_designator)
+
+        Registry.store(permission_name) do |permission|
+          permission.controller_action = [name, action.to_sym]
+          permission.ac_context.merge!(controller_action => context_designator)
+
+          block.call(permission) if block
+        end
+      end
+
+    private
+
+      def validate_context_designator!(context_designator)
+        return if context_designator.is_a?(Symbol)
+        return if context_designator.is_a?(String)
+        return if context_designator.is_a?(Proc)
+        raise InvalidContextDesignator
       end
 
     end

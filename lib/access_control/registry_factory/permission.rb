@@ -2,9 +2,12 @@ require 'ostruct'
 
 module AccessControl
   class RegistryFactory
-    class Permission < OpenStruct
+    class Permission
+      attr_accessor :name, :controller_action, :ac_context
+
       def initialize(name = "")
-        super(:name => name)
+        @name = name
+        @ac_context = {}
       end
     end
   end

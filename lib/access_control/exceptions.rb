@@ -6,6 +6,7 @@ module AccessControl
   class Unauthorized                 < Error; end
   class NoGlobalNode                 < Error; end
   class NoAnonymousPrincipal         < Error; end
+  class InvalidContextDesignator     < Error; end
   class NoContextError               < Error; end
   class InvalidInheritage            < Error; end
   class MissingPermissionDeclaration < Error; end

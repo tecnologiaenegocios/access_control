@@ -75,62 +75,26 @@ module AccessControl
 
     describe ".protect" do
 
-      it "registers permissions with __ac_controller__, __ac_action__ and "\
-         "__ac_context__" do
-        Registry.should_receive(:register).with(
-          'the contents of the :with option',
-          :__ac_controller_action__ => ['RecordsController', :some_action],
-          :__ac_context__ => :current_context
-        )
-        records_controller.class.
-          protect :some_action, :with => 'the contents of the :with option'
-      end
+      let(:registry)   { stub }
+      let(:permission) { RegistryFactory::Permission.new }
 
-      it "registers additional metadata under :data option" do
-        Registry.should_receive(:register).with(
-          'the contents of the :with option',
-          :metadata => 'value',
-          :__ac_controller_action__ => ['RecordsController', :some_action],
-          :__ac_context__ => :current_context
-        )
-        records_controller.class.protect(
-          :some_action,
-          :with => 'the contents of the :with option',
-          :data => { :metadata => 'value' }
-        )
-      end
-
-      it "doesn't register values outside :data option" do
-        Registry.should_receive(:register).with(
-          'the contents of the :with option',
-          :metadata => 'value',
-          :__ac_controller_action__ => ['RecordsController', :some_action],
-          :__ac_context__ => :current_context
-        )
-        records_controller.class.protect(
-          :some_action,
-          :with => 'the contents of the :with option',
-          :data => { :metadata => 'value' },
-          :ignored => 'ignored'
-        )
-      end
-
-      describe ":context" do
-
-        it "overrides the default value of __ac_context__ metadata" do
-          context = stub('the contents of the context option')
-          Registry.should_receive(:register).with(
-            'the contents of the :with option',
-            :__ac_controller_action__ => ['RecordsController', :some_action],
-            :__ac_context__ => context
-          )
-          records_controller.class.protect(
-            :some_action,
-            :with => 'the contents of the :with option',
-            :context => context
-          )
+      before do
+        registry.stub(:permission).and_return(permission)
+        registry.define_singleton_method(:store) do |permission_name, &block|
+          permission.name = permission_name
+          block.call(permission)
         end
 
+        @old_registry = AccessControl::Registry
+        Kernel.silence_warnings do
+          AccessControl.const_set(:Registry, registry)
+        end
+      end
+
+      after do
+        Kernel.silence_warnings do
+          AccessControl.const_set(:Registry, @old_registry)
+        end
       end
 
       it "doesn't mark the action as public" do
@@ -140,6 +104,77 @@ module AccessControl
           should be_false
       end
 
+      it "registers a permission" do
+        records_controller.class.protect :some_action,
+                                         :with => 'some_permission'
+        permission.name.should == 'some_permission'
+      end
+
+      it "sets controller and action for the permission" do
+        permission.should_receive(:controller_action=).
+          with(['RecordsController', :some_action])
+
+        records_controller.class.protect :some_action,
+                                         :with => 'some_permission'
+      end
+
+      context "when a context is given" do
+        it "accepts a string as the context" do
+          records_controller.class.protect :some_action,
+                                           :with => 'some permission',
+                                           :context => 'some_method'
+
+          key = ['RecordsController', :some_action]
+          permission.ac_context[key].should == 'some_method'
+        end
+
+        it "accepts a symbol as the context" do
+          records_controller.class.protect :some_action,
+                                           :with => 'some permission',
+                                           :context => :some_method
+
+          key = ['RecordsController', :some_action]
+          permission.ac_context[key].should == :some_method
+        end
+
+        it "accepts a proc as the context" do
+          context = Proc.new { }
+          records_controller.class.protect :some_action,
+                                           :with => 'some permission',
+                                           :context => context
+
+          key = ['RecordsController', :some_action]
+          permission.ac_context[key].should be context
+        end
+
+        it "refuses something else" do
+          lambda {
+            records_controller.class.protect :some_action,
+                                             :with => 'some permission',
+                                             :context => stub
+          }.should raise_exception(InvalidContextDesignator)
+        end
+      end
+
+      context "when a context is not given" do
+        it "uses the default value `:current_context`" do
+          records_controller.class.protect :some_action,
+                                           :with => 'some permission'
+
+          key = ['RecordsController', :some_action]
+          permission.ac_context[key].should == :current_context
+        end
+      end
+
+      context "when a block is given" do
+        it "passes the permission to the block" do
+          permission.should_receive(:block_called!)
+          records_controller.class.protect :some_action,
+                                           :with => 'some permission' do |p|
+            p.block_called!
+          end
+        end
+      end
     end
 
     describe "action publication" do

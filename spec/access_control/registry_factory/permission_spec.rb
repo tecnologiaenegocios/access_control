@@ -19,10 +19,14 @@ module AccessControl; class RegistryFactory;
       permission.name.should == 'foo'
     end
 
-    it "can have arbitrary attributes set" do
+    it "responds to :controller_action and returns nil by default" do
       permission = Permission.new
-      permission.attribute = ['a', 'value']
-      permission.attribute.should == ['a', 'value']
+      permission.controller_action.should be_nil
+    end
+
+    it "has an empty hash as a default value for :ac_context" do
+      permission = Permission.new
+      permission.ac_context.should == {}
     end
 
   end
