@@ -21,7 +21,7 @@ require 'access_control/version'
 require 'access_control/exceptions'
 require 'access_control/controller_security'
 require 'access_control/manager'
-require 'access_control/registry'
+require 'access_control/registry_factory'
 require 'access_control/securable'
 require 'access_control/active_record_subject'
 

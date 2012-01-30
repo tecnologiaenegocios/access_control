@@ -1,6 +1,6 @@
 require 'access_control/configuration'
 require 'access_control/exceptions'
-require 'access_control/registry'
+require 'access_control/registry_factory'
 require 'access_control/util'
 
 module AccessControl

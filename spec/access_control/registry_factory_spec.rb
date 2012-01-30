@@ -1,6 +1,6 @@
 require 'spec_helper'
 require 'access_control/configuration'
-require 'access_control/registry'
+require 'access_control/registry_factory'
 
 module AccessControl
   describe Registry do

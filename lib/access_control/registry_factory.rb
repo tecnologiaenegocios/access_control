@@ -1,5 +1,4 @@
 require 'access_control/util'
-require 'ostruct'
 
 module AccessControl
   class RegistryFactory
