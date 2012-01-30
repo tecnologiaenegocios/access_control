@@ -4,74 +4,88 @@ require 'ostruct'
 module AccessControl
   class RegistryFactory
 
+    UNION        = :merge.to_proc
+    INTERSECTION = Proc.new do |s1, s2|
+      s1.keep_if { |obj| s2.member?(obj) }
     end
 
-    UNION = :|.to_proc
-    INTERSECTION = :&.to_proc
-
     def initialize
-      clear_registry
       register_undeclared_permissions
     end
 
     def clear_registry
-      @permissions = Set.new
-      @permissions_with_metadata = Hash.new{|h, k| h[k.to_s] = Set.new }
-      @permissions_by_metadata = {}
+      @registered_permissions = nil
     end
 
-    def register *args
-      metadata = args.extract_options!.dup
-      Util.make_set_from_args(*args).each do |permission|
-        register_permission(permission)
-        register_metadata(metadata, permission)
+    def register(*args)
+      metadata = args.extract_options!
+
+      permissions = args.each_with_object(Array.new) do |argument, array|
+        case argument
+        when Array
+          array.concat(argument)
+        when Set
+          array.concat(argument.to_a)
+        else
+          array << argument
+        end
+      end
+
+      permissions.each do |permission|
+        registered_permissions[permission] << metadata
       end
     end
 
     def all
-      @permissions
+      Set.new(registered_permissions.keys)
     end
 
     def all_with_metadata
-      @permissions_with_metadata
+      registered_permissions.dup
     end
 
     def register_undeclared_permissions(metadata={})
-      register([
-        'grant_roles',
-        'share_own_roles',
-        'change_inheritance_blocking'
-      ], metadata)
+      permissions = %w[grant_roles share_own_roles change_inheritance_blocking]
+      register(permissions, metadata)
     end
 
     def query(*criteria)
-      return all if criteria.empty?
-      criteria.map{|criterion| permissions_matching(criterion)}.inject(&UNION)
+      return all if criteria.all?(&:empty?)
+
+      matching = filtered_by_query(criteria) do |permission, _|
+        permission
+      end
+      Set.new(matching)
     end
 
   private
 
-    def register_permission(permission)
-      all << permission
+    def registered_permissions
+      @registered_permissions ||= Hash.new do |hash, permission_name|
+        hash[permission_name] = Set.new
+      end
     end
 
-    def register_metadata(metadata, permission)
-      all_with_metadata[permission] << metadata
-      metadata.each do |key, value|
-        query_permissions(key, value) << permission
+    def filtered_by_query(criteria, &block)
+      criteria.flat_map do |criterion|
+        permissions = permissions_matching(criterion)
+        if block_given?
+          permissions.map(&block)
+        else
+          permissions
+        end
       end
     end
 
     def permissions_matching(criterion)
       return all if criterion.empty?
-      criterion.map{|key, value| query_permissions(key, value)}.
-        inject(&INTERSECTION)
-    end
 
-    def query_permissions(key, value)
-      @permissions_by_metadata[[key, value]] ||= Set.new
+      criterion.each_with_object(all_with_metadata) do |(key, value), result|
+        result.keep_if do |_, metadata_set|
+          metadata_set.any? { |metadata| metadata[key] == value }
+        end
+      end
     end
-
   end
 
   Registry = RegistryFactory.new
