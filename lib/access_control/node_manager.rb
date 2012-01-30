@@ -24,12 +24,14 @@ module AccessControl
     end
 
     attr_writer :inheritance_manager, :manager
+    attr_reader :node
+
     def initialize(node)
-      @node = node
+      @node = AccessControl::Node(node)
     end
 
     def can_update!
-      manager.can!(permissions_to_update, @node)
+      manager.can!(permissions_to_update, node)
     end
 
     def refresh_parents
@@ -95,15 +97,15 @@ module AccessControl
     end
 
     def permissions_to_update
-      @node.securable_class.permissions_required_to_update
+      node.securable_class.permissions_required_to_update
     end
 
     def permissions_to_create
-      @node.securable_class.permissions_required_to_create
+      node.securable_class.permissions_required_to_create
     end
 
     def permissions_to_destroy
-      @node.securable_class.permissions_required_to_destroy
+      node.securable_class.permissions_required_to_destroy
     end
 
     def cached_parents
@@ -111,20 +113,20 @@ module AccessControl
     end
 
     def nodes_of_securable_parents
-      ids = Inheritance.parent_node_ids_of(@node.securable)
+      ids = Inheritance.parent_node_ids_of(node.securable)
       Node.fetch_all(ids)
     end
 
     def inheritance_manager
-      @inheritance_manager ||= Node::InheritanceManager.new(@node)
+      @inheritance_manager ||= Node::InheritanceManager.new(node)
     end
 
     def propagate_roles_of(parents)
-      RolePropagation.propagate!(@node, parents)
+      RolePropagation.propagate!(node, parents)
     end
 
     def depropagate_roles_of(parents)
-      RolePropagation.depropagate!(@node, parents)
+      RolePropagation.depropagate!(node, parents)
     end
   end
 end

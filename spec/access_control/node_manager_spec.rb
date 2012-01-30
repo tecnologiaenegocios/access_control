@@ -27,9 +27,22 @@ module AccessControl
           Node.fetch(id)
         end
       end
+      AccessControl.stub(:Node).with(node).and_return(node)
     end
 
     subject { NodeManager.new(node) }
+
+    describe "initialization" do
+      it "accepts a node" do
+        NodeManager.new(node).node.should == node
+      end
+
+      it "accepts a securable" do
+        securable = stub
+        AccessControl.stub(:Node).with(securable).and_return(node)
+        NodeManager.new(securable).node.should == node
+      end
+    end
 
     describe "#can_update!" do
       let(:update_permissions) { stub('permissions enumerable') }
