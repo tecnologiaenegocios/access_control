@@ -4,12 +4,6 @@ require 'ostruct'
 module AccessControl
   class RegistryFactory
 
-    module Permission
-      def self.new(name='')
-        permission = OpenStruct.new
-        permission.name = name
-        permission
-      end
     end
 
     UNION = :|.to_proc
