@@ -24,6 +24,20 @@ module AccessControl
       name.constantize
     end
 
+    def stub_registry_constant
+      @old_registry = AccessControl::Registry
+      Kernel.silence_warnings do
+        AccessControl.const_set(:Registry, registry)
+      end
+    end
+
+    def restore_registry_constant
+      Kernel.silence_warnings do
+        AccessControl.const_set(:Registry, @old_registry)
+      end
+    end
+
+    let(:registry) { stub }
     let(:config) { mock('config') }
 
     before do
@@ -39,10 +53,18 @@ module AccessControl
       ].each do |t, default|
         config.stub("default_#{t}_permissions").and_return(Set.new([default]))
       end
+
+      stub_registry_constant
+
+      registry.define_singleton_method(:store) do |permission_name, &block|
+        permission = RegistryFactory::Permission.new(permission_name)
+        block.call(permission) if block
+      end
     end
 
     after do
       unset_model
+      restore_registry_constant
     end
 
     [
@@ -68,7 +90,7 @@ module AccessControl
         end
 
         specify "querying returns only permissions, not metadata" do
-          model.send("#{t}_requires", 'some permission', :metadata => 'value')
+          model.send("#{t}_requires", 'some permission')
           model.send("permissions_required_to_#{t}").
             should == Set.new(['some permission'])
         end
@@ -142,13 +164,21 @@ module AccessControl
         end
 
         it "informs Registry about the permissions" do
-          Registry.should_receive(:register).
-            with('some permission', :metadata => 'value')
-          model.send("#{t}_requires", 'some permission', :metadata => 'value')
+          Registry.should_receive(:store).with('some permission')
+          model.send("#{t}_requires", 'some permission')
+        end
+
+        it "passes given block to Registry's store method" do
+          testpoint = stub
+          testpoint.should_receive(:received_permission).with('some permission')
+
+          model.send("#{t}_requires", 'some permission') do |permission|
+            testpoint.received_permission(permission.name)
+          end
         end
 
         it "doesn't inform Registry if explicitly set no permissions" do
-          Registry.should_not_receive(:register)
+          Registry.should_not_receive(:store)
           model.send("#{t}_requires", nil)
         end
 
@@ -260,14 +290,6 @@ module AccessControl
             should == Set.new(['some permission', 'another permission'])
         end
 
-        specify "querying returns only permissions, not metadata" do
-          config.stub("default_#{t}_permissions").and_return(Set.new)
-          model.send("add_#{t}_requirement", 'some permission',
-                     :metadata => 'value')
-          model.send("permissions_required_to_#{t}").
-            should == Set.new(['some permission'])
-        end
-
         it "accepts a list of arguments" do
           config.stub("default_#{t}_permissions").and_return(Set.new)
           model.send("add_#{t}_requirement", 'some permission',
@@ -334,10 +356,17 @@ module AccessControl
         end
 
         it "informs Registry about the permissions" do
-          Registry.should_receive(:register).
-            with('some permission', :metadata => 'value')
-          model.send("add_#{t}_requirement", 'some permission',
-                     :metadata => 'value')
+          Registry.should_receive(:store).with('some permission')
+          model.send("add_#{t}_requirement", 'some permission')
+        end
+
+        it "passes given block to Registry's store method" do
+          testpoint = stub
+          testpoint.should_receive(:received_permission).with('some permission')
+
+          model.send("add_#{t}_requirement", 'some permission') do |permission|
+            testpoint.received_permission(permission.name)
+          end
         end
 
         describe "when model is reloaded" do

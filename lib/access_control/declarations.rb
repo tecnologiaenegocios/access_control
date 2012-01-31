@@ -16,12 +16,12 @@ module AccessControl
 
       [:show, :index, :create, :update, :destroy].each do |t|
 
-        define_method(:"#{t}_requires") do |*permissions|
-          permission_requirement(t).set(*permissions)
+        define_method(:"#{t}_requires") do |*permissions, &block|
+          permission_requirement(t).set(*permissions, &block)
         end
 
-        define_method(:"add_#{t}_requirement") do |*permissions|
-          permission_requirement(t).add(*permissions)
+        define_method(:"add_#{t}_requirement") do |*permissions, &block|
+          permission_requirement(t).add(*permissions, &block)
         end
 
         define_method(:"permissions_required_to_#{t}") do
@@ -70,21 +70,18 @@ module AccessControl
           @added = Set.new
         end
 
-        def set(*permissions)
-          metadata = permissions.extract_options!
+        def set(*permissions, &block)
           if permissions == [nil]
             declared_no_permissions!
             permissions = Set.new
-          else
-            register(*(permissions + [metadata]))
           end
           @declared = Util.make_set_from_args(*permissions)
+          register(@declared, &block)
         end
 
-        def add(*permissions)
-          metadata = permissions.extract_options!
-          register(*(permissions + [metadata]))
+        def add(*permissions, &block)
           @added = Util.make_set_from_args(*permissions)
+          register(@added, &block)
         end
 
         def get
@@ -103,8 +100,10 @@ module AccessControl
           @declared_no_permissions = true
         end
 
-        def register(*permissions)
-          Registry.register(*permissions.dup)
+        def register(permission_names, &block)
+          permission_names.each do |permission_name|
+            Registry.store(permission_name, &block)
+          end
         end
 
         def get_from_superclass_or_config
