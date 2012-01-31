@@ -149,6 +149,11 @@ module AccessControl
             perm.flag   = false
           end
 
+          p3 = subject.store("Permission 3") do |perm|
+            perm.prices = [123,789]
+            perm.flag   = true
+          end
+
           return_value = subject.query(:prices => [456], :flag => true)
           return_value.should include_only(p1)
         end
@@ -162,6 +167,11 @@ module AccessControl
           p2 = subject.store("Permission 2") do |perm|
             perm.prices = [456,789]
             perm.flag   = false
+          end
+
+          p3 = subject.store("Permission 3") do |perm|
+            perm.prices = [123,789]
+            perm.flag   = true
           end
 
           return_value = subject.query(:prices => [456]) do |perm|
