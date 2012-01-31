@@ -110,12 +110,23 @@ module AccessControl
         permission.name.should == 'some_permission'
       end
 
-      it "sets controller and action for the permission" do
-        permission.should_receive(:controller_action=).
-          with(['RecordsController', :some_action])
-
+      it "adds controller and action for the permission" do
         records_controller.class.protect :some_action,
                                          :with => 'some_permission'
+        permission.controller_action.should ==
+          Set.new([['RecordsController', :some_action]])
+      end
+
+      specify "more than one declaration for the same permission name "\
+              "will accumulate controller and action tuples" do
+        records_controller.class.protect :some_action,
+                                         :with => 'some_permission'
+        records_controller.class.protect :some_other_action,
+                                         :with => 'some_permission'
+        permission.controller_action.should \
+          include(['RecordsController', :some_action])
+        permission.controller_action.should \
+          include(['RecordsController', :some_other_action])
       end
 
       context "when a context is given" do

@@ -1,5 +1,3 @@
-require 'ostruct'
-
 module AccessControl
   class RegistryFactory
     class Permission
@@ -7,7 +5,14 @@ module AccessControl
 
       def initialize(name = "")
         @name = name
-        @ac_context = {}
+      end
+
+      def ac_context
+        @ac_context ||= {}
+      end
+
+      def controller_action
+        @controller_action ||= Set.new
       end
     end
   end
