@@ -8,12 +8,6 @@ module AccessControl; class RegistryFactory;
       permission.name.should == ''
     end
 
-    it "can have its name set" do
-      permission = Permission.new
-      permission.name = 'foo'
-      permission.name.should == 'foo'
-    end
-
     it "can have its name set on initialization" do
       permission = Permission.new('foo')
       permission.name.should == 'foo'
@@ -24,9 +18,9 @@ module AccessControl; class RegistryFactory;
       permission.controller_action.should == Set.new
     end
 
-    it "responds to :ac_context and returns an empty hash by default" do
+    it "responds to :context_designator and returns an empty hash by default" do
       permission = Permission.new
-      permission.ac_context.should == {}
+      permission.context_designator.should == {}
     end
 
   end

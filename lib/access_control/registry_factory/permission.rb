@@ -1,14 +1,14 @@
 module AccessControl
   class RegistryFactory
     class Permission
-      attr_accessor :name, :controller_action, :ac_context
+      attr_reader :name, :controller_action, :context_designator
 
       def initialize(name = "")
         @name = name
       end
 
-      def ac_context
-        @ac_context ||= {}
+      def context_designator
+        @context_designator ||= {}
       end
 
       def controller_action

@@ -81,7 +81,7 @@ module AccessControl
       before do
         registry.stub(:permission).and_return(permission)
         registry.define_singleton_method(:store) do |permission_name, &block|
-          permission.name = permission_name
+          permission.stub(:name).and_return(permission_name)
           block.call(permission)
         end
 
@@ -136,7 +136,7 @@ module AccessControl
                                            :context => 'some_method'
 
           key = ['RecordsController', :some_action]
-          permission.ac_context[key].should == 'some_method'
+          permission.context_designator[key].should == 'some_method'
         end
 
         it "accepts a symbol as the context" do
@@ -145,7 +145,7 @@ module AccessControl
                                            :context => :some_method
 
           key = ['RecordsController', :some_action]
-          permission.ac_context[key].should == :some_method
+          permission.context_designator[key].should == :some_method
         end
 
         it "accepts a proc as the context" do
@@ -155,7 +155,7 @@ module AccessControl
                                            :context => context
 
           key = ['RecordsController', :some_action]
-          permission.ac_context[key].should be context
+          permission.context_designator[key].should be context
         end
 
         it "refuses something else" do
@@ -173,7 +173,7 @@ module AccessControl
                                            :with => 'some permission'
 
           key = ['RecordsController', :some_action]
-          permission.ac_context[key].should == :current_context
+          permission.context_designator[key].should == :current_context
         end
       end
 

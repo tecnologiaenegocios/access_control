@@ -30,7 +30,8 @@ module AccessControl
 
         Registry.store(permission_name) do |permission|
           permission.controller_action << controller_action
-          permission.ac_context.merge!(controller_action => context_designator)
+          permission.context_designator.
+            merge!(controller_action => context_designator)
 
           block.call(permission) if block
         end
