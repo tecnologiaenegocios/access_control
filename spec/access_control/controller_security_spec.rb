@@ -130,15 +130,6 @@ module AccessControl
       end
 
       context "when a context is given" do
-        it "accepts a string as the context" do
-          records_controller.class.protect :some_action,
-                                           :with => 'some permission',
-                                           :context => 'some_method'
-
-          key = ['RecordsController', :some_action]
-          permission.context_designator[key].should == 'some_method'
-        end
-
         it "accepts a symbol as the context" do
           records_controller.class.protect :some_action,
                                            :with => 'some permission',
@@ -162,7 +153,7 @@ module AccessControl
           lambda {
             records_controller.class.protect :some_action,
                                              :with => 'some permission',
-                                             :context => stub
+                                             :context => 'something else'
           }.should raise_exception(InvalidContextDesignator)
         end
       end
@@ -197,20 +188,21 @@ module AccessControl
 
     describe "request wrapping" do
 
-      let(:node) { stub('node') }
+      let(:node)         { stub('node') }
       let(:test_context) { :current_context }
-      let(:permission) { RegistryFactory::Permission.new('some_permission') }
+      let(:query_key)    { ['RecordsController', :some_action] }
+      let(:permission)   { RegistryFactory::Permission.new('some_permission') }
 
       before do
         records_controller.stub(:current_context).and_return(node)
         params[:action] = 'some_action'
 
         Registry.stub(:register)
-        query_key = ['RecordsController', :some_action]
         Registry.stub(:query).with(:controller_action => query_key).
           and_return(Set.new([permission]))
 
         permission.context_designator[query_key] = test_context
+        manager.stub(:can!)
       end
 
       describe "before action is executed" do
@@ -330,6 +322,29 @@ module AccessControl
 
               end
 
+            end
+
+            context "when more than one permission is returned with the "\
+                    "same context" do
+
+              let(:test_context) { :current_context }
+
+              it "caches the context" do
+                another_permission =
+                  RegistryFactory::Permission.new('another_permission')
+                another_permission.context_designator[query_key] = test_context
+
+                Registry.stub(:query).
+                  and_return(Set[permission, another_permission])
+
+                records_controller.stub(:current_context) do
+                  records_controller.fetched_context
+                  node
+                end
+                records_controller.should_receive(:fetched_context).once
+
+                records_controller.process
+              end
             end
 
             it "doesn't check permission if security is disabled" do

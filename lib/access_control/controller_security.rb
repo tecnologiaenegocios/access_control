@@ -40,7 +40,6 @@ module AccessControl
 
       def validate_context_designator!(context_designator)
         return if context_designator.is_a?(Symbol)
-        return if context_designator.is_a?(String)
         return if context_designator.is_a?(Proc)
         raise InvalidContextDesignator
       end
@@ -69,16 +68,20 @@ module AccessControl
         return true unless AccessControl.controller_security_enabled?
 
         query_key = [self.class.name, params[:action].to_sym]
-        effective_permissions = Registry.query(:controller_action => query_key)
+        permissions = Registry.query(:controller_action => query_key)
         raise(
           MissingPermissionDeclaration,
           "#{self.class.name}##{params[:action]} is missing permission "\
           "declaration"
-        ) if effective_permissions.empty?
+        ) if permissions.empty?
 
-        effective_permissions.each do |permission|
+        cached_contexts = {}
+        permissions.each do |permission|
           context_designator = permission.context_designator[query_key]
-          context = fetch_context(context_designator)
+          cached_contexts[context_designator] ||=
+            fetch_context(context_designator)
+          context = cached_contexts[context_designator]
+
           AccessControl.manager.can!(permission.name, context)
         end
       end
