@@ -68,11 +68,12 @@ module AccessControl
         return true unless AccessControl.controller_security_enabled?
 
         query_key = [self.class.name, params[:action].to_sym]
+        description = "#{self.class.name}##{params[:action]}"
+
         permissions = Registry.query(:controller_action => query_key)
         raise(
           MissingPermissionDeclaration,
-          "#{self.class.name}##{params[:action]} is missing permission "\
-          "declaration"
+          "#{description} is missing permission declaration"
         ) if permissions.empty?
 
         cached_contexts = {}
