@@ -1,7 +1,12 @@
 require 'access_control/util'
+require 'backports'
 
 module AccessControl
   class RegistryFactory
+
+    def initialize(permission_factory = Permission.public_method(:new))
+      @permission_factory = permission_factory
+    end
 
     def clear_registry
       @permissions = nil
@@ -9,7 +14,7 @@ module AccessControl
     end
 
     def store(name)
-      Permission.new(name).tap do |new_permission|
+      @permission_factory.call(name).tap do |new_permission|
         yield(new_permission) if block_given?
 
         permissions[name] = new_permission

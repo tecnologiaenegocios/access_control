@@ -5,11 +5,13 @@ require 'access_control/registry_factory'
 module AccessControl
   describe RegistryFactory do
 
-    subject { RegistryFactory.new }
-
-    before do
-      subject.clear_registry
+    let(:permission_factory) do
+      lambda do |permission_name|
+        OpenStruct.new(:name => permission_name)
+      end
     end
+
+    subject { RegistryFactory.new(permission_factory) }
 
     describe ".store" do
 
