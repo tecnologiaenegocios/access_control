@@ -46,6 +46,10 @@ module AccessControl
     def default_permissions
       @default_permissions.values.inject(&:merge)
     end
+
+    def extend_permissions(&block)
+      RegistryFactory::Permission.class_exec(&block)
+    end
   end
 
   def self.configure

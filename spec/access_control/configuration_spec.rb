@@ -136,6 +136,18 @@ module AccessControl
         }.should throw_symbol(:block_called)
       end
     end
+
+    describe "#extend_permissions" do
+      it "evaluates the received block on the context of Permission" do
+        execution_context = nil
+        config.extend_permissions do
+          execution_context = self
+        end
+
+        execution_context.should == RegistryFactory::Permission
+      end
+    end
+
   end
 
   describe "configuration API" do
