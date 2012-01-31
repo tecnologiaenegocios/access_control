@@ -198,19 +198,19 @@ module AccessControl
     describe "request wrapping" do
 
       let(:node) { stub('node') }
-      let(:default_context) { :current_context }
+      let(:test_context) { :current_context }
+      let(:permission) { RegistryFactory::Permission.new('some_permission') }
 
       before do
-        Registry.stub(:register)
-        Registry.stub(:query).and_return(Set.new(['some permission']))
-        Registry.stub(:all_with_metadata).and_return({
-          'some permission' => Set.new([{
-            :__ac_controller_action__ => ['RecordsController', :some_action],
-            :__ac_context__    => default_context
-          }, {:some_other_metadata => 'some other value'}])
-        })
         records_controller.stub(:current_context).and_return(node)
         params[:action] = 'some_action'
+
+        Registry.stub(:register)
+        query_key = ['RecordsController', :some_action]
+        Registry.stub(:query).with(:controller_action => query_key).
+          and_return(Set.new([permission]))
+
+        permission.context_designator[query_key] = test_context
       end
 
       describe "before action is executed" do
@@ -244,15 +244,7 @@ module AccessControl
             records_controller.class.stub(:action_public?).and_return(false)
           end
 
-          it "queries the Registry for a permission matching the controller "\
-             "and action" do
-            Registry.should_receive(:query).with(
-              :__ac_controller_action__ => ['RecordsController', :some_action]
-            ).and_return(Set.new(['some permission']))
-            records_controller.process
-          end
-
-          describe "when no permission is returned" do
+          context "when no permission is returned" do
             it "complains" do
               Registry.stub(:query).and_return(Set.new)
               lambda { records_controller.process }.should(
@@ -263,25 +255,19 @@ module AccessControl
 
           describe "for each permission returned in Registry.query" do
 
-            describe ":__ac_context__" do
+            context "when Permission#context_designator[query_key]" do
 
-              describe "is a symbol which is the name of a method" do
+              context "is a symbol which is the name of a method" do
 
-                let(:default_context) { :custom_context }
+                let(:test_context) { :custom_context }
 
                 before do
                   records_controller.stub(:custom_context => 'a custom context')
                 end
 
-                it "calls the method" do
-                  records_controller.should_receive(:custom_context).
-                    and_return('custom context')
-                  records_controller.process
-                end
-
                 it "checks permission using the return value of the method" do
                   manager.should_receive(:can!).
-                    with('some permission', 'a custom context')
+                    with('some_permission', 'a custom context')
                   records_controller.process
                 end
 
@@ -294,9 +280,9 @@ module AccessControl
 
               end
 
-              describe "is a symbol stating with @" do
+              context "is a symbol stating with @" do
 
-                let(:default_context) { :@var_name }
+                let(:test_context) { :@var_name }
 
                 before do
                   records_controller.instance_variable_set('@var_name',
@@ -305,7 +291,7 @@ module AccessControl
 
                 it "checks permission using the variable value as context" do
                   manager.should_receive(:can!).
-                    with('some permission', 'a custom context')
+                    with('some_permission', 'a custom context')
                   records_controller.process
                 end
 
@@ -318,10 +304,10 @@ module AccessControl
 
               end
 
-              describe "is a Proc" do
+              context "is a Proc" do
 
-                let(:default_context) do
-                  Proc.new{|controller| controller.custom_context }
+                let(:test_context) do
+                  Proc.new { |controller| controller.custom_context }
                 end
 
                 before do
@@ -331,7 +317,7 @@ module AccessControl
 
                 it "checks permission using the return value of the proc" do
                   manager.should_receive(:can!).
-                    with('some permission', 'a custom context')
+                    with('some_permission', 'a custom context')
                   records_controller.process
                 end
 
@@ -346,7 +332,7 @@ module AccessControl
 
             end
 
-            it "doesn't test permission if security is disabled" do
+            it "doesn't check permission if security is disabled" do
               AccessControl.stub(:controller_security_enabled?).
                 and_return(false)
               manager.should_not_receive(:can!)
