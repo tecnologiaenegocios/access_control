@@ -113,7 +113,7 @@ module AccessControl
       it "adds controller and action for the permission" do
         records_controller.class.protect 'some_action',
                                          :with => 'some_permission'
-        permission.controller_action.should ==
+        permission.ac_methods.should ==
           Set.new([['RecordsController', :some_action]])
       end
 
@@ -123,9 +123,9 @@ module AccessControl
                                          :with => 'some_permission'
         records_controller.class.protect :some_other_action,
                                          :with => 'some_permission'
-        permission.controller_action.should \
+        permission.ac_methods.should \
           include(['RecordsController', :some_action])
-        permission.controller_action.should \
+        permission.ac_methods.should \
           include(['RecordsController', :some_other_action])
       end
 
@@ -198,7 +198,7 @@ module AccessControl
         params[:action] = 'some_action'
 
         Registry.stub(:register)
-        Registry.stub(:query).with(:controller_action => query_key).
+        Registry.stub(:query).with(:ac_methods => query_key).
           and_return(Set.new([permission]))
 
         permission.context_designator[query_key] = test_context

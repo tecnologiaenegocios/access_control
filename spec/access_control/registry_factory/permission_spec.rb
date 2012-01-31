@@ -13,9 +13,9 @@ module AccessControl; class RegistryFactory;
       permission.name.should == 'foo'
     end
 
-    it "responds to :controller_action and returns an empty set by default" do
+    it "responds to :ac_methods and returns an empty set by default" do
       permission = Permission.new
-      permission.controller_action.should == Set.new
+      permission.ac_methods.should == Set.new
     end
 
     it "responds to :context_designator and returns an empty hash by default" do

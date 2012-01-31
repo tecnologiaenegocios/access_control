@@ -23,14 +23,14 @@ module AccessControl
 
       def protect action, options, &block
         permission_name = options[:with]
-        controller_action = [name, action.to_sym]
+        ac_method = [name, action.to_sym]
         context_designator = options[:context] || :current_context
 
         validate_context_designator!(context_designator)
 
         Registry.store(permission_name) do |permission|
-          permission.controller_action << controller_action
-          permission.context_designator[controller_action] = context_designator
+          permission.ac_methods << ac_method
+          permission.context_designator[ac_method] = context_designator
 
           block.call(permission) if block
         end
@@ -70,7 +70,7 @@ module AccessControl
         query_key = [self.class.name, params[:action].to_sym]
         description = "#{self.class.name}##{params[:action]}"
 
-        permissions = Registry.query(:controller_action => query_key)
+        permissions = Registry.query(:ac_methods => query_key)
         raise(
           MissingPermissionDeclaration,
           "#{description} is missing permission declaration"
