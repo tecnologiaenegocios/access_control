@@ -18,6 +18,11 @@ module AccessControl; class RegistryFactory;
       permission.ac_methods.should == Set.new
     end
 
+    it "responds to :ac_classes and returns an empty set by default" do
+      permission = Permission.new
+      permission.ac_classes.should == Set.new
+    end
+
     it "responds to :context_designator and returns an empty hash by default" do
       permission = Permission.new
       permission.context_designator.should == {}

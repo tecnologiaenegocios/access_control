@@ -1,7 +1,7 @@
 module AccessControl
   class RegistryFactory
     class Permission
-      attr_reader :name, :ac_methods, :context_designator
+      attr_reader :name
 
       def initialize(name = "")
         @name = name
@@ -13,6 +13,10 @@ module AccessControl
 
       def ac_methods
         @ac_methods ||= Set.new
+      end
+
+      def ac_classes
+        @ac_classes ||= Set.new
       end
     end
   end
