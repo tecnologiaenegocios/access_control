@@ -3,90 +3,101 @@ require 'access_control/util'
 module AccessControl
   class RegistryFactory
 
-    UNION        = :merge.to_proc
-    INTERSECTION = Proc.new do |s1, s2|
-      s1.keep_if { |obj| s2.member?(obj) }
-    end
-
-    def initialize
-      register_undeclared_permissions
-    end
-
     def clear_registry
-      @registered_permissions = nil
+      @permissions = nil
+      @indexed_permissions = nil
     end
 
-    def register(*args)
-      metadata = args.extract_options!
+    def store(name)
+      Permission.new(name).tap do |new_permission|
+        yield(new_permission) if block_given?
 
-      permissions = args.each_with_object(Array.new) do |argument, array|
-        case argument
-        when Array
-          array.concat(argument)
-        when Set
-          array.concat(argument.to_a)
-        else
-          array << argument
+        permissions[name] = new_permission
+        indexes.each do |index_name|
+          add_permission_to_index(new_permission, index_name)
         end
       end
+    end
 
-      permissions.each do |permission|
-        registered_permissions[permission] << metadata
+    def add_index(index)
+      indexes << index
+      all.each do |permission|
+        add_permission_to_index(permission, index)
       end
+    end
+
+    def [](name)
+      permissions[name]
     end
 
     def all
-      Set.new(registered_permissions.keys)
+      permissions.values
     end
 
-    def all_with_metadata
-      registered_permissions.dup
-    end
+    def query(criteria = {})
+      filtered_by_criteria = filter_by_criteria(criteria)
 
-    def register_undeclared_permissions(metadata={})
-      permissions = %w[grant_roles share_own_roles change_inheritance_blocking]
-      register(permissions, metadata)
-    end
-
-    def query(*criteria)
-      return all if criteria.all?(&:empty?)
-
-      matching = filtered_by_query(criteria) do |permission, _|
-        permission
+      if block_given?
+        filtered_by_criteria.delete_if { |perm| not yield(perm) }
+      else
+        filtered_by_criteria
       end
-      Set.new(matching)
     end
 
   private
 
-    def registered_permissions
-      @registered_permissions ||= Hash.new do |hash, permission_name|
-        hash[permission_name] = Set.new
+    def indexes
+      @indexes ||= Set.new
+    end
+
+    def permissions
+      @permissions ||= Hash.new
+    end
+
+    def permissions_by(key)
+      @indexed_permissions      ||= Hash.new
+      @indexed_permissions[key] ||= Hash.new { |h, k| h[k] = Set.new }
+    end
+
+    def add_permission_to_index(permission, index_name)
+      index_value = permission.send(index_name)
+      unless index_value.nil?
+        indexed_permissions = permissions_by(index_name)
+        indexed_permissions[index_value] << permission
       end
     end
 
-    def filtered_by_query(criteria, &block)
-      criteria.flat_map do |criterion|
-        permissions = permissions_matching(criterion)
-        if block_given?
-          permissions.map(&block)
-        else
-          permissions
-        end
+    def filter_by_criteria(criteria)
+      return Set.new(all) if criteria.empty?
+
+      initial_set = permissions_matching_criterion(*criteria.shift)
+
+      criteria.inject(initial_set) do |previous_match, (key, value)|
+        break Set.new if previous_match.empty?
+
+        current_match = permissions_matching_criterion(key, value)
+
+        break Set.new if current_match.empty?
+
+        previous_match & current_match
       end
     end
 
-    def permissions_matching(criterion)
-      return all if criterion.empty?
-
-      criterion.each_with_object(all_with_metadata) do |(key, value), result|
-        result.keep_if do |_, metadata_set|
-          metadata_set.any? { |metadata| metadata[key] == value }
+    def permissions_matching_criterion(name, value)
+      if name == :name
+        permission = permissions[value]
+        permission ? Set[permission] : Set.new
+      elsif indexes.include?(name)
+        permissions_by(name)[value]
+      else
+        all.each_with_object(Set.new) do |permission, permissions_set|
+          if permission.respond_to?(name) && permission.send(name) == value
+            permissions_set.add(permission)
+          end
         end
       end
     end
   end
 
   Registry = RegistryFactory.new
-
 end
