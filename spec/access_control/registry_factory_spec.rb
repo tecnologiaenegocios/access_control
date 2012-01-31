@@ -14,7 +14,6 @@ module AccessControl
     subject { RegistryFactory.new(permission_factory) }
 
     describe ".store" do
-
       it "registers a permission with the given name" do
         permission = subject.store("permission")
         subject.all.should include(permission)
@@ -29,19 +28,37 @@ module AccessControl
         yielded_object.should == new_permission
       end
 
+      it "doesn't override permissions previously added" do
+        permission = subject.store("permission")
+        other_permission = subject.store("permission")
+
+        other_permission.should be permission
+      end
+
       it "indexes the new permission by its name" do
         permission = subject.store("permission")
         subject["permission"].should == permission
       end
 
       it "re-indexes the new permission by the indexes registered" do
+        value = stub
         subject.add_index(:key)
 
         permission = subject.store("permission") do |permission|
-          permission.key = "value"
+          permission.key = value
         end
 
-        subject.query(:key => "value").should include_only(permission)
+        subject.query(:key => value).should include_only(permission)
+      end
+
+      specify "when a permission is #store'd the second time, re-indexes it" do
+        value = stub
+        subject.add_index(:key)
+
+        subject.store("permission")
+        permission = subject.store("permission") { |perm| perm.key = value }
+
+        subject.query(:key => value).should include_only(permission)
       end
     end
 
@@ -126,7 +143,14 @@ module AccessControl
       end
 
       it "ignores permissions that don't have a corresponding method" do
+        priceless_permission = Struct.new(:name)
+        priceless_permission_factory = lambda do |name|
+          priceless_permission.new(name)
+        end
+
+        subject = RegistryFactory.new(priceless_permission_factory)
         subject.add_index(:price)
+
         perm = subject.store("Permission")
 
         return_value = subject.query(:price => nil)

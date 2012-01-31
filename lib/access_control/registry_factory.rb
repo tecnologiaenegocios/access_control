@@ -14,14 +14,15 @@ module AccessControl
     end
 
     def store(name)
-      @permission_factory.call(name).tap do |new_permission|
-        yield(new_permission) if block_given?
+      new_permission = permissions[name] ||= @permission_factory.call(name)
 
-        permissions[name] = new_permission
-        indexes.each do |index_name|
-          add_permission_to_index(new_permission, index_name)
-        end
+      yield(new_permission) if block_given?
+
+      indexes.each do |index_name|
+        add_permission_to_index(new_permission, index_name)
       end
+
+      new_permission
     end
 
     def add_index(index)
@@ -65,7 +66,9 @@ module AccessControl
     end
 
     def add_permission_to_index(permission, index_name)
-      index_value = permission.send(index_name)
+      index_value = permission.respond_to?(index_name) &&
+                      permission.send(index_name)
+
       unless index_value.nil?
         indexed_permissions = permissions_by(index_name)
         indexed_permissions[index_value] << permission
