@@ -54,7 +54,7 @@ module AccessControl
           returned_value.should == Set[default]
         end
 
-        describe "when #register_permissions is called" do
+        describe "when #register_default_permissions is called" do
           it "registers the '#{type}' default permissions" do
             Registry.stub(:store)
 
@@ -64,7 +64,7 @@ module AccessControl
             end
 
             setter.call(permissions)
-            config.register_permissions
+            config.register_default_permissions
           end
 
         end
@@ -114,13 +114,13 @@ module AccessControl
       end
     end
 
-    describe "#register_permissions" do
+    describe "#register_default_permissions" do
       it "registers the default permissions on registry" do
         config.default_permissions.each do |permission|
           Registry.should_receive(:store).with(permission)
         end
 
-        config.register_permissions
+        config.register_default_permissions
       end
 
       it "may receive a block, which is forwarded to Registry.store" do
@@ -132,7 +132,7 @@ module AccessControl
         end
 
         lambda {
-          config.register_permissions(registry, &block)
+          config.register_default_permissions(registry, &block)
         }.should throw_symbol(:block_called)
       end
     end
