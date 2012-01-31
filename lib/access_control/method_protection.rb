@@ -15,18 +15,12 @@ module AccessControl
         @class_name = klass.name
       end
 
-      def get_permissions_for(method_name)
-        Registry.query(
-          :__ac_class__  => @class_name,
-          :__ac_method__ => method_name.to_sym
-        )
-      end
-
-      def set_permissions_for(method_name, options)
-        Registry.register(options[:with], (options[:data] || {}).merge(
-          :__ac_class__  => @class_name,
-          :__ac_method__ => method_name.to_sym
-        ))
+      def set_permissions_for(method_name, permission_name, &block)
+        Registry.store(permission_name) do |permission|
+          permission.ac_methods << [@class_name, method_name.to_sym]
+          permission.ac_classes << @class_name
+          block.call(permission) if block
+        end
       end
 
       def protect_methods
@@ -47,18 +41,23 @@ module AccessControl
         method_name = method_name.to_sym
         return unless restricted_methods.include?(method_name)
         return if method_already_protected?(method_name)
+
         mark_method_as_already_protected(method_name)
-        @class.class_exec(method_name) do |method_name|
-          new_impl = :"#{method_name}_with_protection"
-          original_impl = :"#{method_name}_without_protection"
-          define_method(new_impl) do |*args, &block|
-            AccessControl.manager.can!(self.class.permissions_for(method_name),
-                                       self)
-            send(original_impl, *args, &block)
+
+        new_impl = :"#{method_name}_with_protection"
+        original_impl = :"#{method_name}_without_protection"
+        query_key = [@class_name, method_name]
+
+        @class.class_eval(<<-METHOD, __FILE__, __LINE__ + 1)
+          def #{new_impl}(*args, &block)
+            p = Registry.query(:ac_methods => [#{query_key.inspect}])
+            AccessControl.manager.can!(p.map(&:name), self)
+            #{original_impl}(*args, &block)
           end
-          alias_method original_impl, method_name
-          alias_method method_name, new_impl
-        end
+
+          alias_method :#{original_impl}, :#{method_name}
+          alias_method :#{method_name},   :#{new_impl}
+        METHOD
       end
 
     private
@@ -72,13 +71,8 @@ module AccessControl
       end
 
       def restricted_methods
-        Registry.query(:__ac_class__ => @class_name).inject([]) do |m, p|
-          Registry.all_with_metadata[p].each do |metadata|
-            if metadata.include?(:__ac_method__)
-              m << metadata[:__ac_method__]
-            end
-          end
-          m
+        Registry.query(:ac_classes => [@class_name]).flat_map do |p|
+          p.ac_methods.select { |k, m| k == @class_name }.map { |k, m| m }
         end
       end
 
@@ -105,12 +99,10 @@ module AccessControl
 
     module ClassMethods
 
-      def protect method_name, options
-        Protector.new(self).set_permissions_for(method_name, options)
-      end
-
-      def permissions_for method_name
-        Protector.new(self).get_permissions_for(method_name)
+      def protect(method_name, options, &block)
+        permission_name = options[:with]
+        Protector.new(self).set_permissions_for(method_name, permission_name,
+                                                &block)
       end
 
       unless AccessControl::Util.new_calls_allocate?

@@ -7,7 +7,9 @@ require 'access_control/method_protection'
 module AccessControl
   describe MethodProtection do
 
-    let(:manager) { mock('manager') }
+    let(:manager)     { mock('manager') }
+    let(:registry)    { stub }
+    let(:permissions) { {} }
 
     def set_class
       Object.const_set('TheClass', Class.new{ include MethodProtection })
@@ -25,42 +27,77 @@ module AccessControl
       set_class
       AccessControl.stub(:manager).and_return(manager)
       manager.stub(:can!)
+
+      @old_registry = AccessControl::Registry
+      Kernel.silence_warnings { AccessControl.const_set(:Registry, registry) }
+
+      registry.stub(:permissions).and_return(permissions)
+      registry.define_singleton_method(:store) do |permission_name, &block|
+        permissions[permission_name] ||= OpenStruct.new(
+          :name => permission_name,
+          :ac_methods => Set.new,
+          :ac_classes => Set.new
+        )
+        block.call(permissions[permission_name])
+      end
     end
 
     after do
       unset_class
-      Registry.clear_registry
+
+      Kernel.silence_warnings do
+        AccessControl.const_set(:Registry, @old_registry)
+      end
     end
 
     describe ".protect" do
 
-      it "declares that methods are protected" do
+      it "stores permission in the Registry" do
+        Registry.should_receive(:store).with('some permission')
         klass.protect(:some_method, :with => 'some permission')
-        klass.protect(:another_method, :with => 'another permission')
-        klass.permissions_for(:some_method).
-          should == Set.new(['some permission'])
-        klass.permissions_for(:another_method).
-          should == Set.new(['another permission'])
+      end
+
+      it "adds class and method to the ac_methods property of the permission" do
+        klass.protect(:some_method, :with => 'some permission')
+
+        permissions['some permission'].ac_methods.
+          should include_only(['TheClass', :some_method])
+      end
+
+      it "adds class to the ac_classes property of the permission" do
+        klass.protect(:some_method, :with => 'some permission')
+
+        permissions['some permission'].ac_classes.
+          should include_only('TheClass')
       end
 
       it "combines permissions in different declarations for same method" do
         klass.protect(:some_method, :with => 'some permission')
         klass.protect(:some_method, :with => 'some other permission')
-        klass.permissions_for(:some_method).
-          should == Set.new(['some permission', 'some other permission'])
+
+        permissions['some permission'].ac_methods.
+          should include_only(['TheClass', :some_method])
+        permissions['some other permission'].ac_methods.
+          should include_only(['TheClass', :some_method])
       end
 
-      it "accepts an array of permissions" do
-        klass.protect(:some_method, :with => ['some permission', 'some other'])
-        klass.permissions_for(:some_method).
-          should == Set.new(['some permission', 'some other'])
+      it "combines methods in different declarations for same permission" do
+        klass.protect(:some_method, :with => 'some permission')
+        klass.protect(:some_other_method, :with => 'some permission')
+
+        permissions['some permission'].ac_methods.
+          should include_only(['TheClass', :some_method],
+                              ['TheClass', :some_other_method])
       end
 
-      it "registers permissions with metadata provided" do
-        Registry.should_receive(:register).
-          with('some permission', hash_including(:metadata => 'value'))
-        klass.protect(:some_method, :with => 'some permission',
-                      :data => { :metadata => 'value'})
+      context "when a block is given" do
+        it "runs the block with the permission being indexed" do
+          klass.protect(:some_method, :with => 'some permission') do |p|
+            p.attribute = 'value'
+          end
+
+          permissions['some permission'].attribute.should == 'value'
+        end
       end
 
       describe "regular and dynamic methods" do
@@ -87,6 +124,25 @@ module AccessControl
             protect :regular_method, :with => 'some permission'
             protect :dynamic_method, :with => 'some permission'
           end
+
+          permission = stub(:name => 'some permission',
+                            :ac_methods => Set[
+                              ['TheClass', :regular_method],
+                              ['TheClass', :dynamic_method]
+                            ],
+                            :ac_classes => Set['TheClass'])
+
+          Registry.stub(:query).
+            with(:ac_methods => [['TheClass', :regular_method]]).
+            and_return(Set[permission])
+
+          Registry.stub(:query).
+            with(:ac_methods => [['TheClass', :dynamic_method]]).
+            and_return(Set[permission])
+
+          Registry.stub(:query).
+            with(:ac_classes => ['TheClass']).
+            and_return(Set[permission])
         end
 
         [:new, :allocate].each do |creation_method|
@@ -108,8 +164,8 @@ module AccessControl
 
                 it "checks permissions when the method is called " do
                   instance = klass.send(creation_method)
-                  manager.should_receive(:can!).
-                    with(Set.new(['some permission']), instance)
+                  manager.should_receive(:can!).with(['some permission'],
+                                                     instance)
                   calling_method(instance, meth)
                 end
 
@@ -118,8 +174,8 @@ module AccessControl
                   set_class
                   set_methods
                   instance = klass.send(creation_method)
-                  manager.should_receive(:can!).
-                    with(Set.new(['some permission']), instance)
+                  manager.should_receive(:can!).with(['some permission'],
+                                                     instance)
                   calling_method(instance, meth)
                 end
 
@@ -127,8 +183,8 @@ module AccessControl
                   instance = klass.send(creation_method)
                   calling_method(instance, meth)
                   another_instance = klass.send(creation_method)
-                  manager.should_receive(:can!).
-                    with(Set.new(['some permission']), another_instance)
+                  manager.should_receive(:can!).with(['some permission'],
+                                                     another_instance)
                   calling_method(another_instance, meth)
                 end
 
