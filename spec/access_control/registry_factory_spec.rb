@@ -1,5 +1,4 @@
-require 'spec_helper'
-require 'access_control/configuration'
+require 'support/matchers/include_only'
 require 'access_control/registry_factory'
 
 module AccessControl
@@ -8,6 +7,13 @@ module AccessControl
     let(:permission_factory) do
       lambda do |permission_name|
         OpenStruct.new(:name => permission_name)
+      end
+    end
+
+    let(:methodless_permission_factory) do
+      methodless_permission = Struct.new(:name)
+      lambda do |name|
+        methodless_permission.new(name)
       end
     end
 
@@ -96,6 +102,76 @@ module AccessControl
         return_value.should include_only(p1)
       end
 
+      context "for collection indexes" do
+        before do
+          subject.add_collection_index(:prices)
+        end
+
+        it "returns permissions that include all the values passed" do
+          perm = subject.store("Permission") { |perm| perm.prices = [123,456] }
+
+          return_value = subject.query(:prices => [123, 456])
+          return_value.should include(perm)
+        end
+
+        it "returns permissions that include one of the values passed" do
+          perm = subject.store("Permission") { |perm| perm.prices = [123] }
+
+          return_value = subject.query(:prices => [123, 456])
+          return_value.should include(perm)
+        end
+
+        it "doesn't return permissions that include none of the values" do
+          perm = subject.store("Permission") { |perm| perm.prices = [789] }
+
+          return_value = subject.query(:prices => [123, 456])
+          return_value.should_not include(perm)
+        end
+
+        it "returns all permissions that have at least one value" do
+          p1 = subject.store("Permission 1") { |perm| perm.prices = [123,456] }
+          p2 = subject.store("Permission 2") { |perm| perm.prices = [456,789] }
+
+          return_value = subject.query(:prices => [456])
+          return_value.should include(p1, p2)
+        end
+
+        it "can mix collection and non-collection indexes" do
+          subject.add_index(:flag)
+
+          p1 = subject.store("Permission 1") do |perm|
+            perm.prices = [123,456]
+            perm.flag   = true
+          end
+
+          p2 = subject.store("Permission 2") do |perm|
+            perm.prices = [456,789]
+            perm.flag   = false
+          end
+
+          return_value = subject.query(:prices => [456], :flag => true)
+          return_value.should include_only(p1)
+        end
+
+        it "can mix collection and block-based queries" do
+          p1 = subject.store("Permission 1") do |perm|
+            perm.prices = [123,456]
+            perm.flag   = true
+          end
+
+          p2 = subject.store("Permission 2") do |perm|
+            perm.prices = [456,789]
+            perm.flag   = false
+          end
+
+          return_value = subject.query(:prices => [456]) do |perm|
+            perm.flag == true
+          end
+
+          return_value.should include_only(p1)
+        end
+      end
+
       it "may accept a block for custom filtering" do
         p1 = subject.store("Permission 1") { |perm| perm.price = 100 }
         p2 = subject.store("Permission 2") { |perm| perm.price = 200 }
@@ -143,17 +219,50 @@ module AccessControl
       end
 
       it "ignores permissions that don't have a corresponding method" do
-        priceless_permission = Struct.new(:name)
-        priceless_permission_factory = lambda do |name|
-          priceless_permission.new(name)
-        end
-
-        subject = RegistryFactory.new(priceless_permission_factory)
+        subject = RegistryFactory.new(methodless_permission_factory)
         subject.add_index(:price)
 
         perm = subject.store("Permission")
 
         return_value = subject.query(:price => nil)
+        return_value.should_not include(perm)
+      end
+    end
+
+    describe "collection-based indexes" do
+      it "associate the same permission to multiple values" do
+        subject.add_collection_index(:prices)
+        perm = subject.store("Permission") { |perm| perm.prices = [100, 200] }
+
+        subject.query(:prices => [100, 200]).should include perm
+        subject.query(:prices => [200]).should include perm
+        subject.query(:prices => [100]).should include perm
+      end
+
+      it "may contain multiple permissions for overlapping values" do
+        subject.add_collection_index(:prices)
+        p1 = subject.store("Permission 1") { |perm| perm.prices = [100, 200] }
+        p2 = subject.store("Permission 2") { |perm| perm.prices = [200, 300] }
+
+        return_value = subject.query(:prices => [200])
+        return_value.should include(p1, p2)
+      end
+
+      it "ignores permissions whose value for the index is empty" do
+        subject.add_collection_index(:prices)
+        perm = subject.store("Permission") { |perm| perm.prices = [] }
+
+        return_value = subject.query(:prices => [])
+        return_value.should_not include(perm)
+      end
+
+      it "ignores permissions that don't have a corresponding method" do
+        subject = RegistryFactory.new(methodless_permission_factory)
+        subject.add_collection_index(:prices)
+
+        perm = subject.store("Permission")
+
+        return_value = subject.query(:prices => [])
         return_value.should_not include(perm)
       end
     end

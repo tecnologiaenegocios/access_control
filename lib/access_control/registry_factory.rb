@@ -1,4 +1,5 @@
 require 'access_control/util'
+require 'access_control/registry_factory/permission'
 require 'backports'
 
 module AccessControl
@@ -22,6 +23,10 @@ module AccessControl
         add_permission_to_index(new_permission, index_name)
       end
 
+      collection_indexes.each do |index_name|
+        add_permission_to_collection_index(new_permission, index_name)
+      end
+
       new_permission
     end
 
@@ -29,6 +34,13 @@ module AccessControl
       indexes << index
       all.each do |permission|
         add_permission_to_index(permission, index)
+      end
+    end
+
+    def add_collection_index(index)
+      collection_indexes << index
+      all.each do |permission|
+        add_permission_to_collection_index(permission, index)
       end
     end
 
@@ -56,6 +68,10 @@ module AccessControl
       @indexes ||= Set.new
     end
 
+    def collection_indexes
+      @collection_indexes ||= Set.new
+    end
+
     def permissions
       @permissions ||= Hash.new
     end
@@ -65,9 +81,18 @@ module AccessControl
       @indexed_permissions[key] ||= Hash.new { |h, k| h[k] = Set.new }
     end
 
-    def add_permission_to_index(permission, index_name)
-      index_value = permission.respond_to?(index_name) &&
-                      permission.send(index_name)
+    def add_permission_to_collection_index(permission, index_name)
+      return unless permission.respond_to?(index_name)
+      collection = permission.send(index_name)
+
+      collection.each do |value|
+        add_permission_to_index(permission, index_name, value)
+      end
+    end
+
+    def add_permission_to_index(permission, index_name, index_value = nil)
+      index_value ||= permission.respond_to?(index_name) &&
+                        permission.send(index_name)
 
       unless index_value.nil?
         indexed_permissions = permissions_by(index_name)
@@ -92,11 +117,14 @@ module AccessControl
     end
 
     def permissions_matching_criterion(name, value)
-      if name == :name
-        permission = permissions[value]
-        permission ? Set[permission] : Set.new
-      elsif indexes.include?(name)
+      if indexes.include?(name)
         permissions_by(name)[value]
+      elsif collection_indexes.include?(name)
+        collection_values = value
+
+        Util.flat_set(collection_values) do |collection_value|
+          permissions_by(name)[collection_value]
+        end
       else
         all.each_with_object(Set.new) do |permission, permissions_set|
           if permission.respond_to?(name) && permission.send(name) == value
