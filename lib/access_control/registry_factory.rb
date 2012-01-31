@@ -134,6 +134,4 @@ module AccessControl
       end
     end
   end
-
-  Registry = RegistryFactory.new
 end
