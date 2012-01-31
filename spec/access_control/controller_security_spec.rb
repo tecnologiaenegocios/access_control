@@ -111,7 +111,7 @@ module AccessControl
       end
 
       it "adds controller and action for the permission" do
-        records_controller.class.protect :some_action,
+        records_controller.class.protect 'some_action',
                                          :with => 'some_permission'
         permission.controller_action.should ==
           Set.new([['RecordsController', :some_action]])

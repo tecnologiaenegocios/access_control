@@ -29,7 +29,7 @@ module AccessControl
         validate_context_designator!(context_designator)
 
         Registry.store(permission_name) do |permission|
-          permission.controller_action << [name, action.to_sym]
+          permission.controller_action << controller_action
           permission.ac_context.merge!(controller_action => context_designator)
 
           block.call(permission) if block
