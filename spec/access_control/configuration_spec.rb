@@ -1,4 +1,5 @@
 require 'access_control/configuration'
+require 'support/matchers/include_only'
 
 module AccessControl
   describe Configuration do
@@ -72,7 +73,6 @@ module AccessControl
     end
 
     describe "default roles" do
-
       it "is 'owner' by default" do
         config.default_roles.should == Set['owner']
       end
@@ -96,9 +96,46 @@ module AccessControl
         config.default_roles = nil
         config.default_roles.should == Set.new
       end
-
     end
 
+    describe "#default_permissions" do
+      it "contains all the default permissions" do
+        default_permissions = config.default_permissions
+        default_permissions.should include_only("list", "view", "add",
+                                                "modify", "delete")
+      end
+
+      it "reflects changes on the default permissions by type" do
+        config.default_destroy_permissions = "annihilate"
+
+        default_permissions = config.default_permissions
+        default_permissions.should include_only("list", "view", "add",
+                                                "modify", "annihilate")
+      end
+    end
+
+    describe "#register_permissions" do
+      it "registers the default permissions on registry" do
+        config.default_permissions.each do |permission|
+          Registry.should_receive(:store).with(permission)
+        end
+
+        config.register_permissions
+      end
+
+      it "may receive a block, which is forwarded to Registry.store" do
+        block = lambda { throw :block_called }
+        registry = Object.new
+
+        registry.define_singleton_method(:store) do |*, &forwarded_block|
+          forwarded_block.call
+        end
+
+        lambda {
+          config.register_permissions(registry, &block)
+        }.should throw_symbol(:block_called)
+      end
+    end
   end
 
   describe "configuration API" do

@@ -37,13 +37,15 @@ module AccessControl
       @default_roles = Util.make_set_from_args(*args)
     end
 
-    def register_permissions
-      all_default_permissions = @default_permissions.values.inject(&:merge)
-      all_default_permissions.each do |permission|
-        Registry.store(permission)
+    def register_permissions(registry = AccessControl::Registry, &block)
+      default_permissions.each do |permission|
+        registry.store(permission, &block)
       end
     end
 
+    def default_permissions
+      @default_permissions.values.inject(&:merge)
+    end
   end
 
   def self.configure
