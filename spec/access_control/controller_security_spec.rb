@@ -198,7 +198,7 @@ module AccessControl
         params[:action] = 'some_action'
 
         Registry.stub(:register)
-        Registry.stub(:query).with(:ac_methods => query_key).
+        Registry.stub(:query).with(:ac_methods => [query_key]).
           and_return(Set.new([permission]))
 
         permission.context_designator[query_key] = test_context

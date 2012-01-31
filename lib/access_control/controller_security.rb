@@ -70,7 +70,7 @@ module AccessControl
         query_key = [self.class.name, params[:action].to_sym]
         description = "#{self.class.name}##{params[:action]}"
 
-        permissions = Registry.query(:ac_methods => query_key)
+        permissions = Registry.query(:ac_methods => [query_key])
         raise(
           MissingPermissionDeclaration,
           "#{description} is missing permission declaration"
