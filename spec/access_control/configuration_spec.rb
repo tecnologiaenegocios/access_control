@@ -1,4 +1,3 @@
-require 'spec_helper'
 require 'access_control/configuration'
 
 module AccessControl
@@ -12,84 +11,64 @@ module AccessControl
       "create" => 'add',
       "update" => 'modify',
       "destroy" => 'delete',
-    }.each do |k, v|
+    }.each do |type, default|
 
-      it "can define default #{k} permissions" do
-        config.send("default_#{k}_permissions=", 'some permission')
-      end
+      describe "default '#{type}' permissions" do
+        let(:getter) { config.public_method("default_#{type}_permissions") }
+        let(:setter) { config.public_method("default_#{type}_permissions=") }
 
-      it "can retrieve the #{k} permission, returns a set" do
-        config.send("default_#{k}_permissions=", 'some permission')
-        config.send("default_#{k}_permissions").
-          should == Set.new(['some permission'])
-        config.send("default_#{k}_permissions=", ['some permission'])
-        config.send("default_#{k}_permissions").
-          should == Set.new(['some permission'])
-      end
+        let(:returned_value) { getter.call }
 
-      it "accepts a list of arguments" do
-        config.send("default_#{k}_permissions=",
-                    'some permission', 'another permission')
-        config.send("default_#{k}_permissions").
-          should == Set.new(['some permission', 'another permission'])
-      end
+        it "doesn't raise errors when retrieved" do
+          lambda {
+            getter.call
+          }.should_not raise_error
+        end
 
-      it "accepts an enumerable as a single argument" do
-        config.send("default_#{k}_permissions=",
-                    ['some permission', 'another permission'])
-        config.send("default_#{k}_permissions").
-          should == Set.new(['some permission', 'another permission'])
-      end
+        it "doesn't raise errors when set" do
+          lambda {
+            setter.call('some permission')
+          }.should_not raise_error
+        end
 
-      it "accepts nil" do
-        config.send("default_#{k}_permissions=", nil)
-        config.send("default_#{k}_permissions").should == Set.new
-      end
+        it "can retrieve the '#{type}' permission, returns a set" do
+          setter.call('some permission')
+          returned_value.should == Set['some permission']
 
-      it "accepts metadata" do
-        config.send("default_#{k}_permissions=", 'some permission',
-                    :metadata => 'value')
-        config.send("default_#{k}_permissions_metadata").
-          should == { :metadata => 'value' }
-      end
+          setter.call(['some permission'])
+          returned_value.should == Set['some permission']
+        end
 
-      it "defaults to '#{v}'" do
-        config.send("default_#{k}_permissions").should == Set.new([v])
-      end
+        it "accepts an enumerable as a single argument" do
+          setter.call(['some permission', 'another permission'])
+          returned_value.should == Set['some permission', 'another permission']
+        end
 
-      it "defaults metadata to {}" do
-        config.send("default_#{k}_permissions_metadata").should == {}
-      end
+        it "accepts nil" do
+          setter.call(nil)
+          returned_value.should == Set.new
+        end
 
-      describe "when #register_permissions is called" do
+        it "defaults to '#{default}'" do
+          returned_value.should == Set[default]
+        end
 
-        before { Registry.stub(:register) }
+        describe "when #register_permissions is called" do
+          it "registers the '#{type}' default permissions" do
+            Registry.stub(:store)
 
-        it "registers the #{k} permission" do
-          Registry.should_receive(:register).
-            with(Set.new(['some permission', 'another permission']),
-                 :metadata => 'value')
-          config.send("default_#{k}_permissions=",
-                      ['some permission', 'another permission'],
-                      :metadata => 'value')
-          config.register_permissions
+            permissions = Set['some permission', 'another permission']
+            permissions.each do |permission|
+              Registry.should_receive(:store).with(permission)
+            end
+
+            setter.call(permissions)
+            config.register_permissions
+          end
+
         end
 
       end
-
-    end
-
-    describe "restrict belongs_to association" do
-
-      it "is disabled by default" do
-        config.restrict_belongs_to_association.should == false
-      end
-
-      it "can be enabled" do
-        config.restrict_belongs_to_association = true
-        config.restrict_belongs_to_association.should be_true
-      end
-
     end
 
     describe "default roles" do
