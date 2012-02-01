@@ -56,6 +56,14 @@ module AccessControl
       delete
   end
 
+  def self.default_batch_size= value
+    @default_batch_size = value
+  end
+
+  def self.default_batch_size
+    @default_batch_size ||= 500
+  end
+
   def self.rebuild_parent_relationships(securable_class)
     AccessControl.transaction do
       Inheritance.inheritances_of(securable_class).each do |inheritance|
@@ -71,7 +79,7 @@ module AccessControl
                             to_insert.select(:parent_nodes__id,
                                              :child_nodes__id))
         else
-          relationships.each_slice(1000) do |partition|
+          relationships.each_slice(default_batch_size) do |partition|
             tuples = partition.map { |r| [r[:parent_id], r[:child_id]] }
             existing = ac_parents.filter([:parent_id, :child_id] => tuples)
             existing.delete

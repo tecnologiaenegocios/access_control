@@ -80,6 +80,7 @@ module AccessControl
       describe ".values" do
         let(:page) { stub }
         before do
+          AccessControl.stub(:default_batch_size).and_return(1000)
           model.stub(:each_page).with(1000).and_yield(page)
           page.stub(:each).and_yield('all sequel objects')
         end

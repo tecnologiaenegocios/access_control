@@ -38,7 +38,7 @@ module AccessControl
   private
 
     def relationships_as_enum(records, &block)
-      records.each_slice(1000) do |partition|
+      records.each_slice(AccessControl.default_batch_size) do |partition|
         partition.each do |record|
           method_result = record.send(method_name)
 

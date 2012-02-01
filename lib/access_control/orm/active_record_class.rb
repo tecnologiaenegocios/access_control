@@ -37,7 +37,8 @@ module AccessControl
       end
 
       def values
-        object.enum_for(:find_each)
+        object.enum_for(:find_each,
+                        :batch_size => AccessControl.default_batch_size)
       end
 
       def new

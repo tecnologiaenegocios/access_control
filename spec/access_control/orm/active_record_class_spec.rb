@@ -63,8 +63,12 @@ module AccessControl
       end
 
       describe ".values" do
-        before  { model.stub(:find_each).
-                  and_yield('all active record objects') }
+        before do
+          AccessControl.stub(:default_batch_size).and_return(1000)
+          model.stub(:find_each).with(:batch_size => 1000).
+            and_yield('all active record objects')
+        end
+
         subject { orm.values }
         specify { subject.to_a.should == ['all active record objects'] }
       end

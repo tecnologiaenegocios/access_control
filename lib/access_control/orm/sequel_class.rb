@@ -63,7 +63,7 @@ module AccessControl
     private
 
       def values_as_enum(&block)
-        object.each_page(1000) do |page|
+        object.each_page(AccessControl.default_batch_size) do |page|
           page.each(&block)
         end
       end
