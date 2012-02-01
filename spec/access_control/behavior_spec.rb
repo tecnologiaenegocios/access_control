@@ -88,6 +88,15 @@ describe AccessControl do
     end
   end
 
+  describe ".clear_parent_relationships" do
+    it "erases all previous relationships" do
+      AccessControl.ac_parents.insert(:parent_id => 666, :child_id => 666)
+      AccessControl.clear_parent_relationships!
+
+      AccessControl.ac_parents.all.should be_empty
+    end
+  end
+
   describe ".rebuild_parent_relationships" do
     let(:parent1) { 1 }
     let(:parent2) { 2 }
@@ -123,13 +132,6 @@ describe AccessControl do
       AccessControl.rebuild_parent_relationships(securable_class)
       tuples = AccessControl.ac_parents.select_map([:parent_id, :child_id])
       tuples.should include_only([parent1, child1], [parent2, child2])
-    end
-
-    it "erases all previous relationships" do
-      AccessControl.ac_parents.insert(:parent_id => 666, :child_id => 666)
-      AccessControl.rebuild_parent_relationships(securable_class)
-      tuples = AccessControl.ac_parents.select_map([:parent_id, :child_id])
-      tuples.should_not include([666, 666])
     end
 
     context "with equivalent inheritances" do
