@@ -88,7 +88,7 @@ describe AccessControl do
     end
   end
 
-  describe ".clear_parent_relationships" do
+  describe ".clear_parent_relationships!" do
     it "erases all previous relationships" do
       AccessControl.ac_parents.insert(:parent_id => 666, :child_id => 666)
       AccessControl.clear_parent_relationships!
@@ -97,12 +97,41 @@ describe AccessControl do
     end
   end
 
+  describe ".clear_blocked_parent_relationships!" do
+    let(:parent1) { 1 }
+    let(:parent2) { 2 }
+    let(:child1)  { 3 }
+    let(:child2)  { 4 }
+
+    let(:inheritance1) { [parent1, child1] }
+    let(:inheritance2) { [parent2, child2] }
+
+    let(:inheritances) { [inheritance1, inheritance2] }
+
+    before do
+      blocked = stub
+      blocked.stub(:select).with(:id).and_return([4]) # this child is blocked.
+      AccessControl::Node::Persistent.stub(:blocked => blocked)
+
+      inheritances.each do |parent, child|
+        AccessControl.ac_parents.insert(:parent_id => parent,
+                                        :child_id  => child)
+      end
+    end
+
+    it "erases blocked node's parent relationships" do
+      AccessControl.clear_blocked_parent_relationships!
+
+      AccessControl.ac_parents.select_map([:parent_id, :child_id]).should ==
+        [inheritance1]
+    end
+  end
+
   describe ".rebuild_parent_relationships" do
     let(:parent1) { 1 }
     let(:parent2) { 2 }
     let(:child1)  { 3 }
     let(:child2)  { 4 }
-    let(:child3)  { 5 }
 
     let(:securable_class) { stub }
 
@@ -116,9 +145,8 @@ describe AccessControl do
 
     let(:inheritance1) { stub_inheritance([parent1, child1]) }
     let(:inheritance2) { stub_inheritance([parent2, child2]) }
-    let(:inheritance3) { stub_inheritance([parent2, child3]) }
 
-    let(:inheritances) { [inheritance1, inheritance2, inheritance3] }
+    let(:inheritances) { [inheritance1, inheritance2] }
 
     def stub_inheritance(*relationships)
       hashes = relationships.map do |parent, child|

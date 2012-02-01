@@ -50,9 +50,14 @@ module AccessControl
     AccessControl.ac_parents.truncate
   end
 
+  def self.clear_blocked_parent_relationships!
+    AccessControl.ac_parents.
+      filter(:child_id => Node::Persistent.blocked.select(:id)).
+      delete
+  end
+
   def self.rebuild_parent_relationships(securable_class)
     AccessControl.transaction do
-
       Inheritance.inheritances_of(securable_class).each do |inheritance|
         relationships = inheritance.relationships
 
@@ -75,11 +80,6 @@ module AccessControl
           end
         end
       end
-
-      AccessControl.ac_parents.
-        filter(:child_id => Node::Persistent.blocked.select(:id)).
-        delete
-
     end
   end
 
