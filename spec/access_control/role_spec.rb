@@ -27,6 +27,15 @@ module AccessControl
       end
     end
 
+    def stub_permission(name = nil)
+      name ||= "Permission '#{ids.next}'"
+
+      stub(name).tap do |permission|
+        permission.stub(:name => name)
+        Registry.stub(:[]).with(name).and_return(permission)
+      end
+    end
+
     describe ".assign_default_at" do
       let(:securable_class) { Class.new Sequel::Model(:records) }
 
@@ -627,94 +636,95 @@ module AccessControl
       subject { Role.new(:name => "Irrelevant") }
 
       describe "#add_permissions" do
-        it "can be used to add one permissions at a time" do
-          subject.add_permissions("p1")
-          subject.permissions.should include("p1")
-        end
+        let(:p1) { stub_permission }
+        let(:p2) { stub_permission }
+        let(:p3) { stub_permission }
 
         it "can be used to add many permissions at once" do
-          subject.add_permissions("p1", "p2", "p3")
-          subject.permissions.should include("p1", "p2", "p3")
+          subject.add_permissions([p1, p2, p3])
+          subject.permissions.should include(p1, p2, p3)
         end
 
         it "doesn't include duplicates" do
-          subject.add_permissions("p1", "p1", "p2")
+          subject.add_permissions([p1, p1, p2])
           subject.permissions.count.should == 2
         end
 
         it "returns only the added permissions" do
-          subject.add_permissions("p1", "p2")
+          subject.add_permissions([p1, p2])
 
-          return_value = subject.add_permissions("p1", "p2", "p3")
-          return_value.should     include("p3")
-          return_value.should_not include("p1", "p2")
+          return_value = subject.add_permissions([p1, p2, p3])
+          return_value.should include_only(p3)
         end
 
         context "when the role is new" do
           it "persists added permissions when the role is saved" do
-            subject.add_permissions('p1', 'p2')
+            subject.add_permissions([p1, p2])
             subject.persist!
 
             persisted_role = Role.fetch(subject.id)
-            persisted_role.permissions.to_a.should include_only('p1', 'p2')
+            persisted_role.permissions.should include_only(p1, p2)
           end
         end
 
         context "when the role is already persisted" do
           it "persists the permissions at the moment they are added" do
-            subject.add_permissions('p1')
+            subject.add_permissions([p1])
             subject.persist!
-            subject.add_permissions('p2')
+            subject.add_permissions([p2])
 
             persisted_role = Role.fetch(subject.id)
-            persisted_role.permissions.to_a.should include_only('p1', 'p2')
+            persisted_role.permissions.should include_only(p1, p2)
           end
         end
       end
 
       describe "#del_permissions" do
-        it "can be used to remove one permission at time" do
-          subject.add_permissions("p1", "p2")
-          subject.del_permissions("p2")
+        let(:p1) { stub_permission }
+        let(:p2) { stub_permission }
+        let(:p3) { stub_permission }
 
-          subject.permissions.should_not include("p2")
+        it "can be used to remove one permission at time" do
+          subject.add_permissions([p1, p2])
+          subject.del_permissions([p2])
+
+          subject.permissions.should_not include(p2)
         end
 
         it "can be used to removed many permissions at once" do
-          subject.add_permissions("p1", "p2", "p3")
-          subject.del_permissions("p2", "p1")
+          subject.add_permissions([p1, p2, p3])
+          subject.del_permissions([p2, p1])
 
-          subject.permissions.should_not include("p1", "p2")
+          subject.permissions.should_not include(p1, p2)
         end
 
         it "returns only the removed permissions" do
-          subject.add_permissions("p1", "p2", "p3")
-          subject.del_permissions("p1", "p2")
+          subject.add_permissions([p1, p2, p3])
+          subject.del_permissions([p1, p2])
 
-          return_value = subject.del_permissions("p1", "p2", "p3")
-          return_value.should     include("p3")
-          return_value.should_not include("p1", "p2")
+          return_value = subject.del_permissions([p1, p2, p3])
+          return_value.should include_only(p3)
         end
 
         context "when the role is new" do
           it "persists removal of permissions when the role is saved" do
-            subject.add_permissions("p1", "p2", "p3")
-            subject.del_permissions('p1', 'p2')
+            subject.add_permissions([p1, p2, p3])
+            subject.del_permissions([p1, p2])
             subject.persist!
 
             persisted_role = Role.fetch(subject.id)
-            persisted_role.permissions.to_a.should include_only('p3')
+            persisted_role.permissions.to_a.should include_only(p3)
           end
         end
 
         context "when the role is already persisted" do
           it "removes the permissions at the moment they are added" do
-            subject.add_permissions("p1", "p2", "p3")
+            subject.add_permissions([p1, p2, p3])
             subject.persist!
-            subject.del_permissions('p1', 'p2')
+            subject.del_permissions([p1, p2])
 
             persisted_role = Role.fetch(subject.id)
-            persisted_role.permissions.to_a.should include_only('p3')
+            persisted_role.permissions.to_a.should include_only(p3)
           end
         end
       end
@@ -726,7 +736,7 @@ module AccessControl
       let(:node)      { stub_node }
 
       before do
-        role.add_permissions('p1', 'p2')
+        role.add_permissions([stub_permission])
         role.assign_to(principal, node)
         role.destroy
       end

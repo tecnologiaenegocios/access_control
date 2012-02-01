@@ -186,15 +186,15 @@ module AccessControl
       permissions_set.to_enum
     end
 
-    def add_permissions(*names)
-      new_permissions = names.to_set - permissions_set
+    def add_permissions(permissions)
+      new_permissions = permissions.to_set - permissions_set
       permissions_set.merge(new_permissions)
       persist_permissions()
       new_permissions
     end
 
-    def del_permissions(*names)
-      existent_permissions = names.to_set & permissions_set
+    def del_permissions(permissions)
+      existent_permissions = permissions.to_set & permissions_set
       permissions_set.subtract(existent_permissions)
       persist_permissions()
       existent_permissions
@@ -265,7 +265,7 @@ module AccessControl
 
     def persist
       AccessControl.transaction do
-        persistent.permissions = permissions.to_a
+        update_persistent_permissions()
         result = super
         assignments.persist if result
         result
@@ -294,12 +294,18 @@ module AccessControl
     end
 
     def permissions_set
-      @permissions_set ||= persistent.permissions
+      @permissions_set ||= Set.new(persistent.permissions) do |permission_name|
+        Registry[permission_name]
+      end
     end
 
     def persist_permissions
-      persistent.permissions = permissions.to_a
+      update_persistent_permissions()
       persistent.save(:raise_on_failure => true)
+    end
+
+    def update_persistent_permissions
+      persistent.permissions = permissions.map(&:name)
     end
   end
 end
