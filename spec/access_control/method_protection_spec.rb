@@ -107,6 +107,12 @@ module AccessControl
             def regular_method(*args, &block)
               [:regular_method, args.first, block]
             end
+            def setter_method=(*args, &block)
+              [:setter_method=, args.first, block]
+            end
+            def predicate_method?(*args, &block)
+              [:predicate_method?, args.first, block]
+            end
             def method_missing method_name, *args, &block
               self.class.class_eval do
                 define_method(method_name) do |*other_args, &other_block|
@@ -121,19 +127,31 @@ module AccessControl
         before do
           set_methods
           klass.class_eval do
-            protect :regular_method, :with => 'some permission'
-            protect :dynamic_method, :with => 'some permission'
+            protect :regular_method,    :with => 'some permission'
+            protect :setter_method=,    :with => 'some permission'
+            protect :predicate_method?, :with => 'some permission'
+            protect :dynamic_method,    :with => 'some permission'
           end
 
           permission = stub(:name => 'some permission',
                             :ac_methods => Set[
                               ['TheClass', :regular_method],
+                              ['TheClass', :setter_method=],
+                              ['TheClass', :predicate_method?],
                               ['TheClass', :dynamic_method]
                             ],
                             :ac_classes => Set['TheClass'])
 
           Registry.stub(:query).
             with(:ac_methods => [['TheClass', :regular_method]]).
+            and_return(Set[permission])
+
+          Registry.stub(:query).
+            with(:ac_methods => [['TheClass', :setter_method=]]).
+            and_return(Set[permission])
+
+          Registry.stub(:query).
+            with(:ac_methods => [['TheClass', :predicate_method?]]).
             and_return(Set[permission])
 
           Registry.stub(:query).
@@ -146,7 +164,8 @@ module AccessControl
         end
 
         [:new, :allocate].each do |creation_method|
-          [:regular_method, :dynamic_method].each do |meth|
+          [ :regular_method, :dynamic_method,
+            :setter_method=, :predicate_method?].each do |meth|
             describe "using .#{creation_method}" do
               describe "calling ##{meth}" do
 

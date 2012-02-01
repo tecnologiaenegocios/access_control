@@ -44,15 +44,27 @@ module AccessControl
 
         mark_method_as_already_protected(method_name)
 
-        new_impl = :"#{method_name}_with_protection"
-        original_impl = :"#{method_name}_without_protection"
+        str_method_name = method_name.to_s
+        if str_method_name.ends_with?('=')
+          suffix = '='
+          stem = str_method_name[0..-2]
+        elsif str_method_name.ends_with?('?')
+          suffix = '?'
+          stem = str_method_name[0..-2]
+        else
+          suffix = ''
+          stem = method_name
+        end
+
+        new_impl = :"#{stem}_with_protection#{suffix}"
+        original_impl = :"#{stem}_without_protection#{suffix}"
         query_key = [@class_name, method_name]
 
         @class.class_eval(<<-METHOD, __FILE__, __LINE__ + 1)
           def #{new_impl}(*args, &block)
             p = Registry.query(:ac_methods => [#{query_key.inspect}])
             AccessControl.manager.can!(p.map(&:name), self)
-            #{original_impl}(*args, &block)
+            send(:#{original_impl}, *args, &block)
           end
 
           alias_method :#{original_impl}, :#{method_name}
