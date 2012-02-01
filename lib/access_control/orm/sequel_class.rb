@@ -37,7 +37,7 @@ module AccessControl
       end
 
       def values
-        object.all
+        to_enum(:values_as_enum)
       end
 
       def subset(name, *args)
@@ -58,6 +58,14 @@ module AccessControl
 
       def delete(instance)
         instance.destroy
+      end
+
+    private
+
+      def values_as_enum(&block)
+        object.each_page(1000) do |page|
+          page.each(&block)
+        end
       end
     end
   end

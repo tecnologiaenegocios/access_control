@@ -63,10 +63,10 @@ module AccessControl
       end
 
       describe ".values" do
-        before  { model.stub(:scoped).with({}).
-                  and_return('all active record objects as a scope') }
+        before  { model.stub(:find_each).
+                  and_yield('all active record objects') }
         subject { orm.values }
-        it { should == 'all active record objects as a scope' }
+        specify { subject.to_a.should == ['all active record objects'] }
       end
 
       describe ".new" do

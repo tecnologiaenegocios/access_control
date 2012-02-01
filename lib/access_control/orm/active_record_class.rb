@@ -37,7 +37,7 @@ module AccessControl
       end
 
       def values
-        object.scoped({})
+        object.enum_for(:find_each)
       end
 
       def new

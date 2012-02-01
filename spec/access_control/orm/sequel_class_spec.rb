@@ -78,9 +78,13 @@ module AccessControl
       end
 
       describe ".values" do
-        before  { model.stub(:all).and_return('all sequel objects') }
+        let(:page) { stub }
+        before do
+          model.stub(:each_page).with(1000).and_yield(page)
+          page.stub(:each).and_yield('all sequel objects')
+        end
         subject { orm.values }
-        it { should == 'all sequel objects' }
+        specify { subject.to_a.should == ['all sequel objects'] }
       end
 
       describe ".new" do
