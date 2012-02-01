@@ -11,18 +11,12 @@ module AccessControl
       @method_name = method_name
     end
 
-    def relationships(records = @orm.values, &block)
-      records.each_with_object(Array.new) do |record, results|
-        method_result = record.send(method_name)
-
-        unless method_result.kind_of?(Enumerable)
-          method_result = Array(method_result)
-        end
-
-        relationships = relationship_hashes(record, method_result)
-        relationships.each(&block) if block_given?
-
-        results.concat(relationships)
+    def relationships(records = @orm.values)
+      e = to_enum(:relationships_as_enum, records)
+      if block_given?
+        e.each { |relationship| yield relationship }
+      else
+        e
       end
     end
 
@@ -42,6 +36,21 @@ module AccessControl
     end
 
   private
+
+    def relationships_as_enum(records, &block)
+      records.each_slice(1000) do |partition|
+        partition.each do |record|
+          method_result = record.send(method_name)
+
+          unless method_result.kind_of?(Enumerable)
+            method_result = Array(method_result)
+          end
+
+          relationships = relationship_hashes(record, method_result)
+          relationships.each(&block)
+        end
+      end
+    end
 
     def relationship_hashes(record, parents)
       node_id = node_id_of(record)

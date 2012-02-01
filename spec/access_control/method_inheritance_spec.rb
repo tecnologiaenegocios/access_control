@@ -145,7 +145,7 @@ module AccessControl
 
     describe "#relationships_of" do
       it "has the same effect as calling #relationships" do
-        subject.relationships.should == subject.relationships_of
+        subject.relationships.to_a.should == subject.relationships_of.to_a
       end
     end
 
