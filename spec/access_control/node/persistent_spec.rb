@@ -11,6 +11,22 @@ module AccessControl
         AccessControl.stub(:manager).and_return(manager)
       end
 
+      describe ".blocked" do
+        let(:node1) do
+          Persistent.create(:securable_type => 'SomeType',
+                            :securable_id => '1', :block => true)
+        end
+        let(:node2) do
+          Persistent.create(:securable_type => 'SomeType',
+                            :securable_id => '2', :block => false)
+        end
+
+        subject { Persistent.blocked }
+
+        it { should discover(node1) }
+        it { should_not discover(node2) }
+      end
+
       describe ".with_type" do
         let(:node1) do
           Persistent.create(:securable_type => 'SomeType', :securable_id => '2341')

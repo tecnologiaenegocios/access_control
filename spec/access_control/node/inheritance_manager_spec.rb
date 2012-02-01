@@ -23,6 +23,11 @@ module AccessControl
       let(:node)      { make_node }
       let(:node_id)   { node.id }
 
+      before do
+        Node.stub(:fetch_all) { |ids| all_nodes.values_at(*ids) }
+        Node.stub(:fetch) { |id| all_nodes[id] or raise "Not found" }
+      end
+
       describe "on initialization" do
         it "accepts a node instance, and uses its ID internally" do
           imanager = InheritanceManager.new(node)
@@ -33,11 +38,6 @@ module AccessControl
           imanager = InheritanceManager.new(node_id)
           imanager.node_id.should == node_id
         end
-      end
-
-      before do
-        Node.stub(:fetch_all) { |ids| all_nodes.values_at(*ids) }
-        Node.stub(:fetch) { |id| all_nodes[id] or raise "Not found" }
       end
 
       describe "immediate parents and children API" do

@@ -6,6 +6,10 @@ module AccessControl
     class Persistent < Sequel::Model(:ac_nodes)
       include AccessControl::DatasetHelper
 
+      def_dataset_method(:blocked) do
+        filter(:block => true)
+      end
+
       def_dataset_method(:with_type) do |securable_type|
         filter(:securable_type => securable_type)
       end

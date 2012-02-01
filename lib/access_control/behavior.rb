@@ -46,17 +46,19 @@ module AccessControl
     AnonymousUser.instance.id
   end
 
-  def self.setup_parent_relationships(securable_class)
+  def self.rebuild_parent_relationships(securable_class)
     AccessControl.transaction do
+
+      AccessControl.ac_parents.truncate
 
       Inheritance.inheritances_of(securable_class).each do |inheritance|
         relationships = inheritance.relationships
 
         if relationships.kind_of?(Sequel::Dataset)
-          existing = ac_parents.filter([:parent_id, :child_id] => relationships)
-          existing.delete
+          to_insert = relationships.filter(~{[:parent_nodes__id, :child_nodes__id] => AccessControl.ac_parents.select(:parent_id, :child_id)})
 
-          ac_parents.import([:parent_id, :child_id], relationships)
+          ac_parents.import([:parent_id, :child_id], to_insert.select(:parent_nodes__id,
+                                                                      :child_nodes__id))
         else
           relationships.each_slice(1000) do |partition|
             tuples = partition.map { |r| [r[:parent_id], r[:child_id]] }
@@ -67,6 +69,10 @@ module AccessControl
           end
         end
       end
+
+      AccessControl.ac_parents.
+        filter(:child_id => Node::Persistent.blocked.select(:id)).
+        delete
 
     end
   end

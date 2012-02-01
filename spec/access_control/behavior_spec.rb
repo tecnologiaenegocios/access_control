@@ -88,23 +88,28 @@ describe AccessControl do
     end
   end
 
-  describe ".setup_parent_relationships" do
+  describe ".rebuild_parent_relationships" do
     let(:parent1) { 1 }
     let(:parent2) { 2 }
     let(:child1)  { 3 }
     let(:child2)  { 4 }
+    let(:child3)  { 5 }
 
     let(:securable_class) { stub }
 
     before do
       AccessControl::Inheritance.stub(:inheritances_of).with(securable_class).
         and_return(inheritances)
+      blocked = stub
+      blocked.stub(:select).with(:id).and_return([5]) # this child is blocked.
+      AccessControl::Node::Persistent.stub(:blocked => blocked)
     end
 
     let(:inheritance1) { stub_inheritance([parent1, child1]) }
     let(:inheritance2) { stub_inheritance([parent2, child2]) }
+    let(:inheritance3) { stub_inheritance([parent2, child3]) }
 
-    let(:inheritances) { [inheritance1, inheritance2] }
+    let(:inheritances) { [inheritance1, inheritance2, inheritance3] }
 
     def stub_inheritance(*relationships)
       hashes = relationships.map do |parent, child|
@@ -114,13 +119,17 @@ describe AccessControl do
       inheritance = stub("Inheritance", :relationships => hashes)
     end
 
-
     it "imports every parent-child tuple for each inheritance" do
-      AccessControl.setup_parent_relationships(securable_class)
-
+      AccessControl.rebuild_parent_relationships(securable_class)
       tuples = AccessControl.ac_parents.select_map([:parent_id, :child_id])
-
       tuples.should include_only([parent1, child1], [parent2, child2])
+    end
+
+    it "erases all previous relationships" do
+      AccessControl.ac_parents.insert(:parent_id => 666, :child_id => 666)
+      AccessControl.rebuild_parent_relationships(securable_class)
+      tuples = AccessControl.ac_parents.select_map([:parent_id, :child_id])
+      tuples.should_not include([666, 666])
     end
 
     context "with equivalent inheritances" do
@@ -128,7 +137,7 @@ describe AccessControl do
                                             [parent1, child1]) }
 
       it "doesn't cause a duplication" do
-        AccessControl.setup_parent_relationships(securable_class)
+        AccessControl.rebuild_parent_relationships(securable_class)
 
         tuples = AccessControl.ac_parents.select_map([:parent_id, :child_id])
 
@@ -137,7 +146,12 @@ describe AccessControl do
     end
 
     context "when a inheritance returns a dataset" do
-      let(:dataset) { AccessControl.db.select(123, 456) }
+      let(:dataset) do
+        AccessControl.db.
+          select(:parent_nodes__id, :child_nodes__id).
+          from(AccessControl.db.select(123 => :id) => :parent_nodes,
+               AccessControl.db.select(456 => :id) => :child_nodes)
+      end
 
       before do
         inheritance = stub(:relationships => dataset)
@@ -146,7 +160,7 @@ describe AccessControl do
       end
 
       it "works as expected" do
-        AccessControl.setup_parent_relationships(securable_class)
+        AccessControl.rebuild_parent_relationships(securable_class)
         tuples = AccessControl.ac_parents.select_map([:parent_id, :child_id])
 
         tuples.should include_only([123,456])

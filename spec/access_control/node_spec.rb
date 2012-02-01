@@ -319,6 +319,9 @@ module AccessControl
       it "delegates subset .with_type to the persistent model" do
         Node.delegated_subsets.should include(:with_type)
       end
+      it "delegates subset .blocked to the persistent model" do
+        Node.delegated_subsets.should include(:blocked)
+      end
     end
 
     describe "#securable" do
