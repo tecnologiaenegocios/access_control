@@ -160,7 +160,11 @@ module AccessControl
     end
 
     delegate_subsets :assigned_to, :globally_assigned_to, :assigned_at,
-                     :for_all_permissions, :default, :with_names
+                     :default, :with_names
+
+    delegate_subset :for_all_permissions do |*permissions|
+      permissions.map(&:name)
+    end
 
     def self.unassign_all_from(principal)
       principal = AccessControl::Principal(principal)
@@ -294,9 +298,10 @@ module AccessControl
     end
 
     def permissions_set
-      @permissions_set ||= Set.new(persistent.permissions) do |permission_name|
-        Registry[permission_name]
-      end
+      @permissions_set ||=
+        Util.compact_flat_set(persistent.permissions) do |permission_name|
+          Registry[permission_name]
+        end
     end
 
     def persist_permissions

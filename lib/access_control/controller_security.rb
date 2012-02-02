@@ -84,7 +84,7 @@ module AccessControl
             fetch_context(context_designator)
           context = cached_contexts[context_designator]
 
-          AccessControl.manager.can!(permission.name, context)
+          AccessControl.manager.can!(permission, context)
         end
       end
 

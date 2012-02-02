@@ -129,7 +129,7 @@ module AccessControl
       let(:global_node) { stub('Global node') }
       let(:nodes)       { stub("Nodes collection") }
       let(:inspector)   { stub("Inspector", :permissions => permissions) }
-      let(:permissions) { Set["p1", "p2"] }
+      let(:permissions) { Set[stub("p1"), stub("p2")] }
       let(:inspector_at_global_node) do
         stub('Inspector', :permissions => Set.new)
       end
@@ -140,6 +140,20 @@ module AccessControl
           and_return(inspector_at_global_node)
         PermissionInspector.stub(:new).with(nodes).and_return(inspector)
         manager.use_anonymous! # Simulate a web request
+      end
+
+      context "when given a single permission" do
+        it "returns true if the nodes grant the permission" do
+          permission = permissions.first
+          return_value = manager.can?(permission, nodes)
+          return_value.should be_true
+        end
+
+        it "returns false if the nodes don't grant the permission" do
+          permission = stub
+          return_value = manager.can?(permission, nodes)
+          return_value.should be_false
+        end
       end
 
       it "returns true if the nodes grant all the given permissions" do

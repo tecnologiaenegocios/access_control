@@ -259,7 +259,7 @@ module AccessControl
 
                 it "checks permission using the return value of the method" do
                   manager.should_receive(:can!).
-                    with('some_permission', 'a custom context')
+                    with(permission, 'a custom context')
                   records_controller.process
                 end
 
@@ -283,7 +283,7 @@ module AccessControl
 
                 it "checks permission using the variable value as context" do
                   manager.should_receive(:can!).
-                    with('some_permission', 'a custom context')
+                    with(permission, 'a custom context')
                   records_controller.process
                 end
 
@@ -309,7 +309,7 @@ module AccessControl
 
                 it "checks permission using the return value of the proc" do
                   manager.should_receive(:can!).
-                    with('some_permission', 'a custom context')
+                    with(permission, 'a custom context')
                   records_controller.process
                 end
 
