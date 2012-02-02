@@ -62,6 +62,18 @@ module AccessControl
       end
     end
 
+    def fetch(name, default=_marker)
+      found = self[name]
+      return found if found
+      return yield if block_given?
+      raise NotFoundError if default.eql?(_marker)
+      default
+    end
+
+    def fetch_all(names)
+      names.map { |name| fetch(name) }
+    end
+
   private
 
     def indexes
@@ -132,6 +144,10 @@ module AccessControl
           end
         end
       end
+    end
+
+    def _marker
+      @_marker ||= Object.new
     end
   end
 end
