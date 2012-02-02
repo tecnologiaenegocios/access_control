@@ -756,12 +756,24 @@ module AccessControl
 
     describe "subset delegation" do
       delegated_subsets = [:assigned_to, :globally_assigned_to, :assigned_at,
-                           :for_all_permissions,
-                           :default, :with_names]
+                           :for_all_permissions, :default, :with_names]
 
       delegated_subsets.each do |delegated_subset|
         it "delegates the subset .#{delegated_subset} to the persistent model" do
           Role.delegated_subsets.should include(delegated_subset)
+        end
+      end
+
+      describe ".for_all_permissions" do
+        it "passes names instead of permissions to the persistent layer" do
+          role = stub('role', :name => 'resulting role')
+          Role::Persistent.stub(:for_all_permissions).with(['p1', 'p2']).
+            and_return([role])
+
+          p1 = stub(:name => 'p1')
+          p2 = stub(:name => 'p2')
+
+          Role.for_all_permissions([p1, p2]).to_a.should == [Role.wrap(role)]
         end
       end
     end

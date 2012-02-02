@@ -162,8 +162,8 @@ module AccessControl
     delegate_subsets :assigned_to, :globally_assigned_to, :assigned_at,
                      :default, :with_names
 
-    delegate_subset :for_all_permissions do |*permissions|
-      permissions.map(&:name)
+    delegate_subset :for_all_permissions do |permissions|
+      [permissions.map(&:name)]
     end
 
     def self.unassign_all_from(principal)
