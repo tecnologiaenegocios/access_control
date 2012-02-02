@@ -22,7 +22,7 @@ module AccessControl
       def inspect
         default = super
         prefix  = default[/^.* /]
-        "#{prefix}'#{name}'>"
+        "#{prefix}#{name.inspect}>"
       end
     end
   end
