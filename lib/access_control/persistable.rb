@@ -1,5 +1,6 @@
 require 'access_control/exceptions'
 require 'access_control/persistable/wrapped_subset'
+require 'backports'
 
 module AccessControl
   module Persistable
@@ -110,26 +111,27 @@ module AccessControl
         persistent_model.size
       end
 
-      def delegate_subset(*subset_names)
-        meta = (class << self; self; end)
-
-        subset_names.each do |subset_name|
-          meta.class_eval do
-            define_method(subset_name) do |*args|
-              subset = persistent_model.subset(subset_name, *args)
-              WrappedSubset.new(self, subset)
-            end
+      def delegate_subset(subset_name)
+        define_singleton_method(subset_name) do |*args|
+          if block_given?
+            args = yield(*args)
           end
+
+          subset = persistent_model.subset(subset_name, *args)
+          WrappedSubset.new(self, subset)
         end
 
-        delegated_subsets.concat(subset_names)
-        delegated_subsets.uniq!
+        delegated_subsets.add(subset_name)
       end
 
-      alias_method :delegate_subsets, :delegate_subset
+      def delegate_subsets(*subset_names, &block)
+        subset_names.each do |subset_name|
+          delegate_subset(subset_name, &block)
+        end
+      end
 
       def delegated_subsets
-        @__persistable_delegated_subsets__ ||= []
+        @__persistable_delegated_subsets__ ||= Set.new
       end
 
       def __persistable_ensure_delegation__

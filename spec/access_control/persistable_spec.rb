@@ -427,29 +427,55 @@ module AccessControl
           model.a_named_subset('arg1', 'arg2').should be wrapped_subset
         end
 
-        it "accepts an argument list of subsets to delegate" do
-          model.delegate_subset :a_named_subset, :another_named_subset
+        it "when receives a block, uses it to preprocess the arguments" do
+          model.delegate_subset :a_named_subset do |*args|
+            args.reverse
+          end
 
-          model.should respond_to(:a_named_subset)
-          model.should respond_to(:another_named_subset)
+          wrapped_subset = stub
+          persistent_model.stub(:subset).with(:a_named_subset, 'arg2', 'arg1').
+            and_return(subset)
+          Persistable::WrappedSubset.stub(:new).with(model, subset).
+            and_return(wrapped_subset)
+
+          model.a_named_subset('arg1', 'arg2').should be wrapped_subset
         end
 
-        it "has an alias method .delegate_subsets, for better readability" do
-          model.delegate_subsets :a_named_subset, :another_named_subset
+        describe ".delegate_subsets" do
+          it "delegates multiple subsets at once" do
+            model.delegate_subsets :a_named_subset, :another_named_subset
 
-          model.should respond_to(:a_named_subset)
-          model.should respond_to(:another_named_subset)
+            model.should respond_to(:a_named_subset)
+            model.should respond_to(:another_named_subset)
+          end
         end
 
-        it "returns all delegated subsets in .delegated_subsets" do
-          model.delegate_subsets :a_named_subset, :another_named_subset
-          model.delegate_subset :some_other_named_subset
+        describe ".delegated_subsets" do
+          it "returns all delegated subsets" do
+            model.delegate_subsets :a_named_subset, :another_named_subset
+            model.delegate_subset :some_other_named_subset
 
-          model.delegated_subsets.should == [
-            :a_named_subset,
-            :another_named_subset,
-            :some_other_named_subset
-          ]
+            model.delegated_subsets.should include_only(:a_named_subset,
+              :another_named_subset, :some_other_named_subset)
+          end
+
+          it "when given a block, uses it as a preprocessor for all subsets" do
+            model.delegate_subsets :subset1, :subset2 do |*args|
+              args.reverse
+            end
+
+            wrapped_subset = stub
+            persistent_model.stub(:subset).with(:subset1, 'arg2', 'arg1').
+              and_return(subset)
+            persistent_model.stub(:subset).with(:subset2, 'arg2', 'arg1').
+              and_return(subset)
+
+            Persistable::WrappedSubset.stub(:new).with(model, subset).
+              and_return(wrapped_subset)
+
+            model.subset1('arg1', 'arg2').should be wrapped_subset
+            model.subset2('arg1', 'arg2').should be wrapped_subset
+          end
         end
       end
     end

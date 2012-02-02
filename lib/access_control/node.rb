@@ -21,7 +21,7 @@ module AccessControl
     include AccessControl::Persistable
     extend Node::ClassMethods
 
-    delegate_subset :with_type, :blocked
+    delegate_subsets :with_type, :blocked
 
     def initialize(properties={})
       properties.delete(:securable_type) if properties[:securable_class]
