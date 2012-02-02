@@ -124,6 +124,17 @@ module AccessControl
           end
         end
 
+        let!(:permission) do
+          stub(:name => 'some permission',
+               :ac_methods => Set[
+                 ['TheClass', :regular_method],
+                 ['TheClass', :setter_method=],
+                 ['TheClass', :predicate_method?],
+                 ['TheClass', :dynamic_method]
+               ],
+               :ac_classes => Set['TheClass'])
+        end
+
         before do
           set_methods
           klass.class_eval do
@@ -132,15 +143,6 @@ module AccessControl
             protect :predicate_method?, :with => 'some permission'
             protect :dynamic_method,    :with => 'some permission'
           end
-
-          permission = stub(:name => 'some permission',
-                            :ac_methods => Set[
-                              ['TheClass', :regular_method],
-                              ['TheClass', :setter_method=],
-                              ['TheClass', :predicate_method?],
-                              ['TheClass', :dynamic_method]
-                            ],
-                            :ac_classes => Set['TheClass'])
 
           Registry.stub(:query).
             with(:ac_methods => [['TheClass', :regular_method]]).
@@ -183,8 +185,8 @@ module AccessControl
 
                 it "checks permissions when the method is called " do
                   instance = klass.send(creation_method)
-                  manager.should_receive(:can!).with(['some permission'],
-                                                     instance)
+                  manager.should_receive(:can!).
+                    with(collection(permission), instance)
                   calling_method(instance, meth)
                 end
 
@@ -193,8 +195,8 @@ module AccessControl
                   set_class
                   set_methods
                   instance = klass.send(creation_method)
-                  manager.should_receive(:can!).with(['some permission'],
-                                                     instance)
+                  manager.should_receive(:can!).
+                    with(collection(permission), instance)
                   calling_method(instance, meth)
                 end
 
@@ -202,8 +204,8 @@ module AccessControl
                   instance = klass.send(creation_method)
                   calling_method(instance, meth)
                   another_instance = klass.send(creation_method)
-                  manager.should_receive(:can!).with(['some permission'],
-                                                     another_instance)
+                  manager.should_receive(:can!).
+                    with(collection(permission), another_instance)
                   calling_method(another_instance, meth)
                 end
 

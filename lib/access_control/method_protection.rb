@@ -15,11 +15,11 @@ module AccessControl
         @class_name = klass.name
       end
 
-      def set_permissions_for(method_name, permission_name, &block)
+      def set_permissions_for(method_name, permission_name)
         Registry.store(permission_name) do |permission|
           permission.ac_methods << [@class_name, method_name.to_sym]
           permission.ac_classes << @class_name
-          block.call(permission) if block
+          yield(permission) if block_given?
         end
       end
 
@@ -62,8 +62,8 @@ module AccessControl
 
         @class.class_eval(<<-METHOD, __FILE__, __LINE__ + 1)
           def #{new_impl}(*args, &block)
-            p = Registry.query(:ac_methods => [#{query_key.inspect}])
-            AccessControl.manager.can!(p.map(&:name), self)
+            permissions = Registry.query(:ac_methods => [#{query_key.inspect}])
+            AccessControl.manager.can!(permissions, self)
             send(:#{original_impl}, *args, &block)
           end
 
