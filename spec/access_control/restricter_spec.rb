@@ -10,13 +10,14 @@ module AccessControl
     # queries.
 
     describe "sql_query_for" do
-      let(:orm_class)   { Class.new }
-      let(:manager)     { stub('manager') }
-      let(:global_node) { stub('global node') }
-      let(:permissions) { ['permissions'] }
-      let(:db)          { AccessControl.db }
+      let(:orm_class)        { Class.new }
+      let(:manager)          { stub('manager') }
+      let(:global_node)      { stub('global node') }
+      let(:permission_names) { ['permission'] }
+      let(:permissions)      { [stub(:name => 'permission')] }
+      let(:db)               { AccessControl.db }
 
-      subject { Restricter.new(orm_class).sql_query_for(permissions) }
+      subject { Restricter.new(orm_class).sql_query_for(permission_names) }
 
       before do
         orm_class.stub(:pk_name).and_return(:pk)
@@ -24,6 +25,8 @@ module AccessControl
         orm_class.stub(:name).and_return('ModelName')
         AccessControl.stub(:manager).and_return(manager)
         AccessControl.stub(:global_node).and_return(global_node)
+        AccessControl::Registry.stub(:fetch_all).with(permission_names).
+          and_return(permissions)
       end
 
       context "when the user has all permissions in global node" do
