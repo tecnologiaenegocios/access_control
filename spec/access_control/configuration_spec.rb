@@ -6,6 +6,13 @@ module AccessControl
 
     let(:config) { Configuration.new }
 
+    before do
+      Registry.stub(:store)
+      Registry.stub(:fetch_all) do |permissions|
+        permissions.map { |name| stub(:name => name) }
+      end
+    end
+
     {
       "show" => 'view',
       "index" => 'list',
@@ -15,8 +22,8 @@ module AccessControl
     }.each do |type, default|
 
       describe "default '#{type}' permissions" do
-        let(:getter) { config.public_method("default_#{type}_permissions") }
-        let(:setter) { config.public_method("default_#{type}_permissions=") }
+        let(:getter) { config.public_method("permissions_required_to_#{type}") }
+        let(:setter) { config.public_method("#{type}_requires") }
 
         let(:returned_value) { getter.call }
 
@@ -32,17 +39,23 @@ module AccessControl
           }.should_not raise_error
         end
 
-        it "can retrieve the '#{type}' permission, returns a set" do
+        it "can retrieve the '#{type}' permission" do
           setter.call('some permission')
-          returned_value.should == Set['some permission']
+          returned_value.map(&:name).to_set.should == Set['some permission']
 
           setter.call(['some permission'])
-          returned_value.should == Set['some permission']
+          returned_value.map(&:name).to_set.should == Set['some permission']
+        end
+
+        it "returns a set" do
+          setter.call('some permission')
+          returned_value.should be_a(Set)
         end
 
         it "accepts an enumerable as a single argument" do
           setter.call(['some permission', 'another permission'])
-          returned_value.should == Set['some permission', 'another permission']
+          returned_value.map(&:name).to_set.should ==
+            Set['some permission', 'another permission']
         end
 
         it "accepts nil" do
@@ -50,25 +63,22 @@ module AccessControl
           returned_value.should == Set.new
         end
 
-        it "defaults to '#{default}'" do
-          returned_value.should == Set[default]
+        it "defaults to empty set" do
+          returned_value.should == Set.new
         end
 
-        describe "when #register_default_permissions is called" do
-          it "registers the '#{type}' default permissions" do
-            Registry.stub(:store)
+        it "registers the permissions set" do
+          Registry.should_receive(:store).with('some permission')
+          setter.call(['some permission'])
+        end
 
-            permissions = Set['some permission', 'another permission']
-            permissions.each do |permission|
-              Registry.should_receive(:store).with(permission)
-            end
-
-            setter.call(permissions)
-            config.register_default_permissions
+        it "accepts a block for additional metadata setting" do
+          p = stub
+          Registry.stub(:store).with('some permission').and_yield(p)
+          setter.call(['some permission']) do |permission|
+            permission.should be p
           end
-
         end
-
       end
     end
 
@@ -95,45 +105,6 @@ module AccessControl
       it "accepts `nil`" do
         config.default_roles = nil
         config.default_roles.should == Set.new
-      end
-    end
-
-    describe "#default_permissions" do
-      it "contains all the default permissions" do
-        default_permissions = config.default_permissions
-        default_permissions.should include_only("list", "view", "add",
-                                                "modify", "delete")
-      end
-
-      it "reflects changes on the default permissions by type" do
-        config.default_destroy_permissions = "annihilate"
-
-        default_permissions = config.default_permissions
-        default_permissions.should include_only("list", "view", "add",
-                                                "modify", "annihilate")
-      end
-    end
-
-    describe "#register_default_permissions" do
-      it "registers the default permissions on registry" do
-        config.default_permissions.each do |permission|
-          Registry.should_receive(:store).with(permission)
-        end
-
-        config.register_default_permissions
-      end
-
-      it "may receive a block, which is forwarded to Registry.store" do
-        block = lambda { throw :block_called }
-        registry = Object.new
-
-        registry.define_singleton_method(:store) do |*, &forwarded_block|
-          forwarded_block.call
-        end
-
-        lambda {
-          config.register_default_permissions(registry, &block)
-        }.should throw_symbol(:block_called)
       end
     end
 

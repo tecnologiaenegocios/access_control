@@ -51,8 +51,8 @@ module AccessControl
       def check_missing_declarations!
         return if @checked_missing_declarations
         [:show, :index, :create, :update, :destroy].each do |t|
-          if permission_requirement(t).get.empty? &&
-             !permission_requirement(t).declared_no_permissions?
+          req = permission_requirement(t)
+          if req.get.empty? && !req.declared_no_permissions?
             raise MissingPermissionDeclaration,
                   "expected to have declaration for #{t} in model #{name}"
           end
@@ -85,9 +85,7 @@ module AccessControl
         end
 
         def get
-          return Set.new if declared_no_permissions?
-          return @declared | @added if @declared.any?
-          get_from_superclass_or_config | @added
+          AccessControl::Registry.fetch_all(get_names).to_set
         end
 
         def declared_no_permissions?
@@ -95,6 +93,12 @@ module AccessControl
         end
 
       private
+
+        def get_names
+          return Set.new if declared_no_permissions?
+          return @declared | @added if @declared.any?
+          get_names_from_superclass_or_config | @added
+        end
 
         def declared_no_permissions!
           @declared_no_permissions = true
@@ -106,11 +110,15 @@ module AccessControl
           end
         end
 
+        def get_names_from_superclass_or_config
+          get_from_superclass_or_config.map(&:name).to_set
+        end
+
         def get_from_superclass_or_config
           if superclass.respond_to?(:"permissions_required_to_#{@type}")
             superclass.send(:"permissions_required_to_#{@type}") rescue Set.new
           else
-            config.send(:"default_#{@type}_permissions")
+            config.send(:"permissions_required_to_#{@type}")
           end
         end
 

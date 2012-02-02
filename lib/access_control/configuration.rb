@@ -8,27 +8,20 @@ module AccessControl
     attr_reader :default_roles
 
     def initialize
-      @default_permissions = {
-        :index   => Set['list'],
-        :show    => Set['view'],
-        :create  => Set['add'],
-        :update  => Set['modify'],
-        :destroy => Set['delete']
-      }
-
+      @default_permissions = {}
       @default_roles = Set['owner']
-
       @restrict_belongs_to_association = false
     end
 
     %w(show index create update destroy).map(&:to_sym).each do |name|
-      define_method(:"default_#{name}_permissions") do
-        @default_permissions[name]
+      define_method(:"permissions_required_to_#{name}") do
+        Registry.fetch_all(@default_permissions[name] || []).to_set
       end
 
-      define_method(:"default_#{name}_permissions=") do |permissions|
+      define_method(:"#{name}_requires") do |permissions, &block|
         permissions_set = Set.new [*permissions].compact
         @default_permissions[name] = permissions_set
+        permissions_set.each { |name| Registry.store(name, &block) }
       end
     end
 
@@ -37,23 +30,13 @@ module AccessControl
       @default_roles = Util.make_set_from_args(*args)
     end
 
-    def register_default_permissions(registry = AccessControl::Registry, &block)
-      default_permissions.each do |permission|
-        registry.store(permission, &block)
-      end
-    end
-
-    def default_permissions
-      @default_permissions.values.inject(&:merge)
-    end
-
     def extend_permissions(&block)
       RegistryFactory::Permission.class_exec(&block)
     end
   end
 
   def self.configure
-    yield @config ||= Configuration.new
+    yield config
   end
 
   def self.config

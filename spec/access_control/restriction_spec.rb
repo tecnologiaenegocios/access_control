@@ -113,12 +113,9 @@ module AccessControl
           let(:permissions)   { stub }
 
           before do
-            model.stub(:permissions_required_to_show).
-              and_return(['show permission'])
+            model.stub(:permissions_required_to_show).and_return(permissions)
             base.stub(:find).with(23, 'options').and_return(single_result)
             manager.stub(:can!)
-            AccessControl::Registry.stub(:fetch_all).
-              with(['show permission']).and_return(permissions)
           end
 
           it "test the record returned with the manager" do
@@ -144,12 +141,9 @@ module AccessControl
           let(:permissions) { stub }
 
           before do
-            model.stub(:permissions_required_to_show).
-              and_return(['show permission'])
+            model.stub(:permissions_required_to_show).and_return(permissions)
             base.stub(:find).with('args').and_return(all_results)
             manager.stub(:can!)
-            AccessControl::Registry.stub(:fetch_all).
-              with(['show permission']).and_return(permissions)
           end
 
           it "test each record returned with the manager" do

@@ -6,9 +6,7 @@ module AccessControl
       @orm_class = orm_class
     end
 
-    def sql_query_for(permission_names)
-      permissions = AccessControl::Registry.fetch_all(permission_names)
-
+    def sql_query_for(permissions)
       if manager.can?(permissions, global_node)
         db[orm_class.table_name].select(orm_class.pk_name).sql
       else

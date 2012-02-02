@@ -168,13 +168,5 @@ module AccessControl
         [parent_id, subrows.map{|sr| sr[:child_id]}]
       end
     end
-
-    def create_permissions(target)
-      target.securable_class.permissions_required_to_create
-    end
-
-    def destroy_permissions(target)
-      target.securable_class.permissions_required_to_destroy
-    end
   end
 end

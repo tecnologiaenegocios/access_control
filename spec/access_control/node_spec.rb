@@ -421,12 +421,6 @@ module AccessControl
         FakeSecurableClass.new(:parents) do
           include Inheritance
           inherits_permissions_from :parents
-          def self.permissions_required_to_create
-            Set.new
-          end
-          def self.permissions_required_to_destroy
-            Set.new
-          end
         end
       end
 

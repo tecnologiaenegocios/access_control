@@ -51,7 +51,8 @@ module AccessControl
         ['update',  'modify'],
         ['destroy', 'delete'],
       ].each do |t, default|
-        config.stub("default_#{t}_permissions").and_return(Set.new([default]))
+        config.stub("permissions_required_to_#{t}").
+          and_return(Set[stub(:name => default)])
       end
 
       stub_registry_constant
@@ -59,6 +60,10 @@ module AccessControl
       registry.define_singleton_method(:store) do |permission_name, &block|
         permission = RegistryFactory::Permission.new(permission_name)
         block.call(permission) if block
+      end
+
+      registry.stub(:fetch_all) do |permission_names|
+        permission_names.map { |name| stub(:name => name) }
       end
     end
 
@@ -85,55 +90,57 @@ module AccessControl
 
         it "can be queried in the class level" do
           model.send("#{t}_requires", 'some permission')
-          model.send("permissions_required_to_#{t}").
+          model.send("permissions_required_to_#{t}").map(&:name).to_set.
             should == Set.new(['some permission'])
         end
 
         specify "querying returns only permissions, not metadata" do
           model.send("#{t}_requires", 'some permission')
-          model.send("permissions_required_to_#{t}").
+          model.send("permissions_required_to_#{t}").map(&:name).to_set.
             should == Set.new(['some permission'])
         end
 
         it "accepts a list of arguments" do
           model.send("#{t}_requires", 'some permission', 'another permission')
-          model.send("permissions_required_to_#{t}").
+          model.send("permissions_required_to_#{t}").map(&:name).to_set.
             should == Set.new(['some permission', 'another permission'])
         end
 
         it "accepts an enumerable as a single argument" do
           model.send("#{t}_requires",
                      ['some permission', 'another permission'])
-          model.send("permissions_required_to_#{t}").
+          model.send("permissions_required_to_#{t}").map(&:name).to_set.
             should == Set.new(['some permission', 'another permission'])
         end
 
         it "defaults to config's value" do
-          model.send("permissions_required_to_#{t}").
+          model.send("permissions_required_to_#{t}").map(&:name).to_set.
             should == default_permission
         end
 
         it "defaults to config's value even if it changes between calls" do
-          config.stub("default_#{t}_permissions").
-            and_return(Set.new(['some permission']))
-          model.send("permissions_required_to_#{t}").
+          config.stub("permissions_required_to_#{t}").
+            and_return(Set[stub(:name => 'some permission')])
+          model.send("permissions_required_to_#{t}").map(&:name).to_set.
             should == Set.new(['some permission'])
-          config.stub("default_#{t}_permissions").
-            and_return(Set.new(['another permission']))
-          model.send("permissions_required_to_#{t}").
+          config.stub("permissions_required_to_#{t}").
+            and_return(Set[stub(:name => 'another permission')])
+          model.send("permissions_required_to_#{t}").map(&:name).to_set.
             should == Set.new(['another permission'])
         end
 
         it "doesn't mess with the config's value" do
-          copy_from_original = Set.new(default_permission.to_a)
+          old_config_permissions = Set.new(config.send("permissions_required_to_#{t}").to_a)
           model.send("#{t}_requires", "another permission")
-          default_permission.should == copy_from_original
+
+          new_config_permissions = config.send("permissions_required_to_#{t}")
+          new_config_permissions.should == old_config_permissions
         end
 
         it "can be inherited by subclasses" do
           subclass = set_model('SubRecord', model)
           model.send("#{t}_requires", 'some permission')
-          subclass.send("permissions_required_to_#{t}").
+          subclass.send("permissions_required_to_#{t}").map(&:name).to_set.
             should == Set.new(['some permission'])
           unset_model('SubRecord')
         end
@@ -142,7 +149,7 @@ module AccessControl
           subclass = set_model('SubRecord', model)
           model.send("#{t}_requires", 'some permission')
           subclass.send("#{t}_requires", 'another permission')
-          subclass.send("permissions_required_to_#{t}").
+          subclass.send("permissions_required_to_#{t}").map(&:name).to_set.
             should == Set.new(['another permission'])
           unset_model('SubRecord')
         end
@@ -151,9 +158,9 @@ module AccessControl
           subclass = set_model('SubRecord', model)
           model.send("#{t}_requires", 'some permission')
           subclass.send("#{t}_requires", 'another permission')
-          subclass.send("permissions_required_to_#{t}").
+          subclass.send("permissions_required_to_#{t}").map(&:name).to_set.
             should == Set.new(['another permission'])
-          model.send("permissions_required_to_#{t}").
+          model.send("permissions_required_to_#{t}").map(&:name).to_set.
             should == Set.new(['some permission'])
           unset_model('SubRecord')
         end
@@ -225,7 +232,7 @@ module AccessControl
             model.send("#{t}_requires", 'some permission')
             unset_model
             set_model
-            model.send("permissions_required_to_#{t}").
+            model.send("permissions_required_to_#{t}").map(&:name).to_set.
               should == Set.new(['some permission'])
           end
 
@@ -238,7 +245,7 @@ module AccessControl
 
           context "checking permission declarations in the class" do
             before do
-              config.stub("default_#{t}_permissions").and_return(Set.new)
+              config.stub("permissions_required_to_#{t}").and_return(Set.new)
               # Do a fresh load.
               unset_model
               set_model
@@ -283,33 +290,35 @@ module AccessControl
         end
 
         it "can be queried in class level, merges with current permissions" do
-          config.stub("default_#{t}_permissions").
-            and_return(Set.new(['some permission']))
+          config.stub("permissions_required_to_#{t}").
+            and_return(Set[stub(:name => 'some permission')])
           model.send("add_#{t}_requirement", 'another permission')
-          model.send("permissions_required_to_#{t}").
+          model.send("permissions_required_to_#{t}").map(&:name).to_set.
             should == Set.new(['some permission', 'another permission'])
         end
 
         it "accepts a list of arguments" do
-          config.stub("default_#{t}_permissions").and_return(Set.new)
+          config.stub("permissions_required_to_#{t}").and_return(Set.new)
           model.send("add_#{t}_requirement", 'some permission',
                      'another permission')
-          model.send("permissions_required_to_#{t}").
+          model.send("permissions_required_to_#{t}").map(&:name).to_set.
             should == Set.new(['some permission', 'another permission'])
         end
 
         it "accepts an enumerable as a single argument" do
-          config.stub("default_#{t}_permissions").and_return(Set.new)
+          config.stub("permissions_required_to_#{t}").and_return(Set.new)
           model.send("add_#{t}_requirement",
                      ['some permission', 'another permission'])
-          model.send("permissions_required_to_#{t}").
+          model.send("permissions_required_to_#{t}").map(&:name).to_set.
             should == Set.new(['some permission', 'another permission'])
         end
 
         it "doesn't mess with the config's value" do
-          copy_from_original = Set.new(default_permission.to_a)
+          old_config_permissions = Set.new(config.send("permissions_required_to_#{t}").to_a)
           model.send("add_#{t}_requirement", "another permission")
-          default_permission.should == copy_from_original
+
+          new_config_permissions = config.send("permissions_required_to_#{t}")
+          new_config_permissions.should == old_config_permissions
         end
 
         it "can set additional permissions if ##{t}_requires was set" do
@@ -317,7 +326,7 @@ module AccessControl
           # declaration.
           model.send("#{t}_requires", 'some permission')
           model.send("add_#{t}_requirement", "another permission")
-          model.send("permissions_required_to_#{t}").
+          model.send("permissions_required_to_#{t}").map(&:name).to_set.
             should == Set.new(['some permission', 'another permission'])
         end
 
@@ -327,7 +336,7 @@ module AccessControl
           subclass = set_model('SubRecord', model)
           model.send("#{t}_requires", 'some permission')
           subclass.send("add_#{t}_requirement", "another permission")
-          subclass.send("permissions_required_to_#{t}").
+          subclass.send("permissions_required_to_#{t}").map(&:name).to_set.
             should == Set.new(['some permission', 'another permission'])
           unset_model('SubRecord')
         end
@@ -338,18 +347,18 @@ module AccessControl
           subclass = set_model('SubRecord', model)
           model.send("#{t}_requires", 'some permission')
           subclass.send("add_#{t}_requirement", 'another permission')
-          model.send("permissions_required_to_#{t}").
+          model.send("permissions_required_to_#{t}").map(&:name).to_set.
             should == Set.new(['some permission'])
           unset_model('SubRecord')
         end
 
         it "combines permissions from superclasses and config" do
-          config.stub("default_#{t}_permissions").
-            and_return(Set.new(['permission one']))
+          config.stub("permissions_required_to_#{t}").
+            and_return(Set[stub(:name => 'permission one')])
           subclass = set_model('SubRecord', model)
           model.send("add_#{t}_requirement", 'permission two')
           subclass.send("add_#{t}_requirement", 'permission three')
-          subclass.send("permissions_required_to_#{t}").
+          subclass.send("permissions_required_to_#{t}").map(&:name).to_set.
             should == Set.new(['permission one', 'permission two',
                                'permission three'])
           unset_model('SubRecord')
@@ -372,11 +381,11 @@ module AccessControl
         describe "when model is reloaded" do
 
           it "keeps the permissions" do
-            config.stub("default_#{t}_permissions").and_return(Set.new)
+            config.stub("permissions_required_to_#{t}").and_return(Set.new)
             model.send("add_#{t}_requirement", 'some permission')
             unset_model
             set_model
-            model.send("permissions_required_to_#{t}").
+            model.send("permissions_required_to_#{t}").map(&:name).to_set.
               should == Set.new(['some permission'])
           end
 
