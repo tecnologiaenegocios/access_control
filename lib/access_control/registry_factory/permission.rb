@@ -18,6 +18,12 @@ module AccessControl
       def ac_classes
         @ac_classes ||= Set.new
       end
+
+      def inspect
+        default = super
+        prefix  = default[/^.* /]
+        "#{prefix}'#{name}'>"
+      end
     end
   end
 end
