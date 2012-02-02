@@ -110,17 +110,19 @@ module AccessControl
           # returned.
 
           let(:single_result) { stub }
+          let(:permissions)   { stub }
 
           before do
             model.stub(:permissions_required_to_show).
-              and_return('the show permissions')
+              and_return(['show permission'])
             base.stub(:find).with(23, 'options').and_return(single_result)
             manager.stub(:can!)
+            AccessControl::Registry.stub(:fetch_all).
+              with(['show permission']).and_return(permissions)
           end
 
           it "test the record returned with the manager" do
-            manager.should_receive(:can!).
-              with('the show permissions', single_result)
+            manager.should_receive(:can!).with(permissions, single_result)
             model.find(23, 'options')
           end
 
@@ -136,20 +138,23 @@ module AccessControl
           # permission test with each record returned.  Basically it happens
           # always when the first argument is not :all, :first or :last.
 
-          let(:result1) { stub }
-          let(:result2) { stub }
+          let(:result1)     { stub }
+          let(:result2)     { stub }
           let(:all_results) { [result1, result2] }
+          let(:permissions) { stub }
 
           before do
             model.stub(:permissions_required_to_show).
-              and_return('the show permissions')
+              and_return(['show permission'])
             base.stub(:find).with('args').and_return(all_results)
             manager.stub(:can!)
+            AccessControl::Registry.stub(:fetch_all).
+              with(['show permission']).and_return(permissions)
           end
 
           it "test each record returned with the manager" do
-            manager.should_receive(:can!).with('the show permissions', result1)
-            manager.should_receive(:can!).with('the show permissions', result2)
+            manager.should_receive(:can!).with(permissions, result1)
+            manager.should_receive(:can!).with(permissions, result2)
             model.find('args')
           end
 

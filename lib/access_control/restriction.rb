@@ -24,7 +24,8 @@ module AccessControl
           condition = "#{quoted_table_name}.#{primary_key} IN (#{subquery})"
           with_scope(:find => { :conditions => condition }) { super }
         else
-          permissions = permissions_required_to_show
+          permission_names = permissions_required_to_show
+          permissions      = AccessControl::Registry.fetch_all(permission_names)
           manager = AccessControl.manager
           results = super(*args)
           test_results = Array(results)
