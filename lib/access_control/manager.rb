@@ -40,7 +40,7 @@ module AccessControl
     end
 
     def can?(permissions, nodes)
-      return true if unrestrictable_user_logged_in?
+      return true if unrestrictable_user_logged_in? || inside_trusted_block?
 
       permissions_set = Set[*permissions]
 
@@ -80,6 +80,7 @@ module AccessControl
       return false if unrestrictable_user_logged_in?
       really_restrict_queries?
     end
+    alias_method :restricting_queries?, :restrict_queries?
 
     def without_query_restriction
       old_restriction_value = really_restrict_queries?
@@ -87,6 +88,18 @@ module AccessControl
       yield
     ensure
       restrict_queries! if old_restriction_value
+    end
+
+    def trust(&block)
+      previous_trust_status = inside_trusted_block?
+      @inside_trusted_block = true
+      without_query_restriction(&block)
+    ensure
+      @inside_trusted_block = previous_trust_status
+    end
+
+    def inside_trusted_block?
+      !!@inside_trusted_block
     end
 
   private

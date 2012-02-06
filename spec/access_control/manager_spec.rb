@@ -181,6 +181,14 @@ module AccessControl
         end
       end
 
+      context "when inside a 'trusted' block" do
+        it "returns true without further verification" do
+          manager.trust do
+            manager.can?('anything', 'anywhere').should be_true
+          end
+        end
+      end
+
       context "when user has the required permissions in the global node" do
         before do
           inspector_at_global_node.stub(:permissions).and_return(permissions)
@@ -383,6 +391,101 @@ module AccessControl
 
       end
 
+    end
+
+    describe "#trust" do
+      before do
+        manager.stub(:use_anonymous?).and_return(true) # Simulate web request
+      end
+
+      context "when the query restrictions were previously enabled" do
+        before do
+          manager.restrict_queries!
+        end
+
+        it "calls the block it receives" do
+          lambda {
+            manager.trust { throw :block_called }
+          }.should throw_symbol(:block_called)
+        end
+
+        it "disables them while inside the block" do
+          manager.trust do
+            manager.should_not be_restricting_queries
+          end
+        end
+
+        it "restores them back afterwards" do
+          manager.trust { }
+          manager.should be_restricting_queries
+        end
+      end
+
+      context "when the query restrictions were previously disabled" do
+        before do
+          manager.unrestrict_queries!
+        end
+
+        it "calls the block it receives" do
+          lambda {
+            manager.trust { throw :block_called }
+          }.should throw_symbol(:block_called)
+        end
+
+        it "maintain them disabled while inside the block" do
+          manager.trust do
+            manager.should_not be_restricting_queries
+          end
+        end
+
+        it "don't enable them after exiting the block" do
+          manager.trust { }
+          manager.should_not be_restricting_queries
+        end
+      end
+
+      it "doesn't rescue the exceptions the block raises" do
+        my_exception = Class.new(Exception)
+        lambda {
+          manager.trust do
+            raise my_exception
+          end
+        }.should raise_exception(my_exception)
+      end
+
+      it "restores the restrictions even if the block raises an Exception" do
+        my_exception = Class.new(Exception)
+        lambda {
+          begin
+            manager.trust { raise my_exception }
+          rescue my_exception
+          end
+        }.should_not change(manager, :restrict_queries?)
+      end
+
+      it "restores the 'trust' status even if the block raises an Exception" do
+        my_exception = Class.new(Exception)
+        begin
+          manager.trust { raise my_exception }
+        rescue my_exception
+        end
+
+        manager.should_not be_inside_trusted_block
+      end
+
+      it "maintains the 'trust' status when called in a nested form" do
+        manager.trust do
+          manager.trust {}
+          manager.should be_inside_trusted_block
+        end
+      end
+
+      it "returns the value returned by the block" do
+        block_return = stub("Block return value")
+        return_value = manager.trust { block_return }
+
+        block_return.should == return_value
+      end
     end
   end
 end
