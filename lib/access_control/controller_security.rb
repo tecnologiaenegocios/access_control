@@ -8,6 +8,7 @@ module AccessControl
     true
   end
 
+  ProtectedActions = {}
   PublicActions = {}
 
   module ControllerSecurity
@@ -18,11 +19,17 @@ module AccessControl
         (PublicActions[self.name] || []).include?(action.to_sym)
       end
 
+      def action_protected?(action)
+        (ProtectedActions[self.name] || []).include?(action.to_sym)
+      end
+
       def publish action
         (PublicActions[self.name] ||= []) << action.to_sym
       end
 
       def protect action, options, &block
+        (ProtectedActions[self.name] ||= []) << action.to_sym
+
         permission_name = options[:with]
         ac_method = [name, action.to_sym]
         context_designator = options[:context] || :current_context

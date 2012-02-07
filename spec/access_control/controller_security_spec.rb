@@ -67,6 +67,7 @@ module AccessControl
       AccessControl.stub(:manager).and_return(manager)
       AccessControl.stub(:no_manager)
       AccessControl::PublicActions.clear
+      AccessControl::ProtectedActions.clear
     end
 
     after do
@@ -102,6 +103,14 @@ module AccessControl
           protect :some_action, :with => 'the content of the :with option'
         records_controller.class.action_published?(:some_action).
           should be_false
+      end
+
+      it "marks the action as protected" do
+        records_controller.class.action_protected?(:some_action).
+          should be_false
+        records_controller.class.
+          protect :some_action, :with => 'the content of the :with option'
+        records_controller.class.action_protected?(:some_action).should be_true
       end
 
       it "registers a permission" do
