@@ -198,6 +198,12 @@ describe AccessControl do
     end
   end
 
+  describe ".registry" do
+    it "just returns the AccessControl::Registry constant" do
+      AccessControl.registry.should == AccessControl::Registry
+    end
+  end
+
   describe AccessControl::GlobalRecord do
     subject { AccessControl::GlobalRecord.instance }
 

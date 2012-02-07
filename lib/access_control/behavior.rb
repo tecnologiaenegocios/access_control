@@ -91,6 +91,10 @@ module AccessControl
     end
   end
 
+  def self.registry
+    AccessControl::Registry
+  end
+
   class GlobalRecord
     include Singleton
     include Securable

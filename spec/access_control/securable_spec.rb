@@ -10,8 +10,8 @@ module AccessControl
       model.send(:include, Securable)
     end
 
-    it "includes Declarations" do
-      model.should include(Declarations)
+    it "includes Macros" do
+      model.singleton_class.should include(Macros)
     end
 
     it "includes MethodProtection" do

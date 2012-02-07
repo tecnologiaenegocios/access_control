@@ -1,49 +1,38 @@
-require 'spec_helper'
-require 'access_control/declarations'
+require 'access_control/macros'
+require 'support/matchers/include_only'
 
 module AccessControl
-  describe Declarations do
+  describe Macros do
 
-    def set_model(model_name='Record', superclass=Object)
-      Object.const_set(model_name, Class.new(superclass) do
-        include Declarations
+    def model_class(options = {})
+      superclass = options[:inheriting_from] || Object
+      name       = superclass != Object ? "Sub#{superclass.name}" : "Record"
+
+      Class.new(superclass) do
+        extend Macros
+
+        define_singleton_method(:name) do
+          name
+        end
+
         def initialize(foo=nil)
           @foo = foo
         end
+
         def foo
           @foo
         end
-      end)
-    end
-
-    def unset_model(model_name='Record')
-      Object.send(:remove_const, model_name)
-    end
-
-    def model(name='Record')
-      name.constantize
-    end
-
-    def stub_registry_constant
-      @old_registry = AccessControl::Registry
-      Kernel.silence_warnings do
-        AccessControl.const_set(:Registry, registry)
       end
     end
 
-    def restore_registry_constant
-      Kernel.silence_warnings do
-        AccessControl.const_set(:Registry, @old_registry)
-      end
-    end
-
+    let(:model)    { model_class }
     let(:registry) { stub }
-    let(:config) { mock('config') }
+    let(:config)   { mock('config') }
 
     before do
-      set_model
       AccessControl.stub(:config).and_return(config)
-      Declarations::Requirements.clear
+      AccessControl.stub(:registry).and_return(registry)
+      Macros::Requirements.clear
       [
         ['show',    'view'],
         ['index',   'list'],
@@ -55,8 +44,6 @@ module AccessControl
           and_return(Set[stub(:name => default)])
       end
 
-      stub_registry_constant
-
       registry.define_singleton_method(:store) do |permission_name, &block|
         permission = RegistryFactory::Permission.new(permission_name)
         block.call(permission) if block
@@ -67,126 +54,138 @@ module AccessControl
       end
     end
 
-    after do
-      unset_model
-      restore_registry_constant
-    end
-
     [
       ['show',    'view'],
       ['index',   'list'],
       ['create',  'add'],
       ['update',  'modify'],
       ['destroy', 'delete'],
-    ].each do |t, default|
+    ].each do |t, default_permission|
+
+      def required_permissions_names(model_class = model)
+        getter_for(model_class).call.map(&:name).to_set
+      end
+
+      def set_permissions_names(*names, &block)
+        set_permissions_names_of(model, *names, &block)
+      end
+
+      def set_permissions_names_of(model_class, *names, &block)
+        setter_for(model_class).call(*names, &block)
+      end
 
       describe "#{t} requirement" do
+        define_method(:getter_for) do |model_class|
+          model_class.method("permissions_required_to_#{t}")
+        end
 
-        let(:default_permission) { Set.new([default]) }
+        define_method(:setter_for) do |model_class|
+          model_class.method("#{t}_requires")
+        end
 
         it "can be defined in the class level" do
-          model.send("#{t}_requires", 'some permission')
+          lambda {
+            set_permissions_names('some permission')
+          }.should_not raise_error
         end
 
         it "can be queried in the class level" do
-          model.send("#{t}_requires", 'some permission')
-          model.send("permissions_required_to_#{t}").map(&:name).to_set.
-            should == Set.new(['some permission'])
+          set_permissions_names('some permission')
+          required_permissions_names.
+            should include_only('some permission')
         end
 
-        specify "querying returns only permissions, not metadata" do
-          model.send("#{t}_requires", 'some permission')
-          model.send("permissions_required_to_#{t}").map(&:name).to_set.
-            should == Set.new(['some permission'])
+        specify "querying returns only permissions names, not instances" do
+          set_permissions_names('some permission')
+          required_permissions_names.
+            should include_only('some permission')
         end
 
         it "accepts a list of arguments" do
-          model.send("#{t}_requires", 'some permission', 'another permission')
-          model.send("permissions_required_to_#{t}").map(&:name).to_set.
-            should == Set.new(['some permission', 'another permission'])
+          set_permissions_names('some permission', 'another permission')
+          required_permissions_names.
+            should include_only('some permission', 'another permission')
         end
 
         it "accepts an enumerable as a single argument" do
-          model.send("#{t}_requires",
-                     ['some permission', 'another permission'])
-          model.send("permissions_required_to_#{t}").map(&:name).to_set.
-            should == Set.new(['some permission', 'another permission'])
+          set_permissions_names(['some permission',
+                                 'another permission'])
+          required_permissions_names.
+            should include_only('some permission', 'another permission')
         end
 
         it "defaults to config's value" do
-          model.send("permissions_required_to_#{t}").map(&:name).to_set.
-            should == default_permission
+          required_permissions_names.should include_only(default_permission)
         end
 
         it "defaults to config's value even if it changes between calls" do
           config.stub("permissions_required_to_#{t}").
             and_return(Set[stub(:name => 'some permission')])
-          model.send("permissions_required_to_#{t}").map(&:name).to_set.
-            should == Set.new(['some permission'])
+
+          required_permissions_names.should include_only('some permission')
+
           config.stub("permissions_required_to_#{t}").
             and_return(Set[stub(:name => 'another permission')])
-          model.send("permissions_required_to_#{t}").map(&:name).to_set.
-            should == Set.new(['another permission'])
+
+          required_permissions_names.should include_only('another permission')
         end
 
         it "doesn't mess with the config's value" do
           old_config_permissions = Set.new(config.send("permissions_required_to_#{t}").to_a)
-          model.send("#{t}_requires", "another permission")
+          set_permissions_names("another permission")
 
           new_config_permissions = config.send("permissions_required_to_#{t}")
           new_config_permissions.should == old_config_permissions
         end
 
         it "can be inherited by subclasses" do
-          subclass = set_model('SubRecord', model)
-          model.send("#{t}_requires", 'some permission')
-          subclass.send("permissions_required_to_#{t}").map(&:name).to_set.
-            should == Set.new(['some permission'])
-          unset_model('SubRecord')
+          subclass = model_class(:inheriting_from => model)
+          set_permissions_names('some permission')
+          required_permissions_names(subclass).
+            should == Set['some permission']
         end
 
         it "can be changed in subclasses" do
-          subclass = set_model('SubRecord', model)
-          model.send("#{t}_requires", 'some permission')
-          subclass.send("#{t}_requires", 'another permission')
-          subclass.send("permissions_required_to_#{t}").map(&:name).to_set.
-            should == Set.new(['another permission'])
-          unset_model('SubRecord')
+          subclass = model_class(:inheriting_from => model)
+          set_permissions_names('some permission')
+          set_permissions_names_of(subclass, 'another permission')
+
+          required_permissions_names(subclass).should
+            include_only('another permission')
         end
 
         it "doesn't mess with superclass' value" do
-          subclass = set_model('SubRecord', model)
-          model.send("#{t}_requires", 'some permission')
-          subclass.send("#{t}_requires", 'another permission')
-          subclass.send("permissions_required_to_#{t}").map(&:name).to_set.
-            should == Set.new(['another permission'])
-          model.send("permissions_required_to_#{t}").map(&:name).to_set.
-            should == Set.new(['some permission'])
-          unset_model('SubRecord')
+          subclass = model_class(:inheriting_from => model)
+          set_permissions_names('some permission')
+          set_permissions_names_of(subclass, 'another permission')
+          required_permissions_names(subclass).
+            should include_only('another permission')
+
+          required_permissions_names.should include_only('some permission')
         end
 
-        it "can be set to nil, which means \"no permissions\"" do
-          model.send("#{t}_requires", nil)
+        it 'can be set to nil, which means "no permissions"' do
+          set_permissions_names(nil)
           model.send("permissions_required_to_#{t}").should be_empty
         end
 
         it "informs Registry about the permissions" do
-          Registry.should_receive(:store).with('some permission')
-          model.send("#{t}_requires", 'some permission')
+          registry.should_receive(:store).with('some permission')
+          set_permissions_names('some permission')
         end
 
         it "passes given block to Registry's store method" do
           testpoint = stub
           testpoint.should_receive(:received_permission).with('some permission')
 
-          model.send("#{t}_requires", 'some permission') do |permission|
+          set_permissions_names('some permission') do |permission|
             testpoint.received_permission(permission.name)
           end
         end
 
         it "doesn't inform Registry if explicitly set no permissions" do
-          Registry.should_not_receive(:store)
-          model.send("#{t}_requires", nil)
+          registry.should_not_receive(:store)
+          set_permissions_names(nil)
         end
 
         specify "allocation is fine if a permission is set in config" do
@@ -195,13 +194,13 @@ module AccessControl
         end
 
         specify "allocation is fine if a permission is set in the model" do
-          model.send("#{t}_requires", 'some permission')
+          set_permissions_names('some permission')
           object = model.allocate
           object.class.should == model
         end
 
         specify "allocation is fine if a permission is explicitly omitted" do
-          model.send("#{t}_requires", nil)
+          set_permissions_names(nil)
           object = model.allocate
           object.class.should == model
         end
@@ -213,68 +212,75 @@ module AccessControl
         end
 
         specify "instantiation is fine if a permission is set in the model" do
-          model.send("#{t}_requires", 'some permission')
+          set_permissions_names('some permission')
           object = model.new('foo')
           object.class.should == model
           object.foo.should == 'foo'
         end
 
         specify "instantiation is fine if a permission is explicitly omitted" do
-          model.send("#{t}_requires", nil)
+          set_permissions_names(nil)
           object = model.new('foo')
           object.class.should == model
           object.foo.should == 'foo'
         end
 
-        describe "when model is (re)loaded" do
+        describe "for two objects with the same 'name'" do
 
-          it "keeps the permissions" do
-            model.send("#{t}_requires", 'some permission')
-            unset_model
-            set_model
-            model.send("permissions_required_to_#{t}").map(&:name).to_set.
-              should == Set.new(['some permission'])
+          let(:reloaded_model) { model_class }
+
+          before do
+            model.stub(:name => "Record")
+            reloaded_model.stub(:name => "Record")
           end
 
-          it "keeps an empty requirement" do
-            model.send("#{t}_requires", nil)
-            unset_model
-            set_model
-            model.send("permissions_required_to_#{t}").should == Set.new
+          specify "the requiremenents are the same" do
+            set_permissions_names('some permission')
+
+            reloaded_model.send("permissions_required_to_#{t}").map(&:name).
+              should include_only("some permission")
           end
 
-          context "checking permission declarations in the class" do
-            before do
-              config.stub("permissions_required_to_#{t}").and_return(Set.new)
-              # Do a fresh load.
-              unset_model
-              set_model
-            end
+          specify "the permissions are the same" do
+            config.stub("permissions_required_to_#{t}").and_return(Set.new)
+            model.send("add_#{t}_requirement", 'some permission')
+            required_permissions_names(reloaded_model).
+              should == Set['some permission']
+          end
 
-            context "in singletons" do
-              it "doesn't check for declarations" do
-                model.send(:include, Singleton)
-                lambda { model.instance }.should_not raise_exception
-              end
-            end
+          specify "if one has empty requiremements, the other also has" do
+            set_permissions_names(nil)
+            reloaded_model.send("permissions_required_to_#{t}").should be_empty
+          end
+        end
 
-            context "allocation" do
-              it "requires at least one permission by default on allocation" do
-                lambda {
-                  model.allocate
-                }.should raise_exception(MissingPermissionDeclaration)
-              end
-            end
+        context "checking permission declarations in the class" do
+          before do
+            config.stub("permissions_required_to_#{t}").and_return(Set.new)
+          end
 
-            context "instantiation" do
-              it "requires at least one permission by default on "\
-                  "instantiation" do
-                lambda {
-                  model.new
-                }.should raise_exception(MissingPermissionDeclaration)
-              end
+          context "in singletons" do
+            it "doesn't check for declarations" do
+              model.send(:include, Singleton)
+              lambda { model.instance }.
+                should_not raise_exception(MissingPermissionDeclaration)
             end
+          end
 
+          context "allocation" do
+            it "requires at least one permission by default on allocation" do
+              lambda {
+                model.allocate
+              }.should raise_exception(MissingPermissionDeclaration)
+            end
+          end
+
+          context "instantiation" do
+            it "requires at least one permission by default on instantiation" do
+              lambda {
+                model.new
+              }.should raise_exception(MissingPermissionDeclaration)
+            end
           end
 
         end
@@ -283,7 +289,7 @@ module AccessControl
 
       describe "additional #{t} requirement" do
 
-        let(:default_permission) { Set.new([default]) }
+        let(:default_permission) { Set[default] }
 
         it "can be defined in class level" do
           model.send("add_#{t}_requirement", 'some permission')
@@ -294,7 +300,7 @@ module AccessControl
             and_return(Set[stub(:name => 'some permission')])
           model.send("add_#{t}_requirement", 'another permission')
           model.send("permissions_required_to_#{t}").map(&:name).to_set.
-            should == Set.new(['some permission', 'another permission'])
+            should == Set['some permission', 'another permission']
         end
 
         it "accepts a list of arguments" do
@@ -302,7 +308,7 @@ module AccessControl
           model.send("add_#{t}_requirement", 'some permission',
                      'another permission')
           model.send("permissions_required_to_#{t}").map(&:name).to_set.
-            should == Set.new(['some permission', 'another permission'])
+            should == Set['some permission', 'another permission']
         end
 
         it "accepts an enumerable as a single argument" do
@@ -310,7 +316,7 @@ module AccessControl
           model.send("add_#{t}_requirement",
                      ['some permission', 'another permission'])
           model.send("permissions_required_to_#{t}").map(&:name).to_set.
-            should == Set.new(['some permission', 'another permission'])
+            should == Set['some permission', 'another permission']
         end
 
         it "doesn't mess with the config's value" do
@@ -327,45 +333,42 @@ module AccessControl
           model.send("#{t}_requires", 'some permission')
           model.send("add_#{t}_requirement", "another permission")
           model.send("permissions_required_to_#{t}").map(&:name).to_set.
-            should == Set.new(['some permission', 'another permission'])
+            should == Set['some permission', 'another permission']
         end
 
         it "combines permissions from superclasses" do
           # Config is not taken into account because of the explicit
           # declaration.
-          subclass = set_model('SubRecord', model)
+          subclass = model_class(:inheriting_from => model)
           model.send("#{t}_requires", 'some permission')
           subclass.send("add_#{t}_requirement", "another permission")
           subclass.send("permissions_required_to_#{t}").map(&:name).to_set.
-            should == Set.new(['some permission', 'another permission'])
-          unset_model('SubRecord')
+            should == Set['some permission', 'another permission']
         end
 
         it "doesn't mess with superclass' value" do
           # Config is not taken into account because of the explicit
           # declaration.
-          subclass = set_model('SubRecord', model)
+          subclass = model_class(:inheriting_from => model)
           model.send("#{t}_requires", 'some permission')
           subclass.send("add_#{t}_requirement", 'another permission')
           model.send("permissions_required_to_#{t}").map(&:name).to_set.
-            should == Set.new(['some permission'])
-          unset_model('SubRecord')
+            should == Set['some permission']
         end
 
         it "combines permissions from superclasses and config" do
           config.stub("permissions_required_to_#{t}").
             and_return(Set[stub(:name => 'permission one')])
-          subclass = set_model('SubRecord', model)
+          subclass = model_class(:inheriting_from => model)
           model.send("add_#{t}_requirement", 'permission two')
           subclass.send("add_#{t}_requirement", 'permission three')
           subclass.send("permissions_required_to_#{t}").map(&:name).to_set.
             should == Set.new(['permission one', 'permission two',
                                'permission three'])
-          unset_model('SubRecord')
         end
 
         it "informs Registry about the permissions" do
-          Registry.should_receive(:store).with('some permission')
+          registry.should_receive(:store).with('some permission')
           model.send("add_#{t}_requirement", 'some permission')
         end
 
@@ -377,20 +380,6 @@ module AccessControl
             testpoint.received_permission(permission.name)
           end
         end
-
-        describe "when model is reloaded" do
-
-          it "keeps the permissions" do
-            config.stub("permissions_required_to_#{t}").and_return(Set.new)
-            model.send("add_#{t}_requirement", 'some permission')
-            unset_model
-            set_model
-            model.send("permissions_required_to_#{t}").map(&:name).to_set.
-              should == Set.new(['some permission'])
-          end
-
-        end
-
       end
 
     end
