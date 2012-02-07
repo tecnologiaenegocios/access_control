@@ -55,6 +55,28 @@ module AccessControl
       end
     end
 
+    def define_unrestricted_method(name, &block)
+      define_method(name) do |*args, &argument_block|
+        AccessControl.manager.trust do
+          block.call(*args, &argument_block)
+        end
+      end
+    end
+
+    def unrestrict_method(method_name)
+      method_name = method_name.to_sym
+
+      class_eval do
+        alias_method :"unstrusted_#{method_name}", method_name
+
+        define_method(method_name) do |*args, &block|
+          AccessControl.manager.trust do
+            send(:"unstrusted_#{method_name}", *args, &block)
+          end
+        end
+      end
+    end
+
   private
 
     def permission_requirement(type)
