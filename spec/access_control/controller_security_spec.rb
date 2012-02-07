@@ -100,7 +100,7 @@ module AccessControl
       it "doesn't mark the action as public" do
         records_controller.class.
           protect :some_action, :with => 'the content of the :with option'
-        records_controller.class.action_public?(:some_action).
+        records_controller.class.action_published?(:some_action).
           should be_false
       end
 
@@ -182,7 +182,7 @@ module AccessControl
     describe "action publication" do
       it "marks the action as public" do
         records_controller.class.publish :some_action
-        records_controller.class.action_public?(:some_action).should be_true
+        records_controller.class.action_published?(:some_action).should be_true
       end
     end
 
@@ -214,7 +214,7 @@ module AccessControl
         end
 
         it "checks if the action is public" do
-          records_controller.class.should_receive(:action_public?).
+          records_controller.class.should_receive(:action_published?).
             with('some_action').ordered
           records_controller.class.should_receive(:block_called).ordered
           records_controller.process do
@@ -224,7 +224,7 @@ module AccessControl
 
         describe "when the action is not protected" do
           it "doesn't call manager.can!" do
-            records_controller.class.stub(:action_public?).and_return(true)
+            records_controller.class.stub(:action_published?).and_return(true)
             manager.should_not_receive(:can!)
             records_controller.process
           end
@@ -233,7 +233,7 @@ module AccessControl
         describe "when the action is not public" do
 
           before do
-            records_controller.class.stub(:action_public?).and_return(false)
+            records_controller.class.stub(:action_published?).and_return(false)
           end
 
           context "when no permission is returned" do

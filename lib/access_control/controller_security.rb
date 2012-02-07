@@ -14,7 +14,7 @@ module AccessControl
 
     module ClassMethods
 
-      def action_public?(action)
+      def action_published?(action)
         (PublicActions[self.name] || []).include?(action.to_sym)
       end
 
@@ -65,7 +65,7 @@ module AccessControl
     private
 
       def verify_permissions
-        return true if self.class.action_public?(params[:action])
+        return true if self.class.action_published?(params[:action])
         return true unless AccessControl.controller_security_enabled?
 
         query_key = [self.class.name, params[:action].to_sym]
