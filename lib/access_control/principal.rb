@@ -1,6 +1,5 @@
 require 'access_control/exceptions'
 require 'access_control/persistable'
-require 'access_control/ids'
 require 'access_control/principal/persistent'
 
 module AccessControl
