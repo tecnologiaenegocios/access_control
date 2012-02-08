@@ -9,14 +9,14 @@ module AccessControl
   end
 
   ProtectedActions = {}
-  PublicActions = {}
+  PublishedActions = {}
 
   module ControllerSecurity
 
     module ClassMethods
 
       def action_published?(action)
-        (PublicActions[self.name] || []).include?(action.to_sym)
+        (PublishedActions[self.name] || []).include?(action.to_sym)
       end
 
       def action_protected?(action)
@@ -24,7 +24,7 @@ module AccessControl
       end
 
       def publish action
-        (PublicActions[self.name] ||= []) << action.to_sym
+        (PublishedActions[self.name] ||= []) << action.to_sym
       end
 
       def protect action, options, &block
