@@ -33,4 +33,16 @@ end
 Spec::Runner.configure do |config|
   config.use_transactional_fixtures = true
   config.use_instantiated_fixtures  = false
+
+  config.before(:each) do
+    if defined?(Registry)
+      Registry.clear_registry
+    end
+  end
+
+  config.after(:each) do
+    if defined?(Registry)
+      Registry.clear_registry
+    end
+  end
 end
