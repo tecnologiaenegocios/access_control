@@ -186,6 +186,12 @@ module AccessControl
       with_names(name).first
     end
 
+    def self.destroy_permission(permission)
+      for_all_permissions([permission]).each do |role|
+        role.del_permissions [permission]
+      end
+    end
+
     def permissions
       permissions_set.to_enum
     end
@@ -300,7 +306,7 @@ module AccessControl
     def permissions_set
       @permissions_set ||=
         Util.compact_flat_set(persistent.permissions) do |permission_name|
-          Registry[permission_name]
+          Registry.store(permission_name)
         end
     end
 

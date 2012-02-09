@@ -33,6 +33,15 @@ module AccessControl
       new_permission
     end
 
+    attr_writer :permission_manager
+    def permission_manager
+      @permission_manager ||= Role
+    end
+
+    def destroy_permission(permission)
+      permission_manager.destroy_permission(permission)
+    end
+
     def add_index(index)
       indexes << index
       all.each do |permission|

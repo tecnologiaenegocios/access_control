@@ -29,11 +29,7 @@ module AccessControl
 
     def stub_permission(name = nil)
       name ||= "Permission '#{ids.next}'"
-
-      stub(name).tap do |permission|
-        permission.stub(:name => name)
-        Registry.stub(:[]).with(name).and_return(permission)
-      end
+      Registry.store(name)
     end
 
     describe ".assign_default_at" do
@@ -215,6 +211,23 @@ module AccessControl
       it "unassigns all roles from the principals given" do
         Role.unassign_all_at(node)
         Role.assigned_at(node).should be_empty
+      end
+    end
+
+    describe ".destroy_permission" do
+      let(:role)       { Role.store(:name => "doesn't matter") }
+      let(:permission) { Registry.store("Permission") }
+
+      before do
+        role.add_permissions [permission]
+      end
+
+      it "removes the permission from all the roles that have it" do
+        Role.destroy_permission(permission)
+
+        saved_role = Role.fetch(role.id)
+        saved_permissions_names = saved_role.permissions.map(&:name)
+        saved_permissions_names.should_not include(permission.name)
       end
     end
 
@@ -633,6 +646,28 @@ module AccessControl
     end
 
     context "permissions management" do
+      context "when a permission exists in the db but not in the registry" do
+        before do
+          SecurityPolicyItem.create(:permission => "Permission",
+                                    :role_id    =>  role.id)
+        end
+        let(:role)       { Role.store(:name => "Anything") }
+        let(:saved_role) { Role.fetch(role.id) }
+
+        it "creates a new permission instance to represent it" do
+          permissions_names = saved_role.permissions.map(&:name)
+          permissions_names.should include("Permission")
+        end
+
+        it "adds the newly created permission to the registry" do
+          permission_instance = saved_role.permissions.detect do |perm|
+            perm.name == "Permission"
+          end
+
+          Registry.all.should include permission_instance
+        end
+      end
+
       subject { Role.new(:name => "Irrelevant") }
 
       describe "#add_permissions" do

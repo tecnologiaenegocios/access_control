@@ -62,6 +62,20 @@ module AccessControl
 
     subject { RegistryFactory.new(permission_factory) }
 
+    describe ".destroy_permission" do
+      let(:permission_manager) { mock("Permission manager") }
+      let(:permission)         { subject.store("Permission") }
+
+      before do
+        subject.permission_manager = permission_manager
+      end
+
+      it "asks the permission manager to destroy the permission" do
+        permission_manager.should_receive(:destroy_permission).with(permission)
+        subject.destroy_permission(permission)
+      end
+    end
+
     describe ".store" do
       it "registers a permission with the given name" do
         permission = subject.store("permission")
