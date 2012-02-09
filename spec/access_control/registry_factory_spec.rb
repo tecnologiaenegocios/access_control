@@ -26,21 +26,7 @@ module AccessControl
 
     subject { RegistryFactory.new(permission_factory) }
 
-    describe ".destroy_permission" do
-      let(:permission_manager) { mock("Permission manager") }
-      let(:permission)         { subject.store("Permission") }
-
-      before do
-        subject.permission_manager = permission_manager
-      end
-
-      it "asks the permission manager to destroy the permission" do
-        permission_manager.should_receive(:destroy_permission).with(permission)
-        subject.destroy_permission(permission)
-      end
-    end
-
-    describe ".store" do
+    describe "#store" do
       it "registers a permission with the given name" do
         permission = subject.store("permission")
         subject.all.should include(permission)
@@ -89,7 +75,75 @@ module AccessControl
       end
     end
 
-    describe ".fetch" do
+    describe "#unstore" do
+      # RegistryFactory#unstore is designed for situations when you have
+      # registered a single permission in a spec and don't want to clear all
+      # the registry just to not carry state from a spec to another.  It will
+      # probably not be useful outside tests.
+      before do
+        subject.add_index(:key)
+        subject.add_collection_index(:collection)
+      end
+
+      context "when there's a registered permission with the given name" do
+        let(:value)  { stub }
+        let(:values) { [stub, stub] }
+
+        before do
+          subject.store('permission') do |permission|
+            permission.key = value
+            permission.collection = values
+          end
+        end
+
+        it "unregisters the permission" do
+          subject.unstore('permission')
+          subject.all.should be_empty
+        end
+
+        describe "unindexing" do
+          it "unindexes the permission at the 'name' index" do
+            subject.unstore('permission')
+            subject['permission'].should be_nil
+          end
+
+          it "unindexes the permission at the other normal indexes" do
+            subject.unstore('permission')
+            subject.query(:key => value).should be_empty
+          end
+
+          it "unindexes the permission at the collection indexes" do
+            subject.unstore('permission')
+            subject.query(:collection => [values[0]]).should be_empty
+            subject.query(:collection => [values[1]]).should be_empty
+          end
+        end
+      end
+
+      context "when there's no permission registered under the given name" do
+        it "does nothing" do
+          lambda {
+            subject.unstore('unregistered permission')
+          }.should_not raise_exception
+        end
+      end
+    end
+
+    describe "#destroy" do
+      let(:permission_manager) { mock("Permission manager") }
+      let(:permission)         { subject.store("Permission") }
+
+      before do
+        subject.permission_manager = permission_manager
+      end
+
+      it "asks the permission manager to destroy the permission" do
+        permission_manager.should_receive(:destroy_permission).with(permission)
+        subject.destroy(permission)
+      end
+    end
+
+    describe "#fetch" do
       it "returns a permission whose name matches the parameter given" do
         p1 = subject.store('Permission 1')
         subject.fetch('Permission 1').should be p1
@@ -128,7 +182,7 @@ module AccessControl
       end
     end
 
-    describe ".fetch_all" do
+    describe "#fetch_all" do
       it "returns all permissions with the given names" do
         p1 = subject.store("Permission 1")
         p2 = subject.store("Permission 2")
@@ -155,7 +209,7 @@ module AccessControl
       end
     end
 
-    describe ".query" do
+    describe "#query" do
       it "returns all permissions if given an empty criteria" do
         permission = subject.store("Permission")
 
@@ -364,7 +418,7 @@ module AccessControl
       end
     end
 
-    describe ".clear_registry" do
+    describe "#clear_registry" do
       it "removes all the added permissions" do
         perm = subject.store("Permission")
         subject.clear_registry

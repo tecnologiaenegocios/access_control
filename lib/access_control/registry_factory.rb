@@ -33,12 +33,26 @@ module AccessControl
       new_permission
     end
 
+    def unstore(name)
+      permission = permissions[name]
+
+      indexes.each do |index_name|
+        remove_permission_from_index(permission, index_name)
+      end
+
+      collection_indexes.each do |index_name|
+        remove_permission_from_index(permission, index_name)
+      end
+
+      permissions.delete(name)
+    end
+
     attr_writer :permission_manager
     def permission_manager
       @permission_manager ||= Role
     end
 
-    def destroy_permission(permission)
+    def destroy(permission)
       permission_manager.destroy_permission(permission)
     end
 
@@ -122,6 +136,18 @@ module AccessControl
         indexed_permissions = permissions_by(index_name)
         indexed_permissions[index_value] << permission
       end
+    end
+
+    def remove_permission_from_index(permission, index_name)
+      indexed_permissions = permissions_by(index_name)
+      empty = []
+      indexed_permissions.each do |index_value, permissions|
+        permissions.delete(permission)
+        if permissions.empty?
+          empty << index_value
+        end
+      end
+      empty.each { |index_value| indexed_permissions.delete(index_value) }
     end
 
     def filter_by_criteria(criteria)
