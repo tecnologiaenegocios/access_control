@@ -1,14 +1,17 @@
+require 'forwardable'
+
 module AccessControl
   module Persistable
     class WrappedSubset
       include Enumerable
+      extend Forwardable
 
       def initialize(persistable_model, original_subset)
         @persistable_model = persistable_model
         @original_subset   = original_subset
       end
 
-      delegate :count, :any?, :empty?, :sql, :to => :original_subset
+      def_delegators :original_subset, :count, :any?, :empty?, :sql
 
       def each
         return to_enum(:each) unless block_given?

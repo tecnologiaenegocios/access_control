@@ -32,7 +32,7 @@ module AccessControl
     before do
       AccessControl.stub(:config).and_return(config)
       AccessControl.stub(:registry).and_return(registry)
-      Macros::Requirements.clear
+      AccessControl.macro_requirements.clear
       [
         ['show',    'view'],
         ['index',   'list'],

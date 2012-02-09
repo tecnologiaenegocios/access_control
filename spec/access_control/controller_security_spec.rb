@@ -66,8 +66,8 @@ module AccessControl
       AccessControl::Node.stub(:clear_global_cache)
       AccessControl.stub(:manager).and_return(manager)
       AccessControl.stub(:no_manager)
-      AccessControl::PublishedActions.clear
-      AccessControl::ProtectedActions.clear
+      AccessControl.published_actions.clear
+      AccessControl.protected_actions.clear
     end
 
     after do

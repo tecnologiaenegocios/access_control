@@ -3,48 +3,12 @@ require 'access_control/registry_factory'
 require 'access_control/exceptions'
 
 module AccessControl
-  module Macros
-    # This is a stub...
-  end
-
   describe RegistryFactory do
 
     before do
-      # Due to a dependency hell, we can't require macros or
-      # controller_security here.  But we define their relevant constants even
-      # so.  This long trip is necessary just right now because
-      # ControllerSecurity and Macros keep permission-related stuff outside
-      # Registry...
-      #
-      # require 'access_control/controller_security' -> doesn't work,
-      # dependency hell.
-      @defined_published_actions_hash = false
-      @defined_protected_actions_hash = false
-      @defined_macros_requirements    = false
-      unless defined?(AccessControl::PublishedActions)
-        @defined_published_actions_hash = true
-        AccessControl::PublishedActions = {}
-      end
-      unless defined?(AccessControl::ProtectedActions)
-        @defined_protected_actions_hash = true
-        AccessControl::ProtectedActions = {}
-      end
-      unless defined?(AccessControl::Macros::Requirements)
-        @defined_macros_requirements = true
-        AccessControl::Macros::Requirements = {}
-      end
-    end
-
-    after do
-      if @defined_published_actions_hash
-        AccessControl.module_eval { remove_const(:"PublishedActions") }
-      end
-      if @defined_protected_actions_hash
-        AccessControl.module_eval { remove_const(:"ProtectedActions") }
-      end
-      if @defined_macros_requirements
-        AccessControl::Macros.module_eval { remove_const(:"Requirements") }
-      end
+      AccessControl.stub(:protected_actions).and_return({})
+      AccessControl.stub(:published_actions).and_return({})
+      AccessControl.stub(:macro_requirements).and_return({})
     end
 
     let(:permission_factory) do
@@ -422,9 +386,9 @@ module AccessControl
         # In the future the declarations in Macros and in ControllerSecurity
         # will not keep data outside the registry, so this will not be
         # necessary anymore.
-        AccessControl::PublishedActions.should_receive(:clear)
-        AccessControl::ProtectedActions.should_receive(:clear)
-        AccessControl::Macros::Requirements.should_receive(:clear)
+        AccessControl.published_actions.should_receive(:clear)
+        AccessControl.protected_actions.should_receive(:clear)
+        AccessControl.macro_requirements.should_receive(:clear)
         subject.clear_registry
       end
     end

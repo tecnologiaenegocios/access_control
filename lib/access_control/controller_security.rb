@@ -8,27 +8,32 @@ module AccessControl
     true
   end
 
-  ProtectedActions = {}
-  PublishedActions = {}
+  def self.protected_actions
+    @protected_actions ||= {}
+  end
+
+  def self.published_actions
+    @published_actions ||= {}
+  end
 
   module ControllerSecurity
 
     module ClassMethods
 
       def action_published?(action)
-        (PublishedActions[self.name] || []).include?(action.to_sym)
+        (AccessControl.published_actions[self.name] || []).include?(action.to_sym)
       end
 
       def action_protected?(action)
-        (ProtectedActions[self.name] || []).include?(action.to_sym)
+        (AccessControl.protected_actions[self.name] || []).include?(action.to_sym)
       end
 
       def publish action
-        (PublishedActions[self.name] ||= []) << action.to_sym
+        (AccessControl.published_actions[self.name] ||= []) << action.to_sym
       end
 
       def protect action, options, &block
-        (ProtectedActions[self.name] ||= []) << action.to_sym
+        (AccessControl.protected_actions[self.name] ||= []) << action.to_sym
 
         permission_name = options[:with]
         ac_method = [name, action.to_sym]

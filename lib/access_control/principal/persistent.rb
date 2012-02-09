@@ -1,4 +1,4 @@
-require 'access_control'
+require 'access_control/db'
 require 'access_control/dataset_helper'
 
 module AccessControl
