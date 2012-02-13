@@ -172,7 +172,7 @@ module AccessControl
       end
 
       def format_permissions permissions
-        permissions.to_a.map(&:inspect).to_sentence(:locale => 'en')
+        permissions.to_a.map(&:name).to_sentence(:locale => 'en')
       end
 
       def format_current_roles roles
