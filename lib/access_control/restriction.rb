@@ -33,6 +33,15 @@ module AccessControl
         end
       end
 
+      def calculate(*args)
+        return super unless AccessControl.manager.restrict_queries?
+        permissions = permissions_required_to_index
+        adapted = ORM.adapt_class(self)
+        subquery = Restricter.new(adapted).sql_query_for(permissions)
+        condition = "#{quoted_table_name}.#{primary_key} IN (#{subquery})"
+        with_scope(:find => { :conditions => condition }) { super }
+      end
+
       def unrestricted_find(*args)
         AccessControl.manager.without_query_restriction { find(*args) }
       end

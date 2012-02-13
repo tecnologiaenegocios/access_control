@@ -25,16 +25,11 @@ module AccessControl
       describe "without query restriction" do
         before { manager.stub(:restrict_queries?).and_return(false) }
 
-        it "calls the base class's find" do
+        it "calls the base class's find and return its result" do
           arguments = stub('arguments')
-          base.should_receive(:find).with(arguments)
-          model.find(arguments)
-        end
-
-        it "returns whatever is returned by the superclass method" do
           results = stub('results')
-          base.stub(:find).and_return(results)
-          model.find.should == results
+          base.stub(:find).with(arguments).and_return(results)
+          model.find(arguments).should == results
         end
       end
 
@@ -47,7 +42,6 @@ module AccessControl
 
           let(:restricter)  { mock('restricter') }
           let(:subquery)    { 'the id subquery expression' }
-          let(:global_node) { stub('global node') }
           let(:adapted)     { stub('adapted') }
 
           before do
@@ -55,7 +49,6 @@ module AccessControl
               and_return('the index permissions')
             ORM.stub(:adapt_class).and_return(adapted)
             Restricter.stub(:new).with(adapted).and_return(restricter)
-            AccessControl.stub(:global_node).and_return(global_node)
           end
 
           [:all, :first, :last].each do |option|
@@ -84,13 +77,9 @@ module AccessControl
                 model.find(option, 'find arguments')
               end
 
-              it "forwards all parameters to base's find" do
-                base.should_receive(:find).with(option, 'find arguments')
-                model.find(option, 'find arguments')
-              end
-
-              it "returns the results of calling base's find" do
-                base.stub(:find).and_return('results')
+              it "forwards all parameters to base's find and returns its result" do
+                base.stub(:find).with(option, 'find arguments').
+                  and_return('results')
                 model.find(option, 'find arguments').should == 'results'
               end
 
@@ -193,6 +182,73 @@ module AccessControl
         model.unrestricted_find.should == 'find results'
       end
 
+    end
+
+    describe ".calculate" do
+
+      before do
+        model.stub(:permissions_required_to_index)
+        manager.stub(:restrict_queries?).and_return(true)
+      end
+
+      describe "without query restriction" do
+        before { manager.stub(:restrict_queries?).and_return(false) }
+
+        it "calls the base class's calculate and return its result" do
+          arguments = stub('arguments')
+          results = stub('results')
+          base.stub(:calculate).with(arguments).and_return(results)
+          model.calculate(arguments).should == results
+        end
+      end
+
+      describe "with query restriction" do
+        let(:restricter)  { mock('restricter') }
+        let(:subquery)    { 'the id subquery expression' }
+        let(:adapted)     { stub('adapted') }
+
+        before do
+          model.stub(:permissions_required_to_index).
+            and_return('the index permissions')
+          ORM.stub(:adapt_class).and_return(adapted)
+          Restricter.stub(:new).with(adapted).and_return(restricter)
+
+          restricter.stub(:sql_query_for).
+            with('the index permissions').
+            and_return(subquery)
+
+          base.class_eval do
+            def self.with_scope(*args)
+              before_yield
+              results = yield
+              after_yield
+              results
+            end
+            def self.after_yield; end
+            def self.before_yield; end
+          end
+        end
+
+        it "runs a .with_scope with the calculate options from the "\
+           "restricter" do
+          model.should_receive(:with_scope).
+            with(:find => {:conditions => "`table`.id IN (#{subquery})"})
+          model.calculate('find arguments')
+        end
+
+        it "forwards all parameters to base's find and returns its result" do
+          base.stub(:calculate).with('calculate arguments').
+            and_return('results')
+          model.calculate('calculate arguments').should == 'results'
+        end
+
+        it "runs the query entirely within the scope" do
+          base.should_receive(:before_yield).ordered
+          base.should_receive(:calculate).ordered
+          base.should_receive(:after_yield).ordered
+          model.calculate('find arguments')
+        end
+      end
     end
 
     describe "#valid?" do
