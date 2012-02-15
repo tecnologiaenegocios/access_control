@@ -12,7 +12,7 @@ module AccessControl
     elsif object.equal?(AccessControl::GlobalRecord.instance)
       AccessControl.global_node
     else
-      raise(UnrecognizedSecurable)
+      raise(UnrecognizedSecurable, object.inspect)
     end
   end
 
