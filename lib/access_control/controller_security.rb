@@ -9,11 +9,11 @@ module AccessControl
   end
 
   def self.protected_actions
-    @protected_actions ||= {}
+    @protected_actions ||= Hash.new { |h, k| h[k] = Set.new }
   end
 
   def self.published_actions
-    @published_actions ||= {}
+    @published_actions ||= Hash.new { |h, k| h[k] = Set.new }
   end
 
   module ControllerSecurity
@@ -21,19 +21,23 @@ module AccessControl
     module ClassMethods
 
       def action_published?(action)
-        (AccessControl.published_actions[self.name] || []).include?(action.to_sym)
+        AccessControl.published_actions[name].include?(action.to_sym)
       end
 
       def action_protected?(action)
-        (AccessControl.protected_actions[self.name] || []).include?(action.to_sym)
+        AccessControl.protected_actions[name].include?(action.to_sym)
       end
 
       def publish action
-        (AccessControl.published_actions[self.name] ||= []) << action.to_sym
+        AccessControl.published_actions[name] << action.to_sym
+      end
+
+      def unpublish action
+        AccessControl.published_actions[name].delete(action.to_sym)
       end
 
       def protect action, options, &block
-        (AccessControl.protected_actions[self.name] ||= []) << action.to_sym
+        AccessControl.protected_actions[name] << action.to_sym
 
         permission_name = options[:with]
         ac_method = [name, action.to_sym]
@@ -41,11 +45,20 @@ module AccessControl
 
         validate_context_designator!(context_designator)
 
-        Registry.store(permission_name) do |permission|
+        AccessControl.registry.store(permission_name) do |permission|
           permission.ac_methods << ac_method
           permission.context_designator[ac_method] = context_designator
 
           block.call(permission) if block
+        end
+      end
+
+      def unprotect action
+        AccessControl.protected_actions[name].delete(action.to_sym)
+        registry  = AccessControl.registry
+        query_key = [name, action.to_sym]
+        registry.query(:ac_methods => [query_key]).each do |permission|
+          registry.unstore(permission.name)
         end
       end
 
@@ -83,7 +96,7 @@ module AccessControl
         query_key = [self.class.name, params[:action].to_sym]
         description = "#{self.class.name}##{params[:action]}"
 
-        permissions = Registry.query(:ac_methods => [query_key])
+        permissions = AccessControl.registry.query(:ac_methods => [query_key])
         raise(
           MissingPermissionDeclaration,
           "#{description} is missing permission declaration"

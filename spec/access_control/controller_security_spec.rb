@@ -86,16 +86,7 @@ module AccessControl
           block.call(permission)
         end
 
-        @old_registry = AccessControl::Registry
-        Kernel.silence_warnings do
-          AccessControl.const_set(:Registry, registry)
-        end
-      end
-
-      after do
-        Kernel.silence_warnings do
-          AccessControl.const_set(:Registry, @old_registry)
-        end
+        AccessControl.stub(:registry).and_return(registry)
       end
 
       it "doesn't mark the action as public" do
@@ -188,10 +179,57 @@ module AccessControl
       end
     end
 
-    describe "action publication" do
+    describe ".unprotect" do
+      # Use this method in tests in order to not carry state from a spec/test
+      # to the next one.
+      let(:registry)   { stub }
+      let(:permission1) { RegistryFactory::Permission.new }
+      let(:permission2) { RegistryFactory::Permission.new }
+
+      before do
+        permission1.stub(:name).and_return('some permission')
+        permission2.stub(:name).and_return('some other permission')
+
+        registry.stub(:store)
+        registry.stub(:query).and_return(Set.new)
+
+        AccessControl.stub(:registry).and_return(registry)
+
+        records_controller.class.protect :some_action,
+                                         :with => 'some permission'
+        records_controller.class.protect :some_action,
+                                         :with => 'some other permission'
+      end
+
+      it "unmarks the action as protected" do
+        records_controller.class.unprotect :some_action
+        records_controller.class.action_protected?(:some_action).should be_false
+      end
+
+      it "unregisters the permissions associated with the action" do
+        registry.stub(:query).
+          with(:ac_methods => [[records_controller.class.name, :some_action]]).
+          and_return(Set.new([permission1, permission2]))
+        registry.should_receive(:unstore).with('some permission')
+        registry.should_receive(:unstore).with('some other permission')
+        records_controller.class.unprotect :some_action
+      end
+    end
+
+    describe ".publish" do
       it "marks the action as public" do
         records_controller.class.publish :some_action
         records_controller.class.action_published?(:some_action).should be_true
+      end
+    end
+
+    describe ".unpublish" do
+      # Use this method in tests in order to not carry state from a spec/test
+      # to the next one.
+      it "unmarks the action as public" do
+        records_controller.class.publish :some_action
+        records_controller.class.unpublish :some_action
+        records_controller.class.action_published?(:some_action).should be_false
       end
     end
 
@@ -201,14 +239,16 @@ module AccessControl
       let(:test_context) { :current_context }
       let(:query_key)    { ['RecordsController', :some_action] }
       let(:permission)   { RegistryFactory::Permission.new('some_permission') }
+      let(:registry)     { stub }
 
       before do
         records_controller.stub(:current_context).and_return(node)
         params[:action] = 'some_action'
 
-        Registry.stub(:register)
-        Registry.stub(:query).with(:ac_methods => [query_key]).
+        registry.stub(:register)
+        registry.stub(:query).with(:ac_methods => [query_key]).
           and_return(Set.new([permission]))
+        AccessControl.stub(:registry).and_return(registry)
 
         permission.context_designator[query_key] = test_context
         manager.stub(:can!)
@@ -247,7 +287,7 @@ module AccessControl
 
           context "when no permission is returned" do
             it "complains" do
-              Registry.stub(:query).and_return(Set.new)
+              registry.stub(:query).and_return(Set.new)
               lambda { records_controller.process }.should(
                 raise_exception(AccessControl::MissingPermissionDeclaration)
               )
@@ -343,7 +383,7 @@ module AccessControl
                   RegistryFactory::Permission.new('another_permission')
                 another_permission.context_designator[query_key] = test_context
 
-                Registry.stub(:query).
+                registry.stub(:query).
                   and_return(Set[permission, another_permission])
 
                 records_controller.stub(:current_context) do
