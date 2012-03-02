@@ -46,6 +46,7 @@ GEM
     sequel (3.31.0)
     sexp_processor (3.0.10)
     slop (2.1.0)
+    sqlite3 (1.3.5)
     yard (0.7.4)
 
 PLATFORMS
@@ -57,3 +58,4 @@ DEPENDENCIES
   pry
   pry-doc
   rails (~> 2.3.5)
+  sqlite3
