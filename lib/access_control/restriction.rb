@@ -42,7 +42,7 @@ module AccessControl
 
       def wrap_with_permissions_for_result_set
         restricter = Restricter.new(ORM.adapt_class(self))
-        subquery = restricter.sql_query_for(permissions_required_to_index)
+        subquery = restricter.sql_query_for(permissions_required_to_list)
         condition = "#{quoted_table_name}.#{primary_key} IN (#{subquery})"
         with_scope(:find => { :conditions => condition }) { yield }
       end

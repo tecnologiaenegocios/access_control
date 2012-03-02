@@ -17,7 +17,7 @@ module AccessControl
     describe ".find" do
 
       before do
-        model.stub(:permissions_required_to_index)
+        model.stub(:permissions_required_to_list)
         model.stub(:permissions_required_to_show)
         manager.stub(:restrict_queries?).and_return(true)
       end
@@ -45,8 +45,8 @@ module AccessControl
           let(:adapted)     { stub('adapted') }
 
           before do
-            model.stub(:permissions_required_to_index).
-              and_return('the index permissions')
+            model.stub(:permissions_required_to_list).
+              and_return('the list permissions')
             ORM.stub(:adapt_class).and_return(adapted)
             Restricter.stub(:new).with(adapted).and_return(restricter)
           end
@@ -55,7 +55,7 @@ module AccessControl
             context "when doing find(:#{option})" do
               before do
                 restricter.stub(:sql_query_for).
-                  with('the index permissions').
+                  with('the list permissions').
                   and_return(subquery)
 
                 base.class_eval do
@@ -187,7 +187,7 @@ module AccessControl
     describe ".calculate" do
 
       before do
-        model.stub(:permissions_required_to_index)
+        model.stub(:permissions_required_to_list)
         manager.stub(:restrict_queries?).and_return(true)
       end
 
@@ -208,13 +208,13 @@ module AccessControl
         let(:adapted)     { stub('adapted') }
 
         before do
-          model.stub(:permissions_required_to_index).
-            and_return('the index permissions')
+          model.stub(:permissions_required_to_list).
+            and_return('the list permissions')
           ORM.stub(:adapt_class).and_return(adapted)
           Restricter.stub(:new).with(adapted).and_return(restricter)
 
           restricter.stub(:sql_query_for).
-            with('the index permissions').
+            with('the list permissions').
             and_return(subquery)
 
           base.class_eval do

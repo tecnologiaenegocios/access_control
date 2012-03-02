@@ -35,7 +35,7 @@ module AccessControl
       AccessControl.macro_requirements.clear
       [
         ['show',    'view'],
-        ['index',   'list'],
+        ['list',   'list'],
         ['create',  'add'],
         ['update',  'modify'],
         ['destroy', 'delete'],
@@ -56,7 +56,7 @@ module AccessControl
 
     [
       ['show',    'view'],
-      ['index',   'list'],
+      ['list',   'list'],
       ['create',  'add'],
       ['update',  'modify'],
       ['destroy', 'delete'],

@@ -12,24 +12,24 @@ module AccessControl
   module Macros
 
     # def show_requires
-    # def index_requires
+    # def list_requires
     # def create_requires
     # def update_requires
     # def destroy_requires
 
     # def add_show_requirement
-    # def add_index_requirement
+    # def add_list_requirement
     # def add_create_requirement
     # def add_update_requirement
     # def add_destroy_requirement
 
     # def permissions_required_to_show
-    # def permissions_required_to_index
+    # def permissions_required_to_list
     # def permissions_required_to_create
     # def permissions_required_to_update
     # def permissions_required_to_destroy
 
-    [:show, :index, :create, :update, :destroy].each do |t|
+    [:show, :list, :create, :update, :destroy].each do |t|
 
       define_method(:"#{t}_requires") do |*permissions, &block|
         permission_requirement(t).set(*permissions, &block)
@@ -88,7 +88,7 @@ module AccessControl
 
     def check_missing_declarations!
       return if @checked_missing_declarations
-      [:show, :index, :create, :update, :destroy].each do |t|
+      [:show, :list, :create, :update, :destroy].each do |t|
         req = permission_requirement(t)
         if req.get.empty? && !req.declared_no_permissions?
           raise MissingPermissionDeclaration,

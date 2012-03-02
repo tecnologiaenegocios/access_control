@@ -13,7 +13,7 @@ module AccessControl
       @restrict_belongs_to_association = false
     end
 
-    %w(show index create update destroy).map(&:to_sym).each do |name|
+    %w(show list create update destroy).map(&:to_sym).each do |name|
       define_method(:"permissions_required_to_#{name}") do
         Registry.fetch_all(@default_permissions[name] || []).to_set
       end

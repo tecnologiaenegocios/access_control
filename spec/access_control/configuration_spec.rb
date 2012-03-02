@@ -15,7 +15,7 @@ module AccessControl
 
     {
       "show" => 'view',
-      "index" => 'list',
+      "list" => 'list',
       "create" => 'add',
       "update" => 'modify',
       "destroy" => 'delete',
