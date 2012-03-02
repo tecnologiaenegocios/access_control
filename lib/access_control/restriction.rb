@@ -34,6 +34,11 @@ module AccessControl
         wrap_with_permissions_for_result_set { super }
       end
 
+      def listable
+        return scoped({}) unless AccessControl.manager.restrict_queries?
+        scoped(:conditions => restriction_conditions_for_result_set)
+      end
+
       def unrestricted_find(*args)
         AccessControl.manager.without_query_restriction { find(*args) }
       end
@@ -41,10 +46,14 @@ module AccessControl
     private
 
       def wrap_with_permissions_for_result_set
+        condition = restriction_conditions_for_result_set
+        with_scope(:find => { :conditions => condition }) { yield }
+      end
+
+      def restriction_conditions_for_result_set
         restricter = Restricter.new(ORM.adapt_class(self))
         subquery = restricter.sql_query_for(permissions_required_to_list)
-        condition = "#{quoted_table_name}.#{primary_key} IN (#{subquery})"
-        with_scope(:find => { :conditions => condition }) { yield }
+        "#{quoted_table_name}.#{primary_key} IN (#{subquery})"
       end
     end
   end

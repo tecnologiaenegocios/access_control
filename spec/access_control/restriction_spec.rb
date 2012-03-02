@@ -251,6 +251,50 @@ module AccessControl
       end
     end
 
+    describe ".listable" do
+      before do
+        model.stub(:permissions_required_to_list)
+        manager.stub(:restrict_queries?).and_return(true)
+      end
+
+      describe "without query restriction" do
+        before { manager.stub(:restrict_queries?).and_return(false) }
+
+        it "creates an empty scope" do
+          empty_scope = stub('empty scope')
+          base.stub(:scoped).with({}).and_return(empty_scope)
+
+          model.listable.should be empty_scope
+        end
+      end
+
+      describe "with query restriction" do
+        let(:restricter)  { mock('restricter') }
+        let(:subquery)    { 'the id subquery expression' }
+        let(:adapted)     { stub('adapted') }
+
+        before do
+          model.stub(:permissions_required_to_list).
+            and_return('the list permissions')
+          ORM.stub(:adapt_class).and_return(adapted)
+          Restricter.stub(:new).with(adapted).and_return(restricter)
+
+          restricter.stub(:sql_query_for).
+            with('the list permissions').
+            and_return(subquery)
+        end
+
+        it "calls scoped with the restriction conditions" do
+          restricted_scope = stub('restricted scope')
+          base.stub(:scoped).
+            with(:conditions => "`table`.id IN (#{subquery})").
+            and_return(restricted_scope)
+
+          model.listable.should be restricted_scope
+        end
+      end
+    end
+
     describe "#valid?" do
 
       # Validation should happen without query restriction.
