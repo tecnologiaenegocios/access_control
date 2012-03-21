@@ -12,6 +12,7 @@ module AccessControl
         include Boilerplate
 
         just_after_create  { __associator__.persist }
+        just_after_update  { __associator__.sync }
         just_after_destroy { __associator__.destroy }
 
         define_method(name, &block)
@@ -39,6 +40,13 @@ module AccessControl
         pk_method  = @instance.class.primary_key
         associated.send(:"#{key_method}=", @instance.send(pk_method))
         associated.persist!
+      end
+    end
+
+    def sync
+      @names.each do |name, key_method|
+        associated = @instance.send(name)
+        associated.persist! unless associated.persisted?
       end
     end
 

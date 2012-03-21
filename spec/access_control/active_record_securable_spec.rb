@@ -33,7 +33,7 @@ module AccessControl
     end
 
     context "in a model with ActiveRecordSecurable" do
-      let(:node)     { stub('node', :securable_id= => nil) }
+      let(:node)     { stub('node') }
       let(:instance) { model.new }
 
       before do
@@ -51,11 +51,12 @@ module AccessControl
         instance.ac_node.should be old_result
       end
 
-      describe "when securable instance is created" do
+      context "when securable instance is created" do
         let(:principals)    { ['principal1', 'principal2'] }
         let(:default_roles) { stub('default roles subset') }
 
         before do
+          node.stub(:securable_id=)
           node.stub(:persist!)
           node.stub(:refresh_parents)
           Role.stub(:assign_default_at)
@@ -87,13 +88,39 @@ module AccessControl
         end
       end
 
-      describe "when securable instance is updated" do
-        it "refreshes parents and then check for update rights" do
-          node.should_receive(:refresh_parents).ordered
-          node.should_receive(:can_update!).ordered
+      context "when securable instance is updated" do
+        before do
+          node.stub(:refresh_parents)
+          node.stub(:can_update!)
           instance.stub(:ac_node => node)
+        end
 
-          instance.update
+        context "when the node is persisted" do
+          before do
+            node.stub(:persisted?).and_return(true)
+          end
+
+          it "refreshes parents and then check for update rights" do
+            node.should_receive(:refresh_parents).ordered
+            node.should_receive(:can_update!).ordered
+
+            instance.update
+          end
+        end
+
+        context "when the node is not persisted" do
+          before do
+            node.stub(:persisted?).and_return(false)
+          end
+
+          it "persists the node and then refreshes parents and check "\
+             "for update rights" do
+            node.should_receive(:persist!).ordered
+            node.should_receive(:refresh_parents).ordered
+            node.should_receive(:can_update!).ordered
+
+            instance.update
+          end
         end
       end
 

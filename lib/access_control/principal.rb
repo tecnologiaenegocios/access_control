@@ -51,7 +51,8 @@ module AccessControl
           if persistent
             principal = wrap(persistent)
           else
-            principal = store(:subject_class => subject.class, :subject_id => subject_id)
+            principal = new(:subject_class => subject.class,
+                            :subject_id    => subject_id)
           end
         else
           principal = new(:subject_class => subject.class)

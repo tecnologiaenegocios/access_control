@@ -11,11 +11,17 @@ module AccessControl
         def just_after_create(&block)
           just_after_create_callbacks << block
         end
+        def just_after_update(&block)
+          just_after_update_callbacks << block
+        end
         def just_after_destroy(&block)
           just_after_destroy_callbacks << block
         end
         def just_after_create_callbacks
           @just_after_create_callbacks ||= []
+        end
+        def just_after_update_callbacks
+          @just_after_update_callbacks ||= []
         end
         def just_after_destroy_callbacks
           @just_after_destroy_callbacks ||= []
@@ -27,6 +33,11 @@ module AccessControl
       cls = Class.new do
         def create
           self.class.just_after_create_callbacks.each do |block|
+            instance_eval(&block)
+          end
+        end
+        def update
+          self.class.just_after_update_callbacks.each do |block|
             instance_eval(&block)
           end
         end
@@ -52,10 +63,10 @@ module AccessControl
       before do
         model.extend(callbacks)
         instance.stub(:access_control_object => ac_associated)
-        ActiveRecordAssociator.setup_association(:association, :key_method,
-                                                 model) do
-          access_control_object
-        end
+        ActiveRecordAssociator.
+          setup_association(:association, :key_method, model) do
+            access_control_object
+          end
       end
 
       it "defines a method which returns the access control object" do
@@ -67,6 +78,30 @@ module AccessControl
           ac_associated.should_receive(:key_method=).with(instance.pk).ordered
           ac_associated.should_receive(:persist!).ordered
           instance.create
+        end
+      end
+
+      context "when a record is updated" do
+        context "when the associated access control object is not persisted" do
+          before do
+            ac_associated.stub(:persisted?).and_return(false)
+          end
+
+          it "persists the access control object" do
+            ac_associated.should_receive(:persist!)
+            instance.update
+          end
+        end
+
+        context "when the associated access control object is already persisted" do
+          before do
+            ac_associated.stub(:persisted?).and_return(true)
+          end
+
+          it "lefts the access control object alone" do
+            ac_associated.should_not_receive(:persist!)
+            instance.update
+          end
         end
       end
 

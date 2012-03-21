@@ -27,8 +27,8 @@ module AccessControl
         if persistent
           node = wrap(persistent)
         else
-          node = store(:securable_id    => securable_id,
-                       :securable_class => securable_class)
+          node = new(:securable_id    => securable_id,
+                     :securable_class => securable_class)
         end
       else
         node = new(:securable_class => securable_class)

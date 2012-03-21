@@ -129,11 +129,6 @@ module AccessControl
             node.securable_class.should == securable_class
           end
 
-          it "persists the node" do
-            node = Node.for_securable(securable)
-            node.should be_persisted
-          end
-
           it "sets the securable to avoid unnecessary trips to the DB" do
             node = Node.for_securable(securable)
             node.securable.should == securable
@@ -143,6 +138,11 @@ module AccessControl
             securable.stub(:id).and_return(securable_id + 1000)
             node = Node.for_securable(securable)
             node.securable_id.should == securable_id
+          end
+
+          it "doesn't persist the node" do
+            node = Node.for_securable(securable)
+            node.should_not be_persisted
           end
         end
       end

@@ -133,11 +133,6 @@ module AccessControl
             principal.subject_class.should == subject_class
           end
 
-          it "persists the principal" do
-            principal = Principal.for_subject(subject)
-            principal.should be_persisted
-          end
-
           it "sets the subject to avoid unnecessary trips to the DB" do
             principal = Principal.for_subject(subject)
             principal.subject.should == subject
@@ -147,6 +142,11 @@ module AccessControl
             subject.stub(:id).and_return(subject_id + 1000)
             principal = Principal.for_subject(subject)
             principal.subject_id.should == subject_id
+          end
+
+          it "doesn't persist the principal" do
+            principal = Principal.for_subject(subject)
+            principal.should_not be_persisted
           end
         end
       end
