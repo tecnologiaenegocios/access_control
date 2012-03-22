@@ -44,7 +44,7 @@ module AccessControl
 
     describe "#can!" do
       it "does nothing" do
-        subject.can!.should be_nil
+        subject.can!('ignored', 'ignored').should be_nil
       end
     end
 

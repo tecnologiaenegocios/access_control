@@ -26,7 +26,7 @@ module AccessControl
       [UnrestrictablePrincipal.instance]
     end
 
-    def can!
+    def can!(permissions, nodes)
     end
 
     def can?(permissions, nodes)
