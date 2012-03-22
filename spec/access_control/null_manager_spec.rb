@@ -80,12 +80,19 @@ module AccessControl
 
       it "signalizes out of a trusted block if the block has raised" do
         begin
-          subject.trust { raise RuntimeError }
-        rescue RuntimeError
+          subject.trust { raise StandardError }
+        rescue StandardError
           # pass
         end
 
         subject.should_not be_inside_trusted_block
+      end
+
+      it "bubbles the exception raised in the block" do
+        exception = Class.new(StandardError)
+        lambda {
+          subject.trust { raise exception }
+        }.should raise_exception(exception)
       end
 
       context "when already inside a trusted block" do
