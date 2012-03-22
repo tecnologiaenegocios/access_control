@@ -68,14 +68,6 @@ module AccessControl
       raise Unauthorized
     end
 
-    def restrict_queries!
-      @restrict_queries = true
-    end
-
-    def unrestrict_queries!
-      @restrict_queries = false
-    end
-
     def restrict_queries?
       return false if unrestrictable_user_logged_in?
       really_restrict_queries?
@@ -114,6 +106,14 @@ module AccessControl
 
     def really_restrict_queries?
       @restrict_queries
+    end
+
+    def restrict_queries!
+      @restrict_queries = true
+    end
+
+    def unrestrict_queries!
+      @restrict_queries = false
     end
 
   end

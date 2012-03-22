@@ -273,7 +273,6 @@ module AccessControl
     end
 
     describe "restriction in queries" do
-
       before do
         manager.use_anonymous! # Simulate a web request
       end
@@ -282,19 +281,7 @@ module AccessControl
         manager.restrict_queries?.should be_true
       end
 
-      it "can be turned off by calling unrestrict_queries!" do
-        manager.unrestrict_queries!
-        manager.restrict_queries?.should be_false
-      end
-
-      it "can be turned on by calling restrict_queries!" do
-        manager.unrestrict_queries!
-        manager.restrict_queries!
-        manager.restrict_queries?.should be_true
-      end
-
       describe "when the UnrestrictableUser is logged in" do
-
         before do
           manager.current_subjects = [UnrestrictableUser.instance]
         end
@@ -302,9 +289,7 @@ module AccessControl
         it "returns false" do
           manager.restrict_queries?.should be_false
         end
-
       end
-
     end
 
     describe "#without_query_restriction" do
@@ -313,14 +298,8 @@ module AccessControl
         manager.stub(:use_anonymous?).and_return(true) # Simulate web request
       end
 
-      describe "when restriction was restricted previously" do
-
-        before do
-          manager.restrict_queries!
-        end
-
+      describe "when restriction is on (default)" do
         it "executes a block without query restriction" do
-          manager.restrict_queries!
           manager.without_query_restriction do
             manager.restrict_queries?.should be_false
           end
@@ -349,48 +328,49 @@ module AccessControl
           manager.without_query_restriction{'a value returned by the block'}.
             should == 'a value returned by the block'
         end
-
       end
 
-      describe "when restriction was unrestricted previously" do
-
-        before do
-          manager.unrestrict_queries!
-        end
-
+      describe "when restriction is of (inside a without restricion block)" do
         it "executes a block without query restriction" do
-          manager.restrict_queries!
           manager.without_query_restriction do
-            manager.restrict_queries?.should be_false
+            manager.without_query_restriction do
+              manager.restrict_queries?.should be_false
+            end
           end
         end
 
         it "unrestricts queries after the block is run" do
-          manager.without_query_restriction {}
-          manager.restrict_queries?.should be_false
+          manager.without_query_restriction do
+            manager.without_query_restriction {}
+            manager.restrict_queries?.should be_false
+          end
         end
 
         it "restricts queries even if the block raises an exception" do
-          manager.without_query_restriction {
-            raise StandardError
-          } rescue nil
-          manager.restrict_queries?.should be_false
+          manager.without_query_restriction do
+            manager.without_query_restriction {
+              raise StandardError
+            } rescue nil
+            manager.restrict_queries?.should be_false
+          end
         end
 
         it "raises any exception the block have raised" do
           exception = Class.new(StandardError)
-          lambda {
-            manager.without_query_restriction { raise exception }
-          }.should raise_exception(exception)
+          manager.without_query_restriction do
+            lambda {
+              manager.without_query_restriction { raise exception }
+            }.should raise_exception(exception)
+          end
         end
 
         it "returns the value returned by the block" do
-          manager.without_query_restriction{'a value returned by the block'}.
-            should == 'a value returned by the block'
+          manager.without_query_restriction do
+            manager.without_query_restriction{'a value returned by the block'}.
+              should == 'a value returned by the block'
+          end
         end
-
       end
-
     end
 
     describe "#trust" do
@@ -398,11 +378,7 @@ module AccessControl
         manager.stub(:use_anonymous?).and_return(true) # Simulate web request
       end
 
-      context "when the query restrictions were previously enabled" do
-        before do
-          manager.restrict_queries!
-        end
-
+      context "when the query restrictions were previously enabled (default)" do
         it "calls the block it receives" do
           lambda {
             manager.trust { throw :block_called }
@@ -422,25 +398,27 @@ module AccessControl
       end
 
       context "when the query restrictions were previously disabled" do
-        before do
-          manager.unrestrict_queries!
-        end
-
         it "calls the block it receives" do
-          lambda {
-            manager.trust { throw :block_called }
-          }.should throw_symbol(:block_called)
+          manager.without_query_restriction do
+            lambda {
+              manager.trust { throw :block_called }
+            }.should throw_symbol(:block_called)
+          end
         end
 
         it "maintain them disabled while inside the block" do
-          manager.trust do
-            manager.should_not be_restricting_queries
+          manager.without_query_restriction do
+            manager.trust do
+              manager.should_not be_restricting_queries
+            end
           end
         end
 
         it "don't enable them after exiting the block" do
-          manager.trust { }
-          manager.should_not be_restricting_queries
+          manager.without_query_restriction do
+            manager.trust { }
+            manager.should_not be_restricting_queries
+          end
         end
       end
 
