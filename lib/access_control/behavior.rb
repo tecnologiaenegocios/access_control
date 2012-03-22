@@ -9,7 +9,7 @@ module AccessControl
 
   def self.manager
     if AccessControl.disabled?
-      NullManager.new
+      @null_manager ||= NullManager.new
     else
       Thread.current[MANAGER_THREAD_KEY] ||= Manager.new
     end

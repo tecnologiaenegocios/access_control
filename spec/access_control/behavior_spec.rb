@@ -41,6 +41,13 @@ describe AccessControl do
       it "returns a NullManager" do
         AccessControl.manager.should be_a(AccessControl::NullManager)
       end
+
+      it "returns always the same null manager" do
+        previous_manager = AccessControl.manager
+        current_manager = AccessControl.manager
+
+        previous_manager.should equal(current_manager)
+      end
     end
   end
 
