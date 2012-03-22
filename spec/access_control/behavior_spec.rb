@@ -12,7 +12,6 @@ describe AccessControl do
   end
 
   describe ".manager" do
-
     it "returns a Manager" do
       AccessControl.manager.should be_a(AccessControl::Manager)
     end
@@ -30,6 +29,19 @@ describe AccessControl do
       current_manager.should_not equal(thr_manager)
     end
 
+    context "when the access control is disabled" do
+      before do
+        AccessControl.disable!
+      end
+
+      after do
+        AccessControl.enable!
+      end
+
+      it "returns a NullManager" do
+        AccessControl.manager.should be_a(AccessControl::NullManager)
+      end
+    end
   end
 
   describe ".global_node_id" do

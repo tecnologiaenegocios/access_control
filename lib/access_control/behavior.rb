@@ -1,4 +1,5 @@
 require 'access_control/manager'
+require 'access_control/null_manager'
 require 'access_control/securable'
 require 'access_control/inheritance'
 
@@ -7,7 +8,11 @@ module AccessControl
   MANAGER_THREAD_KEY = :ac_manager
 
   def self.manager
-    Thread.current[MANAGER_THREAD_KEY] ||= Manager.new
+    if AccessControl.disabled?
+      NullManager.new
+    else
+      Thread.current[MANAGER_THREAD_KEY] ||= Manager.new
+    end
   end
 
   def self.no_manager

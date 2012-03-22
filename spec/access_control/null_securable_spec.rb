@@ -61,14 +61,6 @@ module AccessControl
 
     context "with active record models" do
       let(:base) { ActiveRecord::Base }
-
-      it "includes ActiveRecordSecurable" do
-        # This module adds support for nodes in ActiveRecord instances, and
-        # even with NullSecurable we still need them.
-        # TODO What about NullNodes?
-        model.should include(ActiveRecordSecurable)
-      end
-
       it "includes NullRestriction" do
         model.should include(NullRestriction)
       end
