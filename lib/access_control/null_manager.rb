@@ -41,10 +41,10 @@ module AccessControl
       yield
     end
 
-    def trust(&block)
+    def trust
       previous_trust_status = inside_trusted_block?
       @inside_trusted_block = true
-      without_query_restriction(&block)
+      without_query_restriction { yield }
     ensure
       @inside_trusted_block = previous_trust_status
     end
