@@ -61,7 +61,9 @@ module AccessControl
       context "with active record models" do
         let(:model) { Class.new(ActiveRecord::Base) }
 
-        # ActiveRecordSecurable is included by NullSecurable
+        it "doesn't include ActiveRecordSecurable" do
+          model.should_not include ActiveRecordSecurable
+        end
 
         it "doesn't include Inheritance" do
           model.should_not include Inheritance
