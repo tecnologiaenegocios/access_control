@@ -88,6 +88,38 @@ describe AccessControl do
     end
   end
 
+  describe ".disable! and enable!" do
+    after do
+      AccessControl.enable!
+    end
+
+    specify "AccessControl is enabled by default" do
+      AccessControl.should_not be_disabled
+    end
+
+    context "when AccessControl is enabled" do
+      context "and .disable! is called" do
+        it "causes the AccessControl to be disabled" do
+          AccessControl.disable!
+          AccessControl.should be_disabled
+        end
+      end
+    end
+
+    context "when AccessControl is disabled" do
+      before do
+        AccessControl.disable!
+      end
+
+      context "and .enable! is called" do
+        it "causes the AccessControl to be enabled" do
+          AccessControl.enable!
+          AccessControl.should_not be_disabled
+        end
+      end
+    end
+  end
+
   describe ".clear_parent_relationships!" do
     it "erases all previous relationships" do
       AccessControl.ac_parents.insert(:parent_id => 666, :child_id => 666)
@@ -212,11 +244,12 @@ describe AccessControl do
     end
 
     it "has id == 1" do
-      # The is is 1 and not 0 because we're using 0 for class nodes.
+      # The id is 1 and not 0 because we're using 0 for class nodes.
       subject.id.should == 1
     end
 
-    it { should be_a AccessControl::Securable }
+    # Why?
+    # it { should be_a AccessControl::Securable }
   end
 
   describe AccessControl::AnonymousUser do

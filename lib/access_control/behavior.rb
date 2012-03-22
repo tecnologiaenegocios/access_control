@@ -46,6 +46,18 @@ module AccessControl
     AnonymousUser.instance.id
   end
 
+  def self.disable!
+    @disabled = true
+  end
+
+  def self.enable!
+    @disabled = false
+  end
+
+  def self.disabled?
+    !!@disabled
+  end
+
   def self.clear_parent_relationships!
     AccessControl.ac_parents.truncate
   end
@@ -97,7 +109,6 @@ module AccessControl
 
   class GlobalRecord
     include Singleton
-    include Securable
     def id
       1
     end

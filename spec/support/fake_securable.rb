@@ -88,7 +88,7 @@ module AccessControl
   module FakeSecurableMethods
     attr_reader :id
 
-    include Securable
+    include NullSecurable
 
     def initialize(attributes = {})
       attributes.each do |name, value|
