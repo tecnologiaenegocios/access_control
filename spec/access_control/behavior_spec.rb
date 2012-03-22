@@ -178,6 +178,32 @@ describe AccessControl do
     end
   end
 
+  describe ".refresh_parents_of" do
+    context "when access control is enabled" do
+      it "delegatest to NodeManager" do
+        securable = stub
+        AccessControl::NodeManager.
+          should_receive(:refresh_parents_of).with(securable)
+        AccessControl.refresh_parents_of(securable)
+      end
+    end
+
+    context "when access control is disabled" do
+      before do
+        AccessControl.disable!
+      end
+
+      after do
+        AccessControl.enable!
+      end
+
+      it "does nothing" do
+        AccessControl::NodeManager.should_not_receive(:refresh_parents_of)
+        AccessControl.refresh_parents_of('ignored')
+      end
+    end
+  end
+
   describe ".rebuild_parent_relationships" do
     let(:parent1) { 1 }
     let(:parent2) { 2 }

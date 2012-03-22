@@ -81,6 +81,11 @@ module AccessControl
     @default_batch_size ||= 500
   end
 
+  def self.refresh_parents_of(securable)
+    return if AccessControl.disabled?
+    AccessControl::NodeManager.refresh_parents_of(securable)
+  end
+
   def self.rebuild_parent_relationships(securable_class)
     AccessControl.transaction do
       Inheritance.inheritances_of(securable_class).each do |inheritance|
