@@ -5,10 +5,13 @@ module AccessControl
   describe Configuration do
 
     let(:config) { Configuration.new }
+    let(:registry) { stub('Registry') }
 
     before do
-      Registry.stub(:store)
-      Registry.stub(:fetch_all) do |permissions|
+      AccessControl.stub(:registry).and_return(registry)
+
+      registry.stub(:store)
+      registry.stub(:fetch_all) do |permissions|
         permissions.map { |name| stub(:name => name) }
       end
     end
@@ -68,13 +71,13 @@ module AccessControl
         end
 
         it "registers the permissions set" do
-          Registry.should_receive(:store).with('some permission')
+          registry.should_receive(:store).with('some permission')
           setter.call(['some permission'])
         end
 
         it "accepts a block for additional metadata setting" do
           p = stub
-          Registry.stub(:store).with('some permission').and_yield(p)
+          registry.stub(:store).with('some permission').and_yield(p)
           setter.call(['some permission']) do |permission|
             permission.should be p
           end

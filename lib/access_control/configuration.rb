@@ -15,14 +15,14 @@ module AccessControl
 
     %w(show list create update destroy).map(&:to_sym).each do |name|
       define_method(:"permissions_required_to_#{name}") do
-        Registry.fetch_all(@default_permissions[name] || []).to_set
+        registry.fetch_all(@default_permissions[name] || []).to_set
       end
 
       define_method(:"#{name}_requires") do |permissions, &block|
         permissions_set = Set.new [*permissions].compact
         @default_permissions[name] = permissions_set
         permissions_set.each do |permission_name|
-          Registry.store(permission_name, &block)
+          registry.store(permission_name, &block)
         end
       end
     end
@@ -34,6 +34,12 @@ module AccessControl
 
     def extend_permissions(&block)
       RegistryFactory::Permission.class_exec(&block)
+    end
+
+  private
+
+    def registry
+      AccessControl.registry
     end
   end
 
