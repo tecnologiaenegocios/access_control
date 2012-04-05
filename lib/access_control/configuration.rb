@@ -21,7 +21,9 @@ module AccessControl
       define_method(:"#{name}_requires") do |permissions, &block|
         permissions_set = Set.new [*permissions].compact
         @default_permissions[name] = permissions_set
-        permissions_set.each { |name| Registry.store(name, &block) }
+        permissions_set.each do |permission_name|
+          Registry.store(permission_name, &block)
+        end
       end
     end
 
