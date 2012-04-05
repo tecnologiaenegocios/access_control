@@ -63,7 +63,24 @@ module AccessControl
         end
       end
     end
+
+    mark_method_as_unrestricted(klass, method_name)
   end
+
+  def self.unrestricted_method?(klass, method_name)
+    klass.instance_exec(method_name.to_sym) do |m|
+      methods = (@__access_control_unrestricted_methods__ || Set.new)
+      methods.include?(m)
+    end
+  end
+
+  def self.mark_method_as_unrestricted(klass, method_name)
+    klass.instance_exec(method_name.to_sym) do |m|
+      @__access_control_unrestricted_methods__ ||= Set.new
+      @__access_control_unrestricted_methods__ << m
+    end
+  end
+  private_class_method :mark_method_as_unrestricted
 
   def self.disable!
     @disabled = true

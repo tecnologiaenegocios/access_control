@@ -170,6 +170,22 @@ describe AccessControl do
 
       block_called.should be_true
     end
+
+    specify "before any unrestriction, .unrestrict_method? returns false" do
+      AccessControl.should_not be_unrestricted_method(klass, :object_id)
+    end
+
+    specify "once an unrestriction is applied, .unrestrict_method? returns true" do
+      AccessControl.unrestrict_method(klass, :object_id)
+
+      AccessControl.should be_unrestricted_method(klass, :object_id)
+    end
+
+    it "doesn't mix unrestrictions from different classes" do
+      AccessControl.unrestrict_method(Class.new, :object_id)
+
+      AccessControl.should_not be_unrestricted_method(klass, :object_id)
+    end
   end
 
   describe ".disable! and enable!" do
