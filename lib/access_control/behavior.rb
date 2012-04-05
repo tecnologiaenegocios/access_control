@@ -51,6 +51,20 @@ module AccessControl
     AnonymousUser.instance.id
   end
 
+  def self.unrestrict_method(klass, method_name)
+    method_name = method_name.to_sym
+
+    klass.class_eval do
+      alias_method :"unstrusted_#{method_name}", method_name
+
+      define_method(method_name) do |*args, &block|
+        AccessControl.manager.trust do
+          send(:"unstrusted_#{method_name}", *args, &block)
+        end
+      end
+    end
+  end
+
   def self.disable!
     @disabled = true
   end

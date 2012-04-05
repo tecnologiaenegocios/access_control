@@ -107,6 +107,71 @@ describe AccessControl do
     end
   end
 
+  describe ".unrestrict_method" do
+    let(:klass)        { Class.new }
+    let(:instance)     { klass.new }
+    let(:manager)      { stub('Manager') }
+    let(:return_value) { stub("Return value") }
+
+    before do
+      AccessControl.stub(:manager).and_return(manager)
+
+      manager.define_singleton_method(:trust) do |&block|
+        block.call
+      end
+    end
+
+    it "removes restrictions from an already defined instance method" do
+      callstack = []
+
+      klass.class_eval do
+        define_method(:my_method) do
+          callstack << :method_body
+        end
+      end
+
+      AccessControl.unrestrict_method(klass, :my_method)
+
+      manager.define_singleton_method(:trust) do |&block|
+        callstack << :trust_start
+        block.call
+        callstack << :trust_end
+      end
+
+      instance.my_method
+      callstack.should == [:trust_start, :method_body, :trust_end]
+    end
+
+    it "maintains the reception of arguments" do
+      klass.class_eval do
+        define_method(:sum) do |value1, value2|
+          value1 + value2
+        end
+      end
+
+      AccessControl.unrestrict_method(klass, :sum)
+
+      instance.sum(1,2).should == 3
+    end
+
+    it "maintains the reception of blocks" do
+      klass.class_eval do
+        define_method(:block_based_method) do |&block|
+          block.call
+        end
+      end
+
+      AccessControl.unrestrict_method(klass, :block_based_method)
+
+      block_called = false
+      instance.block_based_method do
+        block_called = true
+      end
+
+      block_called.should be_true
+    end
+  end
+
   describe ".disable! and enable!" do
     after do
       AccessControl.enable!

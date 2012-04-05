@@ -66,17 +66,7 @@ module AccessControl
     end
 
     def unrestrict_method(method_name)
-      method_name = method_name.to_sym
-
-      class_eval do
-        alias_method :"unstrusted_#{method_name}", method_name
-
-        define_method(method_name) do |*args, &block|
-          AccessControl.manager.trust do
-            send(:"unstrusted_#{method_name}", *args, &block)
-          end
-        end
-      end
+      AccessControl.unrestrict_method(self, method_name)
     end
 
   private

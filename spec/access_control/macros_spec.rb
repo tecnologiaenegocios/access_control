@@ -451,54 +451,11 @@ module AccessControl
       describe ".unrestrict_method" do
         let(:return_value) { stub("Return value") }
 
-        it "removes restrictions from an already defined instance method" do
-          callstack = []
+        it "delegates its job to AccessControl.unrestrict_method" do
+          AccessControl.should_receive(:unrestrict_method).
+            with(model, :method_name)
 
-          model.class_eval do
-            define_method(:my_method) do
-              callstack << :method_body
-            end
-          end
-
-          model.unrestrict_method(:my_method)
-
-          manager.define_singleton_method(:trust) do |&block|
-            callstack << :trust_start
-            block.call
-            callstack << :trust_end
-          end
-
-          instance.my_method
-          callstack.should == [:trust_start, :method_body, :trust_end]
-        end
-
-        it "maintains the reception of arguments" do
-          model.class_eval do
-            define_method(:sum) do |value1, value2|
-              value1 + value2
-            end
-          end
-
-          model.unrestrict_method(:sum)
-
-          instance.sum(1,2).should == 3
-        end
-
-        it "maintains the reception of blocks" do
-          model.class_eval do
-            define_method(:block_based_method) do |&block|
-              block.call
-            end
-          end
-
-          model.unrestrict_method(:block_based_method)
-
-          block_called = false
-          instance.block_based_method do
-            block_called = true
-          end
-
-          block_called.should be_true
+          model.unrestrict_method(:method_name)
         end
       end
     end
