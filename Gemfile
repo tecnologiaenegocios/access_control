@@ -7,6 +7,7 @@ gem 'pry'
 gem 'pry-doc'
 
 platform :mri_18 do
+  gem 'ruby18_source_location'
   gem 'ruby-debug'
   gem 'rcov'
 end
