@@ -33,6 +33,22 @@ module AccessControl
       AccessControl.stub(:config).and_return(config)
       AccessControl.stub(:registry).and_return(registry)
       AccessControl.macro_requirements.clear
+
+      registry.define_singleton_method(:store) do |permission_name, &block|
+        permission = RegistryFactory::Permission.new(permission_name)
+        block.call(permission) if block
+      end
+
+      registry.stub(:fetch_all) do |permission_names|
+        permission_names.map { |name| stub(:name => name) }
+      end
+
+      [:show, :list, :create, :update, :destroy].each do |type|
+        config.stub("permissions_required_to_#{type}") { Set.new }
+      end
+    end
+
+    def define_default_permissions
       [
         ['show',    'view'],
         ['list',   'list'],
@@ -43,15 +59,6 @@ module AccessControl
         config.stub("permissions_required_to_#{t}").
           and_return(Set[stub(:name => default)])
       end
-
-      registry.define_singleton_method(:store) do |permission_name, &block|
-        permission = RegistryFactory::Permission.new(permission_name)
-        block.call(permission) if block
-      end
-
-      registry.stub(:fetch_all) do |permission_names|
-        permission_names.map { |name| stub(:name => name) }
-      end
     end
 
     [
@@ -61,7 +68,6 @@ module AccessControl
       ['update',  'modify'],
       ['destroy', 'delete'],
     ].each do |t, default_permission|
-
       def required_permissions_names(model_class = model)
         getter_for(model_class).call.map(&:name).to_set
       end
@@ -75,6 +81,10 @@ module AccessControl
       end
 
       describe "#{t} requirement" do
+        before do
+          define_default_permissions
+        end
+
         define_method(:getter_for) do |model_class|
           model_class.method("permissions_required_to_#{t}")
         end
@@ -284,10 +294,12 @@ module AccessControl
           end
 
         end
-
       end
 
       describe "additional #{t} requirement" do
+        before do
+          define_default_permissions
+        end
 
         let(:default_permission) { Set[default] }
 
@@ -384,11 +396,58 @@ module AccessControl
 
     end
 
+    describe ".requires_no_permissions!" do
+      let(:requirement_types) do
+        [:show, :list, :create, :update, :destroy]
+      end
+
+      let(:model_class) do
+        Class.new do
+          extend Macros
+        end
+      end
+
+      before do
+        permission_storage = Set.new
+
+      end
+
+      def add_requirements_to(model_class)
+        requirement_types.each do |type|
+          model_class.public_send("#{type}_requires", "foo", "bar")
+        end
+      end
+
+      def expect_no_requirements_on(model_class)
+        requirement_types.each do |type|
+          requirements = model_class.public_send("permissions_required_to_#{type}")
+
+          error_message = "expected to have no #{type} requirements!"
+          requirements.should(be_empty, error_message)
+        end
+      end
+
+      it "removes all restrictions from the class" do
+        add_requirements_to(model_class)
+        model_class.requires_no_permissions!
+        expect_no_requirements_on(model_class)
+      end
+
+      it "makes protected methods not raise 'missing declaration' anymore" do
+        model_class.requires_no_permissions!
+
+        lambda {
+          model_class.new
+        }.should_not raise_error(AccessControl::MissingPermissionDeclaration)
+      end
+    end
+
     describe "removing restrictions from methods" do
       let(:instance) { model.new }
       let(:manager)  { stub("Manager") }
 
       before do
+        define_default_permissions
         AccessControl.stub(:manager => manager)
 
         manager.define_singleton_method(:trust) do |&block|

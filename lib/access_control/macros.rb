@@ -45,6 +45,14 @@ module AccessControl
 
     end
 
+    def requires_no_permissions!
+      show_requires    nil
+      list_requires    nil
+      create_requires  nil
+      update_requires  nil
+      destroy_requires nil
+    end
+
     def allocate
       check_missing_declarations! unless include?(Singleton)
       super
