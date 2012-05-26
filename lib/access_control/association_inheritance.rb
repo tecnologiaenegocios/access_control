@@ -13,8 +13,36 @@ module AccessControl
     end
 
     def relationships(collection = record_table, &block)
-      dataset = normalize_to_dataset(collection)
+      if collection.kind_of?(Sequel::Dataset)
+        relationships = relationships_for_dataset(collection)
+      elsif collection.kind_of?(Enumerable)
+        relationships = relationships_for_collection(collection)
+      else
+        raise ArgumentError, "Incompatible collection type #{collection.class}"
+      end
 
+      relationships.each(&block) if block
+      relationships
+    end
+    alias_method :relationships_of, :relationships
+
+    def relationships_for_collection(collection)
+      tuples = collection.map do |item|
+        [item.public_send(key_name), item.public_send(@orm.pk_name)]
+      end
+
+      AccessControl.db.
+        from(:ac_nodes, :ac_nodes => :parent_nodes).
+        filter(:securable_type.qualify(:parent_nodes) => parent_type,
+               :securable_type.qualify(:ac_nodes)     => record_type).
+        filter([ :securable_id.qualify(:parent_nodes),
+                 :securable_id.qualify(:ac_nodes) ]   => tuples).
+        select(:id.qualify(:parent_nodes) => :parent_id,
+               :id.qualify(:ac_nodes)     => :child_id)
+    end
+    private :relationships_for_collection
+
+    def relationships_for_dataset(dataset)
       child_nodes_clause = join_clause("child_nodes", record_type,
                                        :id.qualify(record_table_name))
 
@@ -25,12 +53,8 @@ module AccessControl
                               inner_join(*parent_nodes_clause).
                               select(:parent_nodes__id => :parent_id,
                                      :child_nodes__id  => :child_id)
-      if block
-        relationships.each(&block)
-      end
-      relationships
     end
-    alias_method :relationships_of, :relationships
+    private :relationships_for_dataset
 
     def ==(other)
       if other.class == self.class
@@ -62,16 +86,6 @@ module AccessControl
        { :securable_type.qualify(nodes_alias) => securable_type,
          :securable_id.qualify(nodes_alias)   => id_spec },
        { :table_alias => nodes_alias } ]
-    end
-
-    def normalize_to_dataset(object)
-      if object.kind_of?(Sequel::Dataset)
-        object
-      elsif object.kind_of?(Enumerable)
-        record_table.filter(:id.qualify(record_table_name) => object.map(&:id))
-      else
-        raise ArgumentError, "Incompatible collection type #{object.class}"
-      end
     end
 
     def record_table
