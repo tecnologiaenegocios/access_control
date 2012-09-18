@@ -63,8 +63,15 @@ module AccessControl
       current_roles       = inspector.current_roles |
                             global_inspector.current_roles
 
-      Util.log_missing_permissions(permissions, granted_permissions,
-                                   current_roles, caller)
+      AccessControl.logger.unauthorized(
+        permissions,
+        granted_permissions,
+        current_roles,
+        nodes,
+        principals,
+        caller
+      )
+
       raise Unauthorized
     end
 

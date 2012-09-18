@@ -240,10 +240,13 @@ module AccessControl
       end
 
       context "when the user doesn't have the permissions" do
+        let(:logger) { stub('Logger', :unauthorized => nil) }
         let(:missing_permissions) { Set["p4", "p5"] }
 
         before do
-          AccessControl::Util.stub(:log_missing_permissions)
+          AccessControl.stub(:logger).and_return(logger)
+          AccessControl.stub(:Principal).with(subject).and_return(principal)
+          manager.current_subjects = [subject]
         end
 
         it "raises the 'Unauthorized' exception" do
@@ -257,11 +260,12 @@ module AccessControl
             missing_permissions,
             permissions | inspector_at_global_node.permissions,
             current_roles | inspector_at_global_node.current_roles,
-            instance_of(Array)
+            nodes,
+            Set[principal],
+            instance_of(Array) # Backtrace
           ]
 
-          AccessControl::Util.should_receive(:log_missing_permissions).
-            with(*log_arguments)
+          logger.should_receive(:unauthorized).with(*log_arguments)
 
           begin
             manager.can!(missing_permissions, nodes)

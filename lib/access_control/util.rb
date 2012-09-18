@@ -1,7 +1,5 @@
 module AccessControl
-
   module Util
-
     class << self
 
       # An utility method that wraps the following common patterns:
@@ -89,19 +87,6 @@ module AccessControl
         end
       end
 
-      def log_missing_permissions requirements, current, roles, trace
-        AccessControl::Logger.log_missing_permissions(
-          make_set_from_args(requirements),
-          make_set_from_args(current),
-          make_set_from_args(roles),
-          trace
-        )
-      end
-
-      def log_unregistered_permission permission
-        AccessControl::Logger.log_unregistered_permission(permission)
-      end
-
       def make_set_from_args *args
         if args.size == 1 && args.first.is_a?(Enumerable)
           return Set.new(args.first)
@@ -148,70 +133,6 @@ module AccessControl
       def new_calls_allocate!
         @new_calls_allocate = true
       end
-
     end
-
-  end
-
-  module Logger
-
-    class << self
-
-      def format_trace trace
-        trace = clean_trace(trace)
-        if ActiveRecord::Base.colorize_logging
-          trace.map!{|t| "\e[31;2m#{t}\e[0m"}
-        end
-        trace.map{|t| "    #{t}"}.join("\n")
-      end
-
-      def clean_trace trace
-        Rails.respond_to?(:backtrace_cleaner) ?
-          Rails.backtrace_cleaner.clean(trace) :
-          trace
-      end
-
-      def format_permissions permissions
-        permissions.to_a.map(&:name).to_sentence(:locale => 'en')
-      end
-
-      def format_current_roles roles
-        roles.to_a.map(&:name).to_sentence(:locale => 'en')
-      end
-
-      def format_unauthorized_message missing_permissions, current_roles
-        principal_ids = AccessControl.manager.principals.map(&:id)
-        msg = "Access denied for principal id(s) #{
-          principal_ids.to_sentence(:locale => 'en')
-        } (roles: #{current_roles}): missing #{missing_permissions}"
-        if ActiveRecord::Base.colorize_logging
-          return "  \e[31;1m#{msg}\e[0m\n"
-        end
-        "  #{msg}\n"
-      end
-
-      def format_unregistered_permission_message permission
-        base = "Permission \"#{permission}\" is not registered"
-        if ActiveRecord::Base.colorize_logging
-          return "\e[31;1m#{base}\e[0m"
-        end
-        base
-      end
-
-      def log_missing_permissions requirements, current, roles, trace
-        missing_permissions = format_permissions(requirements - current)
-        current_roles = format_current_roles(roles)
-        Rails.logger.info(
-          format_unauthorized_message(missing_permissions, current_roles) +
-          format_trace(trace)
-        )
-      end
-
-      def log_unregistered_permission permission
-        Rails.logger.info(format_unregistered_permission_message(permission))
-      end
-
-    end
-
   end
 end

@@ -101,6 +101,10 @@ module AccessControl
       @subject_class ||= subject_type.constantize
     end
 
+    def inspect
+      "#<AccessControl::Principal id: #{id}, subject: #{subject_type}(#{subject_id})>"
+    end
+
     def subject
       @subject ||=
         begin
