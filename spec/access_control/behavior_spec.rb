@@ -311,7 +311,7 @@ describe AccessControl do
         {:parent_id => parent, :child_id => child}
       end
 
-      inheritance = stub("Inheritance", :relationships => hashes)
+      stub("Inheritance", :relationships => hashes)
     end
 
     it "imports every parent-child tuple for each inheritance" do
@@ -359,6 +359,36 @@ describe AccessControl do
   describe ".registry" do
     it "just returns the AccessControl::Registry constant" do
       AccessControl.registry.should == AccessControl::Registry
+    end
+  end
+
+  describe ".clear" do
+    # In the future the declarations in Macros and in ControllerSecurity
+    # will not keep data outside the registry, and this method will be removed.
+    # Only a call to clear the registry (which is exposed as part of our public
+    # API) will be needed.
+    it "clears macro declarations, controller security and registry" do
+      AccessControl::ControllerSecurity.should_receive(:clear)
+      AccessControl::Macros.should_receive(:clear)
+
+      AccessControl::Registry.should_receive(:clear_registry)
+
+      AccessControl.clear
+    end
+  end
+
+  describe ".reset" do
+    it "clears macro declarations, controller security, registry and inheritance" do
+      # In the future the declarations in Macros and in ControllerSecurity
+      # will not keep data outside the registry, so the following calls will
+      # not be necessary anymore.
+      AccessControl::ControllerSecurity.should_receive(:clear)
+      AccessControl::Macros.should_receive(:clear)
+
+      AccessControl::Registry.should_receive(:clear_registry)
+      AccessControl::Inheritance.should_receive(:clear)
+
+      AccessControl.reset
     end
   end
 

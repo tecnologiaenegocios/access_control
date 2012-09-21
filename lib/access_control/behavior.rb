@@ -2,6 +2,9 @@ require 'access_control/manager'
 require 'access_control/null_manager'
 require 'access_control/securable'
 require 'access_control/inheritance'
+require 'access_control/registry'
+require 'access_control/macros'
+require 'access_control/controller_security'
 
 module AccessControl
 
@@ -146,6 +149,17 @@ module AccessControl
 
   def self.registry
     AccessControl::Registry
+  end
+
+  def self.clear
+    AccessControl::ControllerSecurity.clear
+    AccessControl::Macros.clear
+    AccessControl::Registry.clear_registry
+  end
+
+  def self.reset
+    clear
+    AccessControl::Inheritance.clear
   end
 
   class GlobalRecord

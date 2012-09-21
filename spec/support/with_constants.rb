@@ -35,16 +35,18 @@ module WithConstants
   module ExampleMethods
     def let_class(name, superclass, &block)
       name = name.to_s
-      declared_constants[name] = Class.new(superclass).tap do |klass|
-        klass.define_singleton_method(:name) { name }
+      declared_constants[name] = lambda do
+        Class.new(superclass).tap do |klass|
+          klass.define_singleton_method(:name) { name }
 
-        # This is bizarre: #to_s calls #name only if the class/module is not
-        # anonymous.
-        def klass.to_s
-          name
+          # This is bizarre: #to_s calls #name only if the class/module is not
+          # anonymous.
+          def klass.to_s
+            name
+          end
+
+          klass.class_eval(&block)
         end
-
-        klass.class_eval(&block)
       end
     end
 
@@ -64,6 +66,14 @@ module WithConstants
     def after(*args, &block)
       super(*args) { with_declared_constants { instance_eval(&block) } }
     end
+    def run(*args)
+      super
+    ensure
+      # A cleanup is needed: when securable classes have inheritance and/or
+      # permission declarations, global state is left in some AccessControl
+      # objects.
+      AccessControl.reset
+    end
 
     def declared_constants
       @declared_constants ||= {}
@@ -73,6 +83,6 @@ module WithConstants
 private
 
   def declared_constants
-    @declared_constants ||= self.class.declared_constants.values
+    @declared_constants ||= self.class.declared_constants.values.map(&:call)
   end
 end

@@ -4,13 +4,6 @@ require 'access_control/exceptions'
 
 module AccessControl
   describe RegistryFactory do
-
-    before do
-      AccessControl.stub(:protected_actions).and_return({})
-      AccessControl.stub(:published_actions).and_return({})
-      AccessControl.stub(:macro_requirements).and_return({})
-    end
-
     let(:permission_factory) do
       lambda do |permission_name|
         OpenStruct.new(:name => permission_name)
@@ -57,11 +50,11 @@ module AccessControl
         value = stub
         subject.add_index(:key)
 
-        permission = subject.store("permission") do |permission|
+        stored_permission = subject.store("permission") do |permission|
           permission.key = value
         end
 
-        subject.query(:key => value).should include_only(permission)
+        subject.query(:key => value).should include_only(stored_permission)
       end
 
       specify "when a permission is #store'd the second time, re-indexes it" do
@@ -200,8 +193,8 @@ module AccessControl
       end
 
       it "raises NotFoundError if any of the permissions is missing" do
-        p1 = subject.store("Permission 1")
-        p2 = subject.store("Permission 3")
+        subject.store("Permission 1")
+        subject.store("Permission 3")
 
         lambda {
           subject.fetch_all(['Permission 1', 'Permission 2'])
@@ -219,7 +212,7 @@ module AccessControl
 
       it "filters permissions by name" do
         p1 = subject.store("Permission 1")
-        p2 = subject.store("Permission 2")
+        subject.store("Permission 2")
 
         returned_value = subject.query(:name => "Permission 1")
         returned_value.should include_only(p1)
@@ -229,7 +222,7 @@ module AccessControl
         subject.add_index(:price)
 
         p1 = subject.store("Permission 1") { |perm| perm.price = 123 }
-        p2 = subject.store("Permission 2") { |perm| perm.price = 456 }
+        subject.store("Permission 2") { |perm| perm.price = 456 }
 
         returned_value = subject.query(:price => 123)
         returned_value.should include_only(p1)
@@ -237,7 +230,7 @@ module AccessControl
 
       it "filters permissions by not-indexed fields" do
         p1 = subject.store("Permission 1") { |perm| perm.price = 123 }
-        p2 = subject.store("Permission 2") { |perm| perm.price = 456 }
+        subject.store("Permission 2") { |perm| perm.price = 456 }
 
         returned_value = subject.query(:price => 123)
         returned_value.should include_only(p1)
@@ -249,24 +242,30 @@ module AccessControl
         end
 
         it "returns permissions that include all the values passed" do
-          perm = subject.store("Permission") { |perm| perm.prices = [123,456] }
+          stored_permission = subject.store("Permission") do |perm|
+            perm.prices = [123,456]
+          end
 
           returned_value = subject.query(:prices => [123, 456])
-          returned_value.should include(perm)
+          returned_value.should include(stored_permission)
         end
 
         it "returns permissions that include one of the values passed" do
-          perm = subject.store("Permission") { |perm| perm.prices = [123] }
+          stored_permission = subject.store("Permission") do |perm|
+            perm.prices = [123]
+          end
 
           returned_value = subject.query(:prices => [123, 456])
-          returned_value.should include(perm)
+          returned_value.should include(stored_permission)
         end
 
         it "doesn't return permissions that include none of the values" do
-          perm = subject.store("Permission") { |perm| perm.prices = [789] }
+          stored_permission = subject.store("Permission") do |perm|
+            perm.prices = [789]
+          end
 
           returned_value = subject.query(:prices => [123, 456])
-          returned_value.should_not include(perm)
+          returned_value.should_not include(stored_permission)
         end
 
         it "returns all permissions that have at least one value" do
@@ -285,12 +284,12 @@ module AccessControl
             perm.flag   = true
           end
 
-          p2 = subject.store("Permission 2") do |perm|
+          subject.store("Permission 2") do |perm|
             perm.prices = [456,789]
             perm.flag   = false
           end
 
-          p3 = subject.store("Permission 3") do |perm|
+          subject.store("Permission 3") do |perm|
             perm.prices = [123,789]
             perm.flag   = true
           end
@@ -305,12 +304,12 @@ module AccessControl
             perm.flag   = true
           end
 
-          p2 = subject.store("Permission 2") do |perm|
+          subject.store("Permission 2") do |perm|
             perm.prices = [456,789]
             perm.flag   = false
           end
 
-          p3 = subject.store("Permission 3") do |perm|
+          subject.store("Permission 3") do |perm|
             perm.prices = [123,789]
             perm.flag   = true
           end
@@ -324,32 +323,36 @@ module AccessControl
       end
 
       it "may accept a block for custom filtering" do
-        p1 = subject.store("Permission 1") { |perm| perm.price = 100 }
-        p2 = subject.store("Permission 2") { |perm| perm.price = 200 }
-        p3 = subject.store("Permission 3") { |perm| perm.price = 300 }
+        subject.store("Permission 1") { |perm| perm.price = 100 }
+        p1 = subject.store("Permission 2") { |perm| perm.price = 200 }
+        subject.store("Permission 3") { |perm| perm.price = 300 }
 
         returned_value = subject.query do |permission|
           permission.price > 100 and permission.price < 300
         end
-        returned_value.should include_only(p2)
+        returned_value.should include_only(p1)
       end
     end
 
     describe "an index" do
       it "contains the permissions registered after its creation" do
         subject.add_index(:price)
-        perm = subject.store("Permission") { |perm| perm.price = 100 }
+        stored_permission = subject.store("Permission") do |permission|
+          permission.price = 100
+        end
 
         returned_value = subject.query(:price => 100)
-        returned_value.should include(perm)
+        returned_value.should include(stored_permission)
       end
 
       it "contains the permissions registered before its creation" do
-        perm = subject.store("Permission") { |perm| perm.price = 100 }
+        stored_permission = subject.store("Permission") do |permission|
+          permission.price = 100
+        end
         subject.add_index(:price)
 
         returned_value = subject.query(:price => 100)
-        returned_value.should include(perm)
+        returned_value.should include(stored_permission)
       end
 
       it "may contain multiple permissions for the same value" do
@@ -363,10 +366,12 @@ module AccessControl
 
       it "ignores permissions whose value for the index is null" do
         subject.add_index(:price)
-        perm = subject.store("Permission") { |perm| perm.price = nil }
+        stored_permission = subject.store("Permission") do |permission|
+          permission.price = nil
+        end
 
         returned_value = subject.query(:price => nil)
-        returned_value.should_not include(perm)
+        returned_value.should_not include(stored_permission)
       end
 
       it "ignores permissions that don't have a corresponding method" do
@@ -383,11 +388,13 @@ module AccessControl
     describe "collection-based indexes" do
       it "associate the same permission to multiple values" do
         subject.add_collection_index(:prices)
-        perm = subject.store("Permission") { |perm| perm.prices = [100, 200] }
+        stored_permission = subject.store("Permission") do |permission|
+          permission.prices = [100, 200]
+        end
 
-        subject.query(:prices => [100, 200]).should include perm
-        subject.query(:prices => [200]).should include perm
-        subject.query(:prices => [100]).should include perm
+        subject.query(:prices => [100, 200]).should include stored_permission
+        subject.query(:prices => [200]).should include stored_permission
+        subject.query(:prices => [100]).should include stored_permission
       end
 
       it "may contain multiple permissions for overlapping values" do
@@ -401,10 +408,12 @@ module AccessControl
 
       it "ignores permissions whose value for the index is empty" do
         subject.add_collection_index(:prices)
-        perm = subject.store("Permission") { |perm| perm.prices = [] }
+        stored_permission = subject.store("Permission") do |permission|
+          permission.prices = []
+        end
 
         returned_value = subject.query(:prices => [])
-        returned_value.should_not include(perm)
+        returned_value.should_not include(stored_permission)
       end
 
       it "ignores permissions that don't have a corresponding method" do
@@ -428,22 +437,12 @@ module AccessControl
 
       it "clears all the indexes" do
         subject.add_index(:price)
-        p1 = subject.store("Permission 1") { |perm| perm.price = 100 }
+        subject.store("Permission 1") { |perm| perm.price = 100 }
         subject.clear_registry
-        p2 = subject.store("Permission 2") { |perm| perm.price = 100 }
+        p1 = subject.store("Permission 2") { |perm| perm.price = 100 }
 
         returned_value = subject.query(:price => 100)
-        returned_value.should include_only(p2)
-      end
-
-      it "clears macro declarations, protected and published actions" do
-        # In the future the declarations in Macros and in ControllerSecurity
-        # will not keep data outside the registry, so this will not be
-        # necessary anymore.
-        AccessControl.published_actions.should_receive(:clear)
-        AccessControl.protected_actions.should_receive(:clear)
-        AccessControl.macro_requirements.should_receive(:clear)
-        subject.clear_registry
+        returned_value.should include_only(p1)
       end
     end
   end

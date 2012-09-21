@@ -66,8 +66,8 @@ module AccessControl
       AccessControl::Node.stub(:clear_global_cache)
       AccessControl.stub(:manager).and_return(manager)
       AccessControl.stub(:no_manager)
-      AccessControl.published_actions.clear
-      AccessControl.protected_actions.clear
+      AccessControl::ControllerSecurity.published_actions.clear
+      AccessControl::ControllerSecurity.protected_actions.clear
     end
 
     after do
@@ -182,7 +182,7 @@ module AccessControl
     describe ".unprotect" do
       # Use this method in tests in order to not carry state from a spec/test
       # to the next one.
-      let(:registry)   { stub }
+      let(:registry)    { stub }
       let(:permission1) { RegistryFactory::Permission.new }
       let(:permission2) { RegistryFactory::Permission.new }
 
@@ -191,7 +191,11 @@ module AccessControl
         permission2.stub(:name).and_return('some other permission')
 
         registry.stub(:store)
+        registry.stub(:unstore)
         registry.stub(:query).and_return(Set.new)
+        registry.stub(:query).
+          with(:ac_methods => [[records_controller.class.name, :some_action]]).
+          and_return(Set.new([permission1, permission2]))
 
         AccessControl.stub(:registry).and_return(registry)
 
@@ -207,9 +211,6 @@ module AccessControl
       end
 
       it "unregisters the permissions associated with the action" do
-        registry.stub(:query).
-          with(:ac_methods => [[records_controller.class.name, :some_action]]).
-          and_return(Set.new([permission1, permission2]))
         registry.should_receive(:unstore).with('some permission')
         registry.should_receive(:unstore).with('some other permission')
         records_controller.class.unprotect :some_action
@@ -230,6 +231,26 @@ module AccessControl
         records_controller.class.publish :some_action
         records_controller.class.unpublish :some_action
         records_controller.class.action_published?(:some_action).should be_false
+      end
+    end
+
+    describe "ControllerSecurity.clear" do
+      it "wipes out published actions" do
+        records_controller.class.publish :some_action
+
+        ControllerSecurity.clear
+        records_controller.class.action_published?(:some_action).should be_false
+      end
+
+      it "wipes out protected actions" do
+        registry = stub
+        AccessControl.stub(:registry).and_return(registry)
+        registry.stub(:store)
+        records_controller.class.protect :some_action,
+                                         :with => 'some permission'
+
+        ControllerSecurity.clear
+        records_controller.class.action_protected?(:some_action).should be_false
       end
     end
 

@@ -5,11 +5,14 @@ require 'access_control/registry'
 require 'access_control/util'
 
 module AccessControl
-  def self.macro_requirements
-    @macro_requirements ||= {}
-  end
-
   module Macros
+    def self.macro_requirements
+      @macro_requirements ||= {}
+    end
+
+    def self.clear
+      macro_requirements.clear
+    end
 
     # def show_requires
     # def list_requires
@@ -80,7 +83,7 @@ module AccessControl
   private
 
     def permission_requirement(type)
-      (AccessControl.macro_requirements[self.name] ||= {})[type] ||=
+      (Macros.macro_requirements[self.name] ||= {})[type] ||=
         Requirement.new(self, type)
     end
 

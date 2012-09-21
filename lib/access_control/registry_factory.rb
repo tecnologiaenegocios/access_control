@@ -12,9 +12,6 @@ module AccessControl
     def clear_registry
       @permissions = nil
       @indexed_permissions = nil
-      AccessControl.published_actions.clear
-      AccessControl.protected_actions.clear
-      AccessControl.macro_requirements.clear
     end
 
     def store(name)

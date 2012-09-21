@@ -3,41 +3,44 @@ require 'access_control/exceptions'
 require 'access_control/registry'
 
 module AccessControl
-
   def self.controller_security_enabled?
     true
   end
 
-  def self.protected_actions
-    @protected_actions ||= Hash.new { |h, k| h[k] = Set.new }
-  end
-
-  def self.published_actions
-    @published_actions ||= Hash.new { |h, k| h[k] = Set.new }
-  end
-
   module ControllerSecurity
+    def self.protected_actions
+      @protected_actions ||= Hash.new { |h, k| h[k] = Set.new }
+    end
+
+    def self.published_actions
+      @published_actions ||= Hash.new { |h, k| h[k] = Set.new }
+    end
+
+    def self.clear
+      published_actions.clear
+      protected_actions.clear
+    end
 
     module ClassMethods
 
       def action_published?(action)
-        AccessControl.published_actions[name].include?(action.to_sym)
+        ControllerSecurity.published_actions[name].include?(action.to_sym)
       end
 
       def action_protected?(action)
-        AccessControl.protected_actions[name].include?(action.to_sym)
+        ControllerSecurity.protected_actions[name].include?(action.to_sym)
       end
 
       def publish action
-        AccessControl.published_actions[name] << action.to_sym
+        ControllerSecurity.published_actions[name] << action.to_sym
       end
 
       def unpublish action
-        AccessControl.published_actions[name].delete(action.to_sym)
+        ControllerSecurity.published_actions[name].delete(action.to_sym)
       end
 
       def protect action, options, &block
-        AccessControl.protected_actions[name] << action.to_sym
+        ControllerSecurity.protected_actions[name] << action.to_sym
 
         permission_name = options[:with]
         ac_method = [name, action.to_sym]
@@ -54,7 +57,7 @@ module AccessControl
       end
 
       def unprotect action
-        AccessControl.protected_actions[name].delete(action.to_sym)
+        ControllerSecurity.protected_actions[name].delete(action.to_sym)
         registry  = AccessControl.registry
         query_key = [name, action.to_sym]
         registry.query(:ac_methods => [query_key]).each do |permission|

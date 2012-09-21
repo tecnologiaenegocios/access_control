@@ -32,7 +32,7 @@ module AccessControl
     before do
       AccessControl.stub(:config).and_return(config)
       AccessControl.stub(:registry).and_return(registry)
-      AccessControl.macro_requirements.clear
+      AccessControl::Macros.clear
 
       registry.define_singleton_method(:store) do |permission_name, &block|
         permission = RegistryFactory::Permission.new(permission_name)
@@ -407,11 +407,6 @@ module AccessControl
         end
       end
 
-      before do
-        permission_storage = Set.new
-
-      end
-
       def add_requirements_to(model_class)
         requirement_types.each do |type|
           model_class.public_send("#{type}_requires", "foo", "bar")
@@ -519,5 +514,15 @@ module AccessControl
       end
     end
 
+    describe ".clear" do
+      before do
+        model.class_eval { show_requires 'some permission' }
+        AccessControl::Macros.clear
+      end
+
+      it "clears macro requirements" do
+        model.permissions_required_to_show.should be_empty
+      end
+    end
   end
 end
