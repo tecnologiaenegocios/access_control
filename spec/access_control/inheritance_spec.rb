@@ -20,7 +20,6 @@ module AccessControl
       klass
     end
 
-
     describe ".parent_node_ids_of" do
       let(:securable) { stub("Securable", :class => model) }
 
@@ -228,5 +227,15 @@ module AccessControl
       end
     end
 
+    describe ".clear" do
+      before do
+        model.inherits_permissions_from(:foo)
+        Inheritance.clear
+      end
+
+      it "clears inheritance" do
+        Inheritance.inheritances_of(model.name).should be_empty
+      end
+    end
   end
 end

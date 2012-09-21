@@ -62,17 +62,17 @@ module AccessControl
     end
     private_class_method :inheritances
 
+    def self.clear
+      @inheritances = nil
+    end
+
 
     module ClassMethods
       def inherits_permissions_from(*methods)
-        if methods.count == 1
-          method_name = methods.first
+        inheritances = methods.map do |method_name|
           Inheritance.add_method_inheritance(self, method_name)
-        else
-          methods.map do |method_name|
-            Inheritance.add_method_inheritance(self, method_name)
-          end
         end
+        inheritances.size == 1 ? inheritances.first : inheritances
       end
 
       def inherits_permissions_from_key(key_name, options)
