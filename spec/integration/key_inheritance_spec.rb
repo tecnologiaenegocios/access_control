@@ -1,28 +1,29 @@
 require 'spec_helper'
 
 describe "key-based inheritance" do
-  class Record < ActiveRecord::Base
+  include WithConstants
+
+  let_active_record(:Record) do
     include AccessControl::Securable
 
     belongs_to :parent, :foreign_key => :record_id, :class_name => "Record"
     inherits_permissions_from_key :record_id, :class_name => "Record"
+
+    requires_no_permissions!
   end
 
-  class User < ActiveRecord::Base
+  let_active_record(:User) do
     include AccessControl::ActiveRecordSubject
   end
 
-  let(:role) { AccessControl::Role.store(:name => "Role") }
-  let(:user) { User.create! }
-
-  before do
-    Record.requires_no_permissions!
-  end
-
-  let(:parent_record)  { Record.create! }
-  let(:child_record)   { Record.create!(:parent => parent_record) }
+  let(:role)          { AccessControl::Role.store(:name => "Role") }
+  let(:user)          { User.create! }
+  let(:parent_record) { Record.create! }
+  let(:child_record)  { Record.create!(:parent => parent_record) }
 
   it "propagates roles from parent records to child record" do
+    child_record = Record.create!(:parent => parent_record)
+
     role.assign_to(user, parent_record)
     role.should be_assigned_to(user, child_record)
   end
