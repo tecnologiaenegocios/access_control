@@ -371,7 +371,7 @@ describe AccessControl do
       AccessControl::ControllerSecurity.should_receive(:clear)
       AccessControl::Macros.should_receive(:clear)
 
-      AccessControl::Registry.should_receive(:clear_registry)
+      AccessControl::Registry.should_receive(:clear)
 
       AccessControl.clear
     end
@@ -385,7 +385,7 @@ describe AccessControl do
       AccessControl::ControllerSecurity.should_receive(:clear)
       AccessControl::Macros.should_receive(:clear)
 
-      AccessControl::Registry.should_receive(:clear_registry)
+      AccessControl::Registry.should_receive(:clear)
       AccessControl::Inheritance.should_receive(:clear)
 
       AccessControl.reset

@@ -37,7 +37,7 @@ module AccessControl
     end
 
     after do
-      Registry.clear_registry
+      Registry.clear
     end
   end
 end

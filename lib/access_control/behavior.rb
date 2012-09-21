@@ -154,7 +154,7 @@ module AccessControl
   def self.clear
     AccessControl::ControllerSecurity.clear
     AccessControl::Macros.clear
-    AccessControl::Registry.clear_registry
+    AccessControl::Registry.clear
   end
 
   def self.reset

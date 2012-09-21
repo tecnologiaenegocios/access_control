@@ -427,10 +427,10 @@ module AccessControl
       end
     end
 
-    describe "#clear_registry" do
+    describe "#clear" do
       it "removes all the added permissions" do
         perm = subject.store("Permission")
-        subject.clear_registry
+        subject.clear
 
         subject.all.should_not include(perm)
       end
@@ -438,7 +438,7 @@ module AccessControl
       it "clears all the indexes" do
         subject.add_index(:price)
         subject.store("Permission 1") { |perm| perm.price = 100 }
-        subject.clear_registry
+        subject.clear
         p1 = subject.store("Permission 2") { |perm| perm.price = 100 }
 
         returned_value = subject.query(:price => 100)

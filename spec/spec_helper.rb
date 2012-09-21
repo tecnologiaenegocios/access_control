@@ -36,13 +36,13 @@ Spec::Runner.configure do |config|
 
   config.before(:each) do
     if defined?(Registry)
-      Registry.clear_registry
+      Registry.clear
     end
   end
 
   config.after(:each) do
     if defined?(Registry)
-      Registry.clear_registry
+      Registry.clear
     end
   end
 end

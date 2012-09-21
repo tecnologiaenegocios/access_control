@@ -9,7 +9,7 @@ module AccessControl
       @permission_factory = permission_factory
     end
 
-    def clear_registry
+    def clear
       @permissions = nil
       @indexed_permissions = nil
     end
