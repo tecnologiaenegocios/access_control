@@ -71,6 +71,17 @@ module AccessControl
         parents = [method_parent_id, association_parent_id]
         Inheritance.parent_node_ids_of(securable).should include_only(*parents)
       end
+
+      it "removes duplicates" do
+        same_parent_id = 666
+
+        method_inheritance.stub(:relationships_of).with([securable]).
+          and_return [ {:parent_id => same_parent_id} ]
+        association_inheritance.stub(:relationships_of).with([securable]).
+          and_return [ {:parent_id => same_parent_id} ]
+
+        Inheritance.parent_node_ids_of(securable).should include_only(same_parent_id)
+      end
     end
 
     describe ".inherits_permissions_from" do

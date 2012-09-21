@@ -23,10 +23,10 @@ module AccessControl
 
     def self.parent_node_ids_of(securable)
       inheritances = inheritances_of(securable.class)
-      inheritances.flat_map do |inheritance|
+      inheritances.flat_map { |inheritance|
         relationships = inheritance.relationships_of([securable])
         relationships.map { |relationship| relationship.fetch(:parent_id) }
-      end
+      }.uniq
     end
 
     def self.add_key_inheritance(model, key_name, class_name)
