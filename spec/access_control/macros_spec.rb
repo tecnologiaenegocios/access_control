@@ -215,24 +215,50 @@ module AccessControl
           object.class.should == model
         end
 
+        specify "allocation is fine if a permission is explicitly omitted "\
+                "in a superclass" do
+          subclass = model_class(:inheriting_from => model)
+          set_permissions_names(nil)
+          lambda {
+            object = subclass.allocate
+            object.class.should == subclass
+          }.should_not raise_exception
+        end
+
         specify "instantiation is fine if a permission is set in config" do
-          object = model.new('foo')
-          object.class.should == model
-          object.foo.should == 'foo'
+          lambda {
+            object = model.new('foo')
+            object.class.should == model
+            object.foo.should == 'foo'
+          }.should_not raise_exception
         end
 
         specify "instantiation is fine if a permission is set in the model" do
           set_permissions_names('some permission')
-          object = model.new('foo')
-          object.class.should == model
-          object.foo.should == 'foo'
+          lambda {
+            object = model.new('foo')
+            object.class.should == model
+            object.foo.should == 'foo'
+          }.should_not raise_exception
         end
 
         specify "instantiation is fine if a permission is explicitly omitted" do
           set_permissions_names(nil)
-          object = model.new('foo')
-          object.class.should == model
-          object.foo.should == 'foo'
+          lambda {
+            object = model.new('foo')
+            object.class.should == model
+            object.foo.should == 'foo'
+          }.should_not raise_exception
+        end
+
+        specify "instantiation is fine if a permission is explicitly omitted "\
+                "in a superclass" do
+          subclass = model_class(:inheriting_from => model)
+          set_permissions_names(nil)
+          lambda {
+            object = subclass.new
+            object.class.should == subclass
+          }.should_not raise_exception
         end
 
         describe "for two objects with the same 'name'" do
@@ -272,8 +298,9 @@ module AccessControl
           context "in singletons" do
             it "doesn't check for declarations" do
               model.send(:include, Singleton)
-              lambda { model.instance }.
-                should_not raise_exception(MissingPermissionDeclaration)
+              lambda {
+                model.instance
+              }.should_not raise_exception(MissingPermissionDeclaration)
             end
           end
 
@@ -292,7 +319,6 @@ module AccessControl
               }.should raise_exception(MissingPermissionDeclaration)
             end
           end
-
         end
       end
 

@@ -6,12 +6,8 @@ require 'access_control/util'
 
 module AccessControl
   module Macros
-    def self.macro_requirements
-      @macro_requirements ||= {}
-    end
-
     def self.clear
-      macro_requirements.clear
+      RequirementDeclaration.clear
     end
 
     # def show_requires
@@ -33,19 +29,17 @@ module AccessControl
     # def permissions_required_to_destroy
 
     [:show, :list, :create, :update, :destroy].each do |t|
-
       define_method(:"#{t}_requires") do |*permissions, &block|
-        permission_requirement(t).set(*permissions, &block)
+        RequirementDeclaration.items_for_class(self)[t].set(*permissions, &block)
       end
 
       define_method(:"add_#{t}_requirement") do |*permissions, &block|
-        permission_requirement(t).add(*permissions, &block)
+        RequirementDeclaration.items_for_class(self)[t].add(*permissions, &block)
       end
 
       define_method(:"permissions_required_to_#{t}") do
-        permission_requirement(t).get
+        RequirementDeclaration.items_for_class(self)[t].get
       end
-
     end
 
     def requires_no_permissions!
@@ -57,13 +51,13 @@ module AccessControl
     end
 
     def allocate
-      check_missing_declarations! unless include?(Singleton)
+      RequirementDeclaration.check_missing_declarations!(self) unless include?(Singleton)
       super
     end
 
     unless AccessControl::Util.new_calls_allocate?
       def new(*args)
-        check_missing_declarations! unless include?(Singleton)
+        RequirementDeclaration.check_missing_declarations!(self) unless include?(Singleton)
         super
       end
     end
@@ -80,96 +74,167 @@ module AccessControl
       AccessControl.unrestrict_method(self, method_name)
     end
 
-  private
-
-    def permission_requirement(type)
-      (Macros.macro_requirements[self.name] ||= {})[type] ||=
-        Requirement.new(self, type)
-    end
-
-    def check_missing_declarations!
-      return if @checked_missing_declarations
-      [:show, :list, :create, :update, :destroy].each do |t|
-        req = permission_requirement(t)
-        if req.get.empty? && !req.declared_no_permissions?
-          raise MissingPermissionDeclaration,
-                "expected to have declaration for #{t} in model #{name}"
-        end
-      end
-      @checked_missing_declarations = true
-    end
-
     class Requirement
-
-      def initialize(owner, type)
+      def initialize(owner, *permission_names, &block)
         @owner = owner
-        @type = type
-        @declared_no_permissions = false
-        @declared = Set.new
-        @added = Set.new
-      end
-
-      def set(*permissions, &block)
-        if permissions == [nil]
-          declared_no_permissions!
-          permissions = Set.new
-        end
-        @declared = Util.make_set_from_args(*permissions)
-        register(@declared, &block)
-      end
-
-      def add(*permissions, &block)
-        @added = Util.make_set_from_args(*permissions)
-        register(@added, &block)
+        @names = Util.make_set_from_args(*permission_names)
+        register(&block)
       end
 
       def get
-        AccessControl.registry.fetch_all(get_names).to_set
+        if @names.empty?
+          inherited_permissions
+        else
+          AccessControl.registry.fetch_all(@names).to_set
+        end
       end
 
-      def declared_no_permissions?
-        !!@declared_no_permissions
+      def null?
+        get.empty? && superclass_declaration.declared.null?
       end
 
     private
 
-      def get_names
-        return Set.new if declared_no_permissions?
-        return @declared | @added if @declared.any?
-        get_names_from_superclass_or_config | @added
-      end
-
-      def declared_no_permissions!
-        @declared_no_permissions = true
-      end
-
-      def register(permission_names, &block)
-        permission_names.each do |permission_name|
+      def register(&block)
+        @names.each do |permission_name|
           AccessControl.registry.store(permission_name, &block)
         end
       end
 
-      def get_names_from_superclass_or_config
-        get_from_superclass_or_config.map(&:name).to_set
+      def inherited_permissions
+        superclass_declaration.get
       end
 
-      def get_from_superclass_or_config
-        if superclass.respond_to?(:"permissions_required_to_#{@type}")
-          superclass.send(:"permissions_required_to_#{@type}") rescue Set.new
+      def superclass_declaration
+        if @owner.superclass
+          RequirementDeclaration.items_for_class(@owner.superclass)[type]
         else
-          config.send(:"permissions_required_to_#{@type}")
+          DefaultRequirementDeclaration.new(type)
         end
+      end
+
+      def type
+        @owner.type
+      end
+    end
+
+    class AddedRequirement < Requirement
+      def get
+        AccessControl.registry.fetch_all(@names).to_set
+      end
+    end
+
+    class NullRequirement
+      def get; Set.new; end
+      def null?; true; end
+    end
+
+    class ConfigRequirement
+      def initialize(type)
+        @type = type
+      end
+
+      def get
+        config.send(:"permissions_required_to_#{@type}")
+      end
+
+      def null?
+        false
+      end
+
+    private
+
+      def config
+        AccessControl.config
+      end
+    end
+
+    class RequirementDeclaration
+      class << self
+        def items_for_class(klass)
+          requirements[klass.name] ||= Hash.new do |hash, type|
+            hash[type] = new(klass, type)
+          end
+        end
+
+        def check_missing_declarations!(klass)
+          return if already_checked_class_object?(klass)
+          [:show, :list, :create, :update, :destroy].each do |type|
+            req = items_for_class(klass)[type]
+            if req.get.empty? && !req.declared.null?
+              raise MissingPermissionDeclaration,
+                    "expected to have declaration for #{type} in model "\
+                    "#{klass.name}"
+            end
+          end
+          mark_class_object_as_checked(klass)
+        end
+
+        def clear
+          requirements.clear
+        end
+
+      private
+
+        INST_VAR_NAME = :@__AccessControl_checked_missing_declarations__
+
+        def requirements
+          @requirements ||= {}
+        end
+
+        def already_checked_class_object?(klass)
+          klass.instance_variable_get(INST_VAR_NAME)
+        end
+
+        def mark_class_object_as_checked(klass)
+          klass.instance_variable_set(INST_VAR_NAME, true)
+        end
+      end
+
+      attr_reader :type
+      def initialize(owner, type)
+        @owner = owner
+        @type = type
+      end
+
+      def set(*permissions, &block)
+        if permissions == [nil]
+          @declared = NullRequirement.new
+        else
+          @declared = Requirement.new(self, *permissions, &block)
+        end
+      end
+
+      def add(*permissions, &block)
+        @added = AddedRequirement.new(self, *permissions, &block)
+      end
+
+      def get
+        declared.get | added.get
+      end
+
+      def declared
+        @declared ||= Requirement.new(self, Set.new)
+      end
+
+      def added
+        @added ||= AddedRequirement.new(self, Set.new)
       end
 
       def superclass
         @owner.superclass
       end
-
-      def config
-        AccessControl.config
-      end
-
     end
 
+    class DefaultRequirementDeclaration
+      attr_reader :declared
+      def initialize(type)
+        @declared ||= ConfigRequirement.new(type)
+      end
+
+      def get
+        declared.get
+      end
+    end
   end
 end
