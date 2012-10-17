@@ -1,7 +1,7 @@
 module AccessControl
   class ActiveRecordAssociator
     module Boilerplate
-      private
+    private
       def __associator__
         @__associator__ ||= ActiveRecordAssociator.new(self)
       end
@@ -11,9 +11,9 @@ module AccessControl
       base.class_eval do
         include Boilerplate
 
-        just_after_create  { __associator__.persist }
-        just_after_update  { __associator__.sync }
-        just_after_destroy { __associator__.destroy }
+        after_create  { |record| record.send(:__associator__).persist }
+        after_update  { |record| record.send(:__associator__).sync }
+        after_destroy { |record| record.send(:__associator__).destroy }
 
         define_method(name, &block)
       end
