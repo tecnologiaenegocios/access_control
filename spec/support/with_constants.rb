@@ -36,7 +36,12 @@ module WithConstants
     def let_class(name, superclass, &block)
       name = name.to_s
       declared_constants[name] = lambda do
-        Class.new(superclass).tap do |klass|
+        if superclass.is_a?(Symbol)
+          real_superclass = declared_constants[superclass.to_s].call
+        else
+          real_superclass = superclass
+        end
+        Class.new(real_superclass).tap do |klass|
           klass.define_singleton_method(:name) { name }
 
           # This is bizarre: #to_s calls #name only if the class/module is not
@@ -76,22 +81,60 @@ module WithConstants
     end
 
     def declared_constants
-      @declared_constants ||= {}
+      @declared_constants ||= DeclaredConstants.new(self)
+    end
+
+    class DeclaredConstants
+      def initialize(owner)
+        @owner = owner
+        @declared_constants = {}
+      end
+
+      def [](name)
+        declared_constants[name] || superclass_declared_constants[name]
+      end
+
+      def []=(name, callable)
+        declared_constants[name] = callable
+      end
+
+      def keys
+        declared_constants.keys | superclass_declared_constants.keys
+      end
+
+      def values
+        keys.map { |key| self[key] }
+      end
+
+      def get(name)
+        value = self[name]
+        value.call if value
+      end
+
+      def get_all
+        keys.map { |key| self.get(key) }
+      end
+
+    private
+      attr_reader :owner, :declared_constants
+
+      def superclass_declared_constants
+        if superclass.include?(WithConstants)
+          superclass.declared_constants
+        else
+          {}
+        end
+      end
+
+      def superclass
+        owner.superclass
+      end
     end
   end
 
 private
 
   def declared_constants
-    @declared_constants ||=
-      begin
-        self.class.ancestors.each_with_object({}) do |ancestor, constants|
-          if ancestor.is_a?(Class) && ancestor.include?(WithConstants)
-            ancestor.declared_constants.values.map(&:call).each do |const|
-              constants[const.name] = const
-            end
-          end
-        end.values
-      end
+    @declared_constants ||= self.class.declared_constants.get_all
   end
 end
