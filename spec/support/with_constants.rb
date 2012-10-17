@@ -83,6 +83,15 @@ module WithConstants
 private
 
   def declared_constants
-    @declared_constants ||= self.class.declared_constants.values.map(&:call)
+    @declared_constants ||=
+      begin
+        self.class.ancestors.each_with_object({}) do |ancestor, constants|
+          if ancestor.is_a?(Class) && ancestor.include?(WithConstants)
+            ancestor.declared_constants.values.map(&:call).each do |const|
+              constants[const.name] = const
+            end
+          end
+        end.values
+      end
   end
 end
