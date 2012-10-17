@@ -25,11 +25,11 @@ describe "principal association" do
     principal.should be_persisted
   end
 
-  specify "the principal can be found later for that record" do
+  specify "the principal is saved with correct attributes" do
     subject.save!
     principal = AccessControl::Principal(subject)
-    other_principal = AccessControl::Principal(User.first)
-    other_principal.should == principal
+    principal.subject_type.should == 'User'
+    principal.subject_id.should   == subject.id
   end
 
   it "destroys the principal when the record is destroyed" do
@@ -71,13 +71,26 @@ describe "principal association" do
         principal.should be_persisted
       end
 
-      specify "the principal can be found later for that record" do
+      specify "the principal is saved with correct attributes" do
         record = User.first
         record.save!
-        principal = AccessControl::Principal(record)
-        other_principal = AccessControl::Principal(User.first)
-        other_principal.should == principal
+        principal = AccessControl::Principal(subject)
+        principal.subject_type.should == 'User'
+        principal.subject_id.should   == record.id
       end
+    end
+  end
+
+  describe "in subclasses" do
+    let_class(:SubUser, :User) { }
+    subject { SubUser.new }
+
+    specify "the principal subject_type's is set to the subclass' name" do
+      subject.save!
+      reloaded = SubUser.first
+      principal = AccessControl::Principal(reloaded)
+      principal.subject_type.should == 'SubUser'
+      principal.subject_id.should   == reloaded.id
     end
   end
 end

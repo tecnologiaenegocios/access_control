@@ -26,11 +26,11 @@ describe "node association" do
     node.should be_persisted
   end
 
-  specify "the node can be found later for that record" do
+  specify "the node is saved with correct attributes" do
     subject.save!
     node = AccessControl::Node(subject)
-    other_node = AccessControl::Node(Record.first)
-    other_node.should == node
+    node.securable_type.should == 'Record'
+    node.securable_id.should   == subject.id
   end
 
   it "destroys the node when the record is destroyed" do
@@ -73,13 +73,26 @@ describe "node association" do
         node.should be_persisted
       end
 
-      specify "the node can be found later for that record" do
+      specify "the node is saved with correct attributes" do
         record = Record.first
         record.save!
-        node = AccessControl::Node(record)
-        other_node = AccessControl::Node(Record.first)
-        other_node.should == node
+        node = AccessControl::Node(subject)
+        node.securable_type.should == 'Record'
+        node.securable_id.should   == record.id
       end
+    end
+  end
+
+  describe "in subclasses" do
+    let_class(:SubRecord, :Record) { }
+    subject { SubRecord.new }
+
+    specify "the node securable_type's is set to the subclass' name" do
+      subject.save!
+      reloaded = SubRecord.first
+      node = AccessControl::Node(reloaded)
+      node.securable_type.should == 'SubRecord'
+      node.securable_id.should   == reloaded.id
     end
   end
 end
