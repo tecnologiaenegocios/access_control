@@ -495,22 +495,14 @@ module AccessControl
       end
     end
 
-    describe "#can_update!" do
-      let(:node) { Node.wrap(stub) }
-
-      it "ensures using the NodeManager that a node can be updated" do
-        NodeManager.should_receive(:can_update!).with(node)
-        node.can_update!
-      end
-    end
-
-    context "creating and updating" do
+    describe "creating and updating" do
 
       let(:securable_class) { FakeSecurableClass.new }
       let(:securable)       { securable_class.new }
 
       subject { Node.new(:securable_class => securable_class,
                          :securable_id    => securable.id) }
+      let(:persistent) { subject.persistent }
 
       it "returns false if not saved persistent node successfully" do
         persistent = subject.persistent
@@ -526,56 +518,107 @@ module AccessControl
         subject.persist.should be_true
       end
 
-      context "on create" do
+      describe "on create" do
+        before do
+          persistent.stub(:new?).and_return(true)
+        end
+
         context "when created successfully" do
-          it "refreshes parents through NodeManager" do
-            subject.persistent.stub(:save).and_return(true)
-            NodeManager.should_receive(:refresh_parents_of).with(subject)
+          before do
+            persistent.stub(:save).and_return(true)
+          end
+
+          it "assigns default role after the node is persisted" do
+            Role.stub(:assign_default_at) do |*args|
+              persistent.already_saved
+            end
+            persistent.should_receive(:save).ordered
+            persistent.should_receive(:already_saved).ordered
+
+            subject.persist
+          end
+
+          it "refreshes parents through NodeManager after the node is persisted" do
+            NodeManager.stub(:refresh_parents_of) do |node|
+              node.persistent.already_saved
+            end
+            persistent.should_receive(:save).ordered
+            persistent.should_receive(:already_saved).ordered
+
+            subject.persist
+          end
+
+          it "doesn't try to check update" do
+            NodeManager.should_not_receive(:can_update!)
             subject.persist
           end
         end
 
         context "when not created successfully" do
+          let(:persistent) { subject.persistent }
+
+          before do
+            persistent.stub(:save).and_return(false)
+          end
+
+          it "doesn't try to assign default roles" do
+            Role.should_not_receive(:assign_default_at)
+            subject.persist
+          end
+
           it "doesn't try to refresh parents" do
-            subject.persistent.stub(:save).and_return(false)
             NodeManager.should_not_receive(:refresh_parents_of)
             subject.persist
           end
         end
       end
 
-      context "on update" do
-        subject { Node.store(:securable_class => securable_class,
-                             :securable_id    => securable.id) }
+      describe "on update" do
+        before do
+          persistent.stub(:new?).and_return(false)
+          NodeManager.stub(:can_update!)
+        end
 
         context "when updated successfully" do
-          it "refreshes parents through NodeManager" do
-            subject.persistent.stub(:save).and_return(true)
-            NodeManager.should_receive(:refresh_parents_of).with(subject)
+          before do
+            persistent.stub(:save).and_return(true)
+          end
+
+          it "doesn't try to assign default roles" do
+            Role.should_not_receive(:assign_default_at)
+            subject.persist
+          end
+
+          it "refreshes parents and checks update through NodeManager after "\
+             "persisting" do
+            persistent.stub(:save) do
+              NodeManager.already_saved
+              true
+            end
+
+            NodeManager.should_receive(:already_saved).ordered
+            NodeManager.should_receive(:refresh_parents_of).with(subject).ordered
+            NodeManager.should_receive(:can_update!).with(subject).ordered
+
             subject.persist
           end
         end
 
         context "when not created successfully" do
+          before do
+            persistent.stub(:save).and_return(false)
+          end
+
+          it "doesn't try to check update" do
+            NodeManager.should_not_receive(:can_update!)
+            subject.persist
+          end
+
           it "doesn't try to refresh parents" do
-            subject.persistent.stub(:save).and_return(false)
             NodeManager.should_not_receive(:refresh_parents_of)
             subject.persist
           end
         end
-      end
-    end
-
-    describe "#refresh_parents" do
-      let(:securable_class) { FakeSecurableClass.new }
-      let(:securable)       { securable_class.new }
-
-      subject { Node.store(:securable_class => securable_class,
-                           :securable_id    => securable.id) }
-
-      it "tells the NodeManager to refresh its parents" do
-        NodeManager.should_receive(:refresh_parents_of).with(subject)
-        subject.refresh_parents
       end
     end
 

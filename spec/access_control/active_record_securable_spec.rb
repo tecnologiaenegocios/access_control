@@ -51,77 +51,26 @@ module AccessControl
         instance.ac_node.should be old_result
       end
 
-      context "when securable instance is created" do
-        let(:principals)    { ['principal1', 'principal2'] }
-        let(:default_roles) { stub('default roles subset') }
-
-        before do
-          node.stub(:securable_id=)
-          node.stub(:persist!)
-          node.stub(:refresh_parents)
-          Role.stub(:assign_default_at)
-          AccessControl.stub(:Node).with(node).and_return(node)
-        end
-
-        it "persists the node when the record is saved" do
-          node.should_receive(:securable_id=).with(instance.pk).ordered
-          node.should_receive(:persist!).ordered
-          instance.create
-        end
-
-        it "assigns default roles and refreshes parents of the node" do
-          Role.should_receive(:assign_default_at).with(node)
-          node.should_receive(:refresh_parents)
-          instance.stub(:ac_node => node)
-
-          instance.create
-        end
-
-        it "makes the assignment after the node is saved" do
-          Role.stub(:assign_default_at) do |*args|
-            node.do_assignment
-          end
-          node.should_receive(:persist!).ordered
-          node.should_receive(:do_assignment).ordered
-
-          instance.create
-        end
+      it "persists the node when the record is created" do
+        node.should_receive(:securable_id=).with(instance.pk).ordered
+        node.should_receive(:persist!).ordered
+        instance.create
       end
 
-      context "when securable instance is updated" do
-        before do
-          node.stub(:refresh_parents)
-          node.stub(:can_update!)
-          instance.stub(:ac_node => node)
-        end
+      it "persists the node when the record is updated and a node wasn't "\
+         "created yet" do
+        instance.stub(:ac_node => node)
+        node.stub(:persisted?).and_return(false)
+        node.should_receive(:persist!)
+        instance.update
+      end
 
-        context "when the node is persisted" do
-          before do
-            node.stub(:persisted?).and_return(true)
-          end
-
-          it "refreshes parents and then check for update rights" do
-            node.should_receive(:refresh_parents).ordered
-            node.should_receive(:can_update!).ordered
-
-            instance.update
-          end
-        end
-
-        context "when the node is not persisted" do
-          before do
-            node.stub(:persisted?).and_return(false)
-          end
-
-          it "persists the node and then refreshes parents and check "\
-             "for update rights" do
-            node.should_receive(:persist!).ordered
-            node.should_receive(:refresh_parents).ordered
-            node.should_receive(:can_update!).ordered
-
-            instance.update
-          end
-        end
+      it "does nothing when the record is updated and a node was already "\
+         "created" do
+        instance.stub(:ac_node => node)
+        node.stub(:persisted?).and_return(true)
+        node.should_not_receive(:persist!)
+        instance.update
       end
 
       it "destroys the node when the record is destroyed" do

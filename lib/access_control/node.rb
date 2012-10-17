@@ -43,9 +43,16 @@ module AccessControl
 
     def persist
       AccessControl.transaction do
+        previously_persisted = persisted?
+
         if (result = super)
-          refresh_parents
+          if previously_persisted
+            after_update
+          else
+            after_create
+          end
         end
+
         result
       end
     end
@@ -56,14 +63,6 @@ module AccessControl
         NodeManager.disconnect(self)
         super
       end
-    end
-
-    def refresh_parents
-      NodeManager.refresh_parents_of(self)
-    end
-
-    def can_update!
-      NodeManager.can_update!(self)
     end
 
     def securable
@@ -126,6 +125,16 @@ module AccessControl
 
     def perform_unblocking
       NodeManager.unblock(self)
+    end
+
+    def after_create
+      Role.assign_default_at(self)
+      NodeManager.refresh_parents_of(self)
+    end
+
+    def after_update
+      NodeManager.refresh_parents_of(self)
+      NodeManager.can_update!(self)
     end
   end
 end

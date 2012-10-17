@@ -32,8 +32,8 @@ module AccessControl
       model.should include(ActiveRecordJustAfterCallback)
     end
 
-    describe "association to Principal" do
-      let(:principal) { stub('principal', :subject_id= => nil) }
+    context "in a model with ActiveRecordSubject" do
+      let(:principal) { stub('principal') }
       let(:instance)  { model.new }
 
       before do
@@ -51,10 +51,26 @@ module AccessControl
         instance.ac_principal.should be old_result
       end
 
-      it "persists the principal when the record is saved" do
+      it "persists the principal when the record is created" do
         principal.should_receive(:subject_id=).with(instance.pk).ordered
         principal.should_receive(:persist!).ordered
         instance.create
+      end
+
+      it "persists the principal when the record is updated and a principal "\
+         "wasn't created yet" do
+        instance.stub(:ac_principal => principal)
+        principal.stub(:persisted?).and_return(false)
+        principal.should_receive(:persist!)
+        instance.update
+      end
+
+      it "does nothing when the record is updated and a principal was already "\
+         "created" do
+        instance.stub(:ac_principal => principal)
+        principal.stub(:persisted?).and_return(true)
+        principal.should_not_receive(:persist!)
+        instance.update
       end
 
       it "destroys the principal when the record is destroyed" do
