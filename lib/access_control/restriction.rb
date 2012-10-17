@@ -4,8 +4,17 @@ require 'access_control/restricter'
 module AccessControl
   module Restriction
 
-    def self.included(base)
-      base.extend(ClassMethods)
+    class << self
+      def included(base)
+        base.extend(ClassMethods)
+      end
+
+      def listing_condition_for(target)
+        restricter  = Restricter.new(ORM.adapt_class(target))
+        permissions = target.permissions_required_to_list
+        subquery    = restricter.sql_query_for(permissions)
+        "#{target.quoted_table_name}.#{target.primary_key} IN (#{subquery})"
+      end
     end
 
     def valid?
@@ -18,7 +27,7 @@ module AccessControl
         return super unless AccessControl.manager.restrict_queries?
         case args.first
         when :all, :last, :first
-          wrap_with_permissions_for_result_set { super }
+          with_listing_filtering { super }
         else
           permissions = permissions_required_to_show
           manager = AccessControl.manager
@@ -31,12 +40,12 @@ module AccessControl
 
       def calculate(*args)
         return super unless AccessControl.manager.restrict_queries?
-        wrap_with_permissions_for_result_set { super }
+        with_listing_filtering { super }
       end
 
       def listable
         return scoped({}) unless AccessControl.manager.restrict_queries?
-        scoped(:conditions => restriction_conditions_for_result_set)
+        scoped(:conditions => Restriction.listing_condition_for(self))
       end
 
       def unrestricted_find(*args)
@@ -45,15 +54,9 @@ module AccessControl
 
     private
 
-      def wrap_with_permissions_for_result_set
-        condition = restriction_conditions_for_result_set
+      def with_listing_filtering
+        condition = Restriction.listing_condition_for(self)
         with_scope(:find => { :conditions => condition }) { yield }
-      end
-
-      def restriction_conditions_for_result_set
-        restricter = Restricter.new(ORM.adapt_class(self))
-        subquery = restricter.sql_query_for(permissions_required_to_list)
-        "#{quoted_table_name}.#{primary_key} IN (#{subquery})"
       end
     end
   end
