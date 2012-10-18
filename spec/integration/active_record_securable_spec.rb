@@ -3,98 +3,22 @@ require 'spec_helper'
 describe "node association" do
   include WithConstants
 
-  let_constant(:record_class) do
-    new_class(:Record, ActiveRecord::Base) do
+  let_constant(:ar_object_class) { new_class(:Record, ActiveRecord::Base) }
+
+  let(:ac_object_class)     { AccessControl::Node }
+  let(:ac_object_type_attr) { :securable_type }
+  let(:ac_object_id_attr)   { :securable_id }
+
+  def ac_object_from_ar_object(ar_object)
+    AccessControl::Node(ar_object)
+  end
+
+  def include_needed_modules(klass)
+    klass.class_eval do
       include AccessControl::Securable
       requires_no_permissions!
     end
   end
 
-  subject { Record.new }
-
-  it "associates a node for a given active record object" do
-    AccessControl::Node(subject).should be_a(AccessControl::Node)
-  end
-
-  specify "once the node is computed, it is cached" do
-    old_result = AccessControl::Node(subject)
-    new_result = AccessControl::Node(subject)
-    old_result.should be new_result
-  end
-
-  it "persists the node when the record is created" do
-    node = AccessControl::Node(subject)
-    subject.save!
-    node.should be_persisted
-  end
-
-  specify "the node is saved with correct attributes" do
-    subject.save!
-    node = AccessControl::Node(subject)
-    node.securable_type.should == 'Record'
-    node.securable_id.should   == subject.id
-  end
-
-  it "destroys the node when the record is destroyed" do
-    subject.save!
-    node = AccessControl::Node(subject)
-    node.should_receive(:destroy)
-    subject.destroy
-  end
-
-  describe "update" do
-    let(:node) { AccessControl::Node(subject) }
-
-    context "the record already has a node" do
-      before do
-        subject.save!
-        node.persist!
-      end
-
-      it "doesn't persist the node again" do
-        node.should_not_receive(:persist)
-        subject.save!
-      end
-    end
-
-    context "the record has no node yet" do
-      let_constant(:record_class) { new_class(:Record, ActiveRecord::Base) }
-
-      before do
-        subject.save!
-        Record.class_eval do
-          include AccessControl::Securable
-          requires_no_permissions!
-        end
-      end
-
-      it "persists the node" do
-        record = Record.first
-        node = AccessControl::Node(record)
-        record.save!
-        node.should be_persisted
-      end
-
-      specify "the node is saved with correct attributes" do
-        record = Record.first
-        record.save!
-        node = AccessControl::Node(subject)
-        node.securable_type.should == 'Record'
-        node.securable_id.should   == record.id
-      end
-    end
-  end
-
-  describe "in subclasses" do
-    let_constant(:subrecord_class) { new_class(:SubRecord, record_class) }
-    subject { SubRecord.new }
-
-    specify "the node securable_type's is set to the subclass' name" do
-      subject.save!
-      reloaded = SubRecord.first
-      node = AccessControl::Node(reloaded)
-      node.securable_type.should == 'SubRecord'
-      node.securable_id.should   == reloaded.id
-    end
-  end
+  it_should_behave_like "any AccessControl object associated with an ActiveRecord::Base"
 end
