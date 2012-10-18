@@ -178,41 +178,95 @@ module AccessControl
     end
 
     describe ".generate_for" do
-      let(:securable_class) { FakeSecurable }
-      let(:adapted)         { stub(:table_name => :fake_securables) }
-      let(:node_dataset)    { AccessControl.db[:ac_nodes] }
-      let(:dataset)         { AccessControl.db[:fake_securables] }
+      include WithConstants
 
-      before do
-        securable_class.stub(:name).and_return('FakeSecurable')
-        AccessControl.db.create_table(:fake_securables) { primary_key :id }
-        3.times { dataset.insert }
-        ORM.stub(:adapt_class).with(securable_class).and_return(adapted)
-      end
+      let(:node_dataset) { AccessControl.db[:ac_nodes] }
 
       after do
-        AccessControl.db.drop_table(:fake_securables)
+        AccessControl.db.drop_table(:securables)
       end
 
-      it "creates as many nodes as there are securable for the given class" do
-        Node.generate_for(securable_class)
-        node_dataset.
-          filter(:securable_type => 'FakeSecurable').count.should == 3
+      context "normal, without STI, models" do
+        let_constant(:model) do
+          AccessControl.db.create_table(:securables) { primary_key :id }
+          new_class(:Securable, Sequel::Model(:securables))
+        end
+
+        before do
+          3.times { model.create }
+        end
+
+        it "creates as many nodes as there are securables for the given class" do
+          Node.generate_for(model)
+          node_dataset.filter(:securable_type => model.name).count.should == 3
+        end
+
+        it "uses the ids of the securables as :securable_id" do
+          Node.generate_for(model)
+
+          existing_securable_ids = node_dataset.
+            filter(:securable_type => model.name).select_map(:securable_id)
+          expected_securable_ids = model.select_map(:id)
+          expected_securable_ids.should include_only(*existing_securable_ids)
+        end
+
+        it "doesn't create duplicates" do
+          2.times { Node.generate_for(model) }
+          node_dataset.filter(:securable_type => model.name).count.should == 3
+        end
       end
 
-      it "uses the ids of the securables as :securable_id" do
-        Node.generate_for(securable_class)
+      context "models with STI" do
+        let_constant(:model) do
+          AccessControl.db.create_table(:securables) do
+            primary_key :id
+            string      :mytype
+          end
+          new_class(:Securable, Sequel::Model(:securables)) do
+            plugin :single_table_inheritance, :mytype
+          end
+        end
 
-        existing_securable_ids = node_dataset.
-          filter(:securable_type => 'FakeSecurable').select_map(:securable_id)
-        expected_securable_ids = dataset.select_map(:id)
-        expected_securable_ids.should include_only(*existing_securable_ids)
-      end
+        let_constant(:sub_model) { new_class(:SubSecurable, model) }
 
-      it "doesn't create duplicates" do
-        2.times { Node.generate_for(securable_class) }
-        node_dataset.
-          filter(:securable_type => 'FakeSecurable').count.should == 3
+        before do
+          model.create
+          3.times { sub_model.create }
+        end
+
+        it "creates as many nodes as there are securables for the given class" do
+          Node.generate_for(sub_model)
+          node_dataset.filter(:securable_type => sub_model.name).count.should == 3
+
+          Node.generate_for(model)
+          node_dataset.filter(:securable_type => model.name).count.should == 1
+        end
+
+        it "uses the ids and correct types" do
+          Node.generate_for(sub_model)
+          Node.generate_for(model)
+
+          existing_securable_ids = node_dataset.
+            filter(:securable_type => sub_model.name).
+            select_map(:securable_id)
+          expected_securable_ids = sub_model.select_map(:id)
+          existing_securable_ids.should include_only(*expected_securable_ids)
+
+          existing_securable_ids = node_dataset.
+            filter(:securable_type => model.name).
+            select_map(:securable_id)
+          expected_securable_ids = model.filter(model.sti_key => model.name).
+            select_map(:id)
+          existing_securable_ids.should include_only(*expected_securable_ids)
+        end
+
+        it "doesn't create duplicates" do
+          2.times { Node.generate_for(sub_model) }
+          node_dataset.filter(:securable_type => sub_model.name).count.should == 3
+
+          2.times { Node.generate_for(model) }
+          node_dataset.filter(:securable_type => model.name).count.should == 1
+        end
       end
     end
 

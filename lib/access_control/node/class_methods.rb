@@ -52,14 +52,17 @@ module AccessControl
     end
 
     def generate_for(securable_class)
-      table_name = ORM.adapt_class(securable_class).table_name
+      orm = ORM.adapt_class(securable_class)
+      table_name     = orm.table_name
+      qualified_pk   = orm.pk_name.qualify(table_name)
       securable_type = securable_class.name
 
       securables_without_nodes =
         AccessControl.db[table_name].
-          select(securable_type, :id.qualify(table_name)).
+          select(securable_type, qualified_pk).
+          where("`#{table_name}`.`#{orm.pk_name}` IN (#{orm.sti_subquery})").
           join_table(:left, :ac_nodes, {
-            :id.qualify(table_name) => :ac_nodes__securable_id,
+            qualified_pk              => :ac_nodes__securable_id,
             :ac_nodes__securable_type => securable_type,
           }).
           filter(:ac_nodes__id => nil)
