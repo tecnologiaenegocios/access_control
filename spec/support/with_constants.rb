@@ -50,7 +50,7 @@ module WithConstants
             name
           end
 
-          klass.class_eval(&block)
+          klass.class_eval(&block) if block
         end
       end
     end
