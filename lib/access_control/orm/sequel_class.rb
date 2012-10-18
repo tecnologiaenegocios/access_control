@@ -40,6 +40,16 @@ module AccessControl
         to_enum(:values_as_enum)
       end
 
+      def sti_subquery
+        unless has_sti?
+          object.select(pk_name).sql
+        else
+          object.select(pk_name).where(
+            object.sti_key.qualify(table_name) => name
+          ).sql
+        end
+      end
+
       def subset(name, *args)
         object.public_send(name, *args)
       end
@@ -60,11 +70,24 @@ module AccessControl
         instance.destroy
       end
 
+      # This method exists for test purposes only.
+      def execute(sql)
+        object.db.execute(sql)
+      end
+
     private
 
       def values_as_enum(&block)
         object.each_page(AccessControl.default_batch_size) do |page|
           page.each(&block)
+        end
+      end
+
+      def has_sti?
+        if object.respond_to?(:sti_key)
+          column_names.include?(object.sti_key)
+        else
+          false
         end
       end
     end

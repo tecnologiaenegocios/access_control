@@ -3,9 +3,11 @@ require 'spec_helper'
 describe "node association" do
   include WithConstants
 
-  let_active_record(:Record) do
-    include AccessControl::Securable
-    requires_no_permissions!
+  let_constant(:record_class) do
+    new_class(:Record, ActiveRecord::Base) do
+      include AccessControl::Securable
+      requires_no_permissions!
+    end
   end
 
   subject { Record.new }
@@ -56,7 +58,7 @@ describe "node association" do
     end
 
     context "the record has no node yet" do
-      let_active_record(:Record) { }
+      let_constant(:record_class) { new_class(:Record, ActiveRecord::Base) }
 
       before do
         subject.save!
@@ -84,7 +86,7 @@ describe "node association" do
   end
 
   describe "in subclasses" do
-    let_class(:SubRecord, :Record) { }
+    let_constant(:subrecord_class) { new_class(:SubRecord, record_class) }
     subject { SubRecord.new }
 
     specify "the node securable_type's is set to the subclass' name" do

@@ -2,6 +2,13 @@ ENV["RAILS_ENV"] ||= 'test'
 ENV["RAILS_ROOT"] = File.join(File.dirname(__FILE__), 'app')
 require File.expand_path(File.join(ENV['RAILS_ROOT'],'config','environment'))
 
+def require_files_under_dir(dir)
+  path = File.expand_path(File.join(ENV['RAILS_ROOT'], '..', dir, '**', '*.rb'))
+  Dir[path].each {|f| require f}
+end
+
+require_files_under_dir File.join("integration", "shared_examples")
+
 silence_stream($stdout) do
   load File.join(ENV['RAILS_ROOT'],'db','schema.rb')
 end

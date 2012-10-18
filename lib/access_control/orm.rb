@@ -13,8 +13,12 @@ module AccessControl
       # class object itself returns an object with the same interface.  The
       # simplest way to achieve this is by delegating instantiation and using
       # instances directly from the underlying ORM.
-      def new
-        object.new
+      def new(attributes={})
+        object.new.tap do |instance|
+          attributes.each do |attribute, value|
+            instance.public_send(:"#{attribute}=", value)
+          end
+        end
       end
 
       def pk_of(instance)

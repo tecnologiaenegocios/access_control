@@ -41,8 +41,14 @@ module AccessControl
                         :batch_size => AccessControl.default_batch_size)
       end
 
-      def new
-        object.new
+      def sti_subquery
+        find_options = { :select => pk_name }
+        if is_base_class_in_sti?
+          column = "`#{table_name}`.`#{sti_column}`"
+          find_options[:conditions] =
+            "#{column} = #{quote(name)} OR #{column} IS NULL"
+        end
+        object.scoped(find_options).send(:construct_finder_sql, {})
       end
 
       def subset(method, *args)
@@ -63,6 +69,33 @@ module AccessControl
 
       def delete(instance)
         instance.destroy
+      end
+
+      # This method exists for test purposes only.
+      def execute(sql)
+        object.connection.execute(sql)
+      end
+
+    private
+
+      def is_base_class_in_sti?
+        child_of_active_record_base? && has_sti?
+      end
+
+      def child_of_active_record_base?
+        object.superclass == ActiveRecord::Base
+      end
+
+      def has_sti?
+        column_names.include?(sti_column)
+      end
+
+      def sti_column
+        object.inheritance_column.to_sym
+      end
+
+      def quote(value)
+        object.connection.quote(value)
       end
     end
   end

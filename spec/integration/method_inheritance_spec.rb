@@ -3,27 +3,31 @@ require 'spec_helper'
 describe "method-based inheritance" do
   include WithConstants
 
-  let_active_record(:Record) do
-    include AccessControl::Securable
+  let_constant(:record_class) do
+    new_class(:Record, ActiveRecord::Base) do
+      include AccessControl::Securable
 
-    has_and_belongs_to_many(
-      :parent_records,
-      :class_name              => 'Record',
-      :foreign_key             => :from_id,
-      :association_foreign_key => :to_id
-    )
+      has_and_belongs_to_many(
+        :parent_records,
+        :class_name              => 'Record',
+        :foreign_key             => :from_id,
+        :association_foreign_key => :to_id
+      )
 
-    inherits_permissions_from :parent_records_method
+      inherits_permissions_from :parent_records_method
 
-    def parent_records_method
-      parent_records
+      def parent_records_method
+        parent_records
+      end
+
+      requires_no_permissions!
     end
-
-    requires_no_permissions!
   end
 
-  let_active_record(:User) do
-    include AccessControl::ActiveRecordSubject
+  let_constant(:user_class) do
+    new_class(:User, ActiveRecord::Base) do
+      include AccessControl::ActiveRecordSubject
+    end
   end
 
   let(:parent_record) { Record.create! }

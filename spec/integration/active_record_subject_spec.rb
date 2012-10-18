@@ -3,8 +3,10 @@ require 'spec_helper'
 describe "principal association" do
   include WithConstants
 
-  let_active_record(:User) do
-    include AccessControl::ActiveRecordSubject
+  let_constant(:user_class) do
+    new_class(:User, ActiveRecord::Base) do
+      include AccessControl::ActiveRecordSubject
+    end
   end
 
   subject { User.new }
@@ -55,7 +57,7 @@ describe "principal association" do
     end
 
     context "the record has no principal yet" do
-      let_active_record(:User) { }
+      let_constant(:user_class) { new_class(:User, ActiveRecord::Base) }
 
       before do
         subject.save!
@@ -82,7 +84,7 @@ describe "principal association" do
   end
 
   describe "in subclasses" do
-    let_class(:SubUser, :User) { }
+    let_constant(:subuser_class) { new_class(:SubUser, user_class) }
     subject { SubUser.new }
 
     specify "the principal subject_type's is set to the subclass' name" do
