@@ -3,21 +3,25 @@ require 'spec_helper'
 module AccessControl
   describe Inheritance do
 
-    def unique_model_name
-      Time.now.to_f.to_s
-    end
-
     let(:model) do
       klass = Class.new { include Inheritance }
 
       # Trick to make the model of each test have a different .name, so that
-      # Inheritance won't treat models on differents tests as the same
+      # Inheritance won't treat models on different tests as the same.  Works
+      # fine in subclasses, which naturally will have a different name from its
+      # base class.
 
-      klass.class_exec(unique_model_name) do |name|
-        define_singleton_method(:name) { name }
+      klass.instance_eval do
+        def name
+          @name ||= Time.now.to_f.to_s
+        end
       end
 
       klass
+    end
+
+    after do
+      Inheritance.clear
     end
 
     describe ".parent_node_ids_of" do
@@ -190,8 +194,24 @@ module AccessControl
         Inheritance.inheritances_of(model).should include(inheritance)
       end
 
-      it "finds inheritances correctly if given a class name" do
-        Inheritance.inheritances_of(model.name).should include(inheritance)
+      context "working with subclasses" do
+        let(:submodel) { Class.new(model) }
+
+        context "when no inheritance was defined for the subclass" do
+          it "gets the inheritances from parent class" do
+            Inheritance.inheritances_of(submodel).should include(inheritance)
+          end
+        end
+
+        context "when an inheritance was defined in the subclass" do
+          let!(:submodel_inheritance) do
+            submodel.inherits_permissions_from_key("bar_id", :class_name => "Bar")
+          end
+          it "overrides the inheritance chain" do
+            Inheritance.inheritances_of(submodel).should_not include(inheritance)
+            Inheritance.inheritances_of(submodel).should include(submodel_inheritance)
+          end
+        end
       end
     end
 
@@ -234,7 +254,7 @@ module AccessControl
       end
 
       it "clears inheritance" do
-        Inheritance.inheritances_of(model.name).should be_empty
+        Inheritance.inheritances_of(model).should be_empty
       end
     end
   end

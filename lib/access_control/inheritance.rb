@@ -18,7 +18,11 @@ module AccessControl
     end
 
     def self.inheritances_of(model)
-      inheritances[model]
+      this_inheritances = inheritances[model]
+      if this_inheritances.empty? && model.superclass != Object
+        this_inheritances = inheritances_of(model.superclass)
+      end
+      this_inheritances
     end
 
     def self.parent_node_ids_of(securable)
@@ -51,7 +55,7 @@ module AccessControl
 
     def self.inheritances
       @inheritances ||= Hash.new do |hash, model|
-        model_name = model.kind_of?(String) ? model : model.name
+        model_name = model.name
 
         if hash.has_key?(model_name)
           hash[model_name]
