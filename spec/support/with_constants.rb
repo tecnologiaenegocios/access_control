@@ -73,11 +73,21 @@ module WithConstants
     end
 
     def it(*args, &block)
-      super(*args) { with_declared_constants { instance_eval(&block) } }
+      if block
+        super(*args) { with_declared_constants { instance_eval(&block) } }
+      else
+        super
+      end
     end
+
     def specify(*args, &block)
-      super(*args) { with_declared_constants { instance_eval(&block) } }
+      if block
+        super(*args) { with_declared_constants { instance_eval(&block) } }
+      else
+        super
+      end
     end
+
     def before(*args, &block)
       super(*args) { with_declared_constants { instance_eval(&block) } }
     end
