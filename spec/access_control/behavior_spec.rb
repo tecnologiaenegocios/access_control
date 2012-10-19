@@ -362,9 +362,80 @@ describe AccessControl do
     end
   end
 
+  describe ".permissions_for_method" do
+    include WithConstants
+
+    let_constant(:model) do
+      new_class(:Securable, Class.new) do
+        def foo; end
+      end
+    end
+
+    context "in models with an unprotected method" do
+      it "returns an empty collection" do
+        AccessControl.permissions_for_method(model, :foo).should be_empty
+      end
+    end
+
+    context "in models with a protected method" do
+      before do
+        model.class_eval do
+          include AccessControl::MethodProtection
+          protect :foo, :with => 'permission'
+        end
+      end
+
+      it "returns the permissions" do
+        AccessControl.
+          permissions_for_method(model, :foo).should include('permission')
+      end
+
+      context "in subclasses of the model" do
+        let_constant(:submodel) { new_class(:SubSecurable, model) }
+
+        it "returns the permissions" do
+          AccessControl.
+            permissions_for_method(submodel, :foo).should include('permission')
+        end
+      end
+
+      context "in subclasses which set additional permissions" do
+        let_constant(:submodel) { new_class(:SubSecurable, model) }
+
+        before do
+          submodel.class_eval do
+            include AccessControl::MethodProtection
+            protect :foo, :with => 'additional permission'
+          end
+        end
+
+        it "returns the permissions plus the additional ones" do
+          permissions = AccessControl.permissions_for_method(submodel, :foo)
+          permissions.should include_only('permission', 'additional permission')
+        end
+      end
+    end
+
+    context "in models with a protected method which are subclasses" do
+      let_constant(:submodel) { new_class(:SubSecurable, model) }
+
+      before do
+        submodel.class_eval do
+          include AccessControl::MethodProtection
+          protect :foo, :with => 'permission'
+        end
+      end
+
+      it "returns the permissions" do
+        AccessControl.
+          permissions_for_method(submodel, :foo).should include('permission')
+      end
+    end
+  end
+
   describe ".clear" do
-    # In the future the declarations in Macros and in ControllerSecurity
-    # will not keep data outside the registry, and this method will be removed.
+    # In the future the declarations in Macros and in ControllerSecurity will
+    # not keep data outside the registry, and this method will be removed.
     # Only a call to clear the registry (which is exposed as part of our public
     # API) will be needed.
     it "clears macro declarations, controller security and registry" do

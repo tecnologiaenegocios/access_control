@@ -5,6 +5,7 @@ require 'access_control/inheritance'
 require 'access_control/registry'
 require 'access_control/macros'
 require 'access_control/controller_security'
+require 'access_control/method_protection'
 
 module AccessControl
 
@@ -149,6 +150,14 @@ module AccessControl
 
   def self.registry
     AccessControl::Registry
+  end
+
+  def self.permissions_for_method(klass, method)
+    current = registry.permissions_for(klass.name, method.to_sym)
+    if klass.superclass != Object
+      current |= registry.permissions_for(klass.superclass.name, method.to_sym)
+    end
+    current.map(&:name)
   end
 
   def self.clear
