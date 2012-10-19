@@ -51,6 +51,12 @@ module AccessControl
       @global_node = nil
     end
 
+    # Warning: this method is only safe if all models which have STI are loaded
+    # before.  The ORM adapter cannot be guaranteed to work reliably in
+    # base-class models which wheren't inherited yet with respect to the sti
+    # subquery.  By loading all subclasses, the ORM will correctly identify
+    # that the base-class model is an STI model and will generate a proper
+    # subquery.
     def generate_for(securable_class)
       orm = ORM.adapt_class(securable_class)
       table_name     = orm.table_name

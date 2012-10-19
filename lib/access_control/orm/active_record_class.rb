@@ -71,11 +71,6 @@ module AccessControl
         instance.destroy
       end
 
-      # This method exists for test purposes only.
-      def execute(sql)
-        object.connection.execute(sql)
-      end
-
     private
 
       def is_base_class_in_sti?
@@ -91,7 +86,8 @@ module AccessControl
       end
 
       def sti_column
-        object.inheritance_column.to_sym
+        column = object.inheritance_column
+        column.to_sym if column.present?
       end
 
       def quote(value)

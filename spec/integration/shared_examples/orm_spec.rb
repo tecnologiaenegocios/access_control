@@ -53,7 +53,27 @@ shared_examples_for "an ORM adapter" do
       let!(:record_ids) { [record1.id, record2.id, record3.id] }
 
       specify do
-        orm.execute(orm.sti_subquery).map do |r|
+        execute_sql(orm.sti_subquery).map do |r|
+          r[0]
+        end.should include_only(*record_ids)
+      end
+    end
+
+    context "when model has no STI, but has a STI column named alike" do
+      let(:record1) { fake_stiorm.new(:type => 'foo').tap { |r|
+        fake_stiorm.persist(r)
+      } }
+      let(:record2) { fake_stiorm.new(:type => 'bar').tap { |r|
+        fake_stiorm.persist(r)
+      } }
+      let(:record3) { fake_stiorm.new(:type => 'baz').tap { |r|
+        fake_stiorm.persist(r)
+      } }
+
+      let!(:record_ids) { [record1.id, record2.id, record3.id] }
+
+      specify do
+        execute_sql(fake_stiorm.sti_subquery).map do |r|
           r[0]
         end.should include_only(*record_ids)
       end
@@ -69,13 +89,13 @@ shared_examples_for "an ORM adapter" do
       let!(:sub_record_ids) { [record3.id, record4.id] }
 
       specify do
-        stiorm.execute(stiorm.sti_subquery).map do |r|
+        execute_sql(stiorm.sti_subquery).map do |r|
           r[0]
         end.should include_only(*record_ids)
       end
 
       specify do
-        sub_stiorm.execute(sub_stiorm.sti_subquery).map do |r|
+        execute_sql(sub_stiorm.sti_subquery).map do |r|
           r[0]
         end.should include_only(*sub_record_ids)
       end

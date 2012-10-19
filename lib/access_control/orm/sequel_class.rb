@@ -70,11 +70,6 @@ module AccessControl
         instance.destroy
       end
 
-      # This method exists for test purposes only.
-      def execute(sql)
-        object.db.execute(sql)
-      end
-
     private
 
       def values_as_enum(&block)
