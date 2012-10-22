@@ -157,7 +157,7 @@ module AccessControl
     if klass.superclass != Object
       current |= registry.permissions_for(klass.superclass.name, method.to_sym)
     end
-    current.map(&:name)
+    current
   end
 
   def self.clear

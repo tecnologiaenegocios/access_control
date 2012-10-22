@@ -387,7 +387,8 @@ describe AccessControl do
 
       it "returns the permissions" do
         AccessControl.
-          permissions_for_method(model, :foo).should include('permission')
+          permissions_for_method(model, :foo).
+          map(&:name).should include('permission')
       end
 
       context "in subclasses of the model" do
@@ -395,7 +396,8 @@ describe AccessControl do
 
         it "returns the permissions" do
           AccessControl.
-            permissions_for_method(submodel, :foo).should include('permission')
+            permissions_for_method(submodel, :foo).
+            map(&:name).should include('permission')
         end
       end
 
@@ -410,8 +412,9 @@ describe AccessControl do
         end
 
         it "returns the permissions plus the additional ones" do
-          permissions = AccessControl.permissions_for_method(submodel, :foo)
-          permissions.should include_only('permission', 'additional permission')
+          AccessControl.
+            permissions_for_method(submodel, :foo).
+            map(&:name).should include_only('permission', 'additional permission')
         end
       end
     end
@@ -428,7 +431,8 @@ describe AccessControl do
 
       it "returns the permissions" do
         AccessControl.
-          permissions_for_method(submodel, :foo).should include('permission')
+          permissions_for_method(submodel, :foo).
+          map(&:name).should include('permission')
       end
     end
   end
