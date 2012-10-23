@@ -46,7 +46,7 @@ module AccessControl
     def sync
       @names.each do |name, key_method|
         associated = @instance.send(name)
-        associated.persist! unless associated.persisted?
+        associated.persist!
       end
     end
 

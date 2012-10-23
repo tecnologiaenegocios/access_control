@@ -46,8 +46,8 @@ shared_examples_for "any AccessControl object associated with an ActiveRecord::B
         ac_object.persist!
       end
 
-      it "doesn't persist the AC object again" do
-        ac_object.should_not_receive(:persist)
+      it "forces an update in the AC object by calling #persist!" do
+        ac_object.should_receive(:persist!)
         subject.save!
       end
     end
