@@ -1,5 +1,29 @@
 module AccessControl
   class ActiveRecordAssociator
+    class AssociatedNames
+      def initialize
+        @container = Hash.new { |h, k| h[k] = Set.new }
+      end
+
+      def add(klass, name, key_method)
+        @container[klass.name].add([name, key_method])
+      end
+
+      def [] klass
+        @container[klass.name] | from_superclass(klass)
+      end
+
+    private
+
+      def from_superclass(klass)
+        if klass == ActiveRecord::Base
+          return Set.new
+        else
+          self[klass.superclass]
+        end
+      end
+    end
+
     module Boilerplate
     private
       def __associator__
@@ -18,20 +42,20 @@ module AccessControl
         define_method(name, &block)
       end
 
-      add_associated_name(base, name, key_method)
+      associated_names.add(base, name, key_method)
     end
 
-    def self.add_associated_name(base, name, key_method)
-      associated_names_of(base).add([name, key_method])
+    def self.associated_names
+      @associated_names ||= AssociatedNames.new
     end
 
-    def self.associated_names_of(base)
-      base.instance_eval { @__associated_names__ ||= Set.new }
+    def self.clear
+      @associated_names = nil
     end
 
     def initialize(instance)
       @instance = instance
-      @names    = ActiveRecordAssociator.associated_names_of(instance.class)
+      @names    = ActiveRecordAssociator.associated_names[instance.class]
     end
 
     def persist

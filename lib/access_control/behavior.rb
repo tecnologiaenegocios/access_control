@@ -6,6 +6,7 @@ require 'access_control/registry'
 require 'access_control/macros'
 require 'access_control/controller_security'
 require 'access_control/method_protection'
+require 'access_control/active_record_associator'
 
 module AccessControl
 
@@ -169,6 +170,7 @@ module AccessControl
   def self.reset
     clear
     AccessControl::Inheritance.clear
+    AccessControl::ActiveRecordAssociator.clear
   end
 
   class GlobalRecord
