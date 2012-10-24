@@ -72,6 +72,10 @@ module AccessControl
     end
 
     describe ".id_of" do
+      it "returns nil if the object is nil" do
+        Util.id_of(nil).should be_nil
+      end
+
       it "returns the object if the object is a fixnum" do
         Util.id_of(22).should == 22
       end
@@ -113,13 +117,15 @@ module AccessControl
       end
 
       test_cases = {
-        # Single element                 Expected result
+        nil                              => nil,
+
+        # Single non nil element         Expected result
         1                                => 1,
         item(1)                          => 1,
 
         # Empty collection
-        []                               => nil,
-        Set.new                          => nil,
+        []                               => [],
+        Set.new                          => [],
 
         # Single element in a container  Expected result
         [1]                              => 1,

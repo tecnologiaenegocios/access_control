@@ -48,7 +48,9 @@ module AccessControl
 
       # Return an id from an object, or the object itself if it is a Fixnum.
       def id_of(object)
-        if object.is_a?(Fixnum)
+        if object.nil?
+          nil
+        elsif object.is_a?(Fixnum)
           object
         elsif block_given?
           id_of(yield)
@@ -60,6 +62,9 @@ module AccessControl
       # Return one or more ids suitable for a hash condition, or nil if
       # argument is empty.  Example:
       #
+      # Util.ids_for_hash_condition(nil)
+      # => nil
+      #
       # Util.ids_for_hash_condition(1)
       # => 1
       #
@@ -70,18 +75,19 @@ module AccessControl
       # => [1, 2]
       #
       # Util.ids_for_hash_condition([])
-      # => nil
+      # => []
       #
       # Also works with sets instead of arrays.
 
       def ids_for_hash_condition(items)
+        return nil if items.nil?
+
         items = Array(items)
         items = items.map do |item|
           id_of(item)
         end
 
         case items.size
-        when 0 then nil
         when 1 then items.first
         else items
         end
