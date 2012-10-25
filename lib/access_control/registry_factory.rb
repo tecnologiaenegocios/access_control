@@ -15,7 +15,7 @@ module AccessControl
     end
 
     def store(name)
-      new_permission = permissions[name] ||= @permission_factory.call(name)
+      new_permission = (permissions[name] ||= @permission_factory.call(name))
 
       yield(new_permission) if block_given?
 
@@ -89,7 +89,7 @@ module AccessControl
       found = self[name]
       return found if found
       return yield if block_given?
-      raise NotFoundError if default.eql?(_marker)
+      raise NotFoundError, "permission not found: #{name}" if default.eql?(_marker)
       default
     end
 
