@@ -25,7 +25,7 @@ module AccessControl
     end
 
     module Boilerplate
-      def save
+      def save(*args, &block)
         super.tap do |result|
           if result
             __associator__.persist

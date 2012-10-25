@@ -22,6 +22,12 @@ shared_examples_for "any AccessControl object associated with an ActiveRecord::B
       ac_object.should be_persisted
     end
 
+    it "accepts the validation flag" do
+      ac_object = ac_object_from_ar_object(subject)
+      subject.save(false)
+      ac_object.should be_persisted
+    end
+
     specify "the AC object is saved with correct attributes" do
       subject.save!
       ac_object = ac_object_from_ar_object(subject)
