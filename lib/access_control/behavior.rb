@@ -153,12 +153,8 @@ module AccessControl
     AccessControl::Registry
   end
 
-  def self.permissions_for_method(klass, method)
-    current = registry.permissions_for(klass.name, method.to_sym)
-    if klass.superclass != Object
-      current |= registry.permissions_for(klass.superclass.name, method.to_sym)
-    end
-    current
+  def self.permissions_for_method(klass, method_name)
+    AccessControl::MethodProtection.permissions_for(klass, method_name)
   end
 
   def self.clear

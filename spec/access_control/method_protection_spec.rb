@@ -6,10 +6,8 @@ require 'access_control/method_protection'
 
 module AccessControl
   describe MethodProtection do
-
     let(:manager)     { mock('manager') }
     let(:registry)    { stub }
-    let(:permissions) { {} }
 
     def set_class
       Object.const_set('TheClass', Class.new{ include MethodProtection })
@@ -23,51 +21,38 @@ module AccessControl
       TheClass
     end
 
+    def registry
+      AccessControl.registry
+    end
+
     before do
       set_class
       AccessControl.stub(:manager).and_return(manager)
       manager.stub(:can!)
-
-      @old_registry = AccessControl::Registry
-      Kernel.silence_warnings { AccessControl.const_set(:Registry, registry) }
-
-      registry.stub(:permissions).and_return(permissions)
-      registry.define_singleton_method(:store) do |permission_name, &block|
-        permissions[permission_name] ||= OpenStruct.new(
-          :name => permission_name,
-          :ac_methods => Set.new,
-          :ac_classes => Set.new
-        )
-        block.call(permissions[permission_name])
-      end
     end
 
     after do
       unset_class
-
-      Kernel.silence_warnings do
-        AccessControl.const_set(:Registry, @old_registry)
-      end
+      registry.clear
     end
 
     describe ".protect" do
-
       it "stores permission in the Registry" do
-        Registry.should_receive(:store).with('some permission')
         klass.protect(:some_method, :with => 'some permission')
+        registry.fetch('some permission').name.should == 'some permission'
       end
 
       it "adds class and method to the ac_methods property of the permission" do
         klass.protect(:some_method, :with => 'some permission')
 
-        permissions['some permission'].ac_methods.
+        registry.fetch('some permission').ac_methods.
           should include_only(['TheClass', :some_method])
       end
 
       it "adds class to the ac_classes property of the permission" do
         klass.protect(:some_method, :with => 'some permission')
 
-        permissions['some permission'].ac_classes.
+        registry.fetch('some permission').ac_classes.
           should include_only('TheClass')
       end
 
@@ -75,9 +60,9 @@ module AccessControl
         klass.protect(:some_method, :with => 'some permission')
         klass.protect(:some_method, :with => 'some other permission')
 
-        permissions['some permission'].ac_methods.
+        registry.fetch('some permission').ac_methods.
           should include_only(['TheClass', :some_method])
-        permissions['some other permission'].ac_methods.
+        registry.fetch('some other permission').ac_methods.
           should include_only(['TheClass', :some_method])
       end
 
@@ -85,23 +70,23 @@ module AccessControl
         klass.protect(:some_method, :with => 'some permission')
         klass.protect(:some_other_method, :with => 'some permission')
 
-        permissions['some permission'].ac_methods.
+        registry.fetch('some permission').ac_methods.
           should include_only(['TheClass', :some_method],
                               ['TheClass', :some_other_method])
       end
 
       context "when a block is given" do
         it "runs the block with the permission being indexed" do
+          permission = nil
           klass.protect(:some_method, :with => 'some permission') do |p|
-            p.attribute = 'value'
+            permission = p
           end
 
-          permissions['some permission'].attribute.should == 'value'
+          registry.fetch('some permission').should equal permission
         end
       end
 
       describe "regular and dynamic methods" do
-
         def set_methods
           klass.class_eval do
             def regular_method(*args, &block)
@@ -124,17 +109,6 @@ module AccessControl
           end
         end
 
-        let!(:permission) do
-          stub(:name => 'some permission',
-               :ac_methods => Set[
-                 ['TheClass', :regular_method],
-                 ['TheClass', :setter_method=],
-                 ['TheClass', :predicate_method?],
-                 ['TheClass', :dynamic_method]
-               ],
-               :ac_classes => Set['TheClass'])
-        end
-
         before do
           set_methods
           klass.class_eval do
@@ -143,26 +117,10 @@ module AccessControl
             protect :predicate_method?, :with => 'some permission'
             protect :dynamic_method,    :with => 'some permission'
           end
+        end
 
-          Registry.stub(:query).
-            with(:ac_methods => [['TheClass', :regular_method]]).
-            and_return(Set[permission])
-
-          Registry.stub(:query).
-            with(:ac_methods => [['TheClass', :setter_method=]]).
-            and_return(Set[permission])
-
-          Registry.stub(:query).
-            with(:ac_methods => [['TheClass', :predicate_method?]]).
-            and_return(Set[permission])
-
-          Registry.stub(:query).
-            with(:ac_methods => [['TheClass', :dynamic_method]]).
-            and_return(Set[permission])
-
-          Registry.stub(:query).
-            with(:ac_classes => ['TheClass']).
-            and_return(Set[permission])
+        def permission
+          registry.fetch('some permission')
         end
 
         [:new, :allocate].each do |creation_method|
@@ -170,7 +128,6 @@ module AccessControl
             :setter_method=, :predicate_method?].each do |meth|
             describe "using .#{creation_method}" do
               describe "calling ##{meth}" do
-
                 def proc_as_block_for_methods
                   @proc_as_block_for_methods ||= Proc.new { }
                 end
@@ -214,15 +171,56 @@ module AccessControl
                   instance = klass.send(creation_method)
                   calling_method(instance, meth).should == expected_result(meth)
                 end
-
               end
             end
           end
         end
-
       end
 
-    end
+      describe "initialization" do
+        before do
+          klass.class_eval do
+            protect :value=, :with => 'some permission'
+            def initialize(value)
+              self.value = value
+            end
+            def value= value
+              @value = value
+            end
+            def value
+              @value
+            end
+          end
+        end
 
+        def permission
+          registry.fetch('some permission')
+        end
+
+        context "when the user has no permission" do
+          before do
+            manager.stub(:can!).
+              with(collection(permission), instance_of(klass)).
+              and_raise(StandardError)
+          end
+
+          it "setups protection before initialization" do
+            lambda { klass.new('foo') }.should raise_error
+          end
+        end
+
+        context "when the user has permission" do
+          it "performs checking even during initialization" do
+            manager.should_receive(:can!).
+              with(collection(permission), instance_of(klass))
+            lambda { klass.new('foo') }.should_not raise_error
+          end
+
+          it "performs the call" do
+            klass.new('foo').value.should == 'foo'
+          end
+        end
+      end
+    end
   end
 end

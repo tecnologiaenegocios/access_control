@@ -8,127 +8,128 @@ module AccessControl
       base.extend(ClassMethods)
     end
 
-    class Protector
+    def self.guard(instance)
+      Protector.new(instance).guard
+    end
 
-      def initialize(klass)
-        @class = klass
-        @class_name = klass.name
+    def self.check(instance, method_name)
+      permissions = permissions_for(instance.class, method_name)
+      AccessControl.manager.can!(permissions, instance)
+    end
+
+    def self.permissions_for(klass, method_name)
+      key = [[klass.name, method_name.to_sym]]
+      permissions = AccessControl.registry.query(:ac_methods => key)
+      if permissions.empty? && klass.superclass
+        permissions_for(klass.superclass, method_name)
+      else
+        permissions
       end
+    end
 
-      def set_permissions_for(method_name, permission_name)
+    module ClassMethods
+      def protect(method_name, options, &block)
+        permission_name = options[:with]
+        class_name      = self.name
         Registry.store(permission_name) do |permission|
-          permission.ac_methods << [@class_name, method_name.to_sym]
-          permission.ac_classes << @class_name
+          permission.ac_methods << [class_name, method_name.to_sym]
+          permission.ac_classes << class_name
           yield(permission) if block_given?
         end
       end
 
-      def protect_methods
-        return if method_protection_complete?
-        defined_restricted_methods.each do |method_name|
-          protect_method(method_name)
-        end
-        class << @class
-          def method_added(method_name)
-            Protector.new(self).protect_method(method_name)
+      def allocate
+        super.tap { |instance| MethodProtection.guard(instance) }
+      end
+
+      unless AccessControl::Util.new_calls_allocate?
+        def new(*args, &block)
+          if !private_method_defined?(:__method_protection_initialize__)
+            if private_method_defined?(:initialize)
+              define_method(:__method_protection_initialize__) do |*args, &block|
+                MethodProtection.guard(self)
+                __method_protection_original_initialize__(*args, &block)
+              end
+              private :__method_protection_initialize__
+              alias_method :__method_protection_original_initialize__, :initialize
+              alias_method :initialize, :__method_protection_initialize__
+              super
+            else
+              super.tap { |instance| MethodProtection.guard(instance) }
+            end
+          else
             super
           end
         end
-        mark_method_protection_as_complete
+      end
+    end
+
+    class Protector
+      def initialize(instance)
+        @instance   = instance
+        @klass      = instance.class
+        @class_name = @klass.name
       end
 
-      def protect_method(method_name)
-        method_name = method_name.to_sym
-        return unless restricted_methods.include?(method_name)
-        return if method_already_protected?(method_name)
-
-        mark_method_as_already_protected(method_name)
-
-        str_method_name = method_name.to_s
-        if str_method_name.ends_with?('=')
-          suffix = '='
-          stem = str_method_name[0..-2]
-        elsif str_method_name.ends_with?('?')
-          suffix = '?'
-          stem = str_method_name[0..-2]
-        else
-          suffix = ''
-          stem = method_name
-        end
-
-        new_impl = :"#{stem}_with_protection#{suffix}"
-        original_impl = :"#{stem}_without_protection#{suffix}"
-        query_key = [@class_name, method_name]
-
-        @class.class_eval(<<-METHOD, __FILE__, __LINE__ + 1)
-          def #{new_impl}(*args, &block)
-            permissions = Registry.query(:ac_methods => [#{query_key.inspect}])
-            AccessControl.manager.can!(permissions, self)
-            send(:#{original_impl}, *args, &block)
-          end
-
-          alias_method :#{original_impl}, :#{method_name}
-          alias_method :#{method_name},   :#{new_impl}
-        METHOD
+      def guard
+        instance.extend(extension_module)
       end
 
     private
 
-      def method_protection_complete?
-        !!@class.instance_variable_get(:"@__method_protection_complete__")
-      end
+      attr_reader :instance, :klass, :class_name
 
-      def defined_restricted_methods
-        restricted_methods.select{ |m| @class.method_defined?(m) }
+      def extension_module
+        cached_in_class_object(:extension_module) do
+          Module.new.tap do |mod|
+            mod.module_exec(restricted_methods) do |methods|
+              methods.each do |method_name|
+                module_eval(<<-METHOD, __FILE__, __LINE__ + 1)
+                  def #{method_name}(*args, &block)
+                    AccessControl::MethodProtection.check(self, :#{method_name})
+                    super
+                  end
+                METHOD
+              end
+            end
+          end
+        end
       end
 
       def restricted_methods
-        Registry.query(:ac_classes => [@class_name]).flat_map do |p|
-          p.ac_methods.select { |k, m| k == @class_name }.map { |k, m| m }
-        end
+        klasses = class_and_superclasses_of(klass)
+        class_names = klasses.map(&:name)
+        Registry.query(:ac_classes => class_names).flat_map do |p|
+          p.ac_methods.select { |k, m| class_names.include?(k) }.map do |k, m|
+            m
+          end
+        end.uniq
       end
 
-      def mark_method_protection_as_complete
-        @class.instance_variable_set(:"@__method_protection_complete__", true)
+      def class_and_superclasses_of(klass)
+        return [] unless klass
+        [klass] + class_and_superclasses_of(klass.superclass)
       end
 
-      def method_already_protected?(method_name)
-        methods_already_protected.include?(method_name)
+      def cached_in_class_object(key, &block)
+        Cache.new(klass).fetch(key, &block)
       end
-
-      def methods_already_protected
-        unless v = @class.instance_variable_get(:"@__methods_protected__")
-          v = @class.instance_variable_set(:"@__methods_protected__", Set.new)
-        end
-        v
-      end
-
-      def mark_method_as_already_protected(method_name)
-        methods_already_protected << method_name
-      end
-
     end
 
-    module ClassMethods
-
-      def protect(method_name, options, &block)
-        permission_name = options[:with]
-        Protector.new(self).set_permissions_for(method_name, permission_name,
-                                                &block)
+    class Cache
+      def initialize(klass)
+        @klass = klass
       end
 
-      unless AccessControl::Util.new_calls_allocate?
-        def new *args
-          Protector.new(self).protect_methods
-          super
-        end
+      def fetch(key, &block)
+        cache[key] ||= block.call
       end
 
-      def allocate
-        Protector.new(self).protect_methods
-        super
-      end
+    private
 
+      def cache
+        @klass.instance_eval { @__method_protection_cache__ ||= {} }
+      end
     end
   end
 end

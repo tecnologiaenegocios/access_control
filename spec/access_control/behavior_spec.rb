@@ -388,7 +388,7 @@ describe AccessControl do
       it "returns the permissions" do
         AccessControl.
           permissions_for_method(model, :foo).
-          map(&:name).should include('permission')
+          map(&:name).should include_only('permission')
       end
 
       context "in subclasses of the model" do
@@ -397,24 +397,24 @@ describe AccessControl do
         it "returns the permissions" do
           AccessControl.
             permissions_for_method(submodel, :foo).
-            map(&:name).should include('permission')
+            map(&:name).should include_only('permission')
         end
       end
 
-      context "in subclasses which set additional permissions" do
+      context "in subclasses which set new permissions" do
         let_constant(:submodel) { new_class(:SubSecurable, model) }
 
         before do
           submodel.class_eval do
             include AccessControl::MethodProtection
-            protect :foo, :with => 'additional permission'
+            protect :foo, :with => 'new permission'
           end
         end
 
         it "returns the permissions plus the additional ones" do
           AccessControl.
             permissions_for_method(submodel, :foo).
-            map(&:name).should include_only('permission', 'additional permission')
+            map(&:name).should include_only('new permission')
         end
       end
     end
