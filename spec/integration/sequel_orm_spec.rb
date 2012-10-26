@@ -21,8 +21,11 @@ module AccessControl
       let(:sub_stiorm)  { SequelClass.new(sub_stimodel) }
       let(:fake_stiorm) { SequelClass.new(fake_stimodel) }
 
-      def execute_sql(sql)
-        AccessControl.db.execute(sql)
+      def select_sti_subquery(orm)
+        AccessControl.db[orm.table_name].
+          select(orm.pk_name).
+          filter("`#{orm.pk_name}` IN (#{orm.sti_subquery})").
+          select_map(orm.pk_name)
       end
 
       it_should_behave_like "an ORM adapter"

@@ -53,9 +53,7 @@ shared_examples_for "an ORM adapter" do
       let!(:record_ids) { [record1.id, record2.id, record3.id] }
 
       specify do
-        execute_sql(orm.sti_subquery).map do |r|
-          r[0]
-        end.should include_only(*record_ids)
+        select_sti_subquery(orm).should include_only(*record_ids)
       end
     end
 
@@ -73,9 +71,7 @@ shared_examples_for "an ORM adapter" do
       let!(:record_ids) { [record1.id, record2.id, record3.id] }
 
       specify do
-        execute_sql(fake_stiorm.sti_subquery).map do |r|
-          r[0]
-        end.should include_only(*record_ids)
+        select_sti_subquery(fake_stiorm).should include_only(*record_ids)
       end
     end
 
@@ -89,15 +85,11 @@ shared_examples_for "an ORM adapter" do
       let!(:sub_record_ids) { [record3.id, record4.id] }
 
       specify do
-        execute_sql(stiorm.sti_subquery).map do |r|
-          r[0]
-        end.should include_only(*record_ids)
+        select_sti_subquery(stiorm).should include_only(*record_ids)
       end
 
       specify do
-        execute_sql(sub_stiorm.sti_subquery).map do |r|
-          r[0]
-        end.should include_only(*sub_record_ids)
+        select_sti_subquery(sub_stiorm).should include_only(*sub_record_ids)
       end
     end
   end

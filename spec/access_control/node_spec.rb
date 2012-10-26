@@ -220,7 +220,7 @@ module AccessControl
         let_constant(:model) do
           AccessControl.db.create_table(:securables) do
             primary_key :id
-            string      :mytype
+            varchar     :mytype
           end
           new_class(:Securable, Sequel::Model(:securables)) do
             plugin :single_table_inheritance, :mytype
