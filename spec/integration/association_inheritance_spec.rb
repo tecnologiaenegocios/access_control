@@ -1,6 +1,6 @@
 require 'spec_helper'
 
-describe "key-based inheritance" do
+describe "association-based inheritance" do
   include WithConstants
 
   let_constant(:record_class) do
@@ -8,7 +8,9 @@ describe "key-based inheritance" do
       include AccessControl::Securable
 
       belongs_to :parent, :foreign_key => :record_id, :class_name => "Record"
-      inherits_permissions_from_key :record_id, :class_name => "Record"
+      inherits_permissions_from_association :parent,
+                                            :record_id,
+                                            :class_name => "Record"
 
       requires_no_permissions!
     end

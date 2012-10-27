@@ -2,46 +2,71 @@ require 'spec_helper'
 
 module AccessControl
   describe AssociationInheritance do
+    include WithConstants
 
-    class Record < Sequel::Model
-      set_dataset AccessControl.db[:records].filter(~{:record_id => nil})
-      include Inheritance
+    let_constant(:record_class) do
+      new_class(:Record, Sequel::Model) do
+        set_dataset AccessControl.db[:records].filter(~{:record_id => nil})
+        include Inheritance
+
+        def record= value
+          self.record_id = value.id
+          @record = value
+        end
+
+        def record
+          @record
+        end
+      end
     end
 
-    class Parent < Sequel::Model
-      set_dataset AccessControl.db[:records].filter(:record_id => nil)
-      include Inheritance
-    end
-
-    it "is initialized with a class, a key name and a securable type" do
-      subject = AssociationInheritance.new(Record, :foo_id, "Foo")
-      subject.model_class.should == Record
-      subject.key_name.should    == :foo_id
-      subject.parent_type.should == "Foo"
+    let_constant(:parent_class) do
+      new_class(:Parent, Sequel::Model) do
+        set_dataset AccessControl.db[:records].filter(:record_id => nil)
+        include Inheritance
+      end
     end
 
     subject do
-      AssociationInheritance.new(Record, :record_id, Parent.name)
+      AssociationInheritance.new(Record, :record_id, Parent.name, :record)
+    end
+
+    it "is initialized with a class, a key name and a securable type" do
+      subject = AssociationInheritance.new(Record, :foo_id, "Foo", :foo)
+      subject.model_class.should      == Record
+      subject.key_name.should         == :foo_id
+      subject.parent_type.should      == "Foo"
+      subject.association_name.should == :foo
     end
 
     describe "equality" do
       it "is equal to other if the other's properties are the same" do
-        other = AssociationInheritance.new(Record, :record_id, Parent.name)
+        other = AssociationInheritance.new(Record, :record_id,
+                                           Parent.name, :record)
         subject.should == other
       end
 
       it "is not equal to other if the other's model is different" do
-        other = AssociationInheritance.new(Class.new, :record_id, Parent.name)
+        other = AssociationInheritance.new(Class.new, :record_id,
+                                           Parent.name, :record)
         subject.should_not == other
       end
 
       it "is not equal to other if the other's key is different" do
-        other = AssociationInheritance.new(Record, :wrong_key, Parent.name)
+        other = AssociationInheritance.new(Record, :wrong_key,
+                                           Parent.name, :record)
         subject.should_not == other
       end
 
       it "is not equal to other if the other's parent type is different" do
-        other = AssociationInheritance.new(Record, :record_id, "WrongType")
+        other = AssociationInheritance.new(Record, :record_id,
+                                           "WrongType", :record)
+        subject.should_not == other
+      end
+
+      it "is not equal to other if the other's association is different" do
+        other = AssociationInheritance.new(Record, :record_id,
+                                           "WrongType", :wrong_association)
         subject.should_not == other
       end
 
@@ -55,8 +80,9 @@ module AccessControl
 
     describe "#properties" do
       it "returns the inheritance's properties in a hash" do
-        subject = AssociationInheritance.new(Record, :record_id, Parent.name)
-        subject.properties.should == {:record_type => 'AccessControl::Record',
+        subject = AssociationInheritance.new(Record, :record_id,
+                                             Parent.name, :record)
+        subject.properties.should == {:record_type => 'Record',
                                       :key_name    => :record_id,
                                       :parent_type => Parent.name}
       end
@@ -175,5 +201,18 @@ module AccessControl
       end
     end
 
+    describe "#parent_nodes_of" do
+      let(:parent) { Parent.new }
+      let(:node)   { stub }
+      let(:record) { Record.new(:record => parent) }
+
+      before do
+        AccessControl.stub(:Node).with(parent).and_return(node)
+      end
+
+      it "returns the parent node of the securable record in an array" do
+        subject.parent_nodes_of(record).should == [node]
+      end
+    end
   end
 end

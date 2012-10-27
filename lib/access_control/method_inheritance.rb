@@ -35,6 +35,12 @@ module AccessControl
       {:record_type => record_type, :method_name => method_name}
     end
 
+    def parent_nodes_of(securable)
+      result = securable.public_send(method_name)
+      result = Array(result) unless result.kind_of?(Enumerable)
+      result.compact.uniq.map { |record| AccessControl::Node(record) }
+    end
+
   private
 
     def relationships_as_enum(records, &block)

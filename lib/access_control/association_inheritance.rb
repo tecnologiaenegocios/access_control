@@ -4,12 +4,13 @@ require 'access_control/node'
 module AccessControl
   class AssociationInheritance
 
-    attr_reader :model_class, :key_name, :parent_type
-    def initialize(model_class, key_name, parent_type)
-      @model_class = model_class
-      @orm         = ORM.adapt_class(model_class)
-      @key_name    = key_name.to_sym
-      @parent_type = parent_type
+    attr_reader :model_class, :key_name, :parent_type, :association_name
+    def initialize(model_class, key_name, parent_type, association_name)
+      @model_class      = model_class
+      @orm              = ORM.adapt_class(model_class)
+      @key_name         = key_name.to_sym
+      @parent_type      = parent_type
+      @association_name = association_name.to_sym
     end
 
     def relationships(collection = record_table, &block)
@@ -26,9 +27,14 @@ module AccessControl
     end
     alias_method :relationships_of, :relationships
 
+    def parent_nodes_of(securable)
+      result = [securable.public_send(association_name)]
+      result.compact.map { |record| AccessControl::Node(record) }
+    end
+
     def relationships_for_collection(collection)
       tuples = collection.map do |item|
-        [item.public_send(key_name), item.public_send(@orm.pk_name)]
+        [item.public_send(key_name), pk_of(item)]
       end
 
       AccessControl.db.
@@ -89,7 +95,11 @@ module AccessControl
     end
 
     def record_table
-      @reciord_table ||= AccessControl.db[record_table_name]
+      @record_table ||= AccessControl.db[record_table_name]
+    end
+
+    def pk_of(securable)
+      securable.public_send(@orm.pk_name)
     end
   end
 end

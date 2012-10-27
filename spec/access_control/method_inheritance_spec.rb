@@ -149,6 +149,34 @@ module AccessControl
       end
     end
 
+    describe "#parent_nodes_of" do
+      context "single record" do
+        let(:parent) { stub_record }
+        let(:node)   { nodes[parent] }
+        let(:record) { stub_record(:parent => parent) }
+
+        subject { MethodInheritance.new(model, :parent) }
+
+        it "returns the parent node of the securable record in an array" do
+          subject.parent_nodes_of(record).should == [node]
+        end
+      end
+
+      context "collection" do
+        let(:parent1) { stub_record }
+        let(:parent2) { stub_record }
+        let(:node1)   { nodes[parent1] }
+        let(:node2)   { nodes[parent2] }
+        let(:record)  { stub_record(:parents => [parent1, parent2]) }
+
+        subject { MethodInheritance.new(model, :parents) }
+
+        it "returns the parent nodes of the securable record" do
+          subject.parent_nodes_of(record).should include_only(node1, node2)
+        end
+      end
+    end
+
     describe "when assigned to a method that returns a collection" do
       subject { MethodInheritance.new(model, :parents) }
 

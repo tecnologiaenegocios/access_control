@@ -33,8 +33,15 @@ module AccessControl
       }.uniq
     end
 
-    def self.add_key_inheritance(model, key_name, class_name)
-      AssociationInheritance.new(model, key_name, class_name).tap do |inheritance|
+    def self.parent_nodes_of(securable)
+      inheritances_of(securable.class).flat_map { |inheritance|
+        inheritance.parent_nodes_of(securable)
+      }.uniq
+    end
+
+    def self.add_association_inheritance(model, key_name, class_name, assoc_name)
+      AssociationInheritance.new(model, key_name,
+                                 class_name, assoc_name).tap do |inheritance|
         add_inheritance(model, inheritance)
       end
     end
@@ -79,14 +86,16 @@ module AccessControl
         inheritances.size == 1 ? inheritances.first : inheritances
       end
 
-      def inherits_permissions_from_key(key_name, options)
+      def inherits_permissions_from_association(association_name,
+                                                key_name, options)
         class_name = options[:class_name]
 
         unless class_name && key_name
-          raise ArgumentError, "Key and class names are mandatory"
+          raise ArgumentError, "Key, class name and association name are mandatory"
         end
 
-        Inheritance.add_key_inheritance(self, key_name, class_name)
+        Inheritance.add_association_inheritance(self, key_name, class_name,
+                                                association_name)
       end
     end
 

@@ -39,15 +39,16 @@ module AccessControl
           and_return(method_inheritance)
 
         AssociationInheritance.stub(:new)
-        AssociationInheritance.stub(:new).with(model, :parent_key, "Parent").
+        AssociationInheritance.stub(:new).with(model, :parent_key, "Parent", :parent).
           and_return(association_inheritance)
 
         method_inheritance.stub(:relationships_of => [])
         association_inheritance.stub(:relationships_of => [])
 
         model.class_exec do
-          inherits_permissions_from     :parent_method
-          inherits_permissions_from_key :parent_key, :class_name => "Parent"
+          inherits_permissions_from             :parent_method
+          inherits_permissions_from_association :parent, :parent_key,
+                                                :class_name => "Parent"
         end
       end
 
@@ -84,6 +85,73 @@ module AccessControl
           and_return [ {:parent_id => same_parent_id} ]
 
         Inheritance.parent_node_ids_of(securable).should include_only(same_parent_id)
+      end
+    end
+
+    describe ".parent_nodes_of" do
+      let(:securable) { stub("Securable", :class => model) }
+
+      let(:method_parent)      { stub("Method parent") }
+      let(:association_parent) { stub("Association parent") }
+
+      let(:method_inheritance)      { stub("Method inheritance") }
+      let(:association_inheritance) { stub("Association inheritance") }
+
+      before do
+        MethodInheritance.stub(:new)
+        MethodInheritance.stub(:new).with(model, :parent_method).
+          and_return(method_inheritance)
+
+        AssociationInheritance.stub(:new)
+        AssociationInheritance.stub(:new).
+          with(model, :parent_key, "Parent", :parent).
+          and_return(association_inheritance)
+
+        method_inheritance.stub(:parent_nodes_of => [])
+        association_inheritance.stub(:parent_nodes_of => [])
+
+        model.class_exec do
+          inherits_permissions_from             :parent_method
+          inherits_permissions_from_association :parent, :parent_key,
+                                                :class_name => "Parent"
+        end
+      end
+
+      it "returns the nodes retrieved by methods in the securable" do
+        method_inheritance.stub(:parent_nodes_of).with(securable).
+          and_return [method_parent]
+
+        Inheritance.parent_nodes_of(securable).should \
+          include_only(method_parent)
+      end
+
+      it "returns the nodes retrieved by associations in the securable" do
+        association_inheritance.stub(:parent_nodes_of).with(securable).
+          and_return [association_parent]
+
+        Inheritance.parent_nodes_of(securable).should \
+          include_only(association_parent)
+      end
+
+      it "returns the nodes of both method-based and association-based parents" do
+        method_inheritance.stub(:parent_nodes_of).with(securable).
+          and_return [method_parent]
+        association_inheritance.stub(:parent_nodes_of).with(securable).
+          and_return [association_parent]
+
+        parents = [method_parent, association_parent]
+        Inheritance.parent_nodes_of(securable).should == parents
+      end
+
+      it "removes duplicates" do
+        same_parent = stub
+
+        method_inheritance.stub(:parent_nodes_of).with(securable).
+          and_return [same_parent]
+        association_inheritance.stub(:parent_nodes_of).with(securable).
+          and_return [same_parent]
+
+        Inheritance.parent_nodes_of(securable).should include_only(same_parent)
       end
     end
 
@@ -143,51 +211,59 @@ module AccessControl
       end
     end
 
-    describe ".inherits_permissions_from_key" do
-      it "raises ArgumentError if not given a column name and a class name" do
+    describe ".inherits_permissions_from_association" do
+      it "raises ArgumentError if not given a class name" do
         lambda {
-          model.inherits_permissions_from_key('foo_id')
+          model.inherits_permissions_from_association('foo', 'foo_id')
         }.should raise_exception(ArgumentError)
       end
 
       it "returns a AssociationInheritance" do
-        inheritance = model.inherits_permissions_from_key('foo_id', :class_name => "Foo")
+        inheritance = model.inherits_permissions_from_association('foo', 'foo_id',
+                                                                  :class_name => "Foo")
         inheritance.should be_kind_of(AssociationInheritance)
       end
 
       it "stores the information from the class on the Inheritance module" do
         lambda {
-          model.inherits_permissions_from_key('foo_id', :class_name => "Foo")
+          model.inherits_permissions_from_association('foo', 'foo_id',
+                                                      :class_name => "Foo")
         }.should change(Inheritance.inheritances_of(model), :count).by(1)
       end
 
       it "stores the returned inheritance on the Inheritance module" do
         inheritance =
-          model.inherits_permissions_from_key('foo_id', :class_name => "Foo")
+          model.inherits_permissions_from_association('foo', 'foo_id',
+                                                      :class_name => "Foo")
         Inheritance.inheritances_of(model).should include(inheritance)
       end
 
       it "doesn't add a new inheritance if a equivalent exists" do
-        model.inherits_permissions_from_key('foo_id', :class_name => "Foo")
+        model.inherits_permissions_from_association('foo', 'foo_id',
+                                                    :class_name => "Foo")
 
         lambda {
-          model.inherits_permissions_from_key('foo_id', :class_name => "Foo")
+          model.inherits_permissions_from_association('foo', 'foo_id',
+                                                      :class_name => "Foo")
         }.should_not change(Inheritance.inheritances_of(model), :count)
       end
 
       it "creates the inheritance with the correct parameters" do
-        model.inherits_permissions_from_key('foo_id', :class_name => "Foo")
+        model.inherits_permissions_from_association('foo', 'foo_id',
+                                                    :class_name => "Foo")
         inheritance = Inheritance.inheritances_of(model).first
 
         inheritance.model_class.name.should == model.name
         inheritance.key_name.should         == :foo_id
         inheritance.parent_type.should      == "Foo"
+        inheritance.association_name.should == :foo
       end
     end
 
     describe ".inheritances_of" do
       let!(:inheritance) do
-        model.inherits_permissions_from_key("foo_id", :class_name => "Foo")
+        model.inherits_permissions_from_association('foo', "foo_id",
+                                                    :class_name => "Foo")
       end
 
       it "finds inheritances correctly if given a class" do
@@ -205,7 +281,8 @@ module AccessControl
 
         context "when an inheritance was defined in the subclass" do
           let!(:submodel_inheritance) do
-            submodel.inherits_permissions_from_key("bar_id", :class_name => "Bar")
+            submodel.inherits_permissions_from_association('bar', "bar_id",
+                                                           :class_name => "Bar")
           end
           it "overrides the inheritance chain" do
             Inheritance.inheritances_of(submodel).should_not include(inheritance)
