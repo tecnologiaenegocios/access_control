@@ -113,8 +113,12 @@ module AccessControl
     end
 
     def nodes_of_securable_parents
-      ids = Inheritance.parent_node_ids_of(node.securable)
-      Node.fetch_all(ids)
+      @nodes_of_securable_parents ||=
+        Inheritance.parent_nodes_of(node.securable).tap do |nodes|
+          nodes.each do |node|
+            node.persist! unless node.persisted?
+          end
+        end
     end
 
     def inheritance_manager

@@ -2,12 +2,6 @@ require 'spec_helper'
 
 module AccessControl
   describe NodeManager do
-
-    def add_nodes(hash)
-      hash.each do |id, instance|
-        current_nodes[id] = instance
-      end
-    end
     let(:current_nodes)   { {} }
 
     let(:securable_class) { FakeSecurableClass.new }
@@ -72,19 +66,16 @@ module AccessControl
       let(:inheritance_manager) { mock("Inheritance Manager") }
       let(:manager)             { mock('Manager') }
 
-      let(:parent_id) { 'parent id' }
-      let(:parent)    { stub("Parent node") }
+      let(:parent)    { stub("Parent node", :persisted? => true) }
 
-      let(:real_parent_ids) { [parent_id] }
+      let(:real_parents)    { [parent] }
       let(:cached_parents)  { [parent] }
 
       before do
-        add_nodes(parent_id => parent)
-
         inheritance_manager.stub(:parents => cached_parents)
 
-        Inheritance.stub(:parent_node_ids_of).with(securable).
-          and_return(real_parent_ids)
+        Inheritance.stub(:parent_nodes_of).with(securable).
+          and_return(real_parents)
 
         securable_class.stub(
           :permissions_required_to_create  => create_permissions,
@@ -100,17 +91,14 @@ module AccessControl
       end
 
       context "when parents were added" do
-        let(:new_parent_id) { 'new parent id' }
-        let(:new_parent)    { stub("New parent") }
+        let(:new_parent)    { stub("New parent", :persisted? => true) }
 
         before do
-          add_nodes(new_parent_id => new_parent)
-
           inheritance_manager.stub(:add_parent)
           RolePropagation.stub(:propagate!)
           manager.stub(:can!)
 
-          real_parent_ids << new_parent_id
+          real_parents << new_parent
         end
 
         it "checks permission for adding the new parent" do
@@ -127,6 +115,14 @@ module AccessControl
           RolePropagation.should_receive(:propagate!).with(node, [new_parent])
           subject.refresh_parents
         end
+
+        it "persists the nodes being added" do
+          new_parent.stub(:persisted?).and_return(false)
+          new_parent.should_receive(:persist!).ordered
+          new_parent.should_receive(:added).ordered
+          inheritance_manager.stub(:add_parent) { |p| p.added }
+          subject.refresh_parents
+        end
       end
 
       context "when parents were removed" do
@@ -135,7 +131,7 @@ module AccessControl
           RolePropagation.stub(:depropagate!)
           manager.stub(:can!)
 
-          real_parent_ids.delete(parent_id)
+          real_parents.delete(parent)
         end
 
         it "checks permissions for removing the parents" do
@@ -294,16 +290,12 @@ module AccessControl
     end
 
     describe "#unblock" do
-
-      let(:parent_id) { 'parent id' }
-      let(:parent)    { stub("Parent node", :id => parent_id) }
+      let(:parent)    { stub("Parent node", :persisted? => true) }
       let(:inheritance_manager) { stub }
 
       before do
-        add_nodes(parent_id => parent)
-
-        Inheritance.stub(:parent_node_ids_of).with(securable).
-          and_return([parent_id])
+        Inheritance.stub(:parent_nodes_of).with(securable).
+          and_return([parent])
 
         RolePropagation.stub(:propagate!)
 
@@ -328,6 +320,14 @@ module AccessControl
           second_arg.should include_only(parent)
         end
 
+        subject.unblock
+      end
+
+      it "persists the parent nodes being unblocked" do
+        parent.stub(:persisted?).and_return(false)
+        parent.should_receive(:persist!).ordered
+        parent.should_receive(:added).ordered
+        inheritance_manager.stub(:add_parent) { |p| p.added }
         subject.unblock
       end
     end
