@@ -28,7 +28,7 @@ module AccessControl
     alias_method :relationships_of, :relationships
 
     def parent_nodes_of(securable)
-      result = [securable.public_send(association_name)]
+      result = [associated_record(securable)]
       result.compact.map { |record| AccessControl::Node(record) }
     end
 
@@ -100,6 +100,12 @@ module AccessControl
 
     def pk_of(securable)
       securable.public_send(@orm.pk_name)
+    end
+
+    def associated_record(securable)
+      AccessControl.manager.without_query_restriction do
+        securable.public_send(association_name)
+      end
     end
   end
 end

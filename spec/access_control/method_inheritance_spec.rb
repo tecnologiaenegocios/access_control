@@ -150,6 +150,13 @@ module AccessControl
     end
 
     describe "#parent_nodes_of" do
+      let(:manager) { stub }
+
+      before do
+        AccessControl.stub(:manager).and_return(manager)
+        manager.stub(:without_query_restriction).and_yield
+      end
+
       context "single record" do
         let(:parent) { stub_record }
         let(:node)   { nodes[parent] }
@@ -158,6 +165,17 @@ module AccessControl
         subject { MethodInheritance.new(model, :parent) }
 
         it "returns the parent node of the securable record in an array" do
+          subject.parent_nodes_of(record).should == [node]
+        end
+
+        it "calls inheritance method in an query-unrestricted way" do
+          record.stub(:parent).and_return(nil)
+          manager.stub(:record).and_return(record)
+          manager.stub(:parent).and_return(parent)
+          manager.define_singleton_method(:without_query_restriction) do |&block|
+            record.stub(:parent).and_return(parent)
+            block.call
+          end
           subject.parent_nodes_of(record).should == [node]
         end
       end
@@ -172,6 +190,17 @@ module AccessControl
         subject { MethodInheritance.new(model, :parents) }
 
         it "returns the parent nodes of the securable record" do
+          subject.parent_nodes_of(record).should include_only(node1, node2)
+        end
+
+        it "calls inheritance method in an query-unrestricted way" do
+          record.stub(:parents).and_return(nil)
+          manager.stub(:record).and_return(record)
+          manager.stub(:parents).and_return([parent1, parent2])
+          manager.define_singleton_method(:without_query_restriction) do |&block|
+            record.stub(:parents).and_return(parents)
+            block.call
+          end
           subject.parent_nodes_of(record).should include_only(node1, node2)
         end
       end

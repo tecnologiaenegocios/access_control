@@ -36,9 +36,7 @@ module AccessControl
     end
 
     def parent_nodes_of(securable)
-      result = securable.public_send(method_name)
-      result = Array(result) unless result.kind_of?(Enumerable)
-      result.compact.uniq.map { |record| AccessControl::Node(record) }
+      parent_records(securable).map { |record| AccessControl::Node(record) }
     end
 
   private
@@ -78,6 +76,18 @@ module AccessControl
 
     def record_type
       model_class.name
+    end
+
+    def parent_records(securable)
+      result = unrestricted_parent_records(securable)
+      result = Array(result) unless result.kind_of?(Enumerable)
+      result.compact.uniq
+    end
+
+    def unrestricted_parent_records(securable)
+      AccessControl.manager.without_query_restriction do
+        securable.public_send(method_name)
+      end
     end
   end
 end

@@ -206,11 +206,26 @@ module AccessControl
       let(:node)   { stub }
       let(:record) { Record.new(:record => parent) }
 
+      let(:manager) { stub }
+
       before do
         AccessControl.stub(:Node).with(parent).and_return(node)
+        AccessControl.stub(:manager).and_return(manager)
+        manager.stub(:without_query_restriction).and_yield
       end
 
       it "returns the parent node of the securable record in an array" do
+        subject.parent_nodes_of(record).should == [node]
+      end
+
+      it "gets the parent without query restriction" do
+        record.stub(:record).and_return(nil)
+        manager.stub(:record).and_return(record)
+        manager.stub(:parent).and_return(parent)
+        manager.define_singleton_method(:without_query_restriction) do |&block|
+          record.stub(:record).and_return(parent)
+          block.call
+        end
         subject.parent_nodes_of(record).should == [node]
       end
     end
