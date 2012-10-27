@@ -41,7 +41,7 @@ module AccessControl
       def inherits_permissions_from(*args, &block)
       end
 
-      def inherits_permissions_from_key(*args, &block)
+      def inherits_permissions_from_association(*args, &block)
       end
     end
   end

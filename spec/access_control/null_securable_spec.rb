@@ -53,9 +53,9 @@ module AccessControl
       end
     end
 
-    describe ".inherits_permissions_from_key" do
+    describe ".inherits_permissions_from_association" do
       it "does nothing" do
-        model.inherits_permissions_from_key('args') { }
+        model.inherits_permissions_from_association('args') { }
       end
     end
 
