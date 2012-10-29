@@ -36,7 +36,7 @@ shared_examples_for "any AccessControl object associated with an ActiveRecord::B
       ac_object.should_not be_persisted
     end
 
-    it "doesn't persist the AC object if a before_create callback returns false" do
+    it "doesn't persist the AC object if an after_create callback breaks" do
       subject.class.class_eval do
         after_create { |record| raise "error" }
       end
@@ -49,6 +49,13 @@ shared_examples_for "any AccessControl object associated with an ActiveRecord::B
       subject.class.class_eval do
         validate { |record| record.errors.add(:foo, :bar) }
       end
+      ac_object = ac_object_from_ar_object(subject)
+      subject.save
+      ac_object.should_not be_persisted
+    end
+
+    it "doesn't persist the AC object if AccessControl is disabled" do
+      AccessControl.stub(:disabled?).and_return(true)
       ac_object = ac_object_from_ar_object(subject)
       subject.save
       ac_object.should_not be_persisted
@@ -134,6 +141,12 @@ shared_examples_for "any AccessControl object associated with an ActiveRecord::B
         subject.save
       end
 
+      it "doesn't persist the AC object if AccessControl is disabled" do
+        AccessControl.stub(:disabled?).and_return(true)
+        ac_object.should_not_receive(:persist!)
+        subject.save
+      end
+
       it "returns the result on regular successful #save call" do
         subject.save.should be_true
       end
@@ -205,6 +218,20 @@ shared_examples_for "any AccessControl object associated with an ActiveRecord::B
       subject.class.class_eval do
         before_destroy { |record| false }
       end
+      ac_object.should_not_receive(:destroy)
+      subject.destroy
+    end
+
+    it "doesn't destroy the node if an after_destroy callback breaks" do
+      subject.class.class_eval do
+        after_destroy { |record| raise "error" }
+      end
+      ac_object.should_not_receive(:destroy)
+      subject.destroy rescue nil
+    end
+
+    it "doesn't persist the AC object if AccessControl is disabled" do
+      AccessControl.stub(:disabled?).and_return(true)
       ac_object.should_not_receive(:destroy)
       subject.destroy
     end

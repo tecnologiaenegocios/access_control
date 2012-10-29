@@ -1,4 +1,5 @@
 require 'spec_helper'
+require 'access_control/active_record_securable'
 require 'access_control/null_securable'
 
 module AccessControl
@@ -63,6 +64,9 @@ module AccessControl
       let(:base) { ActiveRecord::Base }
       it "includes NullRestriction" do
         model.should include(NullRestriction)
+      end
+      it "includes ActiveRecordSecurable" do
+        model.should include(ActiveRecordSecurable)
       end
     end
   end

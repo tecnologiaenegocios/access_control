@@ -6,6 +6,8 @@ module AccessControl
     end
 
     def persist
+      return if AccessControl.disabled?
+
       @names.each do |name, key_method|
         unless @instance.new_record?
           associated = @instance.send(name)
@@ -17,6 +19,8 @@ module AccessControl
     end
 
     def destroy
+      return if AccessControl.disabled?
+
       @names.each do |name, key_method|
         if @instance.destroyed?
           @instance.send(name).destroy

@@ -1,3 +1,4 @@
+require 'access_control/active_record_securable'
 require 'access_control/null_restriction'
 
 module AccessControl
@@ -8,6 +9,7 @@ module AccessControl
 
       if base < ActiveRecord::Base
         base.class_eval do
+          include AccessControl::ActiveRecordSecurable
           include AccessControl::NullRestriction
         end
       end
