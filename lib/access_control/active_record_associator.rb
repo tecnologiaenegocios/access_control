@@ -86,7 +86,7 @@ module AccessControl
 
         def transaction
           increment_transaction_counter
-          yield
+          AccessControl.manager.trust { yield }
           synchronize_associators if transaction_counter == 1
         ensure
           decrement_transaction_counter

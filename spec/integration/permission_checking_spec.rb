@@ -48,6 +48,7 @@ describe "permission checking with nested child records" do
   end
 
   after do
+    AccessControl.no_manager
     AccessControl.reset
   end
 
@@ -229,4 +230,60 @@ describe "permission checking with nested child records" do
       it { should raise_error(AccessControl::Unauthorized) }
     end
   end
+end
+
+describe "creation without permission definition with reloading" do
+  include WithConstants
+
+  let_constant(:user_class) do
+    new_class(:User, ActiveRecord::Base) do
+      include AccessControl::ActiveRecordSubject
+    end
+  end
+
+  let_constant(:record_class) do
+    new_class(:Record, ActiveRecord::Base) do
+      include AccessControl::Securable
+
+      show_requires 'some_permission'
+      list_requires 'some_permission'
+      create_requires  nil
+      update_requires  nil
+      destroy_requires nil
+
+      belongs_to :record
+      has_many :records
+
+      inherits_permissions_from_association :record, :record_id,
+                                            :class_name => 'Record'
+
+      attr_accessor :stop_proliferation
+
+      after_create :proliferate
+      def proliferate
+        unless stop_proliferation
+          records.create!(
+            :name => 'child',
+            :stop_proliferation => true
+          )
+        else
+          record.reload
+        end
+      end
+    end
+  end
+
+  subject { lambda { record_class.create!(:name => 'parent') } }
+
+  before do
+    user = user_class.create!
+    AccessControl.manager.current_subjects = [user]
+  end
+
+  after do
+    AccessControl.no_manager
+    AccessControl.reset
+  end
+
+  it { should_not raise_error }
 end
