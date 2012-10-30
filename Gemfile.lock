@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    access_control (0.15.1)
+    access_control (0.16.0)
       backports
       rails (~> 2.3.5)
       sequel
@@ -23,7 +23,7 @@ GEM
       activesupport (= 2.3.14)
     activesupport (2.3.14)
     archive-tar-minitar (0.5.2)
-    backports (2.3.0)
+    backports (2.6.4)
     coderay (1.0.6)
     columnize (0.3.2)
     ffi (1.0.11)
