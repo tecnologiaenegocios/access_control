@@ -66,6 +66,11 @@ module AccessControl
         super
       end
 
+      def update_attributes!(*)
+        AssociatorSupport.add_associator_to_persist(self)
+        super
+      end
+
       def destroy
         AssociatorSupport.add_associator_to_destroy(self)
         super
@@ -86,8 +91,9 @@ module AccessControl
 
         def transaction
           increment_transaction_counter
-          AccessControl.manager.trust { yield }
-          synchronize_associators if transaction_counter == 1
+          AccessControl.manager.trust { yield }.tap do |result|
+            synchronize_associators if transaction_counter == 1
+          end
         ensure
           decrement_transaction_counter
           clear if transaction_counter == 0

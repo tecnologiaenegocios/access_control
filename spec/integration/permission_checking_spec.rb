@@ -1,6 +1,6 @@
 require 'spec_helper'
 
-describe "permission checking with nested child records" do
+describe "permission checking" do
   include WithConstants
 
   let_constant(:record_class) do
@@ -57,23 +57,12 @@ describe "permission checking with nested child records" do
     let(:parent)     { root }
 
     subject do
-      lambda { record_class.create!(:parent_record => parent,
-                                    :name => 'record') }
+      lambda { record_class.new(:parent_record => parent,
+                                :name => 'record').save! }
     end
 
     before do
       role.add_permissions([permission])
-
-      record_class.class_eval do
-        after_save :resave!
-        def resave!
-          unless @resaved
-            # This update should not trigger permission checking.
-            @resaved = true
-            save!
-          end
-        end
-      end
     end
 
     context "when the user has permissions to create" do
@@ -104,6 +93,103 @@ describe "permission checking with nested child records" do
 
       it { should_not raise_error }
     end
+
+    context "using #save" do
+      subject do
+        lambda { record_class.new(:parent_record => parent,
+                                  :name => 'record').save }
+      end
+
+      context "when the user has permissions to create" do
+        before { role.globally_assign_to(user) }
+        it { should_not raise_error }
+        it { should be_true }
+      end
+
+      context "when the user has no permission to create" do
+        it { should raise_error(AccessControl::Unauthorized) }
+      end
+    end
+
+    context "using #create!" do
+      subject do
+        lambda { record_class.create!(:parent_record => parent,
+                                      :name => 'record') }
+      end
+
+      context "when the user has permissions to create" do
+        before { role.globally_assign_to(user) }
+        it { should_not raise_error }
+      end
+
+      context "when the user has no permission to create" do
+        it { should raise_error(AccessControl::Unauthorized) }
+      end
+
+      context "when the user has permission only through the parent" do
+        let(:parent) { record_class.new(:parent_record => root,
+                                        :name => 'parent') }
+
+        before do
+          role.assign_to(user, root)
+
+          record_class.class_eval do
+            after_create :persist_parent
+            def persist_parent
+              if parent_record && parent_record.new_record?
+                parent_record.save!
+              end
+            end
+          end
+        end
+
+        it { should_not raise_error }
+      end
+    end
+
+    context "when an update is triggered inside the same transaction" do
+      before do
+        record_class.class_eval do
+          after_save :resave!
+          def resave!
+            unless @resaved
+              # This update should not trigger permission checking.
+              @resaved = true
+              save!
+            end
+          end
+        end
+      end
+
+      context "when the user has permissions to create" do
+        before { role.globally_assign_to(user) }
+        it { should_not raise_error }
+      end
+
+      context "when the user has no permission to create" do
+        it { should raise_error(AccessControl::Unauthorized) }
+      end
+
+      context "when the user has permission only through the parent" do
+        let(:parent) { record_class.new(:parent_record => root,
+                                        :name => 'parent') }
+
+        before do
+          role.assign_to(user, root)
+
+          record_class.class_eval do
+            after_create :persist_parent
+            def persist_parent
+              if parent_record && parent_record.new_record?
+                parent_record.save!
+              end
+            end
+          end
+        end
+
+        it { should_not raise_error }
+      end
+    end
   end
 
   context "on update" do
@@ -127,6 +213,20 @@ describe "permission checking with nested child records" do
 
     context "when the user has no permission to update" do
       it { should raise_error(AccessControl::Unauthorized) }
+    end
+
+    context "using #save" do
+      subject { lambda { record.save! } }
+
+      context "when the user has permissions to update" do
+        before { role.globally_assign_to(user) }
+        it { should_not raise_error }
+        it { should be_true }
+      end
+
+      context "when the user has no permission to update" do
+        it { should raise_error(AccessControl::Unauthorized) }
+      end
     end
 
     context "on parent change with permission to update" do
@@ -204,6 +304,48 @@ describe "permission checking with nested child records" do
 
       # The parent will be persisted even without permissions in its record.
       it { should_not raise_error }
+    end
+
+    context "using #update_attribute" do
+      subject { lambda { record.update_attribute(:name, 'updated') } }
+
+      context "when the user has permissions to update" do
+        before { role.globally_assign_to(user) }
+        it { should_not raise_error }
+        it { should be_true }
+      end
+
+      context "when the user has no permission to update" do
+        it { should raise_error(AccessControl::Unauthorized) }
+      end
+    end
+
+    context "using #update_attributes" do
+      subject { lambda { record.update_attributes(:name => 'updated') } }
+
+      context "when the user has permissions to update" do
+        before { role.globally_assign_to(user) }
+        it { should_not raise_error }
+        it { should be_true }
+      end
+
+      context "when the user has no permission to update" do
+        it { should raise_error(AccessControl::Unauthorized) }
+      end
+    end
+
+    context "using #update_attributes!" do
+      subject { lambda { record.update_attributes!(:name => 'updated') } }
+
+      context "when the user has permissions to update" do
+        before { role.globally_assign_to(user) }
+        it { should_not raise_error }
+        it { should be_true }
+      end
+
+      context "when the user has no permission to update" do
+        it { should raise_error(AccessControl::Unauthorized) }
+      end
     end
   end
 
