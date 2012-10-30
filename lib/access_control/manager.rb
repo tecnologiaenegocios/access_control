@@ -72,7 +72,7 @@ module AccessControl
         caller
       )
 
-      raise Unauthorized
+      raise Unauthorized, [permissions, nodes]
     end
 
     def restrict_queries?

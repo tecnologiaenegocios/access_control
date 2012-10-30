@@ -1,8 +1,8 @@
 module AccessControl
   class ActiveRecordAssociator
     def initialize(instance)
-      @instance = instance
-      @names    = ActiveRecordAssociator.associated_names[instance.class]
+      @instance  = instance
+      @names     = ActiveRecordAssociator.associated_names[instance.class]
     end
 
     def persist
@@ -118,8 +118,16 @@ module AccessControl
         end
 
         def synchronize_associators
-          associators_to_persist.each { |associator| associator.persist }
-          associators_to_destroy.each { |associator| associator.destroy }
+          first_to_persist = associators_to_persist.shift
+          first_to_destroy = associators_to_destroy.shift
+
+          first_to_persist.persist if first_to_persist
+          first_to_destroy.destroy if first_to_destroy
+
+          AccessControl.manager.trust do
+            associators_to_persist.each { |associator| associator.persist }
+            associators_to_destroy.each { |associator| associator.destroy }
+          end
         ensure
           clear
         end

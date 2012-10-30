@@ -116,7 +116,9 @@ module AccessControl
       @nodes_of_securable_parents ||=
         Inheritance.parent_nodes_of(node.securable).tap do |nodes|
           nodes.each do |node|
-            node.persist! unless node.persisted?
+            unless node.persisted?
+              AccessControl.manager.trust { node.persist! }
+            end
           end
         end
     end
