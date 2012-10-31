@@ -52,6 +52,39 @@ describe "permission checking" do
     AccessControl.reset
   end
 
+  Spec::Matchers.define(:return_true) do
+    description { |callable| "return true" }
+    failure_message_for_should do |callable|
+      "expected #{callable} to return true"
+    end
+    failure_message_for_should_not do |callable|
+      "expected #{callable} to return false"
+    end
+    match { |callable| !!callable.call }
+  end
+
+  Spec::Matchers.define(:return_false) do
+    description { |callable| "return false" }
+    failure_message_for_should do |callable|
+      "expected #{callable} to return false"
+    end
+    failure_message_for_should_not do |callable|
+      "expected #{callable} to return true"
+    end
+    match { |callable| !callable.call }
+  end
+
+  Spec::Matchers.define(:return_value) do |value|
+    description { |callable| "return #{value}" }
+    failure_message_for_should do |callable|
+      "expected #{callable} to return #{value}"
+    end
+    failure_message_for_should_not do |callable|
+      "expected #{callable} to not return #{value}"
+    end
+    match { |callable| callable.call == value }
+  end
+
   context "on create" do
     let(:permission) { AccessControl.registry.store('create_permission') }
     let(:parent)     { root }
@@ -102,12 +135,29 @@ describe "permission checking" do
 
       context "when the user has permissions to create" do
         before { role.globally_assign_to(user) }
-        it { should_not raise_error }
-        it { should be_true }
+        it { should return_true }
+
+        context "when underlying implementation returns false" do
+          before do
+            record_class.class_eval do
+              validate { |r| r.errors.add(:foo, :bar) if r.name == 'record' }
+            end
+          end
+          it { should return_false }
+        end
       end
 
       context "when the user has no permission to create" do
         it { should raise_error(AccessControl::Unauthorized) }
+
+        context "when underlying implementation returns false" do
+          before do
+            record_class.class_eval do
+              validate { |r| r.errors.add(:foo, :bar) if r.name == 'record' }
+            end
+          end
+          it { should return_false }
+        end
       end
     end
 
@@ -216,16 +266,33 @@ describe "permission checking" do
     end
 
     context "using #save" do
-      subject { lambda { record.save! } }
+      subject { lambda { record.name = 'updated'; record.save } }
 
       context "when the user has permissions to update" do
         before { role.globally_assign_to(user) }
-        it { should_not raise_error }
-        it { should be_true }
+        it { should return_true }
+
+        context "when underlying implementation returns false" do
+          before do
+            record_class.class_eval do
+              validate { |r| r.errors.add(:foo, :bar) if r.name == 'updated' }
+            end
+          end
+          it { should return_false }
+        end
       end
 
       context "when the user has no permission to update" do
         it { should raise_error(AccessControl::Unauthorized) }
+
+        context "when underlying implementation returns false" do
+          before do
+            record_class.class_eval do
+              validate { |r| r.errors.add(:foo, :bar) if r.name == 'updated' }
+            end
+          end
+          it { should return_false }
+        end
       end
     end
 
@@ -311,12 +378,29 @@ describe "permission checking" do
 
       context "when the user has permissions to update" do
         before { role.globally_assign_to(user) }
-        it { should_not raise_error }
-        it { should be_true }
+        it { should return_true }
+
+        context "when underlying implementation returns false" do
+          before do
+            record_class.class_eval do
+              before_update { |r| false }
+            end
+          end
+          it { should return_false }
+        end
       end
 
       context "when the user has no permission to update" do
         it { should raise_error(AccessControl::Unauthorized) }
+
+        context "when underlying implementation returns false" do
+          before do
+            record_class.class_eval do
+              before_update { |r| false }
+            end
+          end
+          it { should return_false }
+        end
       end
     end
 
@@ -325,12 +409,29 @@ describe "permission checking" do
 
       context "when the user has permissions to update" do
         before { role.globally_assign_to(user) }
-        it { should_not raise_error }
-        it { should be_true }
+        it { should return_true }
+
+        context "when underlying implementation returns false" do
+          before do
+            record_class.class_eval do
+              validate { |r| r.errors.add(:foo, :bar) if r.name == 'updated' }
+            end
+          end
+          it { should return_false }
+        end
       end
 
       context "when the user has no permission to update" do
         it { should raise_error(AccessControl::Unauthorized) }
+
+        context "when underlying implementation returns false" do
+          before do
+            record_class.class_eval do
+              validate { |r| r.errors.add(:foo, :bar) if r.name == 'updated' }
+            end
+          end
+          it { should return_false }
+        end
       end
     end
 
@@ -339,8 +440,7 @@ describe "permission checking" do
 
       context "when the user has permissions to update" do
         before { role.globally_assign_to(user) }
-        it { should_not raise_error }
-        it { should be_true }
+        it { should return_true }
       end
 
       context "when the user has no permission to update" do
@@ -365,7 +465,7 @@ describe "permission checking" do
 
     context "when the user has permission" do
       before { role.assign_to(user, root) }
-      it { should_not raise_error }
+      it { should return_value(record) }
     end
 
     context "when the user has no permission" do
