@@ -85,6 +85,11 @@ describe "permission checking" do
     match { |callable| callable.call == value }
   end
 
+  Spec::Matchers.define(:leave) do |block|
+    description { |callable| "leave an expected result" }
+    match { |callable| callable.call; block.call }
+  end
+
   context "on create" do
     let(:permission) { AccessControl.registry.store('create_permission') }
     let(:parent)     { root }
@@ -100,7 +105,7 @@ describe "permission checking" do
 
     context "when the user has permissions to create" do
       before { role.globally_assign_to(user) }
-      it { should_not raise_error }
+      it { should return_true }
     end
 
     context "when the user has no permission to create" do
@@ -124,7 +129,7 @@ describe "permission checking" do
         end
       end
 
-      it { should_not raise_error }
+      it { should return_true }
     end
 
     context "using #save" do
@@ -169,7 +174,7 @@ describe "permission checking" do
 
       context "when the user has permissions to create" do
         before { role.globally_assign_to(user) }
-        it { should_not raise_error }
+        it { should return_true }
       end
 
       context "when the user has no permission to create" do
@@ -243,7 +248,7 @@ describe "permission checking" do
   end
 
   context "on update" do
-    subject { lambda { record.save! } }
+    subject { lambda { record.name = 'updated'; record.save! } }
 
     let(:permission) { AccessControl.registry.store('update_permission') }
     let(:record) do
@@ -258,7 +263,8 @@ describe "permission checking" do
 
     context "when the user has permissions to update" do
       before { role.globally_assign_to(user) }
-      it { should_not raise_error }
+      it { should return_true }
+      it { should leave(lambda { record.reload.name == 'updated' }) }
     end
 
     context "when the user has no permission to update" do
@@ -271,6 +277,7 @@ describe "permission checking" do
       context "when the user has permissions to update" do
         before { role.globally_assign_to(user) }
         it { should return_true }
+        it { should leave(lambda { record.reload.name == 'updated' }) }
 
         context "when underlying implementation returns false" do
           before do
@@ -327,12 +334,12 @@ describe "permission checking" do
 
       context "without permission to create" do
         before { role.add_permissions([destroy_permission]) }
-        it { should raise_error }
+        it { should raise_error(AccessControl::Unauthorized) }
       end
 
       context "without permission to destroy" do
         before { role.add_permissions([create_permission]) }
-        it { should raise_error }
+        it { should raise_error(AccessControl::Unauthorized) }
       end
     end
 
@@ -379,6 +386,7 @@ describe "permission checking" do
       context "when the user has permissions to update" do
         before { role.globally_assign_to(user) }
         it { should return_true }
+        it { should leave(lambda { record.reload.name == 'updated' }) }
 
         context "when underlying implementation returns false" do
           before do
@@ -410,6 +418,7 @@ describe "permission checking" do
       context "when the user has permissions to update" do
         before { role.globally_assign_to(user) }
         it { should return_true }
+        it { should leave(lambda { record.reload.name == 'updated' }) }
 
         context "when underlying implementation returns false" do
           before do
@@ -441,6 +450,7 @@ describe "permission checking" do
       context "when the user has permissions to update" do
         before { role.globally_assign_to(user) }
         it { should return_true }
+        it { should leave(lambda { record.reload.name == 'updated' }) }
       end
 
       context "when the user has no permission to update" do
