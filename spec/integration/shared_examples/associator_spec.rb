@@ -1,7 +1,7 @@
 shared_examples_for "any AccessControl object associated with an ActiveRecord::Base" do
   subject { ar_object_class.new }
 
-  after { AccessControl::ActiveRecordAssociator.clear }
+  after { AccessControl::ActiveRecordAssociation.clear }
 
   describe "create" do
     before { include_needed_modules(ar_object_class) }

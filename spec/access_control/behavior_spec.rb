@@ -462,7 +462,7 @@ describe AccessControl do
 
       AccessControl::Registry.should_receive(:clear)
       AccessControl::Inheritance.should_receive(:clear)
-      AccessControl::ActiveRecordAssociator.should_receive(:clear)
+      AccessControl::ActiveRecordAssociation.should_receive(:clear)
 
       AccessControl.reset
     end
