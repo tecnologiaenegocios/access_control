@@ -97,6 +97,18 @@ module AccessControl
       names.map { |name| fetch(name) }
     end
 
+    def Permission(name_or_permission)
+      if name_or_permission.kind_of?(String)
+        fetch(name_or_permission)
+      elsif name_or_permission.kind_of?(Symbol)
+        fetch(name_or_permission.to_s)
+      elsif all.include?(name_or_permission)
+        name_or_permission
+      else
+        raise "Not a permission: #{name_or_permission}"
+      end
+    end
+
   private
 
     def indexes

@@ -445,5 +445,52 @@ module AccessControl
         returned_value.should include_only(p1)
       end
     end
+
+    describe "#Permission" do
+      let!(:permission) { subject.store("MyPermission") }
+
+      context "when given a string (or symbol)" do
+        context "that corresponds to a stored permission" do
+          it "returns the permission" do
+            result = subject.Permission("MyPermission")
+            result.should equal(permission)
+
+            result = subject.Permission(:MyPermission)
+            result.should equal(permission)
+          end
+        end
+
+        context "that has no corresponding permission" do
+          it "raises an error" do
+            lambda {
+              subject.Permission("NonExistent")
+            }.should raise_error(AccessControl::NotFoundError)
+
+            lambda {
+              subject.Permission(:NonExistent)
+            }.should raise_error(AccessControl::NotFoundError)
+          end
+        end
+      end
+
+      context "when given an arbitrary object" do
+        context "that is in the registry" do
+          it "simply returns it back" do
+            result = subject.Permission(permission)
+            result.should equal(permission)
+          end
+        end
+
+        context "that is not in the registry" do
+          it "raises an error" do
+            non_permission = stub
+
+            lambda {
+              subject.Permission(non_permission)
+            }.should raise_error
+          end
+        end
+      end
+    end
   end
 end
