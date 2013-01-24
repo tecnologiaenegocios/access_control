@@ -43,6 +43,7 @@ module AccessControl
       return true if unrestrictable_user_logged_in? || inside_trusted_block?
 
       permissions_set = Set[*permissions]
+      return true if permissions_set.empty?
 
       global_inspector = PermissionInspector.new(AccessControl.global_node)
       inspector        = PermissionInspector.new(nodes)
