@@ -144,13 +144,13 @@ module AccessControl
 
           readers.each do |reader|
             define_method(reader) do
-              persistent.public_send(reader)
+              persistent.send(reader)
             end
           end
 
           writers.each do |writer|
             define_method(writer) do |value|
-              persistent.public_send(writer, value)
+              persistent.send(writer, value)
             end
           end
 
