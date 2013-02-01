@@ -43,12 +43,16 @@ module AccessControl
 
       def sti_subquery
         find_options = { :select => pk_name }
-        if is_base_class_in_sti?
+        if base_class_and_sti?
           column = "`#{table_name}`.`#{sti_column}`"
           find_options[:conditions] =
             "#{column} = #{quote(name)} OR #{column} IS NULL"
         end
-        object.scoped(find_options).send(:construct_finder_sql, {})
+        object.instance_exec(find_options) do |options|
+          with_exclusive_scope do
+            scoped(options).construct_finder_sql({})
+          end
+        end
       end
 
       def subset(method, *args)
@@ -73,7 +77,7 @@ module AccessControl
 
     private
 
-      def is_base_class_in_sti?
+      def base_class_and_sti?
         child_of_active_record_base? && has_sti?
       end
 

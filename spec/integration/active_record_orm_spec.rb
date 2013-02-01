@@ -15,6 +15,19 @@ module AccessControl
         end
       end
 
+      let_constant(:default_scoped_model) do
+        new_class(:DefaultScopedModel, ActiveRecord::Base) do
+          set_table_name :records
+          belongs_to(
+            :sti_record,
+            :foreign_key => 'record_id',
+            :class_name => 'STIRecord'
+          )
+          default_scope(:include => :sti_record,
+                        :order => 'sti_records.name')
+        end
+      end
+
       let(:orm)         { ActiveRecordClass.new(model) }
       let(:stiorm)      { ActiveRecordClass.new(stimodel) }
       let(:sub_stiorm)  { ActiveRecordClass.new(sub_stimodel) }
@@ -27,6 +40,19 @@ module AccessControl
       end
 
       it_should_behave_like "an ORM adapter"
+
+      describe ".sti_subquery in default-scoped models" do
+        let(:orm) { ActiveRecordClass.new(default_scoped_model) }
+
+        let(:record1)     { orm.new.tap { |r| orm.persist(r) } }
+        let(:record2)     { orm.new.tap { |r| orm.persist(r) } }
+        let(:record3)     { orm.new.tap { |r| orm.persist(r) } }
+        let!(:record_ids) { [record1.id, record2.id, record3.id] }
+
+        specify do
+          select_sti_subquery(orm).should include_only(*record_ids)
+        end
+      end
     end
   end
 end
