@@ -20,6 +20,10 @@ module AccessControl
       klass
     end
 
+    before(:all) do
+      Inheritance.clear
+    end
+
     after do
       Inheritance.clear
     end
@@ -284,6 +288,7 @@ module AccessControl
             submodel.inherits_permissions_from_association('bar', "bar_id",
                                                            :class_name => "Bar")
           end
+
           it "overrides the inheritance chain" do
             Inheritance.inheritances_of(submodel).should_not include(inheritance)
             Inheritance.inheritances_of(submodel).should include(submodel_inheritance)

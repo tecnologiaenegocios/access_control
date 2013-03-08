@@ -19,10 +19,12 @@ module AccessControl
 
     def self.inheritances_of(model)
       this_inheritances = inheritances[model]
+
       if this_inheritances.empty? && model.superclass != Object
-        this_inheritances = inheritances_of(model.superclass)
+        inheritances_of(model.superclass)
+      else
+        this_inheritances
       end
-      this_inheritances
     end
 
     def self.parent_node_ids_of(securable)
