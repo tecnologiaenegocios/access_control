@@ -1,3 +1,5 @@
+require 'thread'
+
 module AccessControl
   class Transaction
     THREAD_KEY = :__ac_transaction__

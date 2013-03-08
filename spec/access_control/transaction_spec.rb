@@ -164,20 +164,25 @@ module AccessControl
       end
 
       it "is unique for each thread" do
-        from_thread1 = nil
-        from_thread2 = nil
-        from_thread3 = nil
+        queue = Queue.new
 
         Thread.new do
-          from_thread1 = Transaction.current
+          queue.push([:thread1, Transaction.current])
+
           Thread.new do
-            from_thread2 = Transaction.current
+            queue.push([:thread2, Transaction.current])
           end
         end
 
         Thread.new do
-          from_thread3 = Transaction.current
+          queue.push([:thread3, Transaction.current])
         end
+
+        transactions = 3.times.map { queue.pop }
+
+        from_thread1 = transactions.assoc(:thread1)
+        from_thread2 = transactions.assoc(:thread2)
+        from_thread3 = transactions.assoc(:thread3)
 
         from_thread1.should_not be_equal(from_thread2)
         from_thread2.should_not be_equal(from_thread3)
