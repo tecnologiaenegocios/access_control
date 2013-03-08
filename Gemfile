@@ -25,5 +25,12 @@ group :guard do
 end
 
 group :mysql do
-  gem 'mysql2', "< 0.3.0"
+  platform :mri do
+    gem 'mysql2', "< 0.3.0"
+  end
+
+  platform :jruby do
+    gem 'activerecord-jdbcmysql-adapter'
+    gem 'jdbc-mysql'
+  end
 end

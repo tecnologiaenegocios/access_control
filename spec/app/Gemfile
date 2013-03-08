@@ -1,8 +1,19 @@
-source :rubygems
+source 'https://rubygems.org'
 
 gem 'rails', '~> 2.3.5'
 gem 'access_control', :path => '../../'
-gem 'mysql2', "< 0.3.0"
-gem 'sqlite3'
-gem 'pry'
-gem 'pry-doc'
+
+platform :mri do
+  gem 'mysql2', "< 0.3.0"
+  gem 'sqlite3'
+end
+
+platform :jruby do
+  gem 'activerecord-jdbcmysql-adapter'
+  gem 'jdbc-mysql'
+end
+
+group :development do
+  gem 'pry'
+  gem 'pry-doc'
+end
