@@ -33,27 +33,6 @@ module AccessControl
 
         it { should == db[orm_class.table_name].select(orm_class.pk_name).sql }
       end
-
-      context "when the user doesn't have all permissions in global node" do
-        let(:role1) { stub(:id => 1) }
-        let(:role2) { stub(:id => 2) }
-        let(:principal1) { stub(:id => 1) }
-        let(:principal2) { stub(:id => 2) }
-
-        before do
-          manager.stub(:can?).with(permissions, global_node).and_return(false)
-          Role.stub(:for_all_permissions).with(permissions).
-            and_return([role1, role2])
-          manager.stub(:principals).and_return([principal1, principal2])
-        end
-
-        it { should == AccessControl.ac_nodes.
-             join_table(:left, :ac_assignments, :node_id => :id).
-             filter(:securable_type => orm_class.name,
-                    :principal_id => [1,2],
-                    :role_id => [1,2]).
-             select(:securable_id).sql }
-      end
     end
   end
 end
