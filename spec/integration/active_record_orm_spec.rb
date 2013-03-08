@@ -34,9 +34,7 @@ module AccessControl
       let(:fake_stiorm) { ActiveRecordClass.new(fake_stimodel) }
 
       def select_sti_subquery(orm)
-        ActiveRecord::Base.connection.execute(orm.sti_subquery).map do |r|
-          r[0]
-        end
+        ActiveRecord::Base.connection.select_values(orm.sti_subquery)
       end
 
       it_should_behave_like "an ORM adapter"
