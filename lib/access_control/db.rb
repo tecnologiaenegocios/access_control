@@ -65,6 +65,8 @@ module AccessControl
             config['database'] = Rails.root + config['database']
           end
         end
+      elsif config['adapter'].starts_with?("jdbc")
+        return "jdbc:mysql://localhost/#{config['database']}?user=#{config['username']}"
       end
       config
     end
