@@ -25,7 +25,11 @@ module AccessControl
           { :securable_type => klass.name, :securable_id => securables.map(&:id) }
         end
 
-        filter filters.inject(:|)
+        if filters.any?
+          filter filters.inject(:|)
+        else
+          exclude { id == id }
+        end
       end
     end
   end
