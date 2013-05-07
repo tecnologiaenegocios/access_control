@@ -3,12 +3,6 @@ require 'access_control/controller_security'
 
 module AccessControl
 
-  describe AccessControl do
-    it "enables controller security by default" do
-      AccessControl.should be_controller_security_enabled
-    end
-  end
-
   describe ControllerSecurity do
 
     def make_app_controller
@@ -418,8 +412,7 @@ module AccessControl
             end
 
             it "doesn't check permission if security is disabled" do
-              AccessControl.stub(:controller_security_enabled?).
-                and_return(false)
+              AccessControl.stub(:disabled?).and_return(true)
               manager.should_not_receive(:can!)
               records_controller.process
             end

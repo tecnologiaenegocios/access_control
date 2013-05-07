@@ -1,12 +1,9 @@
 require 'access_control/principal'
 require 'access_control/exceptions'
 require 'access_control/registry'
+require 'access_control/behavior'
 
 module AccessControl
-  def self.controller_security_enabled?
-    true
-  end
-
   module ControllerSecurity
     def self.protected_actions
       @protected_actions ||= Hash.new { |h, k| h[k] = Set.new }
@@ -94,7 +91,7 @@ module AccessControl
 
       def verify_permissions
         return true if self.class.action_published?(params[:action])
-        return true unless AccessControl.controller_security_enabled?
+        return true if AccessControl.disabled?
 
         query_key = [self.class.name, params[:action].to_sym]
         description = "#{self.class.name}##{params[:action]}"
