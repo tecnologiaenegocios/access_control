@@ -13,7 +13,8 @@ platform :mri_18 do
 end
 
 platform :mri_19 do
-  gem 'ruby-debug19'
+  gem 'pry-stack_explorer', :require => false
+  gem 'pry-debugger', :require => false
   gem 'test-unit', '1.2.3'
 end
 

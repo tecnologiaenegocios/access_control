@@ -27,7 +27,7 @@ module AccessControl
 
     it "doesn't raise exceptions if #id wasn't defined on inclusion" do
       model = Class.new do
-        undef_method :id
+        undef_method :id if method_defined?(:id)
       end
 
       inclusion = lambda do
@@ -78,8 +78,8 @@ module AccessControl
       method1_desc = "on wrapped objects"
       method2_desc = "on initialized objects"
 
-      method1 = lambda { model.wrap(persistent) }
-      method2 = lambda { model.new }
+      method1 = Proc.new { model.wrap(persistent) }
+      method2 = Proc.new { model.new }
 
       [ [method1, method1_desc],
         [method2, method2_desc] ].each do |meth, desc|

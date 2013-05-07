@@ -232,7 +232,9 @@ module AccessControl
     end
 
     describe "#subject" do
-      let(:model)     { Class.new }
+      let(:model) do
+        Class.new.tap { |k| k.define_singleton_method(:name) { 'ClassName' } }
+      end
       let(:principal) { Principal.new(:subject_class => model,
                                       :subject_id    => subject_id) }
 

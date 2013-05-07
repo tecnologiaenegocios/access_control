@@ -4,7 +4,7 @@ require 'access_control/principal/persistent'
 
 module AccessControl
   def AccessControl.Principal(object)
-    acts_as_subject = lambda { |object| object.respond_to?(:ac_principal) }
+    acts_as_subject = lambda { |ob| ob.respond_to?(:ac_principal) }
 
     case object
     when Principal, UnrestrictablePrincipal

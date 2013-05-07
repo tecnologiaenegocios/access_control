@@ -380,7 +380,9 @@ module AccessControl
 
     describe "#securable" do
 
-      let(:model) { Class.new }
+      let(:model) do
+        Class.new.tap { |k| k.define_singleton_method(:name) { 'ClassName' } }
+      end
       let(:node)  { Node.new(:securable_class => model,
                              :securable_id    => securable_id) }
       let(:adapted) { stub }

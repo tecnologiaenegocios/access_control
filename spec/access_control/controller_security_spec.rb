@@ -476,7 +476,7 @@ module AccessControl
 
       it "is declared private" do
         # This should not be public since it is not an action.
-        records_controller.private_methods.should(include('current_context'))
+        records_controller.private_methods.should(include(:current_context))
       end
 
     end

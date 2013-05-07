@@ -15,7 +15,7 @@ module AccessControl
         items = SecurityPolicyItem.with_permissions(permissions).to_a
         items_by_role = items.group_by(&:role_id)
 
-        permissions_set = Set.new(permissions)
+        permissions_set = Set[*permissions]
         accepted_combinations = items_by_role.select do |_, role_items|
           role_permissions = Set.new(role_items, &:permission)
 

@@ -20,7 +20,7 @@ module WithConstants
     yield
   ensure
     constants.each do |constant|
-      base.instance_eval { remove_const(constant.name) }
+      base.instance_exec { remove_const(constant.name) }
     end
 
     saved_constants.each do |name, constant|
@@ -41,13 +41,13 @@ module WithConstants
 
   module ExampleMethods
     def let_constant(ref_name, &block)
-      let(ref_name) { instance_eval(&block) }
+      let(ref_name) { instance_exec(&block) }
       declared_constants[ref_name] = lambda { send(ref_name) }
     end
 
     def it(*args, &block)
       if block
-        super(*args) { with_declared_constants { instance_eval(&block) } }
+        super(*args) { with_declared_constants { instance_exec(&block) } }
       else
         super
       end
@@ -55,17 +55,17 @@ module WithConstants
 
     def specify(*args, &block)
       if block
-        super(*args) { with_declared_constants { instance_eval(&block) } }
+        super(*args) { with_declared_constants { instance_exec(&block) } }
       else
         super
       end
     end
 
     def before(*args, &block)
-      super(*args) { with_declared_constants { instance_eval(&block) } }
+      super(*args) { with_declared_constants { instance_exec(&block) } }
     end
     def after(*args, &block)
-      super(*args) { with_declared_constants { instance_eval(&block) } }
+      super(*args) { with_declared_constants { instance_exec(&block) } }
     end
     def run(*args)
       super
@@ -115,7 +115,7 @@ private
 
     def evaluate(example, name)
       value = self[name]
-      example.instance_eval(&value) if value
+      example.instance_exec(&value) if value
     end
 
     def evaluate_all(example)

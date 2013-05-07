@@ -33,8 +33,11 @@ module AccessControl
     end
 
     describe ".assign_default_at" do
-      let(:securable_class) { Class.new Sequel::Model(:records) }
-
+      let(:securable_class) do
+        Class.new(Sequel::Model(:records)).tap do |k|
+          k.define_singleton_method(:name) { 'ClassName' }
+        end
+      end
       let!(:securable) { securable_class.create }
       let(:node)   { Node.store(:securable_class => securable_class,
                                 :securable_id    => securable.id) }
