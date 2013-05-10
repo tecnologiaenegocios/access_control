@@ -1,4 +1,4 @@
-require 'access_control/orm'
+require 'access_control/orm/base'
 require 'backports'
 
 module AccessControl
