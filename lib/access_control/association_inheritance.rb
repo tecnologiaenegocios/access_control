@@ -104,7 +104,7 @@ module AccessControl
 
     def associated_record(securable)
       AccessControl.manager.without_query_restriction do
-        securable.public_send(association_name)
+        securable.send(association_name)
       end
     end
   end
