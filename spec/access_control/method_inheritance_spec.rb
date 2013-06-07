@@ -166,6 +166,24 @@ module AccessControl
                                             :child_id  => node.id)
         end
       end
+
+      describe "inheritance in methods that return collections" do
+        subject { MethodInheritance.new(model, :parents) }
+
+        let(:parent1) { stub_record }
+        let(:parent2) { stub_record }
+
+        let(:record)  { stub_record(:parents => [parent1, parent2]) }
+
+        it "returns a flat collection of all the parents" do
+          relationships = subject.relationships
+          relationships.should include(:parent_id => nodes[parent1].id,
+                                       :child_id  => nodes[record].id)
+
+          relationships.should include(:parent_id => nodes[parent2].id,
+                                       :child_id  => nodes[record].id)
+        end
+      end
     end
 
     describe "#relationships_of" do
@@ -228,24 +246,6 @@ module AccessControl
           end
           subject.parent_nodes_of(record).should include_only(node1, node2)
         end
-      end
-    end
-
-    describe "when assigned to a method that returns a collection" do
-      subject { MethodInheritance.new(model, :parents) }
-
-      let(:parent1) { stub_record }
-      let(:parent2) { stub_record }
-
-      let(:record)  { stub_record(:parents => [parent1, parent2]) }
-
-      specify "#relationships returns a flat collection of all the parents" do
-        relationships = subject.relationships
-        relationships.should include(:parent_id => nodes[parent1].id,
-                                     :child_id  => nodes[record].id)
-
-        relationships.should include(:parent_id => nodes[parent2].id,
-                                     :child_id  => nodes[record].id)
       end
     end
   end
