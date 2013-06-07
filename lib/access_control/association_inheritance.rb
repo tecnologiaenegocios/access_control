@@ -55,10 +55,10 @@ module AccessControl
       parent_nodes_clause = join_clause("parent_nodes", parent_type,
                                         key_name.qualify(record_table_name))
 
-      relationships = dataset.inner_join(*child_nodes_clause).
-                              inner_join(*parent_nodes_clause).
-                              select(:parent_nodes__id => :parent_id,
-                                     :child_nodes__id  => :child_id)
+      dataset.inner_join(*child_nodes_clause).
+              inner_join(*parent_nodes_clause).
+              select(:parent_nodes__id => :parent_id,
+                     :child_nodes__id  => :child_id)
     end
     private :relationships_for_dataset
 
