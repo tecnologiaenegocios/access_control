@@ -175,14 +175,14 @@ module AccessControl
     end
 
     describe "#parent_nodes_of" do
-      let(:manager) { stub }
+      let(:manager) { stub('Manager') }
 
       before do
         AccessControl.stub(:manager).and_return(manager)
         manager.stub(:trust).and_yield
       end
 
-      context "single record" do
+      context "single-parented" do
         let(:parent) { stub_record }
         let(:node)   { nodes[parent] }
         let(:record) { stub_record(:parent => parent) }
@@ -205,7 +205,7 @@ module AccessControl
         end
       end
 
-      context "collection" do
+      context "multi-parented" do
         let(:parent1) { stub_record }
         let(:parent2) { stub_record }
         let(:node1)   { nodes[parent1] }
