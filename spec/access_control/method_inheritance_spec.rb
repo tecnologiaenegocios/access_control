@@ -154,7 +154,7 @@ module AccessControl
 
       before do
         AccessControl.stub(:manager).and_return(manager)
-        manager.stub(:without_query_restriction).and_yield
+        manager.stub(:trust).and_yield
       end
 
       context "single record" do
@@ -168,11 +168,11 @@ module AccessControl
           subject.parent_nodes_of(record).should == [node]
         end
 
-        it "calls inheritance method in an query-unrestricted way" do
+        it "calls inheritance method in an trusted way" do
           record.stub(:parent).and_return(nil)
           manager.stub(:record).and_return(record)
           manager.stub(:parent).and_return(parent)
-          manager.define_singleton_method(:without_query_restriction) do |&block|
+          manager.define_singleton_method(:trust) do |&block|
             record.stub(:parent).and_return(parent)
             block.call
           end
@@ -193,11 +193,11 @@ module AccessControl
           subject.parent_nodes_of(record).should include_only(node1, node2)
         end
 
-        it "calls inheritance method in an query-unrestricted way" do
+        it "calls inheritance method in an trusted way" do
           record.stub(:parents).and_return(nil)
           manager.stub(:record).and_return(record)
           manager.stub(:parents).and_return([parent1, parent2])
-          manager.define_singleton_method(:without_query_restriction) do |&block|
+          manager.define_singleton_method(:trust) do |&block|
             record.stub(:parents).and_return(parents)
             block.call
           end

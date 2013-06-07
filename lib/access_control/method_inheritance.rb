@@ -85,9 +85,7 @@ module AccessControl
     end
 
     def unrestricted_parent_records(securable)
-      AccessControl.manager.without_query_restriction do
-        securable.send(method_name)
-      end
+      AccessControl.manager.trust { securable.send(method_name) }
     end
   end
 end
