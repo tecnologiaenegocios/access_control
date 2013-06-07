@@ -1,7 +1,7 @@
 PATH
   remote: ../../
   specs:
-    access_control (0.16.6)
+    access_control (0.16.7)
       backports
       rails (~> 2.3.5)
       sequel
@@ -23,7 +23,7 @@ GEM
     activeresource (2.3.18)
       activesupport (= 2.3.18)
     activesupport (2.3.18)
-    backports (3.3.0)
+    backports (3.3.1)
     coderay (0.9.8)
     jdbc-mysql (5.1.22.1)
     method_source (0.6.7)
@@ -54,7 +54,7 @@ GEM
     rake (10.0.4)
     ruby_parser (2.3.1)
       sexp_processor (~> 3.0)
-    sequel (3.47.0)
+    sequel (3.48.0)
     sexp_processor (3.0.10)
     slop (2.1.0)
     spoon (0.0.1)
