@@ -29,7 +29,7 @@ module AccessControl
         if node.persisted?
           set << node
         else
-          set.merge(parents_of(node.securable))
+          set.merge(Inheritance.parent_nodes_of(node.securable))
         end
       end
     end
@@ -49,9 +49,5 @@ module AccessControl
   private
 
     attr_reader :nodes_or_securables
-
-    def parents_of(securable)
-      Node.fetch_all(Inheritance.parent_node_ids_of(securable))
-    end
   end
 end

@@ -36,7 +36,6 @@ module AccessControl
     let(:principals)   { stub("Current principals") }
     let(:securable)    { stub_securable(:ac_node => node) }
 
-    let(:parent_node_ids) { [stub("Parent node id")] }
     let(:parent_nodes)    { [stub("Parent node")] }
 
     subject { PermissionInspector.new(node, principals) }
@@ -51,9 +50,8 @@ module AccessControl
         before do
           node.stub(:persisted? => false)
           node.stub(:securable).and_return(securable)
-          Inheritance.stub(:parent_node_ids_of).
-            with(securable).and_return(parent_node_ids)
-          Node.stub(:fetch_all).with(parent_node_ids).and_return(parent_nodes)
+          Inheritance.stub(:parent_nodes_of).
+            with(securable).and_return(parent_nodes)
         end
 
         it "asks Inheritance for the node's parents" do
@@ -79,9 +77,8 @@ module AccessControl
         before do
           node.stub(:persisted? => false)
           node.stub(:securable).and_return(securable)
-          Inheritance.stub(:parent_node_ids_of).
-            with(securable).and_return(parent_node_ids)
-          Node.stub(:fetch_all).with(parent_node_ids).and_return(parent_nodes)
+          Inheritance.stub(:parent_nodes_of).
+            with(securable).and_return(parent_nodes)
         end
 
         it "asks Inheritance for the node's parents" do
