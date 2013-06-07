@@ -12,18 +12,19 @@ module AccessControl
       @roles = nil
     end
 
-    attr_reader :principals, :context
-    def initialize(nodes_or_securables, principals = AccessControl.manager.principals)
-      self.context = nodes_or_securables
-      @principals  = principals
-    end
-
-    def context=(nodes_or_securables)
+    attr_reader :principals
+    def initialize(nodes_or_securables,
+                   principals = AccessControl.manager.principals)
       unless nodes_or_securables.kind_of?(Enumerable)
         nodes_or_securables = [nodes_or_securables]
       end
 
-      @context = nodes_or_securables.each_with_object(Set.new) do |item, set|
+      @nodes_or_securables = nodes_or_securables
+      @principals          = principals
+    end
+
+    def context
+      @context ||= nodes_or_securables.each_with_object(Set.new) do |item, set|
         node = AccessControl::Node(item)
         if node.persisted?
           set << node
@@ -46,6 +47,8 @@ module AccessControl
     end
 
   private
+
+    attr_reader :nodes_or_securables
 
     def parents_of(securable)
       Node.fetch_all(Inheritance.parent_node_ids_of(securable))
