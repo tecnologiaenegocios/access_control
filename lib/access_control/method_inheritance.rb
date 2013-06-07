@@ -44,13 +44,9 @@ module AccessControl
     def relationships_as_enum(records, &block)
       records.each_slice(AccessControl.default_batch_size) do |partition|
         partition.each do |record|
-          method_result = record.send(method_name)
+          parents = parent_records(record)
 
-          unless method_result.kind_of?(Enumerable)
-            method_result = Array(method_result)
-          end
-
-          relationships = relationship_hashes(record, method_result)
+          relationships = relationship_hashes(record, parents)
           relationships.each(&block)
         end
       end

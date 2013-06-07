@@ -74,12 +74,18 @@ module AccessControl
     end
 
     describe "#relationships" do
+      let(:manager) { stub }
+
       let(:another_parent)      { stub_record}
       let(:another_record)      { stub_record(:parent => another_parent) }
       let(:another_node)        { nodes[another_record] }
       let(:another_parent_node) { nodes[another_parent] }
 
-      before { orm.stub(:values => [record, another_record]) }
+      before do
+        orm.stub(:values => [record, another_record])
+        AccessControl.stub(:manager).and_return(manager)
+        manager.stub(:trust).and_yield
+      end
 
       it "contains an element for each parent-child relationship" do
         subject.relationships.count.should == 2
@@ -116,6 +122,25 @@ module AccessControl
         AccessControl.should_not_receive(:Node).with(nil)
 
         subject.relationships.to_a
+      end
+
+      it "fetches parents in a trusted way" do
+        original_parent = record.parent
+        record.unstub(:parent)
+
+        manager.stub(:record).and_return(record)
+        manager.define_singleton_method(:trust) do |&block|
+          record.stub(:parent).and_return(original_parent)
+          block.call
+        end
+
+        relationships = subject.relationships
+
+        relationships.should include(:parent_id => parent_node.id,
+                                     :child_id  => node.id)
+
+        relationships.should include(:parent_id => another_parent_node.id,
+                                     :child_id  => another_node.id)
       end
 
       context "when given a block" do
