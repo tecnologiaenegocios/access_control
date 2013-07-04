@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    access_control (0.16.7)
+    access_control (0.17.0)
       backports
       rails (~> 2.3.5)
       sequel
@@ -26,7 +26,7 @@ GEM
     activeresource (2.3.18)
       activesupport (= 2.3.18)
     activesupport (2.3.18)
-    backports (3.3.0)
+    backports (3.3.1)
     binding_of_caller (0.7.1)
       debug_inspector (>= 0.0.1)
     coderay (1.0.9)
@@ -92,7 +92,7 @@ GEM
     ruby-debug-base (0.10.4)
       linecache (>= 0.3)
     ruby18_source_location (0.2)
-    sequel (3.47.0)
+    sequel (3.48.0)
     slop (3.4.4)
     spoon (0.0.4)
       ffi
