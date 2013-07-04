@@ -1,6 +1,6 @@
 require 'rubygems'
 require 'access_control/db'
-require 'access_control/behavior'
+require 'access_control/api'
 require 'access_control/logger'
 require 'action_controller'
 

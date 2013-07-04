@@ -1,7 +1,7 @@
 require 'access_control/principal'
 require 'access_control/exceptions'
 require 'access_control/registry'
-require 'access_control/behavior'
+require 'access_control/api'
 
 module AccessControl
   module ControllerSecurity

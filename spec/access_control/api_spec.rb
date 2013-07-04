@@ -1,6 +1,6 @@
 require 'spec_helper'
 require 'access_control/db'
-require 'access_control/behavior'
+require 'access_control/api'
 require 'access_control/node'
 require 'access_control/securable'
 
