@@ -153,6 +153,35 @@ module AccessControl
     AccessControl::Registry
   end
 
+  def self.securable?(candidate)
+    candidate.is_a?(AccessControl::Securable)
+  end
+
+  def self.showable?(securable)
+    return true unless securable?(securable)
+    manager.can?(securable.class.permissions_required_to_show, securable)
+  end
+
+  def self.listable?(securable)
+    return true unless securable?(securable)
+    manager.can?(securable.class.permissions_required_to_list, securable)
+  end
+
+  def self.editable?(securable)
+    return true unless securable?(securable)
+    manager.can?(securable.class.permissions_required_to_edit, securable)
+  end
+
+  def self.destroyable?(securable)
+    return true unless securable?(securable)
+    manager.can?(securable.class.permissions_required_to_destroy, securable)
+  end
+
+  def self.receivable?(securable, method)
+    return true unless securable?(securable)
+    manager.can?(permissions_for_method(securable.class, method), securable)
+  end
+
   def self.permissions_for_method(klass, method_name)
     AccessControl::MethodProtection.permissions_for(klass, method_name)
   end

@@ -362,6 +362,143 @@ describe AccessControl do
     end
   end
 
+  describe ".securable?" do
+    context "in securable models" do
+      subject { Class.new.new }
+
+      before do
+        subject.extend(AccessControl::Securable)
+      end
+
+      it "is true" do
+        AccessControl.securable?(subject).should be_true
+      end
+    end
+
+    context "in non-securable models" do
+      subject { Class.new.new }
+
+      it "is false" do
+        AccessControl.securable?(subject).should be_false
+      end
+    end
+  end
+
+  describe "permission-checking methods" do
+    include WithConstants
+
+    let(:model)    { Class.new }
+    let(:instance) { model.new }
+
+    context "in non-securable instances" do
+      describe ".showable?" do
+        it "is true" do
+          AccessControl.showable?(instance).should be_true
+        end
+      end
+
+      describe ".listable?" do
+        it "is true" do
+          AccessControl.listable?(instance).should be_true
+        end
+      end
+
+      describe ".editable?" do
+        it "is true" do
+          AccessControl.editable?(instance).should be_true
+        end
+      end
+
+      describe ".destroyable?" do
+        it "is true" do
+          AccessControl.destroyable?(instance).should be_true
+        end
+      end
+
+      describe ".receivable?" do
+        it "is true" do
+          AccessControl.receivable?(instance, :any_method).should be_true
+        end
+      end
+    end
+
+    context "in securable models" do
+      let(:manager) { AccessControl.manager }
+      before        { instance.extend(AccessControl::Securable) }
+
+      describe ".showable?" do
+        let(:show_permissions) { stub('show permissions') }
+
+        before do
+          model.stub(permissions_required_to_show: show_permissions)
+          manager.stub(:can?).with(show_permissions, instance).
+            and_return('show result')
+        end
+
+        it "delegates the call to the current manager" do
+          AccessControl.showable?(instance).should == 'show result'
+        end
+      end
+
+      describe ".listable?" do
+        let(:list_permissions) { stub('list permissions') }
+
+        before do
+          model.stub(permissions_required_to_list: list_permissions)
+          manager.stub(:can?).with(list_permissions, instance).
+            and_return('list result')
+        end
+        it "delegates the call to the current manager" do
+          AccessControl.listable?(instance).should == 'list result'
+        end
+      end
+
+      describe ".editable?" do
+        let(:edit_permissions) { stub('edit permissions') }
+
+        before do
+          model.stub(permissions_required_to_edit: edit_permissions)
+          manager.stub(:can?).with(edit_permissions, instance).
+            and_return('edit result')
+        end
+
+        it "delegates the call to the current manager" do
+          AccessControl.editable?(instance).should == 'edit result'
+        end
+      end
+
+      describe ".destroyable?" do
+        let(:destroy_permissions) { stub('destroy permissions') }
+
+        before do
+          model.stub(permissions_required_to_destroy: destroy_permissions)
+          manager.stub(:can?).with(destroy_permissions, instance).
+            and_return('destroy result')
+        end
+
+        it "delegates the call to the current manager" do
+          AccessControl.destroyable?(instance).should == 'destroy result'
+        end
+      end
+
+      describe ".receivable?" do
+        let(:foo_permissions) { stub('foo permissions') }
+
+        before do
+          AccessControl::MethodProtection.stub(:permissions_for).
+            with(model, :foo).and_return(foo_permissions)
+
+          manager.stub(:can?).with(foo_permissions, instance).
+            and_return('foo result')
+        end
+
+        it "delegates the call to the current manager" do
+          AccessControl.receivable?(instance, :foo).should == 'foo result'
+        end
+      end
+    end
+  end
+
   describe ".permissions_for_method" do
     include WithConstants
 
