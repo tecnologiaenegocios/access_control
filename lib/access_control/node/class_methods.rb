@@ -60,7 +60,7 @@ module AccessControl
     def generate_for(securable_class)
       orm = ORM.adapt_class(securable_class)
       table_name     = orm.table_name
-      qualified_pk   = orm.pk_name.qualify(table_name)
+      qualified_pk   = Sequel.qualify(table_name, orm.pk_name)
       securable_type = securable_class.name
 
       securables_without_nodes =
@@ -68,10 +68,10 @@ module AccessControl
           select(securable_type, qualified_pk).
           where("`#{table_name}`.`#{orm.pk_name}` IN (#{orm.sti_subquery})").
           join_table(:left, :ac_nodes, {
-            qualified_pk              => :ac_nodes__securable_id,
-            :ac_nodes__securable_type => securable_type,
+            qualified_pk => Sequel.qualify(:ac_nodes, :securable_id),
+            Sequel.qualify(:ac_nodes, :securable_type) => securable_type,
           }).
-          filter(:ac_nodes__id => nil)
+          filter(Sequel.qualify(:ac_nodes, :id) => nil)
 
       Node::Persistent.import([:securable_type, :securable_id],
                               securables_without_nodes)

@@ -73,4 +73,3 @@ module AccessControl
 end
 
 AccessControl.bootstrap_sequel!
-Sequel.extension(:pagination)

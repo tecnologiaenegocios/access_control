@@ -128,14 +128,18 @@ module AccessControl
         relationships = inheritance.relationships
 
         if relationships.kind_of?(Sequel::Dataset)
-          to_insert = relationships.filter(~{
-            [:parent_nodes__id, :child_nodes__id] => \
-            AccessControl.ac_parents.select(:parent_id, :child_id)
-          })
+          to_insert = relationships.filter(Sequel.~({
+            [
+              Sequel.qualify(:parent_nodes, :id),
+              Sequel.qualify(:child_nodes, :id)
+            ] => AccessControl.ac_parents.select(:parent_id, :child_id)
+          }))
 
-          ac_parents.import([:parent_id, :child_id],
-                            to_insert.select(:parent_nodes__id,
-                                             :child_nodes__id))
+          ac_parents.import(
+            [:parent_id, :child_id],
+            to_insert.select(Sequel.qualify(:parent_nodes, :id),
+                             Sequel.qualify(:child_nodes, :id))
+          )
         else
           relationships.each_slice(default_batch_size) do |partition|
             tuples = partition.map { |r| [r[:parent_id], r[:child_id]] }

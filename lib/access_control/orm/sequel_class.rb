@@ -45,7 +45,7 @@ module AccessControl
           object.select(pk_name).sql
         else
           object.select(pk_name).where(
-            object.sti_key.qualify(table_name) => name
+            Sequel.qualify(table_name, object.sti_key) => name
           ).sql
         end
       end
@@ -73,7 +73,8 @@ module AccessControl
     private
 
       def values_as_enum(&block)
-        object.each_page(AccessControl.default_batch_size) do |page|
+        dataset = object.dataset.extension(:pagination)
+        dataset.each_page(AccessControl.default_batch_size) do |page|
           page.each(&block)
         end
       end

@@ -335,10 +335,12 @@ describe AccessControl do
 
     context "when a inheritance returns a dataset" do
       let(:dataset) do
-        AccessControl.db.
-          select(:parent_nodes__id, :child_nodes__id).
-          from(AccessControl.db.select(123 => :id) => :parent_nodes,
-               AccessControl.db.select(456 => :id) => :child_nodes)
+        db = AccessControl.db
+        db.
+          select(Sequel.qualify(:parent_nodes, :id),
+                 Sequel.qualify(:child_nodes,  :id)).
+          from(Sequel.as(db.select(Sequel.as(123, :id)), :parent_nodes),
+               Sequel.as(db.select(Sequel.as(456, :id)), :child_nodes))
       end
 
       before do

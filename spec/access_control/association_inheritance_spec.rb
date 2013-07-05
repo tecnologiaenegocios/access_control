@@ -6,7 +6,7 @@ module AccessControl
 
     let_constant(:record_class) do
       new_class(:Record, Sequel::Model) do
-        set_dataset AccessControl.db[:records].filter(~{:record_id => nil})
+        set_dataset AccessControl.db[:records].filter(Sequel.~({record_id: nil}))
         include Inheritance
 
         def record= value
@@ -22,7 +22,7 @@ module AccessControl
 
     let_constant(:parent_class) do
       new_class(:Parent, Sequel::Model) do
-        set_dataset AccessControl.db[:records].filter(:record_id => nil)
+        set_dataset AccessControl.db[:records].filter(record_id: nil)
         include Inheritance
       end
     end

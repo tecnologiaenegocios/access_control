@@ -128,7 +128,7 @@ module AccessControl
       filter(:parent_id => assignment_id)
     end
 
-    subset(:real,       {:parent_id => nil})
-    subset(:effective, ~{:parent_id => nil})
+    subset(:real,               {:parent_id => nil})
+    subset(:effective, Sequel.~({:parent_id => nil}))
   end
 end

@@ -377,7 +377,7 @@ module AccessControl
       end
 
       it "raises an exception if the global node wasn't created yet" do
-        Principal::Persistent.delete
+        Principal::Persistent.dataset.delete
 
         lambda {
           Principal.anonymous!

@@ -38,27 +38,31 @@ module AccessControl
       end
 
       AccessControl.db.
-        from(:ac_nodes, :ac_nodes => :parent_nodes).
-        filter(:securable_type.qualify(:parent_nodes) => parent_type,
-               :securable_type.qualify(:ac_nodes)     => record_type).
-        filter([ :securable_id.qualify(:parent_nodes),
-                 :securable_id.qualify(:ac_nodes) ]   => tuples).
-        select(:id.qualify(:parent_nodes) => :parent_id,
-               :id.qualify(:ac_nodes)     => :child_id)
+        from(:ac_nodes, Sequel.as(:ac_nodes, :parent_nodes)).
+        filter(Sequel.qualify(:parent_nodes, :securable_type) => parent_type,
+               Sequel.qualify(:ac_nodes,     :securable_type) => record_type).
+        filter([ Sequel.qualify(:parent_nodes, :securable_id),
+                 Sequel.qualify(:ac_nodes,     :securable_id) ] => tuples).
+        select(Sequel.as(Sequel.qualify(:parent_nodes, :id), :parent_id),
+               Sequel.as(Sequel.qualify(:ac_nodes, :id),     :child_id))
     end
     private :relationships_for_collection
 
     def relationships_for_dataset(dataset)
-      child_nodes_clause = join_clause("child_nodes", record_type,
-                                       :id.qualify(record_table_name))
+      child_nodes_clause = join_clause(
+        "child_nodes", record_type,
+        Sequel.qualify(record_table_name, :id)
+      )
 
-      parent_nodes_clause = join_clause("parent_nodes", parent_type,
-                                        key_name.qualify(record_table_name))
+      parent_nodes_clause = join_clause(
+        "parent_nodes", parent_type,
+        Sequel.qualify(record_table_name, key_name)
+      )
 
       dataset.inner_join(*child_nodes_clause).
               inner_join(*parent_nodes_clause).
-              select(:parent_nodes__id => :parent_id,
-                     :child_nodes__id  => :child_id)
+              select(Sequel.as(Sequel.qualify(:parent_nodes, :id), :parent_id),
+                     Sequel.as(Sequel.qualify(:child_nodes, :id),  :child_id))
     end
     private :relationships_for_dataset
 
@@ -89,8 +93,8 @@ module AccessControl
 
     def join_clause(nodes_alias, securable_type, id_spec)
       [:ac_nodes,
-       { :securable_type.qualify(nodes_alias) => securable_type,
-         :securable_id.qualify(nodes_alias)   => id_spec },
+       { Sequel.qualify(nodes_alias, :securable_type) => securable_type,
+         Sequel.qualify(nodes_alias, :securable_id)   => id_spec },
        { :table_alias => nodes_alias } ]
     end
 
