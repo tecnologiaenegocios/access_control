@@ -167,9 +167,9 @@ module AccessControl
     manager.can?(securable.class.permissions_required_to_list, securable)
   end
 
-  def self.editable?(securable)
+  def self.updateable?(securable)
     return true unless securable?(securable)
-    manager.can?(securable.class.permissions_required_to_edit, securable)
+    manager.can?(securable.class.permissions_required_to_update, securable)
   end
 
   def self.destroyable?(securable)

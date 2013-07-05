@@ -403,9 +403,9 @@ describe AccessControl do
         end
       end
 
-      describe ".editable?" do
+      describe ".updateable?" do
         it "is true" do
-          AccessControl.editable?(instance).should be_true
+          AccessControl.updateable?(instance).should be_true
         end
       end
 
@@ -453,17 +453,17 @@ describe AccessControl do
         end
       end
 
-      describe ".editable?" do
-        let(:edit_permissions) { stub('edit permissions') }
+      describe ".updateable?" do
+        let(:update_permissions) { stub('update permissions') }
 
         before do
-          model.stub(permissions_required_to_edit: edit_permissions)
-          manager.stub(:can?).with(edit_permissions, instance).
-            and_return('edit result')
+          model.stub(permissions_required_to_update: update_permissions)
+          manager.stub(:can?).with(update_permissions, instance).
+            and_return('update result')
         end
 
         it "delegates the call to the current manager" do
-          AccessControl.editable?(instance).should == 'edit result'
+          AccessControl.updateable?(instance).should == 'update result'
         end
       end
 
