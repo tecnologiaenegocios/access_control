@@ -60,6 +60,12 @@ module AccessControl
       end
     end
 
+    describe ".requires_no_permissions!" do
+      it "does nothing" do
+        model.requires_no_permissions!
+      end
+    end
+
     context "with active record models" do
       let(:base) { ActiveRecord::Base }
       it "includes NullRestriction" do

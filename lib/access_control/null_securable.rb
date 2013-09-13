@@ -45,6 +45,9 @@ module AccessControl
 
       def inherits_permissions_from_association(*args, &block)
       end
+
+      def requires_no_permissions!
+      end
     end
   end
 end
