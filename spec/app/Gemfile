@@ -6,6 +6,7 @@ gem 'access_control', :path => '../../'
 platform :mri do
   gem 'mysql2', "< 0.3.0"
   gem 'sqlite3'
+  gem 'test-unit', '1.2.3', require: false
 end
 
 platform :jruby do

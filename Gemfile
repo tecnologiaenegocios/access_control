@@ -3,19 +3,14 @@ source "http://rubygems.org"
 # Specify your gem's dependencies in access_control.gemspec
 gemspec
 
-gem 'pry'
-gem 'pry-doc'
+gem 'iconv'
 
-platform :mri_18 do
-  gem 'ruby18_source_location'
-  gem 'ruby-debug'
-  gem 'rcov'
-end
-
-platform :mri_19 do
-  gem 'pry-stack_explorer', :require => false
-  gem 'pry-debugger', :require => false
-  gem 'test-unit', '1.2.3'
+group :development do
+  gem 'pry'
+  gem 'pry-doc'
+  gem 'pry-stack_explorer'
+  gem 'pry-byebug'
+  gem 'test-unit', '1.2.3', require: false
 end
 
 group :guard do
