@@ -41,6 +41,12 @@ describe "role propagation on leaf" do
     AccessControl::Node(record)
   end
 
+  def doom_vality_of_next_record
+    record_class.class_eval do
+      validate { |record| record.errors.add(:invalid, :name) }
+    end
+  end
+
   describe "with parents which are already persisted at the time of saving" do
     before do
       parent_record.save!
@@ -60,9 +66,7 @@ describe "role propagation on leaf" do
 
       context "when the record fails to save" do
         before do
-          record_class.class_eval do
-            validate { |record| record.errors.add(:invalid, :name) }
-          end
+          doom_vality_of_next_record
           child_record.save
         end
 
@@ -89,9 +93,7 @@ describe "role propagation on leaf" do
 
       context "when the record fails to save" do
         before do
-          record_class.class_eval do
-            validate { |record| record.errors.add(:invalid, :name) }
-          end
+          doom_vality_of_next_record
           child_record.save
         end
 
@@ -148,9 +150,7 @@ describe "role propagation on leaf" do
 
       context "when the record fails to save" do
         before do
-          record_class.class_eval do
-            validate { |record| record.errors.add(:invalid, :name) }
-          end
+          doom_vality_of_next_record
           parent_record.save
         end
 
@@ -181,9 +181,7 @@ describe "role propagation on leaf" do
 
       context "when the record fails to save" do
         before do
-          record_class.class_eval do
-            validate { |record| record.errors.add(:invalid, :name) }
-          end
+          doom_vality_of_next_record
           parent_record.save
         end
 

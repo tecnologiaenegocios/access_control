@@ -39,9 +39,9 @@ describe "permission checking" do
     end
   end
 
-  let(:user) { user_class.create!(:name => 'user') }
-  let(:root) { record_class.create!(:name => 'root') }
-  let(:role) { AccessControl::Role.store(:name => 'global') }
+  let(:user) { user_class.create!(name: 'user') }
+  let(:root) { record_class.create!(name: 'root') }
+  let(:role) { AccessControl::Role.store(name: 'global') }
 
   before do
     AccessControl.manager.current_subjects = [user]
@@ -52,8 +52,8 @@ describe "permission checking" do
     AccessControl.reset
   end
 
-  Spec::Matchers.define(:return_true) do
-    description { |callable| "return true" }
+  Spec::Matchers.define(:succeed) do
+    description { |callable| "succeed" }
     failure_message_for_should do |callable|
       "expected #{callable} to return true"
     end
@@ -63,8 +63,8 @@ describe "permission checking" do
     match { |callable| !!callable.call }
   end
 
-  Spec::Matchers.define(:return_false) do
-    description { |callable| "return false" }
+  Spec::Matchers.define(:fail) do
+    description { |callable| "fail" }
     failure_message_for_should do |callable|
       "expected #{callable} to return false"
     end
@@ -74,7 +74,7 @@ describe "permission checking" do
     match { |callable| !callable.call }
   end
 
-  Spec::Matchers.define(:return_value) do |value|
+  Spec::Matchers.define(:return_) do |value|
     description { |callable| "return #{value}" }
     failure_message_for_should do |callable|
       "expected #{callable} to return #{value}"
@@ -90,13 +90,27 @@ describe "permission checking" do
     match { |callable| callable.call; block.call }
   end
 
+  Spec::Matchers.define(:persist) do |record|
+    description { |callable| "persist #{record.class.name}" }
+    match { |callable| callable.call; record.id.present? }
+  end
+
+  class << self
+    def evaluate_in_subject(&block)
+      it { instance_eval(&block) }
+    end
+
+    alias_method :attempt_to_create_the_record, :evaluate_in_subject
+    alias_method :attempt_to_update_the_record, :evaluate_in_subject
+    alias_method :attempt_to_destroy_the_record, :evaluate_in_subject
+  end
+
   context "on create" do
     let(:permission) { AccessControl.registry.store('create_permission') }
     let(:parent)     { root }
 
     subject do
-      lambda { record_class.new(:parent_record => parent,
-                                :name => 'record').save! }
+      -> { record_class.new(parent_record: parent, name: 'record').save! }
     end
 
     before do
@@ -105,16 +119,17 @@ describe "permission checking" do
 
     context "when the user has permissions to create" do
       before { role.globally_assign_to(user) }
-      it { should return_true }
+      attempt_to_create_the_record { should succeed }
     end
 
     context "when the user has no permission to create" do
-      it { should raise_error(AccessControl::Unauthorized) }
+      attempt_to_create_the_record {
+        should raise_error(AccessControl::Unauthorized)
+      }
     end
 
     context "when the user has permission only through the parent" do
-      let(:parent) { record_class.new(:parent_record => root,
-                                      :name => 'parent') }
+      let(:parent) { record_class.new(parent_record: root, name: 'parent') }
 
       before do
         role.assign_to(user, root)
@@ -129,18 +144,17 @@ describe "permission checking" do
         end
       end
 
-      it { should return_true }
+      attempt_to_create_the_record { should succeed }
     end
 
     context "using #save" do
       subject do
-        lambda { record_class.new(:parent_record => parent,
-                                  :name => 'record').save }
+        -> { record_class.new(parent_record: parent, name: 'record').save }
       end
 
       context "when the user has permissions to create" do
         before { role.globally_assign_to(user) }
-        it { should return_true }
+        attempt_to_create_the_record { should succeed }
 
         context "when underlying implementation returns false" do
           before do
@@ -148,12 +162,14 @@ describe "permission checking" do
               validate { |r| r.errors.add(:foo, :bar) if r.name == 'record' }
             end
           end
-          it { should return_false }
+          attempt_to_create_the_record { should fail }
         end
       end
 
       context "when the user has no permission to create" do
-        it { should raise_error(AccessControl::Unauthorized) }
+        attempt_to_create_the_record {
+          should raise_error(AccessControl::Unauthorized)
+        }
 
         context "when underlying implementation returns false" do
           before do
@@ -161,29 +177,29 @@ describe "permission checking" do
               validate { |r| r.errors.add(:foo, :bar) if r.name == 'record' }
             end
           end
-          it { should return_false }
+          attempt_to_create_the_record { should fail }
         end
       end
     end
 
     context "using #create!" do
       subject do
-        lambda { record_class.create!(:parent_record => parent,
-                                      :name => 'record') }
+        -> { record_class.create!(parent_record: parent, name: 'record') }
       end
 
       context "when the user has permissions to create" do
         before { role.globally_assign_to(user) }
-        it { should return_true }
+        attempt_to_create_the_record { should succeed }
       end
 
       context "when the user has no permission to create" do
-        it { should raise_error(AccessControl::Unauthorized) }
+        attempt_to_create_the_record {
+          should raise_error(AccessControl::Unauthorized)
+        }
       end
 
       context "when the user has permission only through the parent" do
-        let(:parent) { record_class.new(:parent_record => root,
-                                        :name => 'parent') }
+        let(:parent) { record_class.new(parent_record: root, name: 'parent') }
 
         before do
           role.assign_to(user, root)
@@ -198,7 +214,7 @@ describe "permission checking" do
           end
         end
 
-        it { should_not raise_error }
+        attempt_to_create_the_record { should_not raise_error }
       end
     end
 
@@ -218,16 +234,17 @@ describe "permission checking" do
 
       context "when the user has permissions to create" do
         before { role.globally_assign_to(user) }
-        it { should_not raise_error }
+        attempt_to_create_the_record { should_not raise_error }
       end
 
       context "when the user has no permission to create" do
-        it { should raise_error(AccessControl::Unauthorized) }
+        attempt_to_create_the_record {
+          should raise_error(AccessControl::Unauthorized)
+        }
       end
 
       context "when the user has permission only through the parent" do
-        let(:parent) { record_class.new(:parent_record => root,
-                                        :name => 'parent') }
+        let(:parent) { record_class.new(parent_record: root, name: 'parent') }
 
         before do
           role.assign_to(user, root)
@@ -242,18 +259,20 @@ describe "permission checking" do
           end
         end
 
-        it { should_not raise_error }
+        attempt_to_create_the_record { should_not raise_error }
       end
     end
   end
 
   context "on update" do
-    subject { lambda { record.name = 'updated'; record.save! } }
+    subject do
+      -> { record.name = 'updated'; record.save!.tap { record.reload } }
+    end
 
     let(:permission) { AccessControl.registry.store('update_permission') }
     let(:record) do
       AccessControl.manager.trust do
-        record_class.create!(:parent_record => root, :name => 'record')
+        record_class.create!(parent_record: root, name: 'record')
       end
     end
 
@@ -263,21 +282,29 @@ describe "permission checking" do
 
     context "when the user has permissions to update" do
       before { role.globally_assign_to(user) }
-      it { should return_true }
-      it { should leave(lambda { record.reload.name == 'updated' }) }
+      attempt_to_update_the_record { should succeed }
+      attempt_to_update_the_record {
+        should leave(-> { record.name == 'updated' })
+      }
     end
 
     context "when the user has no permission to update" do
-      it { should raise_error(AccessControl::Unauthorized) }
+      attempt_to_update_the_record {
+        should raise_error(AccessControl::Unauthorized)
+      }
     end
 
     context "using #save" do
-      subject { lambda { record.name = 'updated'; record.save } }
+      subject do
+        -> { record.name = 'updated'; record.save.tap { record.reload } }
+      end
 
       context "when the user has permissions to update" do
         before { role.globally_assign_to(user) }
-        it { should return_true }
-        it { should leave(lambda { record.reload.name == 'updated' }) }
+        attempt_to_update_the_record { should succeed }
+        attempt_to_update_the_record {
+          should leave(-> { record.name == 'updated' })
+        }
 
         context "when underlying implementation returns false" do
           before do
@@ -285,12 +312,14 @@ describe "permission checking" do
               validate { |r| r.errors.add(:foo, :bar) if r.name == 'updated' }
             end
           end
-          it { should return_false }
+          attempt_to_update_the_record { should fail }
         end
       end
 
       context "when the user has no permission to update" do
-        it { should raise_error(AccessControl::Unauthorized) }
+        attempt_to_update_the_record {
+          should raise_error(AccessControl::Unauthorized)
+        }
 
         context "when underlying implementation returns false" do
           before do
@@ -298,7 +327,7 @@ describe "permission checking" do
               validate { |r| r.errors.add(:foo, :bar) if r.name == 'updated' }
             end
           end
-          it { should return_false }
+          attempt_to_update_the_record { should fail }
         end
       end
     end
@@ -306,7 +335,7 @@ describe "permission checking" do
     context "on parent change with permission to update" do
       let(:parent) do
         AccessControl.manager.trust do
-          record_class.create!(:name => 'parent', :parent_record => root)
+          record_class.create!(name: 'parent', parent_record: root)
         end
       end
 
@@ -314,10 +343,10 @@ describe "permission checking" do
       let(:destroy_permission) { AccessControl.registry.store('destroy_permission') }
 
       subject do
-        lambda do
+        -> {
           record.parent_record = parent
           record.save!
-        end
+        }
       end
 
       before do
@@ -329,36 +358,40 @@ describe "permission checking" do
           role.add_permissions([create_permission, destroy_permission])
         end
 
-        it { should_not raise_error }
+        attempt_to_update_the_record { should_not raise_error }
       end
 
       context "without permission to create" do
         before { role.add_permissions([destroy_permission]) }
-        it { should raise_error(AccessControl::Unauthorized) }
+        attempt_to_update_the_record {
+          should raise_error(AccessControl::Unauthorized)
+        }
       end
 
       context "without permission to destroy" do
         before { role.add_permissions([create_permission]) }
-        it { should raise_error(AccessControl::Unauthorized) }
+        attempt_to_update_the_record {
+          should raise_error(AccessControl::Unauthorized)
+        }
       end
     end
 
     context "when the user has permission only through parent" do
       let(:record) do
         AccessControl.manager.trust do
-          record_class.create!(:name => 'record')
+          record_class.create!(name: 'record')
         end
       end
 
       let(:parent) do
-        other_record_class.new(:parent_record => root, :name => 'parent')
+        other_record_class.new(parent_record: root, name: 'parent')
       end
 
       subject do
-        lambda do
+        -> {
           record.parent_record = parent
           record.save!
-        end
+        }
       end
 
       before do
@@ -376,17 +409,21 @@ describe "permission checking" do
         end
       end
 
+      attempt_to_update_the_record { should succeed }
+
       # The parent will be persisted even without permissions in its record.
-      it { should_not raise_error }
+      attempt_to_update_the_record { should persist(parent) }
     end
 
     context "using #update_attribute" do
-      subject { lambda { record.update_attribute(:name, 'updated') } }
+      subject { -> { record.update_attribute(:name, 'updated') } }
 
       context "when the user has permissions to update" do
         before { role.globally_assign_to(user) }
-        it { should return_true }
-        it { should leave(lambda { record.reload.name == 'updated' }) }
+        attempt_to_update_the_record { should succeed }
+        attempt_to_update_the_record {
+          should leave(-> { record.reload.name == 'updated' })
+        }
 
         context "when underlying implementation returns false" do
           before do
@@ -394,12 +431,14 @@ describe "permission checking" do
               before_update { |r| false }
             end
           end
-          it { should return_false }
+          attempt_to_update_the_record { should fail }
         end
       end
 
       context "when the user has no permission to update" do
-        it { should raise_error(AccessControl::Unauthorized) }
+        attempt_to_update_the_record {
+          should raise_error(AccessControl::Unauthorized)
+        }
 
         context "when underlying implementation returns false" do
           before do
@@ -407,18 +446,20 @@ describe "permission checking" do
               before_update { |r| false }
             end
           end
-          it { should return_false }
+          attempt_to_update_the_record { should fail }
         end
       end
     end
 
     context "using #update_attributes" do
-      subject { lambda { record.update_attributes(:name => 'updated') } }
+      subject { -> { record.update_attributes(name: 'updated') } }
 
       context "when the user has permissions to update" do
         before { role.globally_assign_to(user) }
-        it { should return_true }
-        it { should leave(lambda { record.reload.name == 'updated' }) }
+        attempt_to_update_the_record { should succeed }
+        attempt_to_update_the_record {
+          should leave(-> { record.reload.name == 'updated' })
+        }
 
         context "when underlying implementation returns false" do
           before do
@@ -426,12 +467,14 @@ describe "permission checking" do
               validate { |r| r.errors.add(:foo, :bar) if r.name == 'updated' }
             end
           end
-          it { should return_false }
+          attempt_to_update_the_record { should fail }
         end
       end
 
       context "when the user has no permission to update" do
-        it { should raise_error(AccessControl::Unauthorized) }
+        attempt_to_update_the_record {
+          should raise_error(AccessControl::Unauthorized)
+        }
 
         context "when underlying implementation returns false" do
           before do
@@ -439,22 +482,26 @@ describe "permission checking" do
               validate { |r| r.errors.add(:foo, :bar) if r.name == 'updated' }
             end
           end
-          it { should return_false }
+          attempt_to_update_the_record { should fail }
         end
       end
     end
 
     context "using #update_attributes!" do
-      subject { lambda { record.update_attributes!(:name => 'updated') } }
+      subject { -> { record.update_attributes!(name: 'updated') } }
 
       context "when the user has permissions to update" do
         before { role.globally_assign_to(user) }
-        it { should return_true }
-        it { should leave(lambda { record.reload.name == 'updated' }) }
+        attempt_to_update_the_record { should succeed }
+        attempt_to_update_the_record {
+          should leave(-> { record.reload.name == 'updated' })
+        }
       end
 
       context "when the user has no permission to update" do
-        it { should raise_error(AccessControl::Unauthorized) }
+        attempt_to_update_the_record {
+          should raise_error(AccessControl::Unauthorized)
+        }
       end
     end
   end
@@ -463,7 +510,7 @@ describe "permission checking" do
     let(:permission) { AccessControl.registry.store('destroy_permission') }
     let(:record) do
       AccessControl.manager.trust do
-        record_class.create!(:parent_record => root, :name => 'record')
+        record_class.create!(parent_record: root, name: 'record')
       end
     end
 
@@ -471,15 +518,17 @@ describe "permission checking" do
       role.add_permissions([permission])
     end
 
-    subject { lambda { record.destroy } }
+    subject { -> { record.destroy } }
 
     context "when the user has permission" do
       before { role.assign_to(user, root) }
-      it { should return_value(record) }
+      attempt_to_destroy_the_record { should return_(record) }
     end
 
     context "when the user has no permission" do
-      it { should raise_error(AccessControl::Unauthorized) }
+      attempt_to_destroy_the_record {
+        should raise_error(AccessControl::Unauthorized)
+      }
     end
   end
 end
@@ -507,7 +556,7 @@ describe "creation without permission definition with reloading" do
       has_many :records
 
       inherits_permissions_from_association :record, :record_id,
-                                            :class_name => 'Record'
+                                            class_name: 'Record'
 
       attr_accessor :stop_proliferation
 
@@ -515,8 +564,8 @@ describe "creation without permission definition with reloading" do
       def proliferate
         unless stop_proliferation
           records.create!(
-            :name => 'child',
-            :stop_proliferation => true
+            name: 'child',
+            stop_proliferation: true
           )
         else
           record.reload
@@ -525,7 +574,7 @@ describe "creation without permission definition with reloading" do
     end
   end
 
-  subject { lambda { record_class.create!(:name => 'parent') } }
+  subject { -> { record_class.create!(name: 'parent') } }
 
   before do
     user = user_class.create!
