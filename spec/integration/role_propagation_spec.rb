@@ -1,6 +1,6 @@
 require 'spec_helper'
 
-describe "role propagation on leaf" do
+describe "role propagation" do
   include WithConstants
 
   let_constant(:user_class) do
