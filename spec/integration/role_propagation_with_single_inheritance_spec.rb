@@ -1,6 +1,6 @@
 require 'spec_helper'
 
-describe "role propagation" do
+describe "role propagation with single inheritance" do
   include WithConstants
 
   let_constant(:user_class) do
