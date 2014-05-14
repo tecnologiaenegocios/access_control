@@ -43,14 +43,6 @@ module AccessControl
         end
       end
 
-      def node_ids_of(assignments)
-        if assignments.is_a?(Sequel::Dataset)
-          assignments.select_map(:node_id)
-        else
-          assignments.map(&:node_id)
-        end
-      end
-
       def child_node_ids_of(parent_node_ids)
         AccessControl.ac_parents.filter(:parent_id => parent_node_ids).
           select_map(:child_id)
