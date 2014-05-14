@@ -47,15 +47,34 @@ module AccessControl
 
       def propagate_descendants(source_ids, params={})
         to_node_ids = params[:to_node_ids]
-        new_assignments = descend(source_ids, to_node_ids: to_node_ids)
+        traversed_node_ids = params[:traversed_node_ids]
+
+        new_assignments = descend(source_ids,
+                                  traversed_node_ids: traversed_node_ids,
+                                  to_node_ids: to_node_ids)
+
+        newly_traversed_ids =
+          filter(id: new_assignments.select(:parent_id)).select(:node_id)
+        unless traversed_node_ids
+          traversed_node_ids = newly_traversed_ids
+        else
+          traversed_node_ids = traversed_node_ids.union(newly_traversed_ids)
+        end
 
         if new_assignments.count > 0
-          propagate_descendants(new_assignments.select(:id))
+          propagate_descendants(
+            new_assignments.select(:id),
+            traversed_node_ids: traversed_node_ids
+          )
         end
       end
 
       def descend(source_ids, params)
-        combos = combinations_of(source_ids, to_node_ids: params[:to_node_ids])
+        combos = combinations_of(
+          source_ids,
+          traversed_node_ids: params[:traversed_node_ids],
+          to_node_ids: params[:to_node_ids]
+        )
 
         if count = combos.count
           # Here we assume that all generated ids are consecutive in all cases,
@@ -72,18 +91,41 @@ module AccessControl
       end
 
       def combinations_of(source_ids, params)
-        filter_params = { :ac_assignments__id => source_ids }
+        filter_params = { ac_assignments__id: source_ids }
 
         child_node_ids = params[:to_node_ids]
         if child_node_ids
           filter_params[:ac_parents__child_id] = child_node_ids
         end
 
-        select(:ac_assignments__id, :role_id, :principal_id,
-               :ac_parents__child_id).
-          join_table(:inner, :ac_parents,
-                     :ac_assignments__node_id => :ac_parents__parent_id).
-          filter(filter_params)
+        combos = select(
+          :ac_assignments__id,
+          :role_id,
+          :principal_id,
+          :ac_parents__child_id
+        ).join_table(
+          :inner, :ac_parents,
+          ac_assignments__node_id: :ac_parents__parent_id
+        ).filter(filter_params)
+
+        if traversed_node_ids = params[:traversed_node_ids]
+          combos.exclude(ac_parents__child_id: traversed_node_ids)
+        else
+          combos
+        end
+      end
+
+      def nodes_containing_children_in(children_ids)
+        parent_ids = parents_children.filter(child_id: children_ids)
+        nodes.filter(id: parent_ids.select(:parent_id))
+      end
+
+      def nodes
+        AccessControl.db[:ac_nodes]
+      end
+
+      def parents_children
+        AccessControl.db[:ac_parents]
       end
     end
 
