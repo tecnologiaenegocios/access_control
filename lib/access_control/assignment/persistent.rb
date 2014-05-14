@@ -82,7 +82,7 @@ module AccessControl
           # first inserted row.  This is generally true in MySQL when InnoDB is
           # the engine of the table, and the innodb_autoinc_lock_mode is set to
           # 0 (traditional) or 1 (consecutive).
-          id = import([:parent_id, :role_id, :principal_id, :node_id], combos)
+          id = insert([:parent_id, :role_id, :principal_id, :node_id], combos)
 
           filter(id: id...id + count)
         else
