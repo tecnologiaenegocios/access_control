@@ -32,7 +32,7 @@ describe "role propagation with multiple inheritance" do
       record_class.create!(parent_records: [middle_level_1, middle_level_2])
     }
 
-    context "when a role is assigned in the top-level record" do
+    context "when a role is assigned at the top-level record" do
       before do
         role1.assign_to(user, top_level)
       end
@@ -48,7 +48,7 @@ describe "role propagation with multiple inheritance" do
           role1.unassign_from(user, top_level)
         end
 
-        it "is unassigned in the whole graph" do
+        it "is unassigned at the whole graph" do
           role1.should_not be_assigned_to(user, middle_level_1)
           role1.should_not be_assigned_to(user, middle_level_2)
           role1.should_not be_assigned_to(user, bottom_level)

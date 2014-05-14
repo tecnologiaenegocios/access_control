@@ -120,7 +120,7 @@ module AccessControl
       context "after the assignment is created" do
         it "propagates the assignment to the node's descentants" do
           Assignment::Persistent.should_receive(:propagate_to_descendants).
-            with([subject], subject.node_id)
+            with([subject])
           subject.persist
         end
 

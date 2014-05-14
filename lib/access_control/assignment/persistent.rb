@@ -8,14 +8,11 @@ module AccessControl
 
     class << self
       def propagate_to(assignments, node_id)
-        propagate_descendants(ids_of(assignments),
-                              :to        => node_id,
-                              :scoped_by => node_id)
+        propagate_descendants(ids_of(assignments), to_node_ids: node_id)
       end
 
-      def propagate_to_descendants(assignments, node_id)
-        propagate_descendants(ids_of(assignments),
-                              :to => child_node_ids_of(node_id))
+      def propagate_to_descendants(assignments)
+        propagate_descendants(ids_of(assignments))
       end
 
       def depropagate_from(assignments, node_id)
@@ -37,44 +34,49 @@ module AccessControl
 
       def ids_of(assignments)
         if assignments.is_a?(Sequel::Dataset)
-          assignments.select_map(:id)
+          assignments.select(:id)
         else
-          assignments.map(&:id)
+          filter(id: assignments.map(&:id)).select(:id)
         end
       end
 
       def child_node_ids_of(parent_node_ids)
-        AccessControl.ac_parents.filter(:parent_id => parent_node_ids).
-          select_map(:child_id)
+        AccessControl.ac_parents.
+          filter(parent_id: parent_node_ids).select(:child_id)
       end
 
-      def propagate_descendants(source_ids, params)
-        child_node_ids    = params[:to]
-        child_nodes_scope = params[:scoped_by]
+      def propagate_descendants(source_ids, params={})
+        to_node_ids = params[:to_node_ids]
+        new_assignments = descend(source_ids, to_node_ids: to_node_ids)
 
-        descend(source_ids, :scoped_by => child_nodes_scope)
-        new_ids = propagated_ids_from(source_ids, :at => child_node_ids)
-
-        # Next levels are propagated always without scope.
-        next_child_node_ids = child_node_ids_of(child_node_ids)
-        if next_child_node_ids.any?
-          propagate_descendants(new_ids, :to => next_child_node_ids)
+        if new_assignments.count > 0
+          propagate_descendants(new_assignments.select(:id))
         end
       end
 
       def descend(source_ids, params)
-        child_nodes_scope = params[:scoped_by]
-        combos = combinations_of(source_ids, :scoped_by => child_nodes_scope)
+        combos = combinations_of(source_ids, to_node_ids: params[:to_node_ids])
 
-        import([:parent_id, :role_id, :principal_id, :node_id], combos)
+        if count = combos.count
+          # Here we assume that all generated ids are consecutive in all cases,
+          # and the Sequel adapter in use is capable of providing the id of the
+          # first inserted row.  This is generally true in MySQL when InnoDB is
+          # the engine of the table, and the innodb_autoinc_lock_mode is set to
+          # 0 (traditional) or 1 (consecutive).
+          id = import([:parent_id, :role_id, :principal_id, :node_id], combos)
+
+          filter(id: id...id + count)
+        else
+          invert
+        end
       end
 
       def combinations_of(source_ids, params)
         filter_params = { :ac_assignments__id => source_ids }
 
-        child_nodes_scope = params[:scoped_by]
-        if child_nodes_scope
-          filter_params[:ac_parents__child_id] = child_nodes_scope
+        child_node_ids = params[:to_node_ids]
+        if child_node_ids
+          filter_params[:ac_parents__child_id] = child_node_ids
         end
 
         select(:ac_assignments__id, :role_id, :principal_id,
@@ -82,12 +84,6 @@ module AccessControl
           join_table(:inner, :ac_parents,
                      :ac_assignments__node_id => :ac_parents__parent_id).
           filter(filter_params)
-      end
-
-      def propagated_ids_from(parent_ids, params)
-        child_node_ids = params[:at]
-        filter(:node_id => child_node_ids,
-               :parent_id => parent_ids).select_map(:id)
       end
     end
 

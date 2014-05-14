@@ -197,7 +197,7 @@ module AccessControl
                                :parent_id    => nil)
             end
             Persistent.propagate_to_descendants(
-              assignments_to_propagate_to_descendants, head_node
+              assignments_to_propagate_to_descendants
             )
           end
 

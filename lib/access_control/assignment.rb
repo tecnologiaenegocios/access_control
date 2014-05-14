@@ -71,7 +71,7 @@ module AccessControl
     end
 
     def propagate_to_node_descendants!
-      Persistent.propagate_to_descendants([self], node_id)
+      Persistent.propagate_to_descendants([self])
     end
   end
 end
