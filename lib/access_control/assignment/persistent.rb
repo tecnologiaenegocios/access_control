@@ -49,21 +49,27 @@ module AccessControl
         to_node_ids = params[:to_node_ids]
         traversed_node_ids = params[:traversed_node_ids]
 
-        new_assignments = descend(source_ids,
-                                  traversed_node_ids: traversed_node_ids,
-                                  to_node_ids: to_node_ids)
+        new_ids = descend(source_ids,
+                          traversed_node_ids: traversed_node_ids,
+                          to_node_ids: to_node_ids)
 
         newly_traversed_ids =
-          filter(id: new_assignments.select(:parent_id)).select(:node_id)
+          select(:ac_assignments__node_id).
+          join_table(
+            :inner, :ac_assignments,
+            { children__parent_id: :ac_assignments__id,
+              children__id: new_ids },
+            table_alias: :children
+          )
         unless traversed_node_ids
           traversed_node_ids = newly_traversed_ids
         else
           traversed_node_ids = traversed_node_ids.union(newly_traversed_ids)
         end
 
-        if new_assignments.count > 0
+        if new_ids.any?
           propagate_descendants(
-            new_assignments.select(:id),
+            new_ids,
             traversed_node_ids: traversed_node_ids
           )
         end
@@ -84,9 +90,9 @@ module AccessControl
           # 0 (traditional) or 1 (consecutive).
           id = insert([:parent_id, :role_id, :principal_id, :node_id], combos)
 
-          filter(id: id...id + count)
+          id...id + count
         else
-          invert
+          []
         end
       end
 
