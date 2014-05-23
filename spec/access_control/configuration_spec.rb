@@ -8,12 +8,19 @@ module AccessControl
     let(:registry) { stub('Registry') }
 
     before do
-      AccessControl.stub(:registry).and_return(registry)
-
       registry.stub(:store)
       registry.stub(:fetch_all) do |permissions|
         permissions.map { |name| stub(:name => name) }
       end
+
+      @old_registry = AccessControl::Registry
+      AccessControl.send(:remove_const, :Registry)
+      AccessControl.const_set(:Registry, registry)
+    end
+
+    after do
+      AccessControl.send(:remove_const, :Registry)
+      AccessControl.const_set(:Registry, @old_registry)
     end
 
     {

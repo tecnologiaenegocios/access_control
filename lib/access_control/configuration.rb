@@ -1,3 +1,4 @@
+require 'access_control/db'
 require 'access_control/util'
 require 'access_control/registry'
 
@@ -36,10 +37,20 @@ module AccessControl
       RegistryFactory::Permission.class_exec(&block)
     end
 
-  private
+    def db= db
+      AccessControl.db = db
+    end
+
+    def db
+      AccessControl.db
+    end
 
     def registry
-      AccessControl.registry
+      # At the point the application is configured, the API method
+      # AccessControl.registry may not be present.  The configuration object
+      # provide convenient access to the registry object to configurators, by
+      # exposing the registry object directly by its constant.
+      AccessControl::Registry
     end
   end
 
