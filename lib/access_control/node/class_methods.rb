@@ -81,6 +81,22 @@ module AccessControl
       collection = [*collection]
       collection.map { |object| AccessControl::Node(object) }
     end
+
+    # Low-level operation, useful in migrations.
+    def drop_all!(securable_type)
+      db = AccessControl.db
+      nodes = db[:ac_nodes].filter(securable_type: securable_type)
+      nodes_subquery = nodes.select(:id)
+
+      # Relying on the fact that assignments are cascade-deleteable.
+      db[:ac_assignments].filter(node_id: nodes_subquery).delete
+
+      db[:ac_parents].filter(parent_id: nodes_subquery).delete
+      db[:ac_parents].filter(child_id: nodes_subquery).delete
+
+      nodes.delete
+    end
+
   private
 
     def create_global_node

@@ -153,6 +153,10 @@ module AccessControl
     end
   end
 
+  def self.drop_all_nodes!(securable_type)
+    AccessControl::Node.drop_all!(securable_type)
+  end
+
   def self.registry
     AccessControl::Registry
   end
