@@ -19,7 +19,10 @@ Gem::Specification.new do |s|
   s.add_dependency('rails', '~> 2.3.5')
   s.add_dependency('backports')
   s.add_dependency('sequel')
-  s.add_development_dependency('rspec-rails', '>= 1.3')
+
+  s.add_development_dependency("bundler", "~> 1.6")
+  s.add_development_dependency("rake")
+  s.add_development_dependency('rspec-rails', '~> 1.3.0')
   s.add_development_dependency('accept_values_for')
   s.add_development_dependency('sqlite3')
 end

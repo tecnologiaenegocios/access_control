@@ -1,5 +1,4 @@
-require 'bundler'
-Bundler::GemHelper.install_tasks
+require 'bundler/gem_tasks'
 
 base_path  = File.dirname(__FILE__)
 lib_path   = File.join(base_path, "lib")
