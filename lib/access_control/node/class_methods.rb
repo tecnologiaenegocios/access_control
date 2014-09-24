@@ -38,17 +38,19 @@ module AccessControl
       node
     end
 
+    GLOBAL_NODE_THREAD_KEY = "#{name}::global".freeze
+
     def global!
-      @global_node = load_global_node()
-      @global_node || raise(NoGlobalNode)
+      node = load_global_node()
+      Thread.current[GLOBAL_NODE_THREAD_KEY] = node || raise(NoGlobalNode)
     end
 
     def global
-      @global_node ||= create_global_node
+      Thread.current[GLOBAL_NODE_THREAD_KEY] ||= create_global_node
     end
 
     def clear_global_cache
-      @global_node = nil
+      Thread.current[GLOBAL_NODE_THREAD_KEY]
     end
 
     # Warning: this method is only safe if all models which have STI are loaded
