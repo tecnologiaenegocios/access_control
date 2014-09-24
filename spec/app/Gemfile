@@ -2,6 +2,7 @@ source 'https://rubygems.org'
 
 gem 'rails', '~> 2.3.5'
 gem 'access_control', :path => '../../'
+gem 'iconv'
 
 platform :mri do
   gem 'mysql2', "< 0.3.0"
