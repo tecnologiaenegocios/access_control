@@ -1,15 +1,17 @@
 module AccessControl
   class PermissionInspector
 
+    ROLES_THREAD_KEY = "#{name}::roles".freeze
+
     def self.roles_on(context, principals)
       cache_key = [context,principals]
 
-      @roles            ||= Hash.new
-      @roles[cache_key] ||= Set.new Role.assigned_to(principals, context)
+      roles = (Thread.current[ROLES_THREAD_KEY] ||= Hash.new)
+      roles[cache_key] ||= Set.new Role.assigned_to(principals, context)
     end
 
     def self.clear_role_cache
-      @roles = nil
+      Thread.current[ROLES_THREAD_KEY] = nil
     end
 
     attr_reader :principals
