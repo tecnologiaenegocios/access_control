@@ -50,7 +50,7 @@ module AccessControl
     end
 
     def clear_global_cache
-      Thread.current[GLOBAL_NODE_THREAD_KEY]
+      Thread.current[GLOBAL_NODE_THREAD_KEY] = nil
     end
 
     # Warning: this method is only safe if all models which have STI are loaded
