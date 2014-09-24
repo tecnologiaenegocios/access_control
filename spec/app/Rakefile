@@ -7,4 +7,4 @@ require 'rake'
 require 'rake/testtask'
 
 require 'tasks/rails'
-require 'tasks/access_control'
+load 'tasks/access_control.rake'
