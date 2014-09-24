@@ -21,22 +21,26 @@ module AccessControl
   class Principal
     include Persistable
 
+    ANONYMOUS_THREAD_KEY = "#{name}::anonymous".freeze
+
     class << self
       def persistent_model
         @persistent_model ||= ORM.adapt_class(Persistent)
       end
 
       def anonymous!
-        @anonymous = load_anonymous_principal
-        @anonymous || raise(NoAnonymousPrincipal)
+        anonymous = load_anonymous_principal
+
+        Thread.current[ANONYMOUS_THREAD_KEY] =
+          anonymous || raise(NoAnonymousPrincipal)
       end
 
       def anonymous
-        @anonymous ||= create_anonymous_principal
+        Thread.current[ANONYMOUS_THREAD_KEY] ||= create_anonymous_principal
       end
 
       def clear_anonymous_cache
-        @anonymous = nil
+        Thread.current[ANONYMOUS_THREAD_KEY] = nil
       end
 
       def for_subject(subject)
