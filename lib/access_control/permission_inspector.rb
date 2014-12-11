@@ -3,11 +3,29 @@ module AccessControl
 
     ROLES_THREAD_KEY = "#{name}::roles".freeze
 
+    class RoleSet
+      def initialize(roles)
+        @roles = Set.new(roles)
+      end
+
+      include Enumerable
+
+      attr_reader :roles
+      def each(&block)
+        return to_enum(__method__) unless block_given?
+        roles.each(&block)
+      end
+
+      def permissions
+        @permissions ||= map(&:permissions).inject(Set.new, :merge)
+      end
+    end
+
     def self.roles_on(context, principals)
       cache_key = [context,principals]
 
       roles = (Thread.current[ROLES_THREAD_KEY] ||= Hash.new)
-      roles[cache_key] ||= Set.new Role.assigned_to(principals, context)
+      roles[cache_key] ||= RoleSet.new(Role.assigned_to(principals, context))
     end
 
     def self.clear_role_cache
@@ -41,15 +59,19 @@ module AccessControl
     end
 
     def permissions
-      Util.compact_flat_set(current_roles, &:permissions)
+      current_roleset.permissions
     end
 
     def current_roles
-      PermissionInspector.roles_on(context, principals)
+      current_roleset.roles
     end
 
   private
 
     attr_reader :nodes_or_securables
+
+    def current_roleset
+      PermissionInspector.roles_on(context, principals)
+    end
   end
 end
