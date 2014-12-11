@@ -25,7 +25,13 @@ module AccessControl
     end
 
     def persist
-      self.class.persistent_model.persist(persistent)
+      persistent_changed = persistent.changed_columns.any?
+
+      if persistent_changed
+        self.class.persistent_model.persist(persistent)
+      else
+        true
+      end
     end
 
     def persist!
@@ -60,7 +66,6 @@ module AccessControl
         false
       end
     end
-
 
     def inspect
       persistent_desc  = persistent.inspect

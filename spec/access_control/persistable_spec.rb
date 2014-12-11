@@ -131,11 +131,36 @@ module AccessControl
         #
         # Returning true means OK, whilst false means that the persistent
         # object couldn't be saved at all.
-        it "delegates to persistent.save" do
-          persistent_model.stub(:persist).with(persistent).
-            and_return('the result of saving persistent')
-          persistable = model.new
-          persistable.persist.should == 'the result of saving persistent'
+        context "when the persistent has changed" do
+          before do
+            persistent.stub(:changed_columns).and_return(foo: 'bar')
+          end
+
+          it "delegates to persistent.save" do
+            persistent_model.stub(:persist).with(persistent).
+              and_return('the result of saving persistent')
+
+            persistable = model.new
+            persistable.persist.should == 'the result of saving persistent'
+          end
+        end
+
+        context "when the persistent has not changed" do
+          before do
+            persistent.stub(:changed_columns).and_return({})
+          end
+
+          it "is a no-op" do
+            persistent.should_not_receive(:persist)
+
+            persistable = model.new
+            persistable.persist
+          end
+
+          it "returns true" do
+            persistable = model.new
+            persistable.persist.should == true
+          end
         end
       end
 
