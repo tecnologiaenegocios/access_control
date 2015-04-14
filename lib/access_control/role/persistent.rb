@@ -11,54 +11,56 @@ module AccessControl
         new(properties).save(:raise_on_failure => true)
       end
 
-      def self.for_all_permissions(permissions)
-        items = SecurityPolicyItem.with_permissions(permissions).to_a
-        items_by_role = items.group_by(&:role_id)
+      dataset_module do
+        def for_all_permissions(permissions)
+          items = SecurityPolicyItem.with_permissions(permissions).to_a
+          items_by_role = items.group_by(&:role_id)
 
-        permissions_set = Set[*permissions]
-        accepted_combinations = items_by_role.select do |_, role_items|
-          role_permissions = Set.new(role_items, &:permission)
+          permissions_set = Set[*permissions]
+          accepted_combinations = items_by_role.select do |_, role_items|
+            role_permissions = Set.new(role_items, &:permission)
 
-          role_permissions.superset?(permissions_set)
+            role_permissions.superset?(permissions_set)
+          end
+          accepted_ids = Hash[accepted_combinations].keys
+
+          filter(:id => accepted_ids)
         end
-        accepted_ids = Hash[accepted_combinations].keys
 
-        filter(:id => accepted_ids)
-      end
+        def assigned_to(principals, nodes = nil)
+          principals = Principal.normalize_collection(principals)
 
-      def self.assigned_to(principals, nodes = nil)
-        principals = Principal.normalize_collection(principals)
+          if nodes
+            nodes = Node.normalize_collection(nodes)
+            related_assignments = Assignment::Persistent.assigned_on(nodes,
+                                                                     principals)
+          else
+            related_assignments = Assignment::Persistent.assigned_to(principals)
+          end
+          filter(:id => related_assignments.select(:role_id))
+        end
 
-        if nodes
+        def globally_assigned_to(principals)
+          assigned_to(principals, AccessControl.global_node)
+        end
+
+        def assigned_at(nodes, principals = nil)
+          return assigned_to(principals, nodes) if principals
+
           nodes = Node.normalize_collection(nodes)
-          related_assignments = Assignment::Persistent.assigned_on(nodes,
-                                                                   principals)
-        else
-          related_assignments = Assignment::Persistent.assigned_to(principals)
+          filter(:id=>Assignment::Persistent.with_nodes(nodes).select(:role_id))
         end
-        filter(:id => related_assignments.select(:role_id))
-      end
 
-      def self.globally_assigned_to(principals)
-        assigned_to(principals, AccessControl.global_node)
-      end
-
-      def self.assigned_at(nodes, principals = nil)
-        return assigned_to(principals, nodes) if principals
-
-        nodes = Node.normalize_collection(nodes)
-        filter(:id=>Assignment::Persistent.with_nodes(nodes).select(:role_id))
-      end
-
-      def self.default
-        with_names(AccessControl.config.default_roles)
-      end
-
-      def self.with_names(names)
-        if names.kind_of?(Enumerable)
-          names = names.to_a
+        def default
+          with_names(AccessControl.config.default_roles)
         end
-        filter(:name => names)
+
+        def with_names(names)
+          if names.kind_of?(Enumerable)
+            names = names.to_a
+          end
+          filter(:name => names)
+        end
       end
 
       def permissions=(permissions)
