@@ -4,6 +4,7 @@ source "http://rubygems.org"
 gemspec
 
 gem 'iconv'
+gem 'rspec', '~> 1.3.0', git: 'https://bitbucket.org/aptn/rspec'
 
 group :development do
   gem 'pry'
