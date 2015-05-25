@@ -10,10 +10,18 @@ module AccessControl
       end
 
       def listing_condition_for(target)
-        restricter  = Restricter.new(ORM.adapt_class(target))
-        permissions = target.permissions_required_to_list
-        subquery    = restricter.sql_query_for(permissions)
-        "#{target.quoted_table_name}.#{target.primary_key} IN (#{subquery})"
+        column = "#{target.quoted_table_name}.#{target.primary_key}"
+
+        all_types = ObjectSpace.each_object(target.singleton_class).to_a
+
+        subqueries = all_types.map do |type|
+          restricter  = Restricter.new(ORM.adapt_class(type))
+          permissions = type.permissions_required_to_list
+
+          restricter.sql_query_for(permissions)
+        end
+
+        "#{column} IN (#{subqueries.join(" UNION ALL ")})"
       end
     end
 

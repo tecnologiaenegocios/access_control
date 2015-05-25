@@ -7,17 +7,14 @@ module AccessControl
     end
 
     def sql_query_for(permissions)
-      if manager.can?(permissions, global_node)
-        db[orm_class.table_name].select(orm_class.pk_name).sql
-      else
-        ac_nodes.
-          select(:securable_id).
-          join_table(:left, :ac_assignments, :node_id => :id).
-          filter(:securable_type => orm_class.name,
-                 :role_id        => role_ids(permissions),
-                 :principal_id   => principal_ids).
-          sql
-      end
+      return orm_class.all_sql if manager.can?(permissions, global_node)
+
+      ac_nodes
+        .select(:securable_id)
+        .join_table(:left, :ac_assignments, :node_id => :id)
+        .filter(role_id: role_ids(permissions), principal_id: principal_ids)
+        .filter(securable_type: orm_class.name)
+        .sql
     end
 
   private

@@ -14,14 +14,11 @@ module AccessControl
       let(:manager)          { stub('manager') }
       let(:global_node)      { stub('global node') }
       let(:permissions)      { [stub(:name => 'permission')] }
-      let(:db)               { AccessControl.db }
 
       subject { Restricter.new(orm_class).sql_query_for(permissions) }
 
       before do
-        orm_class.stub(:pk_name).and_return(:pk)
-        orm_class.stub(:table_name).and_return(:table_name)
-        orm_class.stub(:name).and_return('ModelName')
+        orm_class.stub(:all_sql).and_return('sti-aware class subquery')
         AccessControl.stub(:manager).and_return(manager)
         AccessControl.stub(:global_node).and_return(global_node)
       end
@@ -31,7 +28,7 @@ module AccessControl
           manager.stub(:can?).with(permissions, global_node).and_return(true)
         end
 
-        it { should == db[orm_class.table_name].select(orm_class.pk_name).sql }
+        it { should == orm_class.all_sql }
       end
     end
   end
