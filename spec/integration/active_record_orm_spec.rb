@@ -7,6 +7,7 @@ module AccessControl
       let_constant(:model)         { new_class(:Record,       ActiveRecord::Base) }
       let_constant(:stimodel)      { new_class(:STIRecord,    ActiveRecord::Base) }
       let_constant(:sub_stimodel)  { new_class(:SubSTIRecord, stimodel) }
+      let_constant(:sub_sub_stimodel) { new_class(:SubSubSTIRecord, sub_stimodel) }
 
       let_constant(:fake_stimodel) do
         new_class(:FakeSTIRecord, ActiveRecord::Base) do
@@ -28,18 +29,20 @@ module AccessControl
         end
       end
 
-      let(:orm)         { ActiveRecordClass.new(model) }
-      let(:stiorm)      { ActiveRecordClass.new(stimodel) }
-      let(:sub_stiorm)  { ActiveRecordClass.new(sub_stimodel) }
-      let(:fake_stiorm) { ActiveRecordClass.new(fake_stimodel) }
+      let(:orm)            { ActiveRecordClass.new(model) }
+      let(:stiorm)         { ActiveRecordClass.new(stimodel) }
+      let(:sub_stiorm)     { ActiveRecordClass.new(sub_stimodel) }
+      let(:sub_sub_stiorm) { ActiveRecordClass.new(sub_sub_stimodel) }
+      let(:fake_stiorm)    { ActiveRecordClass.new(fake_stimodel) }
 
-      def select_sti_subquery(orm)
-        ActiveRecord::Base.connection.select_values(orm.sti_subquery)
+      def select_all(orm, subclasses: false)
+        ActiveRecord::Base
+          .connection.select_values(orm.all_sql(subclasses: subclasses))
       end
 
       it_should_behave_like "an ORM adapter"
 
-      describe ".sti_subquery in default-scoped models" do
+      describe ".all_sql in default-scoped models" do
         let(:orm) { ActiveRecordClass.new(default_scoped_model) }
 
         let(:record1)     { orm.new.tap { |r| orm.persist(r) } }
@@ -48,7 +51,7 @@ module AccessControl
         let!(:record_ids) { [record1.id, record2.id, record3.id] }
 
         specify do
-          select_sti_subquery(orm).should include_only(*record_ids)
+          select_all(orm).should include_only(*record_ids)
         end
       end
     end

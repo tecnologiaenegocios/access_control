@@ -40,14 +40,12 @@ module AccessControl
         to_enum(:values_as_enum)
       end
 
-      def sti_subquery
-        unless has_sti?
-          object.select(pk_name).sql
-        else
-          object.select(pk_name).where(
-            Sequel.qualify(table_name, object.sti_key) => name
-          ).sql
-        end
+      def all_sql(subclasses: false)
+        return object.select(pk_name).sql if !has_sti? || subclasses
+
+        object.select(pk_name).where(
+          Sequel.qualify(table_name, object.sti_key) => name
+        ).sql
       end
 
       def subset(name, *args)
