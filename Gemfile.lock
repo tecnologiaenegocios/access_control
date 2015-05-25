@@ -42,6 +42,7 @@ GEM
       timers (~> 4.0.0)
     coderay (1.1.0)
     columnize (0.9.0)
+    database_cleaner (0.7.1)
     debug_inspector (0.0.2)
     ffi (1.9.8)
     ffi (1.9.8-java)
@@ -131,6 +132,7 @@ DEPENDENCIES
   access_control!
   activerecord-jdbcmysql-adapter
   bundler (~> 1.6)
+  database_cleaner
   guard
   guard-rspec
   iconv

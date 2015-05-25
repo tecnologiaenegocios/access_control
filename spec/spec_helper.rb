@@ -16,29 +16,18 @@ end
 require 'spec/autorun'
 require 'spec/rails'
 require 'discover'
+require 'database_cleaner'
 
 $:.unshift(File.expand_path(File.join(File.dirname(__FILE__), "..", "lib")))
 require 'access_control'
 
 Dir[File.expand_path(File.join(File.dirname(__FILE__), 'support', '**', '*.rb'))].each {|f| require f}
 
-module Spec
-  module Example
-    module ExampleMethods
-      alias_method :execute_without_transaction, :execute
-      def execute(*args, &block)
-        x = nil
-        AccessControl.db.transaction(:rollback => :always) do
-          x = execute_without_transaction(*args, &block)
-        end
-        x
-      end
-    end
-  end
-end
+DatabaseCleaner.strategy = :deletion
+at_exit { DatabaseCleaner.clean }
 
 Spec::Runner.configure do |config|
-  config.use_transactional_fixtures = true
+  config.use_transactional_fixtures = false
   config.use_instantiated_fixtures  = false
 
   config.before(:each) do
@@ -51,5 +40,9 @@ Spec::Runner.configure do |config|
     if defined?(Registry)
       Registry.clear
     end
+  end
+
+  config.after(:each) do
+    DatabaseCleaner.clean
   end
 end
