@@ -45,7 +45,7 @@ shared_examples_for "an ORM adapter" do
     specify { orm.values.to_a.should == records }
   end
 
-  describe ".sti_subquery" do
+  describe ".all_sql" do
     context "when the model has no STI" do
       let(:record1)     { orm.new.tap { |r| orm.persist(r) } }
       let(:record2)     { orm.new.tap { |r| orm.persist(r) } }
@@ -53,7 +53,7 @@ shared_examples_for "an ORM adapter" do
       let!(:record_ids) { [record1.id, record2.id, record3.id] }
 
       specify do
-        select_sti_subquery(orm).should include_only(*record_ids)
+        select_all(orm).should include_only(*record_ids)
       end
     end
 
@@ -71,7 +71,7 @@ shared_examples_for "an ORM adapter" do
       let!(:record_ids) { [record1.id, record2.id, record3.id] }
 
       specify do
-        select_sti_subquery(fake_stiorm).should include_only(*record_ids)
+        select_all(fake_stiorm).should include_only(*record_ids)
       end
     end
 
@@ -80,16 +80,33 @@ shared_examples_for "an ORM adapter" do
       let(:record2) { stiorm.new.tap { |r| stiorm.persist(r) } }
       let(:record3) { sub_stiorm.new.tap { |r| sub_stiorm.persist(r) } }
       let(:record4) { sub_stiorm.new.tap { |r| sub_stiorm.persist(r) } }
+      let(:record5) { sub_sub_stiorm.new.tap { |r| sub_sub_stiorm.persist(r) } }
+      let(:record6) { sub_sub_stiorm.new.tap { |r| sub_sub_stiorm.persist(r) } }
 
-      let!(:record_ids)     { [record1.id, record2.id] }
-      let!(:sub_record_ids) { [record3.id, record4.id] }
+      let!(:record_ids)         { [record1.id, record2.id] }
+      let!(:sub_record_ids)     { [record3.id, record4.id] }
+      let!(:sub_sub_record_ids) { [record5.id, record6.id] }
 
-      specify do
-        select_sti_subquery(stiorm).should include_only(*record_ids)
+      it "return records only from the specified type" do
+        select_all(stiorm).should include_only(*record_ids)
       end
 
-      specify do
-        select_sti_subquery(sub_stiorm).should include_only(*sub_record_ids)
+      it "return records only from the specified sub-type" do
+        select_all(sub_stiorm).should include_only(*sub_record_ids)
+      end
+
+      it "return records only from the specified sub-sub-type" do
+        select_all(sub_sub_stiorm).should include_only(*sub_sub_record_ids)
+      end
+
+      it "can include results from subclasses when subclasses: true" do
+        all_record_ids = [*record_ids, *sub_record_ids, *sub_sub_record_ids]
+        select_all(stiorm, subclasses: true).should include_only(*all_record_ids)
+      end
+
+      it "can include results from sub-subclasses when subclasses: true" do
+        record_ids = [*sub_record_ids, *sub_sub_record_ids]
+        select_all(sub_stiorm, subclasses: true).should include_only(*record_ids)
       end
     end
   end

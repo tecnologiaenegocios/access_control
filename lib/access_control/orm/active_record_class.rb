@@ -41,18 +41,28 @@ module AccessControl
                         :batch_size => AccessControl.default_batch_size)
       end
 
-      def sti_subquery
-        find_options = { :select => pk_name }
-        if base_class_and_sti?
-          column = "`#{table_name}`.`#{sti_column}`"
-          find_options[:conditions] =
-            "#{column} = #{quote(name)} OR #{column} IS NULL"
-        end
-        object.instance_exec(find_options) do |options|
-          with_exclusive_scope do
-            scoped(options).construct_finder_sql({})
+      def all_sql(subclasses: false)
+        if subclasses || !has_sti?
+          find_options = { select: pk_name }
+          return object.instance_exec(find_options) do |options|
+            with_exclusive_scope do
+              scoped(options).construct_finder_sql({})
+            end
           end
         end
+
+        qualified_sti_column = Sequel.qualify(table_name, sti_column)
+
+        if base_class_and_sti?
+          filter =
+            Sequel.expr(qualified_sti_column => name) |
+            Sequel.expr(qualified_sti_column => nil)
+        else
+          filter = { qualified_sti_column => name }
+        end
+
+        table_dataset = AccessControl.db[table_name]
+        table_dataset.select(pk_name).where(filter).sql
       end
 
       def subset(method, *args)

@@ -50,6 +50,7 @@ describe "permission checking" do
   after do
     AccessControl.no_manager
     AccessControl.reset
+    AccessControl::PermissionInspector.clear_role_cache
   end
 
   Spec::Matchers.define(:succeed) do

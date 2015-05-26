@@ -12,6 +12,7 @@ group :development do
   gem 'pry-stack_explorer'
   gem 'pry-byebug'
   gem 'test-unit', '1.2.3', require: false
+  gem 'database_cleaner'
 end
 
 group :guard do
