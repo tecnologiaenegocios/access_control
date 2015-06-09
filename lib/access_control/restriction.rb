@@ -12,7 +12,10 @@ module AccessControl
       def listing_condition_for(target)
         column = "#{target.quoted_table_name}.#{target.primary_key}"
 
-        all_types = ObjectSpace.each_object(target.singleton_class).to_a
+        all_types = target.instance_eval do
+          break @__AccessControl_Restriction_self_and_subclasses__ ||=
+            ObjectSpace.each_object(singleton_class).to_a
+        end
 
         subqueries = all_types.map do |type|
           restricter  = Restricter.new(ORM.adapt_class(type))
