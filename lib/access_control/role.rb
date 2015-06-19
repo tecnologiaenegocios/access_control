@@ -35,7 +35,7 @@ module AccessControl
       end
 
       def destroy
-        Assignment.with_roles(owner).each { |assignment| assignment.destroy }
+        destroy_subset(default_persistent_subset)
       end
 
       def remove_on(principal, node)
@@ -52,18 +52,18 @@ module AccessControl
         principal_id = Util.id_of(principal)
 
         volatile.delete_if { |obj| obj.principal_id == principal_id }
-        destroy_subset(wrap_subset(
+        destroy_subset(
           default_persistent_subset.filter(:principal_id => principal_id)
-        ))
+        )
       end
 
       def remove_at(node)
         node_id = Util.id_of(node)
 
         volatile.delete_if { |obj| obj.node_id == node_id }
-        destroy_subset(wrap_subset(
+        destroy_subset(
           default_persistent_subset.filter(:node_id => node_id)
-        ))
+        )
       end
 
     private
@@ -77,7 +77,7 @@ module AccessControl
 
       def on(principal, node)
         fetch_assignment(principal, node) do
-          overlapping(principal, node).first
+          wrap_subset(overlapping(principal, node)).first
         end
       end
 
@@ -93,9 +93,9 @@ module AccessControl
 
       def overlapping(principal, node)
         if owner.persisted?
-          Assignment.overlapping(owner, principal, node)
+          Assignment::Persistent.overlapping(owner, principal, node)
         else
-          []
+          Assignment::Persistent.filter(1 => 0)
         end
       end
 
@@ -110,8 +110,8 @@ module AccessControl
         end
       end
 
-      def destroy_subset(wrapped_persistent_subset)
-        wrapped_persistent_subset.each { |assignment| assignment.destroy }
+      def destroy_subset(subset)
+        wrap_subset(subset.real).each { |assignment| assignment.destroy }
       end
 
       def default_persistent_subset
