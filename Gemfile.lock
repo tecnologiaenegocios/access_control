@@ -34,8 +34,6 @@ GEM
       activesupport (= 2.3.18)
     activesupport (2.3.18)
     backports (3.6.4)
-    binding_of_caller (0.7.2)
-      debug_inspector (>= 0.0.1)
     byebug (4.0.5)
       columnize (= 0.9.0)
     celluloid (0.16.0)
@@ -43,7 +41,6 @@ GEM
     coderay (1.1.0)
     columnize (0.9.0)
     database_cleaner (0.7.1)
-    debug_inspector (0.0.2)
     ffi (1.9.8)
     ffi (1.9.8-java)
     formatador (0.2.5)
@@ -64,6 +61,7 @@ GEM
       rake (>= 0.8, < 11.0)
     iconv (1.0.4)
     jdbc-mysql (5.1.33)
+    json (1.8.3)
     libnotify (0.9.1)
       ffi (>= 1.0.11)
     listen (2.10.0)
@@ -92,9 +90,9 @@ GEM
     pry-doc (0.6.0)
       pry (~> 0.9)
       yard (~> 0.8)
-    pry-stack_explorer (0.4.9.2)
-      binding_of_caller (>= 0.7)
-      pry (>= 0.9.11)
+    pry-theme (1.1.3)
+      coderay (~> 1.1)
+      json (~> 1.8)
     rack (1.1.6)
     rails (2.3.18)
       actionmailer (= 2.3.18)
@@ -140,9 +138,9 @@ DEPENDENCIES
   libnotify
   mysql2 (< 0.3.0)
   pry
-  pry-byebug
+  pry-byebug (~> 3.1.0)
   pry-doc
-  pry-stack_explorer
+  pry-theme
   rake
   rb-inotify
   rspec (~> 1.3.0)!

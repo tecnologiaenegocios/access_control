@@ -9,8 +9,8 @@ gem 'rspec', '~> 1.3.0', git: 'https://bitbucket.org/aptn/rspec'
 group :development do
   gem 'pry'
   gem 'pry-doc'
-  gem 'pry-stack_explorer'
-  gem 'pry-byebug'
+  gem 'pry-byebug', '~> 3.1.0'
+  gem "pry-theme"
   gem 'test-unit', '1.2.3', require: false
   gem 'database_cleaner'
 end
