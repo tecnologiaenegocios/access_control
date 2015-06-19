@@ -1,7 +1,7 @@
 PATH
   remote: ../../
   specs:
-    access_control (0.19.2)
+    access_control (0.19.3)
       backports
       rails (~> 2.3.5)
       sequel
