@@ -26,7 +26,11 @@ module AccessControl
     def transaction
       ActiveRecord::Base.transaction do
         @sequel_db.transaction do
-          yield
+          begin
+            yield
+          rescue Sequel::Rollback
+            raise ActiveRecord::Rollback
+          end
         end
       end
     end
