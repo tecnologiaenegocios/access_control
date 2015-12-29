@@ -151,6 +151,7 @@ module AccessControl
                   unset_class
                   set_class
                   set_methods
+                  klass.class_eval { protect meth, with: 'some permission' }
                   instance = klass.send(creation_method)
                   manager.should_receive(:can!).
                     with(collection(permission), instance)

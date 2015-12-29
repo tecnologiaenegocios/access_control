@@ -99,7 +99,6 @@ describe AccessControl::MethodProtection do
   describe "subclass without redefinition of protection" do
     let_constant(:subclass) do
       new_class(:STISubRecord, superclas) do
-        include AccessControl::Securable
         requires_no_permissions!
       end
     end
@@ -112,11 +111,6 @@ describe AccessControl::MethodProtection do
       subject { lambda { record.name } }
 
       describe "without column method redefinition" do
-        it_should_behave_like "method protection"
-      end
-
-      describe "with column method redefinition, without calling super" do
-        before { subclass.class_eval { def name; self[:name]; end } }
         it_should_behave_like "method protection"
       end
 
@@ -133,11 +127,6 @@ describe AccessControl::MethodProtection do
         it_should_behave_like "method protection"
       end
 
-      describe "with method redefinition, without calling super" do
-        before { subclass.class_eval { def foo; 'result'; end } }
-        it_should_behave_like "method protection"
-      end
-
       describe "with method redefinition, calling super" do
         before { subclass.class_eval { def foo; super; end } }
         it_should_behave_like "method protection"
@@ -148,7 +137,6 @@ describe AccessControl::MethodProtection do
   describe "redefinition of protection in subclass" do
     let_constant(:subclass) do
       new_class(:STISubRecord, superclas) do
-        include AccessControl::Securable
         requires_no_permissions!
         protect :name, :with => 'sub'
         protect :foo,  :with => 'sub'
