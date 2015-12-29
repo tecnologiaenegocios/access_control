@@ -14,7 +14,11 @@ module AccessControl
 
         all_types = target.instance_eval do
           break @__AccessControl_Restriction_self_and_subclasses__ ||=
-            ObjectSpace.each_object(singleton_class).to_a
+            ObjectSpace.each_object(target.singleton_class).select do |s|
+              # Instance singleton classes must not be returned.  They are
+              # exposed in Ruby 2.3+.  Ignore all singleton classes as well.
+              !s.singleton_class?
+            end
         end
 
         subqueries = all_types.map do |type|
