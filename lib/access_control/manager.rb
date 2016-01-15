@@ -24,12 +24,16 @@ module AccessControl
     end
 
     def current_subjects= subjects
-      @current_principals = Set.new(subjects) do |subject|
+      self.current_principals = Set.new(subjects) do |subject|
         AccessControl::Principal(subject)
       end
     end
 
-    attr_writer :current_principals
+    def current_principals=(principals)
+      @global_inspector = nil
+      @current_principals = principals
+    end
+
     def current_principals
       @current_principals ||= Set.new
     end
@@ -44,20 +48,16 @@ module AccessControl
 
       permissions_set = Set[*permissions]
       return true if permissions_set.empty?
-
-      global_inspector = PermissionInspector.new(AccessControl.global_node)
-      inspector        = PermissionInspector.new(nodes)
-
       return true if permissions_set.subset?(global_inspector.permissions)
 
+      inspector = PermissionInspector.new(nodes, principals)
       permissions_set.subset?(inspector.permissions)
     end
 
     def can!(permissions, nodes)
       return if can?(permissions, nodes)
 
-      global_inspector    = PermissionInspector.new(AccessControl.global_node)
-      inspector           = PermissionInspector.new(nodes)
+      inspector = PermissionInspector.new(nodes, principals)
 
       granted_permissions = inspector.permissions |
                             global_inspector.permissions
@@ -124,6 +124,10 @@ module AccessControl
       @restrict_queries = false
     end
 
+    def global_inspector
+      @global_inspector ||=
+        PermissionInspector.new(AccessControl.global_node, principals)
+    end
   end
 
 end

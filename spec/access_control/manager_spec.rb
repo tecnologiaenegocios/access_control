@@ -9,7 +9,8 @@ module AccessControl
     let(:manager)   { Manager.new }
 
     before do
-      Principal.stub(:anonymous_id).and_return("the anonymous' id")
+      Principal.stub(:anonymous)
+        .and_return(stub("the anonymous principal", id: "the anonymous' id"))
       AccessControl.stub(:Principal).with(UnrestrictableUser.instance).
         and_return(UnrestrictablePrincipal.instance)
       AccessControl.stub(:Principal).with(subject).and_return(principal)
@@ -135,11 +136,13 @@ module AccessControl
       end
 
       before do
+        manager.current_principals = [principal]
+
         AccessControl.stub(:global_node).and_return(global_node)
-        PermissionInspector.stub(:new).with(global_node).
-          and_return(inspector_at_global_node)
-        PermissionInspector.stub(:new).with(nodes).and_return(inspector)
-        manager.use_anonymous! # Simulate a web request
+        PermissionInspector.stub(:new).with(nodes, [principal])
+          .and_return(inspector)
+        PermissionInspector.stub(:new).with(global_node, [principal])
+          .and_return(inspector_at_global_node)
       end
 
       context "when given a single permission" do
@@ -221,14 +224,16 @@ module AccessControl
       end
 
       before do
+        manager.current_principals = [principal]
+
         inspector.stub(:permissions   => permissions)
         inspector.stub(:current_roles => current_roles)
         AccessControl.stub(:global_node).and_return(global_node)
 
-        PermissionInspector.stub(:new).with(nodes).and_return(inspector)
-        PermissionInspector.stub(:new).with(global_node).
-          and_return(inspector_at_global_node)
-        manager.use_anonymous! # Simulate a web request
+        PermissionInspector.stub(:new).with(nodes, [principal])
+          .and_return(inspector)
+        PermissionInspector.stub(:new).with(global_node, [principal])
+          .and_return(inspector_at_global_node)
       end
 
       context "when the user has the permissions" do
@@ -245,8 +250,7 @@ module AccessControl
 
         before do
           AccessControl.stub(:logger).and_return(logger)
-          AccessControl.stub(:Principal).with(subject).and_return(principal)
-          manager.current_subjects = [subject]
+          manager.current_principals = [principal]
         end
 
         it "raises the 'Unauthorized' exception" do
@@ -261,7 +265,7 @@ module AccessControl
             permissions | inspector_at_global_node.permissions,
             current_roles | inspector_at_global_node.current_roles,
             nodes,
-            Set[principal],
+            [principal],
             instance_of(Array) # Backtrace
           ]
 
