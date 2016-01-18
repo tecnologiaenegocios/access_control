@@ -67,6 +67,41 @@ module AccessControl
         AccessControl.manager.without_query_restriction { find(*args) }
       end
 
+      # Associations are unrestricted.  Note that this unrestriction only
+      # extends to the result of their reader method (which either return an
+      # object from another model or an association proxy), not to methods
+      # called upon (which in turn can be secured independently).
+      #
+      # The main motivation for this is that for the final user it's rather
+      # difficult, almost impossible, to guess which association the current
+      # user lacks permissions and is being called triggering an unauthorized
+      # error, unintended by the programmers (like seeing the name of another
+      # user, an information of users' profiles which may be not generally
+      # available for any other then the user itself, but some info, like its
+      # name, is allowed to be public).  Another motivation is that we already
+      # don't check create-, destroy- and update- permissions during
+      # save/destroy beyond the first call.  Since we already do so, it's not
+      # helpful to check show- and list- on association load.
+      def has_one(name, *args)
+        super
+        AccessControl.unrestrict_method(self, name)
+      end
+
+      def has_many(name, *args)
+        super
+        AccessControl.unrestrict_method(self, name)
+      end
+
+      def has_and_belongs_to_many(name, *args)
+        super
+        AccessControl.unrestrict_method(self, name)
+      end
+
+      def belongs_to(name, *args)
+        super
+        AccessControl.unrestrict_method(self, name)
+      end
+
     private
 
       def with_listing_filtering
