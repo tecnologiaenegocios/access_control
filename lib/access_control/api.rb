@@ -60,13 +60,11 @@ module AccessControl
     method_name = method_name.to_sym
 
     klass.class_eval do
-      alias_method :"unstrusted_#{method_name}", method_name
-
-      define_method(method_name) do |*args, &block|
-        AccessControl.manager.trust do
-          send(:"unstrusted_#{method_name}", *args, &block)
+      prepend(Module.new {
+        define_method(method_name) do |*args, &block|
+          AccessControl.manager.trust { super(*args, &block) }
         end
-      end
+      })
     end
 
     mark_method_as_unrestricted(klass, method_name)
