@@ -21,14 +21,15 @@ module AccessControl
             end
         end
 
+        skip_global = all_types.size == 1
         subqueries = all_types.map do |type|
           restricter  = Restricter.new(ORM.adapt_class(type))
           permissions = type.permissions_required_to_list
 
-          restricter.sql_query_for(permissions)
-        end
+          restricter.sql_query_for(permissions, skip_global: skip_global)
+        end.compact
 
-        "#{column} IN (#{subqueries.join(" UNION ALL ")})"
+        "#{column} IN (#{subqueries.join(" UNION ALL ")})" if subqueries.any?
       end
     end
 

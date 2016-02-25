@@ -55,7 +55,7 @@ module AccessControl
             context "when doing find(:#{option})" do
               before do
                 restricter.stub(:sql_query_for).
-                  with('the list permissions').
+                  with('the list permissions', hash_including(:skip_global)).
                   and_return(subquery)
 
                 base.class_eval do
@@ -214,7 +214,7 @@ module AccessControl
           Restricter.stub(:new).with(adapted).and_return(restricter)
 
           restricter.stub(:sql_query_for).
-            with('the list permissions').
+            with('the list permissions', hash_including(:skip_global)).
             and_return(subquery)
 
           base.class_eval do
@@ -280,7 +280,7 @@ module AccessControl
           Restricter.stub(:new).with(adapted).and_return(restricter)
 
           restricter.stub(:sql_query_for).
-            with('the list permissions').
+            with('the list permissions', hash_including(:skip_global)).
             and_return(subquery)
         end
 

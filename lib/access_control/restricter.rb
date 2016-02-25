@@ -6,8 +6,10 @@ module AccessControl
       @orm_class = orm_class
     end
 
-    def sql_query_for(permissions)
-      return orm_class.all_sql if manager.can?(permissions, global_node)
+    def sql_query_for(permissions, skip_global: false)
+      if manager.can?(permissions, global_node)
+        return skip_global ? nil : orm_class.all_sql
+      end
 
       ac_nodes
         .select(:securable_id)
