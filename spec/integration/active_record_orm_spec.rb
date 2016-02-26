@@ -4,8 +4,14 @@ module AccessControl
   module ORM
     describe ActiveRecordClass do
       include WithConstants
-      let_constant(:model)         { new_class(:Record,       ActiveRecord::Base) }
-      let_constant(:stimodel)      { new_class(:STIRecord,    ActiveRecord::Base) }
+      let_constant(:abstract) do
+        new_class(:AbstractRecord, ActiveRecord::Base) do
+          self.abstract_class = true
+        end
+      end
+
+      let_constant(:model)         { new_class(:Record,       abstract) }
+      let_constant(:stimodel)      { new_class(:STIRecord,    abstract) }
       let_constant(:sub_stimodel)  { new_class(:SubSTIRecord, stimodel) }
       let_constant(:sub_sub_stimodel) { new_class(:SubSubSTIRecord, sub_stimodel) }
 

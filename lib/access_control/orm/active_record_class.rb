@@ -53,7 +53,7 @@ module AccessControl
 
         qualified_sti_column = Sequel.qualify(table_name, sti_column)
 
-        if base_class_and_sti?
+        if topmost_base_sti_class?
           filter =
             Sequel.expr(qualified_sti_column => name) |
             Sequel.expr(qualified_sti_column => nil)
@@ -87,8 +87,14 @@ module AccessControl
 
     private
 
-      def base_class_and_sti?
-        child_of_active_record_base? && has_sti?
+      def topmost_base_sti_class?
+        cls = object
+        superclasses_between_active_record_base = []
+        while cls.superclass != ActiveRecord::Base
+          superclasses_between_active_record_base << (cls = cls.superclass)
+        end
+
+        superclasses_between_active_record_base.all? { |s| s.abstract_class? }
       end
 
       def child_of_active_record_base?
