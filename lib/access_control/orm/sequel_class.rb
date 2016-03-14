@@ -48,6 +48,10 @@ module AccessControl
         ).sql
       end
 
+      def none_sql
+        AccessControl.db[table_name].select(pk_name).where(1 => 0).sql
+      end
+
       def subset(name, *args)
         object.public_send(name, *args)
       end

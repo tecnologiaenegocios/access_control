@@ -61,8 +61,11 @@ module AccessControl
           filter = { qualified_sti_column => name }
         end
 
-        table_dataset = AccessControl.db[table_name]
-        table_dataset.select(pk_name).where(filter).sql
+        AccessControl.db[table_name].select(pk_name).where(filter).sql
+      end
+
+      def none_sql
+        AccessControl.db[table_name].select(pk_name).where(1 => 0).sql
       end
 
       def subset(method, *args)

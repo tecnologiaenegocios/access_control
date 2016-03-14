@@ -11,10 +11,13 @@ module AccessControl
         return skip_global ? nil : orm_class.all_sql
       end
 
+      candidate_role_ids = role_ids(permissions)
+      return orm_class.none_sql if candidate_role_ids.empty?
+
       ac_nodes
         .select(:securable_id)
         .join_table(:left, :ac_assignments, :node_id => :id)
-        .filter(role_id: role_ids(permissions), principal_id: principal_ids)
+        .filter(role_id: candidate_role_ids, principal_id: principal_ids)
         .filter(securable_type: orm_class.name)
         .sql
     end
