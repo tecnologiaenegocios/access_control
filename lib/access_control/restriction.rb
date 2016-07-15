@@ -1,3 +1,4 @@
+require 'delegate'
 require 'access_control/orm'
 require 'access_control/restricter'
 
@@ -68,22 +69,74 @@ module AccessControl
         AccessControl.manager.without_query_restriction { find(*args) }
       end
 
-      # For simmetry with has_one, belongs_to returns `nil' when the associated
-      # record is unaccessible.  Collection associations will be filtered by
-      # default. has_one is just a special case of has_many, and that's why it
-      # doesn't fail with Unauthorized and just returns nil (it's like
-      # [].first).
       def belongs_to(name, *)
         super
 
-        prepend (Module.new {
-          define_method(name) do |*args|
+        alias_method :"restricted_#{name}", name
+
+        # For simmetry with restricted has_one, restricted belongs_to returns
+        # `nil' when the associated record is unaccessible.  Restricted has_one
+        # is just a special case of restricted has_many, and that's why it
+        # doesn't fail with Unauthorized and just returns nil (it's like
+        # [].first).
+        prepend (Module.new do
+          define_method(:"restricted_#{name}") do |*args|
             begin
               super(*args)
             rescue Unauthorized
             end
           end
-        })
+        end)
+
+        prepend (Module.new do
+          define_method(name) do |*args|
+            AccessControl.manager.without_query_restriction { super(*args) }
+          end
+        end)
+      end
+
+      def has_one(name, *)
+        super
+
+        alias_method :"restricted_#{name}", name
+
+        prepend (Module.new do
+          define_method(name) do |*args|
+            AccessControl.manager.without_query_restriction { super(*args) }
+          end
+        end)
+      end
+
+      def has_many(name, *)
+        super
+
+        alias_method :"restricted_#{name}", name
+
+        prepend (Module.new do
+          define_method(name) do |*args|
+            proxy = AccessControl.manager.without_query_restriction do
+              super(*args)
+            end
+            proxy.proxy_extend(CollectionAssociationUnrestriction)
+            proxy
+          end
+        end)
+      end
+
+      def has_and_belongs_to_many(name, *)
+        super
+
+        alias_method :"restricted_#{name}", name
+
+        prepend (Module.new do
+          define_method(name) do |*args|
+            proxy = AccessControl.manager.without_query_restriction do
+              super(*args)
+            end
+            proxy.proxy_extend(CollectionAssociationUnrestriction)
+            proxy
+          end
+        end)
       end
 
     private
@@ -91,6 +144,16 @@ module AccessControl
       def with_listing_filtering
         condition = Restriction.listing_condition_for(self)
         with_scope(:find => { :conditions => condition }) { yield }
+      end
+    end
+
+    module CollectionAssociationUnrestriction
+      def find(*args, &block)
+        AccessControl.manager.without_query_restriction { super }
+      end
+
+      def all(*args, &block)
+        AccessControl.manager.without_query_restriction { super }
       end
     end
   end
