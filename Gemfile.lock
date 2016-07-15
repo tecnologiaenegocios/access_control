@@ -7,7 +7,7 @@ GIT
 PATH
   remote: .
   specs:
-    access_control (0.21.4)
+    access_control (0.22.0)
       backports
       rails (~> 2.3.5)
       sequel
@@ -148,4 +148,4 @@ DEPENDENCIES
   test-unit (= 1.2.3)
 
 BUNDLED WITH
-   1.11.2
+   1.12.5
