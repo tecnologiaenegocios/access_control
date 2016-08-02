@@ -49,16 +49,28 @@ describe "association unrestriction" do
 
     describe "when associated record is unpermitted" do
       it "should be returned when eager loaded in single query" do
-        records = Record.find(
+        result = Record.find(
           :all,
           include: :associated_record,
           conditions: { id: record.id },
           # Referencing associations in conditions or orders triggers single
           # JOIN-based query.
           order: 'sti_records.id, records.id'
-        )
+        ).first
 
-        records.first.associated_record.should == associated_record
+        association = result.instance_variable_get(:@associated_record)
+        association.target.should == associated_record
+      end
+
+      it "should be returned when eager loaded in additional query" do
+        result = Record.find(
+          :all,
+          include: :associated_record,
+          conditions: { id: record.id },
+        ).first
+
+        association = result.instance_variable_get(:@associated_record)
+        association.target.should == associated_record
       end
 
       it "should be returned anyway" do
@@ -83,16 +95,28 @@ describe "association unrestriction" do
     describe "when associated record is unpermitted" do
 
       it "should be returned when eager loaded in single query" do
-        records = Record.find(
+        result = Record.find(
           :all,
           include: :associated_records,
           conditions: { id: record.id },
           # Referencing associations in conditions or orders triggers single
           # JOIN-based query.
           order: 'sti_records.id, records.id'
-        )
+        ).first
 
-        records.first.associated_records.first.should == associated_record
+        association = result.instance_variable_get(:@associated_records)
+        association.target.first.should == associated_record
+      end
+
+      it "should be returned when eager loaded in additional query" do
+        result = Record.find(
+          :all,
+          include: :associated_records,
+          conditions: { id: record.id },
+        ).first
+
+        association = result.instance_variable_get(:@associated_records)
+        association.target.first.should == associated_record
       end
 
       it "should be returned for #first" do
