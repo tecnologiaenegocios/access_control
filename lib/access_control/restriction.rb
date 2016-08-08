@@ -139,8 +139,6 @@ module AccessControl
         end)
       end
 
-    protected
-
       def preload_associations(*)
         AccessControl.manager.without_query_restriction { super }
       end
