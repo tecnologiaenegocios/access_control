@@ -11,14 +11,13 @@ module AccessControl
         return skip_global ? nil : orm_class.all_sql
       end
 
-      candidate_role_ids = role_ids(permissions)
-      return orm_class.none_sql if candidate_role_ids.empty?
+      candidate_parent_node_ids = parent_node_ids(permissions)
+      return orm_class.none_sql if candidate_parent_node_ids.empty?
 
-      ac_nodes
-        .select(:securable_id)
-        .join_table(:left, :ac_assignments, :node_id => :id)
-        .filter(role_id: candidate_role_ids, principal_id: principal_ids)
+      db[:ac_nodes]
+        .filter(id: reachable_node_ids(candidate_parent_node_ids))
         .filter(securable_type: orm_class.name)
+        .select(:securable_id)
         .sql
     end
 
@@ -32,16 +31,23 @@ module AccessControl
       AccessControl.db
     end
 
-    def ac_nodes
-      AccessControl.ac_nodes
-    end
-
-    def manager
-      AccessControl.manager
-    end
-
     def global_node
       AccessControl.global_node
+    end
+
+    def reachable_node_ids(parent_node_ids)
+      db[:ac_paths]
+        .filter(latch: 'breadth_first')
+        .filter(origid: parent_node_ids)
+        .select(:linkid)
+    end
+
+    def parent_node_ids(permissions)
+      db[:ac_assignments]
+        .filter(parent_id: nil)
+        .filter(role_id: role_ids(permissions))
+        .filter(principal_id: principal_ids)
+        .select_map(:node_id)
     end
 
     def role_ids(permissions)
@@ -50,6 +56,10 @@ module AccessControl
 
     def principal_ids
       manager.principals.map(&:id)
+    end
+
+    def manager
+      AccessControl.manager
     end
   end
 end
