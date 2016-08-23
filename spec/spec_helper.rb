@@ -9,22 +9,28 @@ end
 
 require_files_under_dir File.join("integration", "shared_examples")
 
-silence_stream($stdout) do
-  load File.join(ENV['RAILS_ROOT'],'db','schema.rb')
-end
+system({ 'RAILS_ENV' => 'test' }, 'bundle', 'exec', 'rake', 'db:create', chdir: 'spec/app')
+system({ 'RAILS_ENV' => 'test' }, 'bundle', 'exec', 'rake', 'db:migrate', chdir: 'spec/app')
 
 require 'spec/autorun'
 require 'spec/rails'
 require 'discover'
 require 'database_cleaner'
 
+ActiveRecord::Base.connection.execute("SET GLOBAL FOREIGN_KEY_CHECKS=0")
+
 $:.unshift(File.expand_path(File.join(File.dirname(__FILE__), "..", "lib")))
 require 'access_control'
 
 Dir[File.expand_path(File.join(File.dirname(__FILE__), 'support', '**', '*.rb'))].each {|f| require f}
 
-DatabaseCleaner.strategy = :deletion
-at_exit { DatabaseCleaner.clean }
+DatabaseCleaner.strategy = :deletion, { except: %w(ac_paths) }
+at_exit do
+  ActiveRecord::Base.connection.execute("DROP TABLE ac_paths")
+  ActiveRecord::Base.connection.execute("SET GLOBAL FOREIGN_KEY_CHECKS=1")
+  DatabaseCleaner.clean
+  system({ 'RAILS_ENV' => 'test' }, 'bundle', 'exec', 'rake', 'db:drop', chdir: 'spec/app')
+end
 
 Spec::Runner.configure do |config|
   config.use_transactional_fixtures = false
