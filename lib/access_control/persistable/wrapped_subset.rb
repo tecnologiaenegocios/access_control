@@ -37,6 +37,16 @@ module AccessControl
         "#<#{self.class.name}:#{hex_object_id}>"
       end
 
+      def method_missing(method_name, *args, &block)
+        if original_subset.respond_to?(method_name)
+          new_original_subset =
+            original_subset.public_send(method_name, *args, &block)
+          self.class.new(persistable_model, new_original_subset)
+        else
+          super
+        end
+      end
+
     private
       attr_reader :original_subset, :persistable_model
 

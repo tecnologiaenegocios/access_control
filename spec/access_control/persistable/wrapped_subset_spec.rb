@@ -82,4 +82,20 @@ describe AccessControl::Persistable::WrappedSubset do
       subject.public_send(method_name).should == original_value
     end
   end
+
+  describe "subset delegation" do
+    it "delegates any undefined method to subset if it defines it" do
+      wrapped_item = stub("Wrapped item")
+      item = 'other subset'
+      delegated_subset = [item]
+      original_subset.stub(:delegation).and_return(delegated_subset)
+      persistable_model.stub(:wrap).with(item).and_return(wrapped_item)
+
+      subject.public_send(:delegation).all.should == [wrapped_item]
+    end
+
+    it "just fails if subset doesn't define it" do
+      -> { subject.public_send(:delegation) }.should raise_error(NoMethodError)
+    end
+  end
 end
