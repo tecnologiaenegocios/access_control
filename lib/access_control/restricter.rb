@@ -42,7 +42,6 @@ module AccessControl
 
     def parent_node_ids(permissions)
       db[:ac_assignments]
-        .filter(parent_id: nil)
         .filter(role_id: role_ids(permissions))
         .filter(principal_id: principal_ids)
         .select_map(:node_id)

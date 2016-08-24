@@ -112,7 +112,7 @@ module AccessControl
       end
 
       def destroy_subset(subset)
-        wrap_subset(subset.real).each { |assignment| assignment.destroy }
+        wrap_subset(subset).each { |assignment| assignment.destroy }
       end
 
       def default_persistent_subset

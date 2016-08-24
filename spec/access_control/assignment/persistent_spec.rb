@@ -21,53 +21,6 @@ module AccessControl
         instance
       end
 
-      describe ".real" do
-        it "returns assignments that don't have a parent" do
-          subject = build_persistent(:parent_id => nil)
-          Persistent.real.should include subject
-        end
-
-        it "doesn't return assignments that have a parent" do
-          subject = build_persistent(:parent_id => 1)
-          Persistent.real.should_not include subject
-        end
-      end
-
-      describe ".effective" do
-        it "returns assignments that have a parent" do
-          subject = build_persistent(:parent_id => 1)
-          Persistent.effective.should include subject
-        end
-
-        it "doesn't return assignments that don't have a parent" do
-          subject = build_persistent(:parent_id => nil)
-          Persistent.effective.should_not include subject
-        end
-      end
-
-      describe ".children_of" do
-        let!(:assignment) { build_persistent }
-
-        it "returns assignments whose 'parent_id' point to the param" do
-          child = build_persistent(:parent_id => assignment.id)
-          Persistent.children_of(assignment).should include(child)
-        end
-
-        it "doesn't return assignments with a different 'parent_id'" do
-          random_assignment = build_persistent(:parent_id => assignment.id-1)
-          Persistent.children_of(assignment).should_not include(random_assignment)
-        end
-
-        it "works the same if given an ID instead of an instance" do
-          child             = build_persistent(:parent_id => assignment.id)
-          random_assignment = build_persistent(:parent_id => assignment.id-1)
-
-          returned_dataset = Persistent.children_of(assignment.id)
-          returned_dataset.should include(child)
-          returned_dataset.should_not include(random_assignment)
-        end
-      end
-
       describe ".at_nodes" do
         let(:node)         { stub(:id => 1) }
         let(:other_node)   { stub(:id => 2) }
@@ -162,11 +115,10 @@ module AccessControl
         let(:another_principal)     { stub(:id => 2) }
         let(:yet_another_principal) { stub(:id => 3) }
 
-        def make_assignment(role, principal, node, parent_id = nil)
+        def make_assignment(role, principal, node)
           Persistent.create(:role_id      => role.id,
                             :principal_id => principal.id,
-                            :node_id      => node.id,
-                            :parent_id    => parent_id)
+                            :node_id      => node.id)
         end
 
         it "returns exact matches if the assignment has no parent" do
@@ -174,13 +126,6 @@ module AccessControl
           matches    = Persistent.overlapping(role, principal, node)
 
           matches.should include(assignment)
-        end
-
-        it "doesn't return exact matches that have parents" do
-          effective_assignment = make_assignment(role, principal, node, 1)
-          matches    = Persistent.overlapping(role, principal, node)
-
-          matches.should_not include(effective_assignment)
         end
 
         context "using single objects" do
@@ -328,28 +273,6 @@ module AccessControl
           subject { Persistent.assigned_on([node1, node2],
                                            [principal1, principal2]) }
           it { should include_only(a2, a5) }
-        end
-      end
-
-      describe ".destroy_children_of" do
-        let(:cls) { Persistent }
-
-        let!(:a0) { cls.create(:role_id=>1, :principal_id=>1, :node_id=>1) }
-        let!(:a1) { cls.create(:role_id=>1, :principal_id=>1, :node_id=>2, :parent_id => a0.id) }
-        let!(:a2) { cls.create(:role_id=>1, :principal_id=>1, :node_id=>3, :parent_id => a0.id) }
-        let!(:a3) { cls.create(:role_id=>1, :principal_id=>1, :node_id=>3, :parent_id => a1.id) }
-
-        it "destroys children of a given assignment id" do
-          Persistent.destroy_children_of(a0.id)
-
-          Persistent[a1.id].should be_nil
-          Persistent[a2.id].should be_nil
-        end
-
-        it "destroys all descendants of the given assignment id" do
-          Persistent.destroy_children_of(a0.id)
-
-          Persistent[a3.id].should be_nil
         end
       end
     end
