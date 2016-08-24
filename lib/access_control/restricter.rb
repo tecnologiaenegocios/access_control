@@ -1,4 +1,5 @@
 require 'access_control/orm'
+require 'access_control/node_graph'
 
 module AccessControl
   class Restricter
@@ -36,10 +37,7 @@ module AccessControl
     end
 
     def reachable_node_ids(parent_node_ids)
-      db[:ac_paths]
-        .filter(latch: 'breadth_first')
-        .filter(origid: parent_node_ids)
-        .select(:linkid)
+      NodeGraph.new { |result| result }.reachable_from(parent_node_ids)
     end
 
     def parent_node_ids(permissions)
