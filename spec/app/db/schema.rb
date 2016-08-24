@@ -9,7 +9,7 @@
 #
 # It's strongly recommended to check this file into your version control system.
 
-ActiveRecord::Schema.define(:version => 20160823203517) do
+ActiveRecord::Schema.define(:version => 20160824172747) do
 
   create_table "ac_assignments", :force => true do |t|
     t.integer "parent_id",    :limit => 8
@@ -58,6 +58,18 @@ ActiveRecord::Schema.define(:version => 20160823203517) do
   end
 
   add_index "ac_principals", ["subject_type", "subject_id"], :name => "index_ac_principals_on_subject_type_and_subject_id", :unique => true
+
+  create_table "ac_reversed_paths", :id => false, :force => true do |t|
+    t.string  "latch",  :limit => 32
+    t.integer "origid", :limit => 8
+    t.integer "destid", :limit => 8
+    t.float   "weight"
+    t.integer "seq",    :limit => 8
+    t.integer "linkid", :limit => 8
+  end
+
+  add_index "ac_reversed_paths", ["latch", "destid", "origid"], :name => "latch_2"
+  add_index "ac_reversed_paths", ["latch", "origid", "destid"], :name => "latch"
 
   create_table "ac_roles", :force => true do |t|
     t.string "name", :limit => 40, :null => false
