@@ -1,12 +1,8 @@
 require 'access_control'
-require 'access_control/dataset_helper'
 
 module AccessControl
   class Role
     class Persistent < Sequel::Model(:ac_roles)
-
-      include AccessControl::DatasetHelper
-
       def self.create!(properties={})
         new(properties).save(:raise_on_failure => true)
       end
@@ -29,13 +25,14 @@ module AccessControl
 
         def assigned_to(principals, nodes = nil)
           principals = Principal.normalize_collection(principals)
+          assignments = Assignment::Persistent
 
           if nodes
             nodes = Node.normalize_collection(nodes)
-            related_assignments = Assignment::Persistent.assigned_on(nodes,
-                                                                     principals)
+            related_assignments =
+              assignments.effectively_assigned_on(nodes, principals)
           else
-            related_assignments = Assignment::Persistent.assigned_to(principals)
+            related_assignments = assignments.to_principals(principals)
           end
           filter(:id => related_assignments.select(:role_id))
         end
@@ -48,7 +45,8 @@ module AccessControl
           return assigned_to(principals, nodes) if principals
 
           nodes = Node.normalize_collection(nodes)
-          filter(:id=>Assignment::Persistent.with_nodes(nodes).select(:role_id))
+          filter(id: Assignment::Persistent
+            .effectively_at_nodes(nodes).select(:role_id))
         end
 
         def default

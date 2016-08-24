@@ -6,7 +6,7 @@ module AccessControl
       @persistent_model ||= ORM.adapt_class(Assignment::Persistent)
     end
 
-    delegate_subsets :with_nodes, :with_roles, :assigned_to,
+    delegate_subsets :at_nodes, :of_roles, :to_principals,
                      :assigned_on, :overlapping, :effective, :real,
                      :children_of
 
@@ -36,21 +36,6 @@ module AccessControl
       persistent.parent_id.nil?
     end
 
-    def propagate_to(node)
-      node_id = node.kind_of?(Numeric) ? node : node.id
-
-      Assignment.store(:node_id => node_id, :principal_id => self.principal_id,
-                       :role_id => self.role_id, :parent_id => self.id)
-    end
-
-    def persist
-      AccessControl.transaction do
-        super.tap do
-          propagate_to_node_descendants!
-        end
-      end
-    end
-
     def destroy
       AccessControl.transaction do
         super.tap do
@@ -68,10 +53,6 @@ module AccessControl
 
     def destroy_child_assignments!
       Assignment::Persistent.destroy_children_of(id)
-    end
-
-    def propagate_to_node_descendants!
-      Persistent.propagate_to_descendants([self])
     end
   end
 end
