@@ -9,10 +9,9 @@
 #
 # It's strongly recommended to check this file into your version control system.
 
-ActiveRecord::Schema.define(:version => 20160824222226) do
+ActiveRecord::Schema.define(:version => 20160825001815) do
 
   create_table "ac_assignments", :force => true do |t|
-    t.integer "parent_id",    :limit => 8
     t.integer "role_id",                   :null => false
     t.integer "principal_id",              :null => false
     t.integer "node_id",      :limit => 8, :null => false
