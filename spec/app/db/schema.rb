@@ -9,7 +9,7 @@
 #
 # It's strongly recommended to check this file into your version control system.
 
-ActiveRecord::Schema.define(:version => 20161022183132) do
+ActiveRecord::Schema.define(:version => 20161022190047) do
 
   create_table "ac_assignments", :force => true do |t|
     t.integer "role_id",                   :null => false
@@ -20,7 +20,7 @@ ActiveRecord::Schema.define(:version => 20161022183132) do
 
   add_index "ac_assignments", ["node_id"], :name => "index_ac_assignments_on_node_id"
   add_index "ac_assignments", ["parent_id"], :name => "index_ac_assignments_on_parent_id"
-  add_index "ac_assignments", ["principal_id", "role_id", "node_id"], :name => "index_ac_assignments_on_principal_id_and_role_id_and_node_id", :unique => true
+  add_index "ac_assignments", ["principal_id", "role_id", "node_id"], :name => "index_ac_assignments_on_principal_id_and_role_id_and_node_id"
   add_index "ac_assignments", ["principal_id"], :name => "index_ac_assignments_on_principal_id"
   add_index "ac_assignments", ["role_id"], :name => "index_ac_assignments_on_role_id"
 
