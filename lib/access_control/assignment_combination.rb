@@ -64,9 +64,13 @@ module AccessControl
       !!@only_existing_assigments
     end
 
+    attr_accessor :parent_id
     def to_properties
       properties = combinations.map do |role_id, principal_id, node_id|
-        { role_id: role_id, principal_id: principal_id, node_id: node_id }
+        hash = {:role_id => role_id, :principal_id => principal_id,
+                :node_id => node_id}
+
+        parent_id ? hash.merge(:parent_id => parent_id) : hash
       end
     end
 

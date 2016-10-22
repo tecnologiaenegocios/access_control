@@ -1,8 +1,11 @@
 require 'access_control'
+require 'access_control/dataset_helper'
 
 module AccessControl
   class Node
     class Persistent < Sequel::Model(:ac_nodes)
+      include AccessControl::DatasetHelper
+
       def_dataset_method(:blocked) do
         filter(block: true)
       end

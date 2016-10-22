@@ -321,6 +321,20 @@ module AccessControl
 
         properties_returned.should include_only(*properties)
       end
+
+      specify "when a parent_id was set, return it on the hashes as well" do
+        subject.parent_id = 123
+        subject.to_properties.each do |hash|
+          hash[:parent_id].should == 123
+        end
+      end
+
+      specify "when no parent_id was set, doesn't include it on the hashes" do
+        subject.to_properties.each do |hash|
+          hash.should_not have_key(:parent_id)
+        end
+      end
     end
+
   end
 end

@@ -11,6 +11,10 @@ module AccessControl
       db[:ac_nodes]
     end
 
+    def ac_effective_assignments
+      db[:ac_effective_assignments]
+    end
+
     def db
       @sequel_db
     end

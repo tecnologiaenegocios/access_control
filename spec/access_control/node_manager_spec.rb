@@ -95,6 +95,7 @@ module AccessControl
 
         before do
           inheritance_manager.stub(:add_parent)
+          RolePropagation.stub(:propagate!)
           manager.stub(:can!)
 
           real_parents << new_parent
@@ -110,6 +111,11 @@ module AccessControl
           subject.refresh_parents
         end
 
+        it "propagates roles from the added parents" do
+          RolePropagation.should_receive(:propagate!).with(node, [new_parent])
+          subject.refresh_parents
+        end
+
         it "persists the nodes being added" do
           new_parent.stub(:persisted?).and_return(false)
           new_parent.should_receive(:persist!).ordered
@@ -122,6 +128,7 @@ module AccessControl
       context "when parents were removed" do
         before do
           inheritance_manager.stub(:del_parent)
+          RolePropagation.stub(:depropagate!)
           manager.stub(:can!)
 
           real_parents.delete(parent)
@@ -134,6 +141,11 @@ module AccessControl
 
         it "deletes the old parents using the inheritance manager" do
           inheritance_manager.should_receive(:del_parent).with(parent)
+          subject.refresh_parents
+        end
+
+        it "depropagates roles from the removed parents" do
+          RolePropagation.should_receive(:depropagate!)
           subject.refresh_parents
         end
       end
@@ -159,6 +171,7 @@ module AccessControl
         securable_class.stub(:permissions_required_to_destroy).
           and_return(destroy_permissions)
 
+        RolePropagation.stub(:depropagate!)
         inheritance_manager.stub(:del_all_parents)
         inheritance_manager.stub(:del_all_children)
         inheritance_manager.stub(:parents => [parent1, parent2])
@@ -169,6 +182,15 @@ module AccessControl
       it "checks permissions for every parent" do
         manager.should_receive(:can!).with(destroy_permissions, parent1)
         manager.should_receive(:can!).with(destroy_permissions, parent2)
+
+        subject.disconnect
+      end
+
+      it "depropagates roles from all of the parents" do
+        RolePropagation.should_receive(:depropagate!) do |first_arg, second_arg|
+          first_arg.should == node
+          second_arg.should include_only(parent1, parent2)
+        end
 
         subject.disconnect
       end
@@ -187,6 +209,20 @@ module AccessControl
 
         inheritance_manager.stub(:del_all_parents) do
           checked_parents.should include_only(*inheritance_manager.parents)
+        end
+
+        subject.disconnect
+      end
+
+      it "disconnects from parents after depropagation" do
+        depropagated = false
+
+        RolePropagation.stub(:depropagate!) do
+          depropagated = true
+        end
+
+        inheritance_manager.stub(:del_all_parents) do
+          depropagated.should be_true
         end
 
         subject.disconnect
@@ -223,12 +259,32 @@ module AccessControl
       end
 
       before do
+        RolePropagation.stub(:depropagate!)
         inheritance_manager.stub(:parents => [parent])
         inheritance_manager.stub(:del_all_parents)
       end
 
+      it "depropagates roles from the blocked parents" do
+        RolePropagation.should_receive(:depropagate!).with(node, [parent])
+        subject.block
+      end
+
       it "disconnects from all of the parents" do
         inheritance_manager.should_receive(:del_all_parents)
+        subject.block
+      end
+
+      it "disconnects after depropagation" do
+        depropagated = false
+
+        RolePropagation.stub(:depropagate!) do
+          depropagated = true
+        end
+
+        inheritance_manager.stub(:del_all_parents) do
+          depropagated.should be_true
+        end
+
         subject.block
       end
     end
@@ -240,6 +296,8 @@ module AccessControl
       before do
         Inheritance.stub(:parent_nodes_of).with(securable).
           and_return([parent])
+
+        RolePropagation.stub(:propagate!)
 
         inheritance_manager.stub(:add_parent)
         inheritance_manager.stub(:del_parent)
@@ -253,6 +311,15 @@ module AccessControl
 
       it "adds all the securable's parents to inheritance manager" do
         inheritance_manager.should_receive(:add_parent).with(parent)
+        subject.unblock
+      end
+
+      it "propagates roles from the re-added parents" do
+        RolePropagation.should_receive(:propagate!) do |first_arg, second_arg|
+          first_arg.should == node
+          second_arg.should include_only(parent)
+        end
+
         subject.unblock
       end
 

@@ -22,7 +22,7 @@ module AccessControl
       end
 
       def has?(principal, node)
-        effectively_on(principal, node).present?
+        effective_on(principal, node).present?
       end
 
       def has_locally?(principal, node)
@@ -68,10 +68,9 @@ module AccessControl
 
     private
 
-      def effectively_on(principal, node)
+      def effective_on(principal, node)
         fetch_assignment(principal, node) do
-          subset = default_persistent_subset
-            .effectively_assigned_on(node, principal)
+          subset = default_persistent_subset.assigned_on(node, principal)
           wrap_subset(subset).first
         end
       end
@@ -112,11 +111,11 @@ module AccessControl
       end
 
       def destroy_subset(subset)
-        wrap_subset(subset).each { |assignment| assignment.destroy }
+        wrap_subset(subset.real).each { |assignment| assignment.destroy }
       end
 
       def default_persistent_subset
-        Assignment::Persistent.of_roles(owner)
+        Assignment::Persistent.with_roles(owner)
       end
 
       def wrap_subset(subset)

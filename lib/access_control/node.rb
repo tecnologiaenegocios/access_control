@@ -1,5 +1,6 @@
 require 'access_control/exceptions'
 require 'access_control/persistable'
+require 'access_control/role_propagation'
 require 'access_control/node_manager'
 
 module AccessControl
