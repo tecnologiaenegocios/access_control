@@ -510,14 +510,9 @@ module AccessControl
       let(:child_node) { stub_node      }
       let(:principal)  { stub_principal }
 
-      before do
+      let!(:local_assignment) do
         Assignment.store(:role_id => subject.id, :node_id => node.id,
                          :principal_id => principal.id)
-      end
-
-      def connect_nodes(parent, child)
-        AccessControl.db[:ac_parents]
-          .insert(parent_id: parent.id, child_id: child.id)
       end
 
       subject { Role.store(:name => "Irrelevant") }
@@ -543,7 +538,7 @@ module AccessControl
         end
 
         it "returns true if the role was inherited" do
-          connect_nodes(node, child_node)
+          local_assignment.propagate_to(child_node)
           subject.should be_assigned_to(principal, child_node)
         end
       end
@@ -595,7 +590,7 @@ module AccessControl
         end
 
         it "returns false if the role was inherited" do
-          connect_nodes(node, child_node)
+          local_assignment.propagate_to(child_node)
           subject.should_not be_locally_assigned_to(principal, child_node)
         end
       end
@@ -621,7 +616,7 @@ module AccessControl
         end
 
         it "returns true if the role was inherited" do
-          connect_nodes(node, child_node)
+          local_assignment.propagate_to(child_node)
           subject.should be_assigned_at(child_node, principal)
         end
       end
@@ -647,7 +642,7 @@ module AccessControl
         end
 
         it "returns false if the role was inherited" do
-          connect_nodes(node, child_node)
+          local_assignment.propagate_to(child_node)
           subject.should_not be_locally_assigned_at(child_node, principal)
         end
       end
@@ -789,7 +784,7 @@ module AccessControl
       end
 
       it "removes its assignments" do
-        Assignment.of_roles(role.id).should be_empty
+        Assignment.with_roles(role.id).should be_empty
       end
 
       it "removes its permissions" do
