@@ -24,10 +24,8 @@ require 'access_control'
 
 Dir[File.expand_path(File.join(File.dirname(__FILE__), 'support', '**', '*.rb'))].each {|f| require f}
 
-DatabaseCleaner.strategy = :deletion, { except: %w(ac_paths ac_reversed_paths) }
+DatabaseCleaner.strategy = :deletion
 at_exit do
-  ActiveRecord::Base.connection.execute("DROP TABLE ac_paths")
-  ActiveRecord::Base.connection.execute("DROP TABLE ac_reversed_paths")
   ActiveRecord::Base.connection.execute("SET GLOBAL FOREIGN_KEY_CHECKS=1")
   DatabaseCleaner.clean
   system({ 'RAILS_ENV' => 'test' }, 'bundle', 'exec', 'rake', 'db:drop', chdir: 'spec/app')
