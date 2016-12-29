@@ -39,7 +39,7 @@ module AccessControl
     attr_reader :node_id
 
     def initialize(node_or_node_id)
-      if node_or_node_id.is_a?(Fixnum)
+      if node_or_node_id.is_a?(Integer)
         @node_id = node_or_node_id
       else
         # Implicitly considering the argument a real node

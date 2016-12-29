@@ -46,11 +46,11 @@ module AccessControl
         set
       end
 
-      # Return an id from an object, or the object itself if it is a Fixnum.
+      # Return an id from an object, or the object itself if it is an integer
       def id_of(object)
         if object.nil?
           nil
-        elsif object.is_a?(Fixnum)
+        elsif object.is_a?(Integer)
           object
         elsif block_given?
           id_of(yield)

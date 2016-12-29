@@ -33,11 +33,11 @@ GEM
     activeresource (2.3.18)
       activesupport (= 2.3.18)
     activesupport (2.3.18)
-    backports (3.6.4)
-    byebug (8.2.1)
+    backports (3.6.8)
+    byebug (9.0.6)
     celluloid (0.16.0)
       timers (~> 4.0.0)
-    coderay (1.1.0)
+    coderay (1.1.1)
     database_cleaner (0.7.1)
     ffi (1.9.8)
     ffi (1.9.8-java)
@@ -59,8 +59,8 @@ GEM
       rake (>= 0.8, < 11.0)
     iconv (1.0.4)
     jdbc-mysql (5.1.33)
-    json (1.8.3)
-    json (1.8.3-java)
+    json (2.0.2)
+    json (2.0.2-java)
     libnotify (0.9.1)
       ffi (>= 1.0.11)
     listen (2.10.0)
@@ -74,24 +74,23 @@ GEM
     notiffany (0.0.6)
       nenv (~> 0.1)
       shellany (~> 0.0)
-    pry (0.10.3)
+    pry (0.10.4)
       coderay (~> 1.1.0)
       method_source (~> 0.8.1)
       slop (~> 3.4)
-    pry (0.10.3-java)
+    pry (0.10.4-java)
       coderay (~> 1.1.0)
       method_source (~> 0.8.1)
       slop (~> 3.4)
       spoon (~> 0.0)
-    pry-byebug (3.3.0)
-      byebug (~> 8.0)
+    pry-byebug (3.4.2)
+      byebug (~> 9.0)
       pry (~> 0.10)
-    pry-doc (0.8.0)
+    pry-doc (0.9.0)
       pry (~> 0.9)
       yard (~> 0.8)
-    pry-theme (1.1.3)
-      coderay (~> 1.1)
-      json (~> 1.8)
+    pry-theme (1.0.1)
+      json
     rack (1.1.6)
     rails (2.3.18)
       actionmailer (= 2.3.18)
@@ -110,7 +109,7 @@ GEM
     sequel (4.21.0)
     shellany (0.0.1)
     slop (3.6.0)
-    spoon (0.0.4)
+    spoon (0.0.6)
       ffi
     sqlite3 (1.3.10)
     test-unit (1.2.3)
@@ -118,7 +117,7 @@ GEM
     thor (0.19.1)
     timers (4.0.1)
       hitimes
-    yard (0.8.7.6)
+    yard (0.9.5)
 
 PLATFORMS
   java
@@ -148,4 +147,4 @@ DEPENDENCIES
   test-unit (= 1.2.3)
 
 BUNDLED WITH
-   1.12.5
+   1.13.7
