@@ -1,6 +1,6 @@
 require 'delegate'
 require 'access_control/orm'
-require 'access_control/restricter'
+require 'access_control/selectable'
 
 module AccessControl
   module Restriction
@@ -11,26 +11,14 @@ module AccessControl
       end
 
       def listing_condition_for(target)
-        column = "#{target.quoted_table_name}.#{target.primary_key}"
-
-        all_types = target.instance_eval do
-          break @__AccessControl_Restriction_self_and_subclasses__ ||=
-            ObjectSpace.each_object(target.singleton_class).select do |s|
-              # Instance singleton classes must not be returned.  They are
-              # exposed in Ruby 2.3+.  Ignore all singleton classes as well.
-              !s.singleton_class?
-            end
+        subquery_sql = Selectable.new(target).subquery_sql do |type|
+          type.permissions_required_to_list
         end
 
-        skip_global = all_types.size == 1
-        subqueries = all_types.map do |type|
-          restricter  = Restricter.new(ORM.adapt_class(type))
-          permissions = type.permissions_required_to_list
+        return unless subquery_sql
 
-          restricter.sql_query_for(permissions, skip_global: skip_global)
-        end.compact
-
-        "#{column} IN (#{subqueries.join(" UNION ALL ")})" if subqueries.any?
+        column = "#{target.quoted_table_name}.#{target.primary_key}"
+        "#{column} IN (#{subquery_sql})"
       end
     end
 

@@ -40,6 +40,9 @@ module AccessControl
       end
 
       before do
+        Node.stub(:ancestors_of).and_return do |*args|
+          [*args]
+        end
         AccessControl.stub(:Node).with(AccessControl.global_node).
           and_return(AccessControl.global_node)
       end
@@ -49,85 +52,101 @@ module AccessControl
         let(:node)      { stub_node }
         let(:role)      { persist_role(:name => "Foo") }
 
-        before { assign_role(role, principal, node) }
+        context 'with role assigned to a node' do
+          before { assign_role(role, principal, node) }
 
-        it "includes roles that were assigned to the given principal" do
-          Persistent.assigned_to(principal).should include role
-        end
-
-        it "accepts subjects instead of principals" do
-          principal_subject = stub("Subject")
-          AccessControl.stub(:Principal).with(principal_subject).
-            and_return(principal)
-
-          Persistent.assigned_to(principal_subject).should include role
-        end
-
-        it "doesn't include roles that not assigned to the given principal" do
-          other_role = persist_role(:name => "Bar")
-          Persistent.assigned_to(principal).should_not include other_role
-        end
-
-        it "doesn't return roles assigned at two nodes twice" do
-          lambda {
-            other_node = stub_node
-            assign_role(role, principal, other_node)
-          }.should_not change { Persistent.assigned_to(principal).count }
-        end
-
-        context "when given a collection of principals" do
-          let(:other_principal) { stub_principal }
-          let(:principals)      { [principal, other_principal] }
-
-          it "returns roles assigned to all the given principals" do
-            assign_role(role, other_principal, node)
-            Persistent.assigned_to(principals).should include role
+          it "includes roles that were assigned to the given principal" do
+            Persistent.assigned_to(principal).should include role
           end
 
-          it "returns roles assigned to one of the given principals" do
-            Persistent.assigned_to(principals).should include role
+          it "accepts subjects instead of principals" do
+            principal_subject = stub("Subject")
+            AccessControl.stub(:Principal).with(principal_subject).
+              and_return(principal)
+
+            Persistent.assigned_to(principal_subject).should include role
           end
 
-          it "doesn't return roles that aren't assigned to any of the princiapls" do
+          it "doesn't include roles that not assigned to the given principal" do
             other_role = persist_role(:name => "Bar")
-            Persistent.assigned_to(principals).should_not include other_role
+            Persistent.assigned_to(principal).should_not include other_role
+          end
+
+          it "doesn't return roles assigned at two nodes twice" do
+            lambda {
+              other_node = stub_node
+              assign_role(role, principal, other_node)
+            }.should_not change { Persistent.assigned_to(principal).count }
+          end
+
+          context "when given a collection of principals" do
+            let(:other_principal) { stub_principal }
+            let(:principals)      { [principal, other_principal] }
+
+            it "returns roles assigned to all the given principals" do
+              assign_role(role, other_principal, node)
+              Persistent.assigned_to(principals).should include role
+            end
+
+            it "returns roles assigned to one of the given principals" do
+              Persistent.assigned_to(principals).should include role
+            end
+
+            it "doesn't return roles that aren't assigned to any of the princiapls" do
+              other_role = persist_role(:name => "Bar")
+              Persistent.assigned_to(principals).should_not include other_role
+            end
+          end
+
+          context "when a node is provided" do
+            it "includes roles assigned to the principal on the node" do
+              Persistent.assigned_to(principal, node).should include role
+            end
+
+            it "accepts securables instead of nodes" do
+              securable = stub("Securable")
+              AccessControl.stub(:Node).with(securable).and_return(node)
+
+              Persistent.assigned_to(principal, securable).should include role
+            end
+
+            it "doesn't include roles assigned to the principal on other nodes" do
+              other_node = stub_node
+              Persistent.assigned_to(principal, other_node).should_not include role
+            end
+
+            context "when given a collection of nodes" do
+              let(:other_node) { stub_node }
+              let(:nodes)      { [node, other_node] }
+
+              it "returns roles assigned on all the given nodes" do
+                assign_role(role, principal, other_node)
+                Persistent.assigned_to(principal, nodes).should include role
+              end
+
+              it "returns roles assigned on one of the given nodes" do
+                Persistent.assigned_to(principal, nodes).should include role
+              end
+
+              it "doesn't return roles that aren't assigned on of the nodes" do
+                other_role = persist_role(:name => "Bar")
+                Persistent.assigned_to(principal, nodes).should_not include other_role
+              end
+            end
+
           end
         end
 
-        context "when a node is provided" do
-          it "includes roles assigned to the principal on the node" do
+        context 'with role assigned to an acestor' do
+          let(:ancestor_node) { stub_node }
+
+          before do
+            Node.stub(:ancestors_of).with(node).and_return([ancestor_node])
+            assign_role(role, principal, ancestor_node)
+          end
+
+          it 'returns role as assigned to node' do
             Persistent.assigned_to(principal, node).should include role
-          end
-
-          it "accepts securables instead of nodes" do
-            securable = stub("Securable")
-            AccessControl.stub(:Node).with(securable).and_return(node)
-
-            Persistent.assigned_to(principal, securable).should include role
-          end
-
-          it "doesn't include roles assigned to the principal on other nodes" do
-            other_node = stub_node
-            Persistent.assigned_to(principal, other_node).should_not include role
-          end
-
-          context "when given a collection of nodes" do
-            let(:other_node) { stub_node }
-            let(:nodes)      { [node, other_node] }
-
-            it "returns roles assigned on all the given nodes" do
-              assign_role(role, principal, other_node)
-              Persistent.assigned_to(principal, nodes).should include role
-            end
-
-            it "returns roles assigned on one of the given nodes" do
-              Persistent.assigned_to(principal, nodes).should include role
-            end
-
-            it "doesn't return roles that aren't assigned on of the nodes" do
-              other_role = persist_role(:name => "Bar")
-              Persistent.assigned_to(principal, nodes).should_not include other_role
-            end
           end
         end
       end

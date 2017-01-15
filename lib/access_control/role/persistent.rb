@@ -31,13 +31,14 @@ module AccessControl
           principals = Principal.normalize_collection(principals)
 
           if nodes
-            nodes = Node.normalize_collection(nodes)
-            related_assignments = Assignment::Persistent.assigned_on(nodes,
-                                                                     principals)
+            ancestors = Node.ancestors_of(*Node.normalize_collection(nodes))
+            assignments = Assignment::Persistent
+              .assigned_on(ancestors, principals)
           else
-            related_assignments = Assignment::Persistent.assigned_to(principals)
+            assignments = Assignment::Persistent.assigned_to(principals)
           end
-          filter(:id => related_assignments.select(:role_id))
+
+          filter(id: assignments.select(:role_id))
         end
 
         def globally_assigned_to(principals)
@@ -47,8 +48,9 @@ module AccessControl
         def assigned_at(nodes, principals = nil)
           return assigned_to(principals, nodes) if principals
 
-          nodes = Node.normalize_collection(nodes)
-          filter(:id=>Assignment::Persistent.with_nodes(nodes).select(:role_id))
+          ancestors = Node.ancestors_of(*Node.normalize_collection(nodes))
+          assignments = Assignment::Persistent.with_nodes(ancestors)
+          filter(id: assignments.select(:role_id))
         end
 
         def default

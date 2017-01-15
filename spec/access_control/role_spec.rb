@@ -506,42 +506,9 @@ module AccessControl
     end
 
     describe "assignment-related predicate methods" do
-      let(:node)       { stub_node      }
-      let(:child_node) { stub_node      }
       let(:principal)  { stub_principal }
 
-      let!(:local_assignment) do
-        Assignment.store(:role_id => subject.id, :node_id => node.id,
-                         :principal_id => principal.id)
-      end
-
       subject { Role.store(:name => "Irrelevant") }
-
-      describe "#assigned_to?" do
-        it "returns true if the role was directly assigned" do
-          subject.should be_assigned_to(principal, node)
-        end
-
-        it "accepts a securable instead of a node" do
-          securable = stub("Securable")
-          AccessControl.stub(:Node).with(securable).and_return(node)
-
-          subject.should be_assigned_to(principal, securable)
-        end
-
-        it "accepts a subject instead of a principal" do
-          subj = stub("Subject")
-          AccessControl.stub(:Principal).with(subj).
-            and_return(principal)
-
-          subject.should be_assigned_to(subj, node)
-        end
-
-        it "returns true if the role was inherited" do
-          local_assignment.propagate_to(child_node)
-          subject.should be_assigned_to(principal, child_node)
-        end
-      end
 
       describe "#globally_assign_to?" do
         before do
@@ -566,84 +533,6 @@ module AccessControl
           subject.globally_assign_to(principal)
 
           subject.should be_globally_assigned_to(subj)
-        end
-      end
-
-      describe "#locally_assigned_to?" do
-        it "returns true if the role was directly assigned" do
-          subject.should be_locally_assigned_to(principal, node)
-        end
-
-        it "accepts a securable instead of a node" do
-          securable = stub("Securable")
-          AccessControl.stub(:Node).with(securable).and_return(node)
-
-          subject.should be_locally_assigned_to(principal, securable)
-        end
-
-        it "accepts a subject instead of a principal" do
-          subj = stub("Subject")
-          AccessControl.stub(:Principal).with(subj).
-            and_return(principal)
-
-          subject.should be_locally_assigned_to(subj, node)
-        end
-
-        it "returns false if the role was inherited" do
-          local_assignment.propagate_to(child_node)
-          subject.should_not be_locally_assigned_to(principal, child_node)
-        end
-      end
-
-      describe "#assigned_at?" do
-        it "returns true if the role was directly assigned" do
-          subject.should be_assigned_at(node, principal)
-        end
-
-        it "accepts a securable instead of a node" do
-          securable = stub("Securable")
-          AccessControl.stub(:Node).with(securable).and_return(node)
-
-          subject.should be_assigned_at(securable, principal)
-        end
-
-        it "accepts a subject instead of a principal" do
-          subj = stub("Subject")
-          AccessControl.stub(:Principal).with(subj).
-            and_return(principal)
-
-          subject.should be_assigned_at(node, subj)
-        end
-
-        it "returns true if the role was inherited" do
-          local_assignment.propagate_to(child_node)
-          subject.should be_assigned_at(child_node, principal)
-        end
-      end
-
-      describe "#locally_assigned_at?" do
-        it "returns true if the role was directly assigned" do
-          subject.should be_locally_assigned_at(node, principal)
-        end
-
-        it "accepts a securable instead of a node" do
-          securable = stub("Securable")
-          AccessControl.stub(:Node).with(securable).and_return(node)
-
-          subject.should be_locally_assigned_at(securable, principal)
-        end
-
-        it "accepts a subject instead of a principal" do
-          subj = stub("Subject")
-          AccessControl.stub(:Principal).with(subj).
-            and_return(principal)
-
-          subject.should be_locally_assigned_at(node, subj)
-        end
-
-        it "returns false if the role was inherited" do
-          local_assignment.propagate_to(child_node)
-          subject.should_not be_locally_assigned_at(child_node, principal)
         end
       end
     end

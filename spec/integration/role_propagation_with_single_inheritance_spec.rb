@@ -41,7 +41,7 @@ describe "role propagation with single inheritance" do
     AccessControl::Node(record)
   end
 
-  def doom_vality_of_next_record
+  def doom_validity_of_next_record
     record_class.class_eval do
       validate { |record| record.errors.add(:invalid, :name) }
     end
@@ -50,82 +50,99 @@ describe "role propagation with single inheritance" do
   describe "with parents which are already persisted at the time of saving" do
     before do
       parent_record.save!
-      role.assign_to(user, parent_record)
     end
 
-    context "on create" do
-      let(:child_record) { record_class.new(:parent_record => parent_record) }
-
-      context "when the record saves sucessfully" do
-        before { child_record.save! }
-
-        it "propagates roles" do
-          role.should be_assigned_to(user, child_record)
-        end
-      end
-
-      context "when the record fails to save" do
-        before do
-          doom_vality_of_next_record
-          child_record.save
-        end
-
-        it "doesn't propagate roles" do
-          role.should_not be_assigned_to(user, child_record)
-        end
-      end
-    end
-
-    context "on update" do
-      let(:child_record) { record_class.create! }
-
+    context 'having locally-assigned role' do
       before do
-        child_record.parent_record = parent_record
+        role.assign_to(user, parent_record)
       end
 
-      context "when the record saves sucessfully" do
-        before { child_record.save! }
+      it 'shows that the role is locally assigned to parent' do
+        role.should be_locally_assigned_to(user, parent_record)
+      end
 
-        it "propagates roles" do
-          role.should be_assigned_to(user, child_record)
+      context "on create" do
+        let(:child_record) { record_class.new(:parent_record => parent_record) }
+
+        context "when the record saves sucessfully" do
+          before { child_record.save! }
+
+          it "propagates roles" do
+            role.should be_assigned_to(user, child_record)
+          end
+
+          it "doesn't assign roles to children directly" do
+            role.should_not be_locally_assigned_to(user, child_record)
+          end
+        end
+
+        context "when the record fails to save" do
+          before do
+            doom_validity_of_next_record
+            child_record.save
+          end
+
+          it "doesn't propagate roles" do
+            role.should_not be_assigned_to(user, child_record)
+          end
         end
       end
 
-      context "when the record fails to save" do
+      context "on update" do
+        let(:child_record) { record_class.create! }
+
         before do
-          doom_vality_of_next_record
-          child_record.save
+          child_record.parent_record = parent_record
         end
 
-        it "doesn't propagate roles" do
-          role.should_not be_assigned_to(user, child_record)
+        context "when the record saves sucessfully" do
+          before { child_record.save! }
+
+          it "propagates roles" do
+            role.should be_assigned_to(user, child_record)
+          end
+
+          it "doesn't assign roles directly" do
+            role.should_not be_locally_assigned_to(user, child_record)
+          end
+        end
+
+        context "when the record fails to save" do
+          before do
+            doom_validity_of_next_record
+            child_record.save
+          end
+
+          it "doesn't propagate roles" do
+            role.should_not be_assigned_to(user, child_record)
+          end
         end
       end
-    end
 
-    context "on destroy" do
-      let(:child_record) do
-        record_class.create!(:parent_record => parent_record)
-      end
-
-      context "when the record is destroyed" do
-        before do
-          child_record.destroy
+      context "on destroy" do
+        let(:child_record) do
+          record_class.create!(:parent_record => parent_record)
         end
 
-        it "depropagate the role" do
-          role.should_not be_assigned_to(user, child_record)
-        end
-      end
+        context "when the record is destroyed" do
+          before do
+            child_record.destroy
+          end
 
-      context "when the record fails to be destroyed" do
-        before do
-          record_class.class_eval { before_destroy { |record| false } }
-          child_record.destroy
+          it "depropagate the role" do
+            role.should_not be_assigned_to(user, child_record)
+          end
         end
 
-        it "keeps the propagation" do
-          role.should be_assigned_to(user, child_record)
+        context "when the record fails to be destroyed" do
+          before do
+            record_class.class_eval { before_destroy { |record| false } }
+            child_record.destroy
+          end
+
+          it "keeps the propagation" do
+            role.should be_assigned_to(user, child_record)
+          end
         end
       end
     end
@@ -142,7 +159,7 @@ describe "role propagation with single inheritance" do
       context "when the record saves sucessfully" do
         before { parent_record.save! }
 
-        it "propagates roles" do
+        it "propagates parent roles" do
           role.assign_to(user, parent_record)
           role.should be_assigned_to(user, child_record)
         end
@@ -150,7 +167,7 @@ describe "role propagation with single inheritance" do
 
       context "when the record fails to save" do
         before do
-          doom_vality_of_next_record
+          doom_validity_of_next_record
           parent_record.save
         end
 
@@ -170,18 +187,19 @@ describe "role propagation with single inheritance" do
 
       context "when the record saves sucessfully" do
         before do
-          parent_record.save!
           role.assign_to(user, parent_record)
+          parent_record.save!
         end
 
-        it "propagates roles" do
+        it "propagates parent roles" do
           role.should be_assigned_to(user, child_record)
         end
       end
 
       context "when the record fails to save" do
         before do
-          doom_vality_of_next_record
+          doom_validity_of_next_record
+          role.assign_to(user, parent_record)
           parent_record.save
         end
 

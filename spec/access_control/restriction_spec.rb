@@ -40,23 +40,22 @@ module AccessControl
           # :all, :first and :last options triggers this behavior: using the
           # query permissions to filter records.
 
-          let(:restricter)  { mock('restricter') }
-          let(:subquery)    { 'the id subquery expression' }
+          let(:selectable)  { mock('selectable') }
           let(:adapted)     { stub('adapted') }
 
           before do
             model.stub(:permissions_required_to_list).
-              and_return('the list permissions')
-            ORM.stub(:adapt_class).and_return(adapted)
-            Restricter.stub(:new).with(adapted).and_return(restricter)
+              and_return('the "list" permissions')
+            Selectable.stub(:new).with(model).and_return(selectable)
           end
 
           [:all, :first, :last].each do |option|
             context "when doing find(:#{option})" do
               before do
-                restricter.stub(:sql_query_for).
-                  with('the list permissions', hash_including(:skip_global)).
-                  and_return(subquery)
+                m = model
+                selectable.define_singleton_method(:subquery_sql) do |&block|
+                  "subquery for #{block.call(m)}"
+                end
 
                 base.class_eval do
                   def self.with_scope(*args)
@@ -71,7 +70,8 @@ module AccessControl
               end
 
               it "runs a .with_scope with the find options from the "\
-                  "restricter" do
+                  "selectable object" do
+                subquery = 'subquery for the "list" permissions'
                 model.should_receive(:with_scope).
                   with(:find => {:conditions => "`table`.id IN (#{subquery})"})
                 model.find(option, 'find arguments')
@@ -203,19 +203,18 @@ module AccessControl
       end
 
       describe "with query restriction" do
-        let(:restricter)  { mock('restricter') }
-        let(:subquery)    { 'the id subquery expression' }
+        let(:selectable)  { mock('selectable') }
         let(:adapted)     { stub('adapted') }
 
         before do
           model.stub(:permissions_required_to_list).
-            and_return('the list permissions')
-          ORM.stub(:adapt_class).and_return(adapted)
-          Restricter.stub(:new).with(adapted).and_return(restricter)
+            and_return('the "list" permissions')
+          Selectable.stub(:new).with(model).and_return(selectable)
 
-          restricter.stub(:sql_query_for).
-            with('the list permissions', hash_including(:skip_global)).
-            and_return(subquery)
+          m = model
+          selectable.define_singleton_method(:subquery_sql) do |&block|
+            "subquery for #{block.call(m)}"
+          end
 
           base.class_eval do
             def self.with_scope(*args)
@@ -230,7 +229,8 @@ module AccessControl
         end
 
         it "runs a .with_scope with the calculate options from the "\
-           "restricter" do
+           "selectable object" do
+          subquery = 'subquery for the "list" permissions'
           model.should_receive(:with_scope).
             with(:find => {:conditions => "`table`.id IN (#{subquery})"})
           model.calculate('find arguments')
@@ -269,22 +269,22 @@ module AccessControl
       end
 
       describe "with query restriction" do
-        let(:restricter)  { mock('restricter') }
-        let(:subquery)    { 'the id subquery expression' }
+        let(:selectable)  { mock('selectable') }
         let(:adapted)     { stub('adapted') }
 
         before do
           model.stub(:permissions_required_to_list).
-            and_return('the list permissions')
-          ORM.stub(:adapt_class).and_return(adapted)
-          Restricter.stub(:new).with(adapted).and_return(restricter)
+            and_return('the "list" permissions')
+          Selectable.stub(:new).with(model).and_return(selectable)
 
-          restricter.stub(:sql_query_for).
-            with('the list permissions', hash_including(:skip_global)).
-            and_return(subquery)
+          m = model
+          selectable.define_singleton_method(:subquery_sql) do |&block|
+            "subquery for #{block.call(m)}"
+          end
         end
 
         it "calls scoped with the restriction conditions" do
+          subquery = 'subquery for the "list" permissions'
           restricted_scope = stub('restricted scope')
           base.stub(:scoped).
             with(:conditions => "`table`.id IN (#{subquery})").

@@ -1,6 +1,5 @@
 require 'access_control/exceptions'
 require 'access_control/persistable'
-require 'access_control/role_propagation'
 require 'access_control/node_manager'
 
 module AccessControl
@@ -22,7 +21,7 @@ module AccessControl
     include AccessControl::Persistable
     extend Node::ClassMethods
 
-    delegate_subsets :with_type, :blocked
+    delegate_subsets :with_type, :blocked, :ancestors_of
 
     def initialize(properties={})
       properties.delete(:securable_type) if properties[:securable_class]

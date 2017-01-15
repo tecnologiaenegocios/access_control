@@ -55,6 +55,7 @@ describe "query restriction" do
     AccessControl.no_manager
     AccessControl.reset
     AccessControl::PermissionInspector.clear_role_cache
+    AccessControl::Node.clear_global_cache
   end
 
   describe "with globally-assigned role" do

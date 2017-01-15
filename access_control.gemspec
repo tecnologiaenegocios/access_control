@@ -18,7 +18,7 @@ Gem::Specification.new do |s|
 
   s.add_dependency('rails', '~> 2.3.5')
   s.add_dependency('backports')
-  s.add_dependency('sequel')
+  s.add_dependency('sequel', '~> 4.40')
 
   s.add_development_dependency("bundler", "~> 1.6")
   s.add_development_dependency("rake")

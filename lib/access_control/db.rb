@@ -7,12 +7,12 @@ module AccessControl
       db[:ac_parents]
     end
 
-    def ac_nodes
-      db[:ac_nodes]
+    def ac_assignments
+      db[:ac_assignments]
     end
 
-    def ac_effective_assignments
-      db[:ac_effective_assignments]
+    def ac_nodes
+      db[:ac_nodes]
     end
 
     def db

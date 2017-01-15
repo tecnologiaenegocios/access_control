@@ -40,12 +40,10 @@ module AccessControl
 
       if new_parents.any?
         add_to_parents_cache(new_parents)
-        propagate_roles_of(new_parents)
       end
 
       if deleted_parents.any?
         remove_from_parents_cache(deleted_parents)
-        depropagate_roles_of(deleted_parents)
       end
     end
 
@@ -56,24 +54,18 @@ module AccessControl
         manager.can!(permissions_to_destroy, parent_node)
       end
 
-      depropagate_roles_of(parents)
       inheritance_manager.del_all_parents
       inheritance_manager.del_all_children
     end
 
     def block
-      depropagate_roles_of(cached_parents)
       inheritance_manager.del_all_parents
     end
 
     def unblock
-      parents = nodes_of_securable_parents
-
-      parents.each do |parent_node|
+      nodes_of_securable_parents.each do |parent_node|
         inheritance_manager.add_parent(parent_node)
       end
-
-      propagate_roles_of(parents)
     end
 
   private
@@ -125,14 +117,6 @@ module AccessControl
 
     def inheritance_manager
       @inheritance_manager ||= Node::InheritanceManager.new(node)
-    end
-
-    def propagate_roles_of(parents)
-      RolePropagation.propagate!(node, parents)
-    end
-
-    def depropagate_roles_of(parents)
-      RolePropagation.depropagate!(node, parents)
     end
   end
 end

@@ -41,27 +41,28 @@ module AccessControl
                         :batch_size => AccessControl.default_batch_size)
       end
 
-      def all_sql(subclasses: false)
-        if subclasses || !has_sti?
-          find_options = { select: pk_name }
-          return object.instance_exec(find_options) do |options|
-            with_exclusive_scope do
-              scoped(options).construct_finder_sql({})
-            end
-          end
-        end
+      def dataset(subclasses: false)
+        return AccessControl.db[table_name].select(pk_name) if !has_sti?
 
         qualified_sti_column = Sequel.qualify(table_name, sti_column)
 
-        if topmost_base_sti_class?
-          filter =
-            Sequel.expr(qualified_sti_column => name) |
-            Sequel.expr(qualified_sti_column => nil)
+        if subclasses
+          types = all_types.map(&:name)
         else
-          filter = { qualified_sti_column => name }
+          types = name
         end
 
-        AccessControl.db[table_name].select(pk_name).where(filter).sql
+        filter = Sequel.expr(qualified_sti_column => types)
+
+        if topmost_base_sti_class?
+          filter = filter | Sequel.expr(qualified_sti_column => nil)
+        end
+
+        AccessControl.db[table_name].select(pk_name).where(filter)
+      end
+
+      def all_sql(subclasses: false)
+        dataset(subclasses: subclasses).sql
       end
 
       def none_sql
@@ -115,6 +116,15 @@ module AccessControl
 
       def quote(value)
         object.connection.quote(value)
+      end
+
+      def all_types
+        @all_types ||=
+          ObjectSpace.each_object(object.singleton_class).select do |s|
+            # Instance singleton classes must not be returned.  They are
+            # exposed in Ruby 2.3+.  Ignore all singleton classes as well.
+            !s.singleton_class?
+          end
       end
     end
   end

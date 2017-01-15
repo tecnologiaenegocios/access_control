@@ -40,12 +40,16 @@ module AccessControl
         to_enum(:values_as_enum)
       end
 
-      def all_sql(subclasses: false)
-        return object.select(pk_name).sql if !has_sti? || subclasses
+      def dataset(subclasses: false)
+        return object.select(pk_name) if !has_sti? || subclasses
 
         object.select(pk_name).where(
           Sequel.qualify(table_name, object.sti_key) => name
-        ).sql
+        )
+      end
+
+      def all_sql(subclasses: false)
+        dataset(subclasses: subclasses).sql
       end
 
       def none_sql

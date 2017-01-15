@@ -21,11 +21,12 @@ module AccessControl
         self
       end
 
-      def has?(principal, node)
-        effective_on(principal, node).present?
+      def contains?(principal, node)
+        contains_locally?(principal, node) ||
+          effective_on(principal, Node.ancestors_of(node)).present?
       end
 
-      def has_locally?(principal, node)
+      def contains_locally?(principal, node)
         on(principal, node).present?
       end
 
@@ -35,7 +36,7 @@ module AccessControl
       end
 
       def destroy
-        destroy_subset(default_persistent_subset)
+        destroy_subset(persisted_assignments)
       end
 
       def remove_on(principal, node)
@@ -53,7 +54,7 @@ module AccessControl
 
         volatile.delete_if { |obj| obj.principal_id == principal_id }
         destroy_subset(
-          default_persistent_subset.filter(:principal_id => principal_id)
+          persisted_assignments.filter(:principal_id => principal_id)
         )
       end
 
@@ -62,17 +63,15 @@ module AccessControl
 
         volatile.delete_if { |obj| obj.node_id == node_id }
         destroy_subset(
-          default_persistent_subset.filter(:node_id => node_id)
+          persisted_assignments.filter(:node_id => node_id)
         )
       end
 
     private
 
       def effective_on(principal, node)
-        fetch_assignment(principal, node) do
-          subset = default_persistent_subset.assigned_on(node, principal)
-          wrap_subset(subset).first
-        end
+        subset = persisted_assignments.assigned_on(node, principal)
+        wrap_subset(subset).first
       end
 
       def on(principal, node)
@@ -93,7 +92,7 @@ module AccessControl
 
       def overlapping(principal, node)
         if owner.persisted?
-          Assignment::Persistent.overlapping(owner, principal, node)
+          persisted_assignments.assigned_on(node, principal)
         else
           Assignment::Persistent.filter(1 => 0)
         end
@@ -111,10 +110,10 @@ module AccessControl
       end
 
       def destroy_subset(subset)
-        wrap_subset(subset.real).each { |assignment| assignment.destroy }
+        wrap_subset(subset).each { |assignment| assignment.destroy }
       end
 
-      def default_persistent_subset
+      def persisted_assignments
         Assignment::Persistent.with_roles(owner)
       end
 
@@ -226,7 +225,7 @@ module AccessControl
       principal_id = Util.id_of(principal) { AccessControl::Principal(principal) }
       node_id      = Util.id_of(node) { AccessControl::Node(node) }
 
-      assignments.has?(principal_id, node_id)
+      assignments.contains?(principal_id, node_id)
     end
 
     def globally_assigned_to?(principal)
@@ -237,7 +236,7 @@ module AccessControl
       principal = AccessControl::Principal(principal)
       node      = AccessControl::Node(node)
 
-      assignments.has_locally?(principal, node)
+      assignments.contains_locally?(principal, node)
     end
 
     def assigned_at?(node, principal)

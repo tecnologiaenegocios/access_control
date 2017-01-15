@@ -4,7 +4,7 @@ PATH
     access_control (0.24.0)
       backports
       rails (~> 2.3.5)
-      sequel
+      sequel (~> 4.40)
 
 GEM
   remote: https://rubygems.org/
@@ -24,7 +24,8 @@ GEM
     activeresource (2.3.18)
       activesupport (= 2.3.18)
     activesupport (2.3.18)
-    backports (3.6.4)
+    backports (3.6.8)
+    byebug (9.0.6)
     coderay (1.1.0)
     ffi (1.9.10-java)
     hoe (3.13.1)
@@ -42,6 +43,9 @@ GEM
       method_source (~> 0.8.1)
       slop (~> 3.4)
       spoon (~> 0.0)
+    pry-byebug (3.4.2)
+      byebug (~> 9.0)
+      pry (~> 0.10)
     pry-doc (0.8.0)
       pry (~> 0.9)
       yard (~> 0.8)
@@ -54,7 +58,7 @@ GEM
       activesupport (= 2.3.18)
       rake (>= 0.8.3)
     rake (10.4.2)
-    sequel (4.21.0)
+    sequel (4.42.1)
     slop (3.6.0)
     spoon (0.0.4)
       ffi
@@ -74,10 +78,11 @@ DEPENDENCIES
   jdbc-mysql
   mysql2 (< 0.3.0)
   pry
+  pry-byebug
   pry-doc
   rails (~> 2.3.5)
   sqlite3
   test-unit (= 1.2.3)
 
 BUNDLED WITH
-   1.12.5
+   1.13.7
