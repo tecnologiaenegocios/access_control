@@ -7,7 +7,7 @@ GIT
 PATH
   remote: .
   specs:
-    access_control (0.25.0)
+    access_control (0.25.1)
       backports
       rails (~> 2.3.5)
       sequel (~> 4.40)
