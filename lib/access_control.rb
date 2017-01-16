@@ -26,6 +26,8 @@ require 'access_control/registry'
 require 'access_control/securable'
 require 'access_control/active_record_subject'
 
+require 'access_control/migration_helper'
+
 module AccessControl
   LIB_PATH = File.dirname(__FILE__)
 end
