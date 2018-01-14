@@ -30,6 +30,7 @@ module AccessControl
 
       def find(*args)
         return super unless AccessControl.manager.restrict_queries?
+        return super if scope(:find, :ac_unrestrict)
         case args.first
         when :all, :last, :first
           with_listing_filtering { super }
@@ -45,6 +46,7 @@ module AccessControl
 
       def calculate(*args)
         return super unless AccessControl.manager.restrict_queries?
+        return super if scope(:find, :ac_unrestrict)
         with_listing_filtering { super }
       end
 
@@ -140,6 +142,17 @@ module AccessControl
     end
 
     module CollectionAssociationUnrestriction
+      def construct_find_options!(options)
+        super(options)
+        options.merge!(ac_unrestrict: true)
+      end
+
+      def construct_scope(*args)
+        super.tap do |hash|
+          hash[:find].merge!(ac_unrestrict: true)
+        end
+      end
+
       def find(*args, &block)
         AccessControl.manager.without_query_restriction { super }
       end
@@ -148,5 +161,11 @@ module AccessControl
         AccessControl.manager.without_query_restriction { super }
       end
     end
+  end
+end
+
+class ActiveRecord::Base
+  class << self
+    VALID_FIND_OPTIONS << :ac_unrestrict
   end
 end

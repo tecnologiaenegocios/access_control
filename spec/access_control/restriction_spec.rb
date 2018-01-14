@@ -11,6 +11,7 @@ module AccessControl
     before do
       model.stub(:quoted_table_name => '`table`', :primary_key => 'id')
       model.send(:include, Restriction)
+      base.stub(:scope).with(:find, :ac_unrestrict).and_return(false)
       AccessControl.stub(:manager).and_return(manager)
     end
 
@@ -38,7 +39,7 @@ module AccessControl
         describe "finding every" do
 
           # :all, :first and :last options triggers this behavior: using the
-          # query permissions to filter records.
+          # list permissions to filter records.
 
           let(:selectable)  { mock('selectable') }
           let(:adapted)     { stub('adapted') }
