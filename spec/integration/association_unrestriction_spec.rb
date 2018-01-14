@@ -47,7 +47,7 @@ describe "association unrestriction" do
     let(:record) { Record.create!(associated_record: associated_record) }
     let(:fresh_record) { Record.find(record.id) }
 
-    describe "when associated record is unpermitted" do
+    describe "associated unpermitted record" do
       it "should be returned when eager loaded in single query" do
         result = Record.find(
           :all,
@@ -73,7 +73,7 @@ describe "association unrestriction" do
         association.target.should == associated_record
       end
 
-      it "should be returned anyway" do
+      it "should be returned when accessed without eager loading" do
         fresh_record.associated_record.should == associated_record
       end
 
@@ -92,8 +92,7 @@ describe "association unrestriction" do
     let(:record) { Record.create!(associated_records: [associated_record]) }
     let(:fresh_record) { Record.find(record.id) }
 
-    describe "when associated record is unpermitted" do
-
+    describe "associated unpermitted record" do
       it "should be returned when eager loaded in single query" do
         result = Record.find(
           :all,
@@ -123,32 +122,112 @@ describe "association unrestriction" do
         fresh_record.associated_records.first.should == associated_record
       end
 
+      it "should be returned for #first on ad-hoc scope" do
+        fresh_record.associated_records.scoped({}).first.should == associated_record
+      end
+
+      it "should be returned for #first on class-method scope" do
+        fresh_record.associated_records.class_method_scope.first.should == associated_record
+      end
+
+      it "should be returned for #first on named scope" do
+        fresh_record.associated_records.named_scope.first.should == associated_record
+      end
+
       it "should be returned for #last" do
         fresh_record.associated_records.last.should == associated_record
+      end
+
+      it "should be returned for #last on ad-hoc scope" do
+        fresh_record.associated_records.scoped({}).last.should == associated_record
+      end
+
+      it "should be returned for #last on class-method scope" do
+        fresh_record.associated_records.class_method_scope.last.should == associated_record
+      end
+
+      it "should be returned for #last on named scope" do
+        fresh_record.associated_records.named_scope.last.should == associated_record
       end
 
       it "should be returned for #all" do
         fresh_record.associated_records.all.first.should == associated_record
       end
 
+      it "should be returned for #all on ad-hoc scope" do
+        fresh_record.associated_records.scoped({}).all.first.should == associated_record
+      end
+
+      it "should be returned for #all on class-method scope" do
+        fresh_record.associated_records.class_method_scope.all.first.should == associated_record
+      end
+
+      it "should be returned for #all on named scope" do
+        fresh_record.associated_records.named_scope.all.first.should == associated_record
+      end
+
       it "should be returned for #find(:first)" do
         fresh_record.associated_records.find(:first).should == associated_record
+      end
+
+      it "should be returned for #find(:first) on ad-hoc scope" do
+        fresh_record.associated_records.scoped({}).find(:first).should == associated_record
+      end
+
+      it "should be returned for #find(:first) on class-method scope" do
+        fresh_record.associated_records.class_method_scope.find(:first).should == associated_record
+      end
+
+      it "should be returned for #find(:first) on named scope" do
+        fresh_record.associated_records.named_scope.find(:first).should == associated_record
       end
 
       it "should be returned for #find(:last)" do
         fresh_record.associated_records.find(:last).should == associated_record
       end
 
+      it "should be returned for #find(:last) on ad-hoc scope" do
+        fresh_record.associated_records.scoped({}).find(:last).should == associated_record
+      end
+
+      it "should be returned for #find(:last) on class-method scope" do
+        fresh_record.associated_records.class_method_scope.find(:last).should == associated_record
+      end
+
+      it "should be returned for #find(:last) on named scope" do
+        fresh_record.associated_records.named_scope.find(:last).should == associated_record
+      end
+
       it "should be returned for #find(:all)" do
         fresh_record.associated_records.find(:all).first.should == associated_record
+      end
+
+      it "should be returned for #find(:all) on ad-hoc scope" do
+        fresh_record.associated_records.scoped({}).find(:all).first.should == associated_record
+      end
+
+      it "should be returned for #find(:all) on class-method scope" do
+        fresh_record.associated_records.class_method_scope.find(:all).first.should == associated_record
+      end
+
+      it "should be returned for #find(:all) on named scope" do
+        fresh_record.associated_records.named_scope.find(:all).first.should == associated_record
       end
 
       it "should be returned if reload is forced" do
         fresh_record.associated_records(true).first.should == associated_record
       end
 
+      it "should be counted" do
+        fresh_record.associated_records.count.should == 1
+      end
+
       it "should not be returned if restriction is explicitly required" do
         fresh_record.restricted_associated_records.first.should be_nil
+      end
+
+      it "should not be counted if restriction is explicitly required" do
+        fresh_record.restricted_associated_records.count.should == 0
       end
     end
   end
@@ -189,6 +268,10 @@ describe "association unrestriction" do
     before do
       AssociatedRecord.class_eval do
         set_table_name :records
+        named_scope :named_scope, {}
+        def self.class_method_scope
+          scoped({})
+        end
       end
 
       Record.class_eval do
@@ -206,6 +289,10 @@ describe "association unrestriction" do
       AssociatedRecord.class_eval do
         set_table_name :sti_records
         self.inheritance_column = '' # skip STI, we don't use it here.
+        named_scope :named_scope, {}
+        def self.class_method_scope
+          scoped({})
+        end
       end
 
       Record.class_eval do

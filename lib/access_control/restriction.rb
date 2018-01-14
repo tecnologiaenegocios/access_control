@@ -4,7 +4,6 @@ require 'access_control/selectable'
 
 module AccessControl
   module Restriction
-
     class << self
       def included(base)
         base.extend(ClassMethods)
@@ -27,20 +26,17 @@ module AccessControl
     end
 
     module ClassMethods
-
       def find(*args)
         return super unless AccessControl.manager.restrict_queries?
         return super if scope(:find, :ac_unrestrict)
-        case args.first
-        when :all, :last, :first
-          with_listing_filtering { super }
-        else
+
+        if %i(all last first).include?(args.first)
+          return with_listing_filtering { super }
+        end
+
+        super.tap do |results|
           permissions = permissions_required_to_show
-          manager = AccessControl.manager
-          results = super(*args)
-          test_results = Array(results)
-          test_results.each { |result| manager.can!(permissions, result) }
-          results
+          Array(results).each { |r| AccessControl.manager.can!(permissions, r) }
         end
       end
 
@@ -52,7 +48,7 @@ module AccessControl
 
       def listable
         return scoped({}) unless AccessControl.manager.restrict_queries?
-        scoped(:conditions => Restriction.listing_condition_for(self))
+        scoped(conditions: Restriction.listing_condition_for(self))
       end
 
       def unrestricted_find(*args)
@@ -69,7 +65,7 @@ module AccessControl
         # is just a special case of restricted has_many, and that's why it
         # doesn't fail with Unauthorized and just returns nil (it's like
         # [].first).
-        prepend (Module.new do
+        prepend(Module.new do
           define_method(:"restricted_#{name}") do |*args|
             begin
               super(*args)
@@ -78,7 +74,7 @@ module AccessControl
           end
         end)
 
-        prepend (Module.new do
+        prepend(Module.new do
           define_method(name) do |*args|
             AccessControl.manager.without_query_restriction { super(*args) }
           end
@@ -90,7 +86,7 @@ module AccessControl
 
         alias_method :"restricted_#{name}", name
 
-        prepend (Module.new do
+        prepend(Module.new do
           define_method(name) do |*args|
             AccessControl.manager.without_query_restriction { super(*args) }
           end
@@ -100,33 +96,17 @@ module AccessControl
       def has_many(name, *)
         super
 
-        alias_method :"restricted_#{name}", name
-
-        prepend (Module.new do
-          define_method(name) do |*args|
-            proxy = AccessControl.manager.without_query_restriction do
-              super(*args)
-            end
-            proxy.proxy_extend(CollectionAssociationUnrestriction)
-            proxy
-          end
-        end)
+        define_method(:"restricted_#{name}") do |*args|
+          public_send(name).listable
+        end
       end
 
       def has_and_belongs_to_many(name, *)
         super
 
-        alias_method :"restricted_#{name}", name
-
-        prepend (Module.new do
-          define_method(name) do |*args|
-            proxy = AccessControl.manager.without_query_restriction do
-              super(*args)
-            end
-            proxy.proxy_extend(CollectionAssociationUnrestriction)
-            proxy
-          end
-        end)
+        define_method(:"restricted_#{name}") do |*args|
+          public_send(name).listable
+        end
       end
 
       def preload_associations(*)
@@ -162,6 +142,18 @@ module AccessControl
       end
     end
   end
+end
+
+class ActiveRecord::Associations::HasManyAssociation
+  prepend AccessControl::Restriction::CollectionAssociationUnrestriction
+end
+
+class ActiveRecord::Associations::HasAndBelongsToManyAssociation
+  prepend AccessControl::Restriction::CollectionAssociationUnrestriction
+end
+
+class ActiveRecord::Associations::HasManyThroughAssociation
+  prepend AccessControl::Restriction::CollectionAssociationUnrestriction
 end
 
 class ActiveRecord::Base
