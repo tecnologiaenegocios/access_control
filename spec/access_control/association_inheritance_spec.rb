@@ -146,7 +146,7 @@ module AccessControl
 
         context "and given a dataset to work on" do
           it "acts on the values of the dataset" do
-            dataset = Record.naked.filter(:records__id => record.id)
+            dataset = Record.naked.filter(Sequel[:records][:id] => record.id)
             relationships = subject.relationships(dataset)
 
             relationships.should include_only(:parent_id => parent_node.id,
