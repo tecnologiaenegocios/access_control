@@ -24,7 +24,8 @@ end
 
 group :mysql do
   platform :mri do
-    gem 'mysql2', "< 0.3.0"
+    gem 'activerecord-mysql2-adapter'
+    gem 'mysql2'
   end
 
   platform :jruby do

@@ -5,7 +5,8 @@ gem 'access_control', :path => '../../'
 gem 'iconv'
 
 platform :mri do
-  gem 'mysql2', "< 0.3.0"
+  gem 'mysql2'
+  gem 'activerecord-mysql2-adapter'
   gem 'sqlite3'
   gem 'test-unit', '1.2.3', require: false
 end
