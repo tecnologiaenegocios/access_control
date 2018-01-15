@@ -1,3 +1,6 @@
+system({ 'RAILS_ENV' => 'test' }, 'bundle', 'exec', 'rake', 'db:create', chdir: 'spec/app')
+system({ 'RAILS_ENV' => 'test' }, 'bundle', 'exec', 'rake', 'db:migrate', chdir: 'spec/app')
+
 ENV["RAILS_ENV"] ||= 'test'
 ENV["RAILS_ROOT"] = File.join(File.dirname(__FILE__), 'app')
 require File.expand_path(File.join(ENV['RAILS_ROOT'],'config','environment'))
@@ -9,15 +12,13 @@ end
 
 require_files_under_dir File.join("integration", "shared_examples")
 
-system({ 'RAILS_ENV' => 'test' }, 'bundle', 'exec', 'rake', 'db:create', chdir: 'spec/app')
-system({ 'RAILS_ENV' => 'test' }, 'bundle', 'exec', 'rake', 'db:migrate', chdir: 'spec/app')
-
 require 'spec/autorun'
 require 'spec/rails'
 require 'discover'
 require 'database_cleaner'
 
-ActiveRecord::Base.connection.execute("SET GLOBAL FOREIGN_KEY_CHECKS=0")
+ActiveRecord::Base.connection.execute("SET FOREIGN_KEY_CHECKS=0")
+AccessControl.db.run("SET FOREIGN_KEY_CHECKS=0")
 
 $:.unshift(File.expand_path(File.join(File.dirname(__FILE__), "..", "lib")))
 require 'access_control'
@@ -26,8 +27,6 @@ Dir[File.expand_path(File.join(File.dirname(__FILE__), 'support', '**', '*.rb'))
 
 DatabaseCleaner.strategy = :deletion
 at_exit do
-  ActiveRecord::Base.connection.execute("SET GLOBAL FOREIGN_KEY_CHECKS=1")
-  DatabaseCleaner.clean
   system({ 'RAILS_ENV' => 'test' }, 'bundle', 'exec', 'rake', 'db:drop', chdir: 'spec/app')
 end
 
