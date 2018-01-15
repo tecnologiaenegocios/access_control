@@ -21,7 +21,7 @@ module AccessControl
     end
 
     let_constant(:parent_class) do
-      new_class(:Parent, Sequel::Model) do
+      new_class(:Parent, Sequel::Model(:records)) do
         set_dataset AccessControl.db[:records].filter(record_id: nil)
         include Inheritance
       end
