@@ -9,7 +9,7 @@ PATH
   specs:
     access_control (0.25.1)
       backports
-      rails (~> 2.3.5)
+      rails (~> 2.3.18)
       sequel (~> 4.40)
 
 GEM
@@ -33,7 +33,7 @@ GEM
     activeresource (2.3.18)
       activesupport (= 2.3.18)
     activesupport (2.3.18)
-    backports (3.6.8)
+    backports (3.11.0)
     byebug (9.0.6)
     celluloid (0.16.0)
       timers (~> 4.0.0)
