@@ -26,7 +26,7 @@ module AccessControl
       def select_all(orm, subclasses: false)
         AccessControl.db[orm.table_name].
           select(orm.pk_name).
-          filter("`#{orm.pk_name}` IN (#{orm.all_sql(subclasses: subclasses)})").
+          filter(Sequel.lit("`#{orm.pk_name}` IN (#{orm.all_sql(subclasses: subclasses)})")).
           select_map(orm.pk_name)
       end
 

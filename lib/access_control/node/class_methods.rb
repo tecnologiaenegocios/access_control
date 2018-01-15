@@ -68,7 +68,7 @@ module AccessControl
       securables_without_nodes =
         AccessControl.db[table_name].
           select(securable_type, qualified_pk).
-          where("`#{table_name}`.`#{orm.pk_name}` IN (#{orm.all_sql})").
+          where(Sequel.lit("`#{table_name}`.`#{orm.pk_name}` IN (#{orm.all_sql})")).
           join_table(:left, :ac_nodes, {
             qualified_pk => Sequel.qualify(:ac_nodes, :securable_id),
             Sequel.qualify(:ac_nodes, :securable_type) => securable_type,
