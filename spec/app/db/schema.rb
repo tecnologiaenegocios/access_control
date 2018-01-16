@@ -9,7 +9,7 @@
 #
 # It's strongly recommended to check this file into your version control system.
 
-ActiveRecord::Schema.define(:version => 20161231000324) do
+ActiveRecord::Schema.define(:version => 20180116034622) do
 
   create_table "ac_assignments", :force => true do |t|
     t.integer "role_id",                   :null => false
@@ -48,8 +48,8 @@ ActiveRecord::Schema.define(:version => 20161231000324) do
     t.integer "child_id",  :limit => 8, :null => false
   end
 
-  add_index "ac_parents", ["child_id"], :name => "index_ac_parents_on_child_id"
-  add_index "ac_parents", ["parent_id", "child_id"], :name => "index_ac_parents_on_parent_id_and_child_id", :unique => true
+  add_index "ac_parents", ["child_id", "parent_id"], :name => "index_ac_parents_on_child_id_and_parent_id", :unique => true
+  add_index "ac_parents", ["parent_id"], :name => "index_ac_parents_on_parent_id"
 
   create_table "ac_principals", :force => true do |t|
     t.string  "subject_type", :limit => 40, :null => false
