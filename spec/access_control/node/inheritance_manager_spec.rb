@@ -165,7 +165,7 @@ module AccessControl
         end
       end
 
-      describe "ancestors and descendants API" do
+      describe "ancestors API" do
 
         def set_parent_nodes_of(node, options)
           imanager = InheritanceManager.new(node.id)
@@ -218,116 +218,6 @@ module AccessControl
           end
         end
 
-        describe "#descendant_ids" do
-          let!(:child1)      { make_node() }
-          let!(:child2)      { make_node() }
-          let!(:descendant1) { make_node() }
-          let!(:descendant2) { make_node() }
-          let!(:descendant3) { make_node() }
-
-          subject { inheritance_manager.descendant_ids }
-
-          before do
-            set_child_nodes_of(node, :as => [child1, child2])
-            set_child_nodes_of(child1, :as => [descendant1, descendant2])
-            set_child_nodes_of(child2, :as => [descendant3, descendant2])
-          end
-
-          it "includes the node's immediate children ids" do
-            immediate_children_ids = [child1, child2].map(&:id)
-            subject.should include(*immediate_children_ids)
-          end
-
-          it "includes the ids of the children of the node's children" do
-            second_degree_children_ids =
-              [descendant1, descendant2, descendant3].map(&:id)
-            subject.should include(*second_degree_children_ids)
-          end
-
-          it "doesn't include the IDs of unrelated nodes" do
-            unrelated_node = make_node()
-            subject.should_not include(unrelated_node.id)
-          end
-
-          context "when it receives a block" do
-            describe "iteration by level" do
-              def yielded_values
-                @yielded_values ||= begin
-                  hash = Hash.new
-                  inheritance_manager.descendant_ids do |node_id, children_ids|
-                    hash[node_id] = children_ids
-                  end
-                  hash
-                end
-              end
-
-              it "yields the node and its children to the block" do
-                yielded_values.should have_key(node.id)
-                yielded_values[node.id].should include_only(child1.id, child2.id)
-              end
-
-              it "yields the children that are parents, along with their children" do
-                yielded_values.should have_key(child1.id)
-                yielded_values[child1.id].should include_only(descendant1.id,
-                                                              descendant2.id)
-
-                yielded_values.should have_key(child2.id)
-                yielded_values[child2.id].should include_only(descendant3.id,
-                                                              descendant2.id)
-              end
-
-              it "doesn't yield nodes that have no children" do
-                leaf_nodes = [descendant1, descendant2, descendant3]
-                leaf_nodes.each do |leaf_node|
-                  yielded_values.should_not have_key(leaf_node.id)
-                end
-              end
-            end
-
-            describe "monotonicity of depth in block calls" do
-              let!(:descendant4) { make_node() }
-              let!(:descendant5) { make_node() }
-              let!(:descendant6) { make_node() }
-
-              before do
-                set_child_nodes_of(descendant1, :as => [descendant4])
-                set_child_nodes_of(descendant2, :as => [descendant5, descendant6])
-              end
-
-              def yield_parents
-                @yielded_parents ||= begin
-                  arr = []
-                  inheritance_manager.descendant_ids do |node_id, children_ids|
-                    arr << node_id
-                  end
-                  arr
-                end
-              end
-
-              it "calls the block as many times as there are different "\
-                 "parents with some child" do
-                yielded_parents = yield_parents()
-                yielded_parents.size.should == 5
-              end
-
-              it "preserves the order of depth as calls are performed" do
-                yielded_parents = yield_parents()
-
-                levels = [
-                  [node.id],                        # first level
-                  [child1.id, child2.id],           # second level
-                  [descendant1.id, descendant2.id]  # third level
-                ]
-
-                levels.each do |expected_parents|
-                  head = yielded_parents.shift(expected_parents.size)
-                  head.should include_only(*expected_parents)
-                end
-              end
-            end
-          end
-        end
-
         describe "#ancestors" do
           let(:node_ancestors) { inheritance_manager.ancestors }
 
@@ -353,18 +243,6 @@ module AccessControl
           end
         end
 
-        describe "#descendants" do
-          it "returns Node instances" do
-            child = make_node()
-            descendant = make_node()
-            set_child_nodes_of(node, :as => [child])
-            set_child_nodes_of(child, :as => [descendant])
-
-            inheritance_manager.descendants.should include_only(child,
-                                                                descendant)
-          end
-        end
-
         describe "module methods for ancestors" do
           before do
             parent = make_node()
@@ -384,38 +262,6 @@ module AccessControl
             it "works like InheritanceManager.new(foo).ancestor_ids" do
               InheritanceManager.ancestor_ids_of(node_id).should ==
                 InheritanceManager.new(node_id).ancestor_ids
-            end
-          end
-        end
-
-        describe "module methods for descendants" do
-          before do
-            child = make_node()
-            descendant = make_node()
-            set_child_nodes_of(node, :as => [child])
-            set_child_nodes_of(child, :as => [descendant])
-          end
-
-          describe ".descendants_of" do
-            it "works like InheritanceManager.new(foo).children" do
-              InheritanceManager.descendants_of(node_id).should ==
-                InheritanceManager.new(node_id).descendants
-            end
-          end
-
-          describe ".decendant_ids_of" do
-            it "works like InheritanceManager.new(foo).descendant_ids" do
-              InheritanceManager.descendant_ids_of(node_id).should ==
-                InheritanceManager.new(node_id).descendant_ids
-            end
-
-            it "can accept a block, just like the instance method" do
-              descendants = Set.new
-              InheritanceManager.descendant_ids_of(node_id) do |p, children|
-                descendants.merge(children)
-              end
-              descendants.should ==
-                InheritanceManager.new(node_id).descendant_ids
             end
           end
         end

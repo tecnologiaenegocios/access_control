@@ -28,14 +28,6 @@ module AccessControl
       self.new(*args).ancestor_ids
     end
 
-    def self.descendants_of(*args)
-      self.new(*args).descendants
-    end
-
-    def self.descendant_ids_of(*args, &block)
-      self.new(*args).descendant_ids(&block)
-    end
-
     attr_reader :node_id
 
     def initialize(node_or_node_id)
@@ -87,10 +79,6 @@ module AccessControl
       Node.fetch_all(ancestor_ids)
     end
 
-    def descendants
-      Node.fetch_all(descendant_ids)
-    end
-
     def parent_ids
       parent_ids_by_id(node_id)
     end
@@ -101,10 +89,6 @@ module AccessControl
 
     def ancestor_ids
       recurse_ancestor_ids([node_id])
-    end
-
-    def descendant_ids(&block)
-      recurse_descendant_ids([node_id], &block)
     end
 
   private
@@ -142,23 +126,6 @@ module AccessControl
         immediate_parent_ids.merge(grand_parent_and_ancestor_ids)
       else
         immediate_parent_ids
-      end
-    end
-
-    def recurse_descendant_ids(ids, &block)
-      immediate_child_ids =
-        grouped_by_parent_ids(ids).
-        each_with_object(Set.new) do |(parent_id, child_ids), set|
-          block.call(parent_id, child_ids) if block_given?
-          set.merge(child_ids)
-        end
-
-      if immediate_child_ids.any?
-        grand_child_and_descendant_ids =
-          recurse_descendant_ids(Array(immediate_child_ids), &block)
-        immediate_child_ids.merge(grand_child_and_descendant_ids)
-      else
-        immediate_child_ids
       end
     end
 
