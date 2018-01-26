@@ -14,321 +14,96 @@ shared_examples_for "query restriction" do
   #
   # Finally, the records themselves must be early created using `let!', within
   # these names: `record', `specialized_record' and `super_specialized_record'.
-  context "with different permissions between class and subclasses" do
-    let(:list_record_permission) do
-      AccessControl.registry.store('list_record')
+
+  listable = 'is listable'
+  unlistable = 'lacks permission'
+  mismatch = 'type mismatch'
+  expectations_summary = [
+    # query on class of          with permission to list       record       specialized_record   super_specialized_record
+    [:record,                    [:record],                    listable,    unlistable,          unlistable],
+    [:record,                    [:specialized_record],        unlistable,  listable,            unlistable],
+    [:record,                    [:super_specialized_record],  unlistable,  unlistable,          listable],
+    [:record,                    [:record,
+                                  :specialized_record],        listable,    listable,            unlistable],
+    [:record,                    [:record,
+                                  :super_specialized_record],  listable,    unlistable,          listable],
+    [:record,                    [:specialized_record,
+                                  :super_specialized_record],  unlistable,  listable,            listable],
+    [:record,                    [:record,
+                                  :specialized_record,
+                                  :super_specialized_record],  listable,    listable,            listable],
+    [:specialized_record,        [:record],                    mismatch,    unlistable,          unlistable],
+    [:specialized_record,        [:specialized_record],        mismatch,    listable,            unlistable],
+    [:specialized_record,        [:super_specialized_record],  mismatch,    unlistable,          listable],
+    [:specialized_record,        [:record,
+                                  :specialized_record],        mismatch,    listable,            unlistable],
+    [:specialized_record,        [:record,
+                                  :super_specialized_record],  mismatch,    unlistable,          listable],
+    [:specialized_record,        [:specialized_record,
+                                  :super_specialized_record],  mismatch,    listable,            listable],
+    [:specialized_record,        [:record,
+                                  :specialized_record,
+                                  :super_specialized_record],  mismatch,    listable,            listable],
+    [:super_specialized_record,  [:record],                    mismatch,    mismatch,            unlistable],
+    [:super_specialized_record,  [:specialized_record],        mismatch,    mismatch,            unlistable],
+    [:super_specialized_record,  [:super_specialized_record],  mismatch,    mismatch,            listable],
+    [:super_specialized_record,  [:record,
+                                  :specialized_record],        mismatch,    mismatch,            unlistable],
+    [:super_specialized_record,  [:record,
+                                  :super_specialized_record],  mismatch,    mismatch,            listable],
+    [:super_specialized_record,  [:specialized_record,
+                                  :super_specialized_record],  mismatch,    mismatch,            listable],
+    [:super_specialized_record,  [:record,
+                                  :specialized_record,
+                                  :super_specialized_record],  mismatch,    mismatch,            listable],
+  ]
+
+  let(:list_record_permission) do
+    AccessControl.registry.store('list_record')
+  end
+
+  let(:list_specialized_record_permission) do
+    AccessControl.registry.store('list_specialized_record')
+  end
+
+  let(:list_super_specialized_record_permission) do
+    AccessControl.registry.store('list_super_specialized_record')
+  end
+
+  before do
+    record_class.class_eval do
+      list_requires 'list_record'
     end
 
-    let(:list_specialized_record_permission) do
-      AccessControl.registry.store('list_specialized_record')
+    specialized_record_class.class_eval do
+      list_requires 'list_specialized_record'
     end
 
-    let(:list_super_specialized_record_permission) do
-      AccessControl.registry.store('list_super_specialized_record')
+    super_specialized_record_class.class_eval do
+      list_requires 'list_super_specialized_record'
     end
+  end
 
-    before do
-      record_class.class_eval do
-        list_requires 'list_record'
-      end
+  expectations_summary.group_by { |q, *| q }.each do |query_on, specs|
+    context "querying on #{query_on}'s class" do
+      specs.each do |(_, permissions, *outcomes)|
+        results = %i(record specialized_record super_specialized_record).zip(outcomes).to_h
+        context "when user has permission to #{permissions.map { |r| "'list_#{r}'" }.join(', ')}" do
+          before do
+            role.add_permissions(permissions.map { |r| send(:"list_#{r}_permission") })
+          end
 
-      specialized_record_class.class_eval do
-        list_requires 'list_specialized_record'
-      end
-
-      super_specialized_record_class.class_eval do
-        list_requires 'list_super_specialized_record'
-      end
-    end
-
-    context "when the user has only permission to list 'record'" do
-      before do
-        role.add_permissions([list_record_permission])
-      end
-
-      context "and the query is done through 'record'" do
-        it "can list a record" do
-          record_class.all.should include(record)
-        end
-
-        it "cannot list a specialized record" do
-          record_class.all.should_not include(specialized_record)
-        end
-
-        it "cannot list a super specialized record" do
-          record_class.all.should_not include(super_specialized_record)
-        end
-      end
-
-      context "and the query is done through 'specialized_record'" do
-        it "cannot list a record because type mismatch" do
-          specialized_record_class.all.should_not include(record)
-        end
-
-        it "cannot list a specialized record" do
-          specialized_record_class.all.should_not include(specialized_record)
-        end
-
-        it "cannot list a super specialized record" do
-          record_class.all.should_not include(super_specialized_record)
-        end
-      end
-
-      context "and the query is done through 'super_specialized_record'" do
-        it "cannot list a record because type mismatch" do
-          super_specialized_record_class.all.should_not include(record)
-        end
-
-        it "cannot list a specialized record because type mismatch" do
-          super_specialized_record_class.all.should_not include(specialized_record)
-        end
-
-        it "cannot list a super specialized record" do
-          super_specialized_record_class.all.should_not include(super_specialized_record)
-        end
-      end
-    end
-
-    context "when the user has only permission to list 'specialized_record'" do
-      before do
-        role.add_permissions([list_specialized_record_permission])
-      end
-
-      context "and the query is done through 'record'" do
-        it "cannot list a record" do
-          record_class.all.should_not include(record)
-        end
-
-        it "can list a specialized record" do
-          record_class.all.should include(specialized_record)
-        end
-
-        it "cannot list a super specialized record" do
-          record_class.all.should_not include(super_specialized_record)
-        end
-      end
-
-      context "and the query is done through 'specialized_record'" do
-        it "cannot list a record because type mismatch" do
-          specialized_record_class.all.should_not include(record)
-        end
-
-        it "can list a specialized record" do
-          specialized_record_class.all.should include(specialized_record)
-        end
-
-        it "cannot list a super specialized record" do
-          specialized_record_class.all.should_not include(super_specialized_record)
-        end
-      end
-
-      context "and the query is done through 'super_specialized_record'" do
-        it "cannot list a record because type mismatch" do
-          super_specialized_record_class.all.should_not include(record)
-        end
-
-        it "cannot list a specialized record because type mismatch" do
-          super_specialized_record_class.all.should_not include(specialized_record)
-        end
-
-        it "cannot list a super specialized record" do
-          super_specialized_record_class.all.should_not include(super_specialized_record)
-        end
-      end
-    end
-
-    context "when the user has only permission to list 'super_specialized_record'" do
-      before do
-        role.add_permissions([list_super_specialized_record_permission])
-      end
-
-      context "and the query is done through 'record'" do
-        it "cannot list a record" do
-          record_class.all.should_not include(record)
-        end
-
-        it "cannot list a specialized record" do
-          record_class.all.should_not include(specialized_record)
-        end
-
-        it "can list a super specialized record" do
-          record_class.all.should include(super_specialized_record)
-        end
-      end
-
-      context "and the query is done through 'specialized_record'" do
-        it "cannot list a record because type mismatch" do
-          specialized_record_class.all.should_not include(record)
-        end
-
-        it "cannot list a specialized record" do
-          specialized_record_class.all.should_not include(specialized_record)
-        end
-
-        it "can list a super specialized record" do
-          specialized_record_class.all.should include(super_specialized_record)
-        end
-      end
-
-      context "and the query is done through 'super_specialized_record'" do
-        it "cannot list a record because type mismatch" do
-          super_specialized_record_class.all.should_not include(record)
-        end
-
-        it "cannot list a specialized record because type mismatch" do
-          super_specialized_record_class.all.should_not include(specialized_record)
-        end
-
-        it "can list a super specialized record" do
-          super_specialized_record_class.all.should include(super_specialized_record)
-        end
-      end
-    end
-
-    context "when the user has permissions for 'record' and 'specialized_record'" do
-      before do
-        role.add_permissions([list_record_permission,
-                              list_specialized_record_permission])
-      end
-
-      context "and the query is done through 'record'" do
-        it "can list a record" do
-          record_class.all.should include(record)
-        end
-
-        it "can list a specialized record" do
-          record_class.all.should include(specialized_record)
-        end
-
-        it "cannot list a super specialized record" do
-          record_class.all.should_not include(super_specialized_record)
-        end
-      end
-
-      context "and the query is done through 'specialized_record'" do
-        it "cannot list a record because type mismatch" do
-          specialized_record_class.all.should_not include(record)
-        end
-
-        it "can list a specialized record" do
-          specialized_record_class.all.should include(specialized_record)
-        end
-
-        it "cannot list a super specialized record" do
-          specialized_record_class.all.should_not include(super_specialized_record)
-        end
-      end
-
-      context "and the query is done through 'super_specialized_record'" do
-        it "cannot list a record because type mismatch" do
-          super_specialized_record_class.all.should_not include(record)
-        end
-
-        it "cannot list a specialized record because type mismatch" do
-          super_specialized_record_class.all.should_not include(specialized_record)
-        end
-
-        it "cannot list a super specialized record" do
-          super_specialized_record_class.all.should_not include(super_specialized_record)
-        end
-      end
-    end
-
-    context "when the user has permissions for 'specialized_record' and 'super_specialized_record'" do
-      before do
-        role.add_permissions([list_specialized_record_permission,
-                              list_super_specialized_record_permission])
-      end
-
-      context "and the query is done through 'record'" do
-        it "cannot list a record" do
-          record_class.all.should_not include(record)
-        end
-
-        it "can list a specialized record" do
-          record_class.all.should include(specialized_record)
-        end
-
-        it "can list a super specialized record" do
-          record_class.all.should include(super_specialized_record)
-        end
-      end
-
-      context "and the query is done through 'specialized_record'" do
-        it "cannot list a record because type mismatch" do
-          specialized_record_class.all.should_not include(record)
-        end
-
-        it "can list a specialized record" do
-          specialized_record_class.all.should include(specialized_record)
-        end
-
-        it "can list a super specialized record" do
-          specialized_record_class.all.should include(super_specialized_record)
-        end
-      end
-
-      context "and the query is done through 'super_specialized_record'" do
-        it "cannot list a record because it's not of the same class" do
-          super_specialized_record_class.all.should_not include(record)
-        end
-
-        it "cannot list a specialized record because type mismatch" do
-          super_specialized_record_class.all.should_not include(specialized_record)
-        end
-
-        it "can list a super specialized record" do
-          super_specialized_record_class.all.should include(super_specialized_record)
-        end
-      end
-    end
-
-    context "when the user has permissions for listing all types" do
-      before do
-        role.add_permissions([list_record_permission,
-                              list_specialized_record_permission,
-                              list_super_specialized_record_permission])
-      end
-
-      context "and the query is done through 'record'" do
-        it "can list a record" do
-          record_class.all.should include(record)
-        end
-
-        it "can list a specialized record" do
-          record_class.all.should include(specialized_record)
-        end
-
-        it "can list a super specialized record" do
-          record_class.all.should include(super_specialized_record)
-        end
-      end
-
-      context "and the query is done through 'specialized_record'" do
-        it "cannot list a record because type mismatch" do
-          specialized_record_class.all.should_not include(record)
-        end
-
-        it "can list a specialized record" do
-          specialized_record_class.all.should include(specialized_record)
-        end
-
-        it "can list a super specialized record" do
-          specialized_record_class.all.should include(super_specialized_record)
-        end
-      end
-
-      context "and the query is done through 'super_specialized_record'" do
-        it "cannot list a record because it's not of the same class" do
-          super_specialized_record_class.all.should_not include(record)
-        end
-
-        it "cannot list a specialized record because type mismatch" do
-          super_specialized_record_class.all.should_not include(specialized_record)
-        end
-
-        it "can list a super specialized record" do
-          super_specialized_record_class.all.should include(super_specialized_record)
+          results.each do |(r, result)|
+            if result == listable
+              it "can list '#{r}'" do
+                send(:"#{query_on}_class").all.should include(send(r))
+              end
+            else
+              it "cannot list '#{r}' due to #{result}" do
+                send(:"#{query_on}_class").all.should_not include(send(r))
+              end
+            end
+          end
         end
       end
     end
