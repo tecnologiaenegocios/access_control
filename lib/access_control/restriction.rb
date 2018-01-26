@@ -35,10 +35,14 @@ module AccessControl
           return with_listing_filtering(options) { super }
         end
 
-        super.tap do |results|
-          Array(results).each do |r|
-            permissions = r.class.permissions_required_to_show
-            AccessControl.manager.can!(permissions, r)
+        # Bypass superclass permission checking (for the case when superclass
+        # is a securable model in STI).
+        with_scope(find: { ac_unrestrict: true }) do
+          break super.tap do |results|
+            Array(results).each do |r|
+              permissions = r.class.permissions_required_to_show
+              AccessControl.manager.can!(permissions, r)
+            end
           end
         end
       end
