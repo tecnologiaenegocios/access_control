@@ -138,6 +138,23 @@ shared_examples_for "query restriction" do
               it "can list '#{r}'" do
                 send(:"#{query_on}_class").all.should include(send(r))
               end
+
+              context "safe condition" do
+                it "can list '#{r}' using a hash condition on id" do
+                  id = send(r).id
+                  send(:"#{query_on}_class").all(conditions: { id: id }).should include(send(r))
+                end
+
+                it "can list '#{r}' using a hash condition on a column which is not id" do
+                  name = send(r).name
+                  send(:"#{query_on}_class").all(conditions: { name: name }).should include(send(r))
+                end
+
+                it "can list '#{r}' using a string condition" do
+                  id = send(r).id
+                  send(:"#{query_on}_class").all(conditions: ["id = ?", id]).should include(send(r))
+                end
+              end
             else
               it "cannot list '#{r}' due to #{result}" do
                 send(:"#{query_on}_class").all.should_not include(send(r))

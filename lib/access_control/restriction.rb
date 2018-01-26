@@ -9,8 +9,8 @@ module AccessControl
         base.extend(ClassMethods)
       end
 
-      def listing_condition_for(target)
-        subquery_sql = Selectable.new(target).subquery_sql do |type|
+      def listing_condition_for(target, filter = nil)
+        subquery_sql = Selectable.new(target).subquery_sql(filter) do |type|
           type.permissions_required_to_list
         end
 
@@ -29,9 +29,10 @@ module AccessControl
       def find(*args)
         return super unless AccessControl.manager.restrict_queries?
         return super if scope(:find, :ac_unrestrict)
+        options = args.last.is_a?(Hash) ? args.last : {}
 
         if %i(all last first).include?(args.first)
-          return with_listing_filtering { super }
+          return with_listing_filtering(options) { super }
         end
 
         super.tap do |results|
@@ -45,7 +46,8 @@ module AccessControl
       def calculate(*args)
         return super unless AccessControl.manager.restrict_queries?
         return super if scope(:find, :ac_unrestrict)
-        with_listing_filtering { super }
+        options = args.last.is_a?(Hash) ? args.last : {}
+        with_listing_filtering(options) { super }
       end
 
       def listable
@@ -117,9 +119,24 @@ module AccessControl
 
     private
 
-      def with_listing_filtering
-        condition = Restriction.listing_condition_for(self)
-        with_scope(:find => { :conditions => condition }) { yield }
+      def with_listing_filtering(**options)
+        current_scope = with_scope(find: options) { break scope(:find) }
+        current_conditions = current_scope[:conditions]
+        if current_scope[:ac_safe_conditions] || current_conditions.is_a?(Hash)
+          filter =
+            if current_conditions.is_a?(Hash) &&
+               current_conditions.keys.map(&:to_s) == [primary_key]
+              current_conditions[primary_key] ||
+                current_conditions[primary_key.to_sym]
+            elsif current_conditions
+              [Sequel.lit(with_exclusive_scope do
+                break construct_finder_sql(select: primary_key,
+                                           conditions: current_conditions)
+              end)]
+            end
+        end
+        condition = Restriction.listing_condition_for(self, filter)
+        with_scope(find: { conditions: condition }) { yield }
       end
     end
 
@@ -160,6 +177,6 @@ end
 
 class ActiveRecord::Base
   class << self
-    VALID_FIND_OPTIONS << :ac_unrestrict
+    VALID_FIND_OPTIONS << :ac_unrestrict << :ac_safe_conditions
   end
 end

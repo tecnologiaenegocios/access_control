@@ -8,17 +8,17 @@ module AccessControl
       @main_type = main_type
     end
 
-    def subquery_sql(&permissions)
-      build_subquery(&permissions).try(:sql)
+    def subquery_sql(securable_id_filter = nil, &permissions)
+      build_subquery(securable_id_filter, &permissions).try(:sql)
     end
 
   private
 
-    def build_subquery(&permissions)
+    def build_subquery(securable_id_filter, &permissions)
       return if all_types_globally_permitted?(&permissions)
-      types.map { |type| subquery(type, permissions.(type)) }.reduce do |a, q|
-        a.union(q, all: true, from_self: false)
-      end
+      types
+        .map { |type| subquery(type, permissions.(type), securable_id_filter) }
+        .reduce { |a, q| a.union(q, all: true, from_self: false) }
     end
 
     def all_types_globally_permitted?(&permissions)
@@ -36,7 +36,7 @@ module AccessControl
       end
     end
 
-    def subquery(type, permissions)
+    def subquery(type, permissions, securable_id_filter = nil)
       if manager.can?(permissions, global_node)
         return ORM.adapt_class(type).dataset
       end
@@ -46,6 +46,10 @@ module AccessControl
       anchor = ac_nodes
         .select(:securable_id, :id)
         .where(securable_type: type.name)
+
+      if securable_id_filter
+        anchor = anchor.where(securable_id: securable_id_filter)
+      end
 
       recursion = ac_parents
         .select(ancestors[:securable_id], :parent_id)
