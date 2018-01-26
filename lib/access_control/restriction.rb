@@ -35,8 +35,10 @@ module AccessControl
         end
 
         super.tap do |results|
-          permissions = permissions_required_to_show
-          Array(results).each { |r| AccessControl.manager.can!(permissions, r) }
+          Array(results).each do |r|
+            permissions = r.class.permissions_required_to_show
+            AccessControl.manager.can!(permissions, r)
+          end
         end
       end
 
