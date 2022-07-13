@@ -4,7 +4,6 @@ require 'backports'
 
 module AccessControl
   class RegistryFactory
-
     def initialize(permission_factory = Permission.public_method(:new))
       @permission_factory = permission_factory
     end

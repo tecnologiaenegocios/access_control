@@ -9,7 +9,6 @@ require 'access_control/method_protection'
 require 'access_control/active_record_association'
 
 module AccessControl
-
   MANAGER_THREAD_KEY = :ac_manager
 
   def self.manager

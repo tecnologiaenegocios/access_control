@@ -7,7 +7,6 @@ require 'access_control/orm'
 
 module AccessControl
   module Node::ClassMethods
-
     def persistent_model
       @persistent_model ||= ORM.adapt_class(Node::Persistent)
     end

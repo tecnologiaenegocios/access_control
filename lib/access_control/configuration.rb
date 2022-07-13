@@ -3,9 +3,7 @@ require 'access_control/util'
 require 'access_control/registry'
 
 module AccessControl
-
   class Configuration
-
     attr_reader :default_roles
 
     def initialize
@@ -61,5 +59,4 @@ module AccessControl
   def self.config
     @config ||= Configuration.new
   end
-
 end

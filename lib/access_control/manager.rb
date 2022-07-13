@@ -3,9 +3,7 @@ require 'access_control/principal'
 require 'access_control/permission_inspector'
 
 module AccessControl
-
   class Manager
-
     def initialize
       @restrict_queries = true
       @use_anonymous = false
