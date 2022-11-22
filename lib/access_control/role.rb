@@ -3,7 +3,6 @@ require 'access_control/orm'
 
 module AccessControl
   class Role
-
     class AssignmentsAssociation# {{{
       attr_reader :owner, :volatile
 

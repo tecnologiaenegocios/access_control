@@ -4,7 +4,6 @@ require 'access_control/dataset_helper'
 module AccessControl
   class Role
     class Persistent < Sequel::Model(:ac_roles)
-
       include AccessControl::DatasetHelper
 
       def self.create!(properties={})
