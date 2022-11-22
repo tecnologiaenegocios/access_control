@@ -1,11 +1,29 @@
 version: "3"
 
 networks:
-  jungle:
+  ac-net:
     external: true
+
+volumes:
+  mariadb-access-control:
 
 services:
   access-control:
     build: .
+    depends_on:
+      - access-control-db
     networks:
-      - jungle
+      - ac-net
+
+  access-control-db:
+    build:
+      context: .
+      dockerfile: Dockerfile.db
+    image: moltrio-mariadb:10.6-focal
+    env_file:
+      - .ac_env_db
+    volumes:
+      - mariadb-access-control:/var/lib/mysql
+    networks:
+      - ac-net
+
