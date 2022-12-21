@@ -3,7 +3,6 @@ require 'access_control/persistable'
 require 'access_control/node_manager'
 
 module AccessControl
-
   def AccessControl.Node(object)
     if object.kind_of?(AccessControl::Node)
       object

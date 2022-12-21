@@ -1,6 +1,5 @@
 module AccessControl
   class NodeManager
-
     class << self
       def refresh_parents_of(node)
         new(node).refresh_parents
