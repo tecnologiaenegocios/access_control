@@ -3,5 +3,4 @@ pkg/*
 .bundle
 *.gem
 *.swp
-.ac_env_db
 Session.vim

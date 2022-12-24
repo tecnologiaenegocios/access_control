@@ -1,29 +1,14 @@
-version: "3"
-
-networks:
-  ac-net:
-    external: true
-
-volumes:
-  mariadb-access-control:
-
 services:
-  access-control:
+  lib:
     build: .
-    depends_on:
-      - access-control-db
-    networks:
-      - ac-net
-
-  access-control-db:
-    build:
-      context: .
-      dockerfile: Dockerfile.db
-    image: moltrio-mariadb:10.6-focal
-    env_file:
-      - .ac_env_db
     volumes:
-      - mariadb-access-control:/var/lib/mysql
-    networks:
-      - ac-net
+      - .:/app:cached
+    depends_on:
+      - db
 
+  db:
+    image: mariadb:latest
+    environment:
+      - MARIADB_ALLOW_EMPTY_ROOT_PASSWORD=yes
+    volumes:
+      - /tmp/access-control-test:/var/lib/mysql
