@@ -25,5 +25,5 @@ $ docker compose run --rm lib bash
 This will launch `bash` inside the `lib` container.  Then run Rspec with:
 
 ```
-bash-4.3: bin/spec spec/
+bash-4.3#: bin/spec spec/
 ```
