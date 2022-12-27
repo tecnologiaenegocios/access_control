@@ -15,4 +15,3 @@ RUN apk add --no-cache --update build-base \
                                 sqlite
 
 COPY . .
-RUN bundle install --binstubs

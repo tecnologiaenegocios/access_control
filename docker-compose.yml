@@ -1,14 +1,25 @@
+volumes:
+  bundle:
+  history:
+
 services:
   lib:
     build: .
-    volumes:
-      - .:/app:cached
+    entrypoint: ./.docker-config/entrypoint.sh
+    environment:
+      HISTFILE: /usr/local/hist/.bash_history
     depends_on:
       - db
+    tmpfs:
+      - /app/spec/app/log
+    volumes:
+      - .:/app:cached
+      - bundle:/usr/local/bundle
+      - history:/usr/local/hist
 
   db:
     image: mariadb:latest
     environment:
       - MARIADB_ALLOW_EMPTY_ROOT_PASSWORD=yes
-    volumes:
-      - /tmp/access-control-test:/var/lib/mysql
+    tmpfs:
+      - /var/lib/mysql

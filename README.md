@@ -2,27 +2,25 @@
 
 ## Getting started for development
 
-```
-$ docker compose up --build -d
-```
-
-This will create a `lib` container for the gem files and a `db` container for
-MariaDB, used as a test database.  Check if the database container was started
-with:
-
-```
-$ docker compose ps
-NAME                 IMAGE ...          SERVICE ... STATUS
-access_control-db-1  mariadb:latest ... db ...      Up ...
-```
-
-## Running tests
+### Launching a container
 
 ```
 $ docker compose run --rm lib bash
 ```
 
-This will launch `bash` inside the `lib` container.  Then run Rspec with:
+This will pull any required Docker image and system-level dependencies and start
+a `bash` prompt inside the `lib` container (the container of the source code).
+
+Gem dependencies are installed outside the `lib` image, in a dedicated volume,
+for speed.  See `docker-compose.yml` and `.docker-config/entrypoint.sh`.
+
+### Running tests
+
+```
+$ docker compose run --rm lib bash -c 'bundle exec spec spec/'
+```
+
+If inside the `lib` container, you can just do:
 
 ```
 bash-4.3#: bin/spec spec/
