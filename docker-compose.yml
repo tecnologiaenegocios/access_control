@@ -1,29 +1,25 @@
-version: "3"
-
-networks:
-  ac-net:
-    external: true
-
 volumes:
-  mariadb-access-control:
+  bundle:
+  history:
 
 services:
-  access-control:
+  lib:
     build: .
+    entrypoint: ./.docker-config/entrypoint.sh
+    environment:
+      HISTFILE: /usr/local/hist/.bash_history
     depends_on:
-      - access-control-db
-    networks:
-      - ac-net
-
-  access-control-db:
-    build:
-      context: .
-      dockerfile: Dockerfile.db
-    image: moltrio-mariadb:10.6-focal
-    env_file:
-      - .ac_env_db
+      - db
+    tmpfs:
+      - /app/spec/app/log
     volumes:
-      - mariadb-access-control:/var/lib/mysql
-    networks:
-      - ac-net
+      - .:/app:cached
+      - bundle:/usr/local/bundle
+      - history:/usr/local/hist
 
+  db:
+    image: mariadb:latest
+    environment:
+      - MARIADB_ALLOW_EMPTY_ROOT_PASSWORD=yes
+    tmpfs:
+      - /var/lib/mysql
